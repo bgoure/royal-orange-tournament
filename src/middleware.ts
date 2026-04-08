@@ -1,21 +1,34 @@
 import { NextResponse } from "next/server";
-import NextAuth from "next-auth";
-import authConfig from "@/auth.config";
+import type { NextRequest } from "next/server";
+import { getToken } from "next-auth/jwt";
 
-/** Edge middleware must not import `@/auth` (Prisma adapter blows the 1 MB Edge bundle limit). */
-const { auth } = NextAuth(authConfig);
-
+/**
+ * Admin/staff gate without `NextAuth().auth()` — that runs the full Auth session action on Edge
+ * and has been unreliable on Vercel (MIDDLEWARE_INVOCATION_FAILED).
+ * We use JWT sessions only (`auth.ts`), so `getToken` is sufficient here.
+ */
 const STAFF_ROLES = new Set<string>(["POWER_USER", "ADMIN"]);
 
-function isStaffRole(role: string | undefined): boolean {
-  return role != null && STAFF_ROLES.has(role);
-}
+export async function middleware(req: NextRequest) {
+  const secret = process.env.AUTH_SECRET ?? process.env.NEXTAUTH_SECRET;
+  if (typeof secret !== "string" || secret.length === 0) {
+    return new NextResponse(
+      "Server misconfiguration: set AUTH_SECRET or NEXTAUTH_SECRET for the project.",
+      { status: 500, headers: { "content-type": "text/plain; charset=utf-8" } },
+    );
+  }
 
-export default auth((req) => {
+  const secureCookie = req.nextUrl.protocol === "https:";
+  const token = await getToken({
+    req,
+    secret,
+    secureCookie,
+  });
+
   const path = req.nextUrl.pathname;
   const isApi = path.startsWith("/api/admin");
 
-  if (!req.auth?.user) {
+  if (!token) {
     if (isApi) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }
@@ -24,7 +37,8 @@ export default auth((req) => {
     return NextResponse.redirect(signIn);
   }
 
-  if (!isStaffRole(req.auth.user.role)) {
+  const role = typeof token.role === "string" ? token.role : undefined;
+  if (!STAFF_ROLES.has(role ?? "")) {
     if (isApi) {
       return NextResponse.json({ error: "Forbidden" }, { status: 403 });
     }
@@ -32,7 +46,7 @@ export default auth((req) => {
   }
 
   return NextResponse.next();
-});
+}
 
 export const config = {
   matcher: ["/admin", "/admin/:path*", "/api/admin/:path*"],
