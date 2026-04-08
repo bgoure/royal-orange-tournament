@@ -11,6 +11,7 @@
     "db:migrate": "prisma migrate deploy",
     "db:push": "prisma db push",
     "db:seed": "prisma db seed",
+    "user:role": "tsx scripts/promote-user-role.ts",
     "test": "tsx --test src/lib/services/standings/standings-engine.test.ts src/lib/services/bracket-engine.test.ts src/lib/services/announcement-email.test.ts"
   },
   "prisma": {

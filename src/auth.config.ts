@@ -45,11 +45,6 @@ export default {
       }
       return session;
     },
-    async jwt({ token, user }) {
-      if (user && "role" in user) {
-        token.role = user.role as "PUBLIC" | "POWER_USER" | "ADMIN";
-      }
-      return token;
-    },
+    /* `jwt` is defined in `auth.ts` so we can load `role` from the database (OAuth `user` often omits it). */
   },
 } satisfies NextAuthConfig;
