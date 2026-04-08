@@ -1,9 +1,10 @@
 import type { Field, Game, Pool, Team } from "@prisma/client";
+import { formatFieldWithLocation } from "@/lib/field-display";
 
 type GameWithTeams = Game & {
-  field: Field;
-  homeTeam: Team;
-  awayTeam: Team;
+  field: Field & { location: { name: string } };
+  homeTeam: Team | null;
+  awayTeam: Team | null;
   pool: Pool | null;
 };
 
@@ -44,12 +45,16 @@ export function GameList({ games }: { games: GameWithTeams[] }) {
             <div className="min-w-0 flex-1">
               <p className="text-xs text-zinc-500">{fmtTime(g.scheduledAt)}</p>
               <p className="font-medium text-zinc-900">
-                <span className="text-zinc-800">{g.awayTeam.abbreviation ?? g.awayTeam.name}</span>
+                <span className="text-zinc-800">
+                  {g.awayTeam ? g.awayTeam.abbreviation ?? g.awayTeam.name : "TBD"}
+                </span>
                 <span className="mx-1 text-zinc-400">@</span>
-                <span className="text-zinc-800">{g.homeTeam.abbreviation ?? g.homeTeam.name}</span>
+                <span className="text-zinc-800">
+                  {g.homeTeam ? g.homeTeam.abbreviation ?? g.homeTeam.name : "TBD"}
+                </span>
               </p>
               <p className="text-xs text-zinc-500">
-                {g.field.name}
+                {formatFieldWithLocation(g.field.name, g.field.location.name)}
                 {g.pool ? ` · ${g.pool.name}` : ""}
               </p>
             </div>

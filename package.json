@@ -10,7 +10,8 @@
     "postinstall": "prisma generate",
     "db:migrate": "prisma migrate deploy",
     "db:push": "prisma db push",
-    "db:seed": "prisma db seed"
+    "db:seed": "prisma db seed",
+    "test": "tsx --test src/lib/services/standings/standings-engine.test.ts src/lib/services/bracket-engine.test.ts src/lib/services/announcement-email.test.ts"
   },
   "prisma": {
     "seed": "npx tsx prisma/seed.ts"

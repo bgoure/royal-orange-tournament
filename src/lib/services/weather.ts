@@ -1,7 +1,8 @@
 import { prisma } from "@/lib/db";
 
 const PROVIDER = "open-meteo";
-const CACHE_TTL_MS = 45 * 60 * 1000;
+/** Open-Meteo response cache (10–15 min range; HQ/coord changes use a new cache key). */
+const CACHE_TTL_MS = 12 * 60 * 1000;
 
 type OpenMeteoCurrent = {
   temperature_2m: number;

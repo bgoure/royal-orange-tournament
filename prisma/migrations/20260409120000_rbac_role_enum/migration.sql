@@ -1,0 +1,18 @@
+-- Replace UserRole (USER | ...) with Role (PUBLIC | POWER_USER | ADMIN); map USER -> PUBLIC
+
+CREATE TYPE "Role" AS ENUM ('PUBLIC', 'POWER_USER', 'ADMIN');
+
+ALTER TABLE "User" ALTER COLUMN "role" DROP DEFAULT;
+
+ALTER TABLE "User" ALTER COLUMN "role" TYPE "Role" USING (
+  CASE "role"::text
+    WHEN 'USER' THEN 'PUBLIC'::"Role"
+    WHEN 'POWER_USER' THEN 'POWER_USER'::"Role"
+    WHEN 'ADMIN' THEN 'ADMIN'::"Role"
+    ELSE 'PUBLIC'::"Role"
+  END
+);
+
+ALTER TABLE "User" ALTER COLUMN "role" SET DEFAULT 'PUBLIC'::"Role";
+
+DROP TYPE "UserRole";

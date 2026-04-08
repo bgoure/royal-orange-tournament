@@ -1,15 +1,10 @@
-import type {
-  Bracket,
-  BracketRound,
-  Field,
-  Game,
-  Team,
-} from "@prisma/client";
+import type { Bracket, BracketRound, Field, Game, Team } from "@prisma/client";
+import { formatFieldWithLocation } from "@/lib/field-display";
 
 type GameRow = Game & {
-  homeTeam: Team;
-  awayTeam: Team;
-  field: Field;
+  homeTeam: Team | null;
+  awayTeam: Team | null;
+  field: Field & { location: { name: string } };
   bracketRound: BracketRound | null;
 };
 
@@ -68,11 +63,12 @@ export function BracketsView({ brackets }: { brackets: BracketWith[] }) {
                                 className="rounded-xl border border-zinc-200 bg-white px-3 py-2 text-sm shadow-sm"
                               >
                                 <p className="text-xs text-zinc-500">
-                                  {fmtTime(g.scheduledAt)} · {g.field.name}
+                                  {fmtTime(g.scheduledAt)} ·{" "}
+                                  {formatFieldWithLocation(g.field.name, g.field.location.name)}
                                 </p>
                                 <p className="font-medium text-zinc-900">
-                                  {g.awayTeam.abbreviation ?? g.awayTeam.name} @{" "}
-                                  {g.homeTeam.abbreviation ?? g.homeTeam.name}
+                                  {g.awayTeam ? g.awayTeam.abbreviation ?? g.awayTeam.name : "TBD"} @{" "}
+                                  {g.homeTeam ? g.homeTeam.abbreviation ?? g.homeTeam.name : "TBD"}
                                   {g.status === "FINAL" && g.homeRuns != null && g.awayRuns != null ? (
                                     <span className="ml-2 tabular-nums text-zinc-600">
                                       ({g.awayRuns}–{g.homeRuns})

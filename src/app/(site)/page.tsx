@@ -34,11 +34,7 @@ export default async function HomePage() {
         </p>
       </div>
 
-      <WeatherSection
-        latitude={tournament.latitude}
-        longitude={tournament.longitude}
-        locationLabel={tournament.locationLabel}
-      />
+      <WeatherSection tournamentId={tournament.id} />
 
       <section>
         <h2 className="text-sm font-semibold uppercase tracking-wide text-zinc-500">Announcements</h2>

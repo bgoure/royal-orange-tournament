@@ -6,3 +6,10 @@ export function listAnnouncements(tournamentId: string) {
     orderBy: [{ priority: "desc" }, { publishedAt: "desc" }],
   });
 }
+
+export function listAnnouncementsForAdmin(tournamentId: string) {
+  return prisma.announcement.findMany({
+    where: { tournamentId },
+    orderBy: [{ priority: "desc" }, { publishedAt: "desc" }],
+  });
+}

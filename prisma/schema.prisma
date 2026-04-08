@@ -12,8 +12,9 @@ datasource db {
 
 // --- Auth.js / NextAuth (Prisma adapter) ---
 
-enum UserRole {
-  USER
+/// Authenticated app users. Unauthenticated visitors are not represented in this table.
+enum Role {
+  PUBLIC
   POWER_USER
   ADMIN
 }
@@ -24,7 +25,7 @@ model User {
   email         String?   @unique
   emailVerified DateTime?
   image         String?
-  role          UserRole  @default(USER)
+  role          Role      @default(PUBLIC)
   accounts      Account[]
   sessions      Session[]
   createdAt     DateTime  @default(now())
@@ -81,8 +82,8 @@ model Tournament {
   longitude     Float?
   isPublished   Boolean  @default(true)
   divisions     Division[]
+  locations     Location[]
   fields        Field[]
-  venues        Venue[]
   games         Game[]
   brackets      Bracket[]
   announcements Announcement[]
@@ -91,6 +92,25 @@ model Tournament {
   mediaAssets   MediaAsset[]
   createdAt     DateTime @default(now())
   updatedAt     DateTime @updatedAt
+}
+
+/// Physical site / park. At most one row per tournament may have `isHeadquarters = true`
+/// (partial unique index `Location_one_headquarters_per_tournament` in migrations).
+model Location {
+  id             String     @id @default(cuid())
+  tournamentId   String
+  tournament     Tournament @relation(fields: [tournamentId], references: [id], onDelete: Cascade)
+  name           String
+  address        String?    @db.Text
+  latitude       Float?
+  longitude      Float?
+  isHeadquarters Boolean    @default(false)
+  sortOrder      Int        @default(0)
+  mapLink        String?
+  fields         Field[]
+
+  @@index([tournamentId])
+  @@index([tournamentId, sortOrder])
 }
 
 model Division {
@@ -110,6 +130,10 @@ model Pool {
   division   Division    @relation(fields: [divisionId], references: [id], onDelete: Cascade)
   name       String
   sortOrder  Int         @default(0)
+  /// Top N from pool standings (display order) advance into single-elim playoff generation.
+  teamsAdvancing Int     @default(0)
+  /// When true, PoolStanding.tiebreakOverrideRank is the display rank (1 = top). Stats still come from games.
+  standingsManualMode Boolean @default(false)
   teams      Team[]
   games      Game[]
   standings  PoolStanding[]
@@ -134,31 +158,19 @@ model Team {
   @@index([poolId])
 }
 
+/// Baseball diamond / playable field; always tied to a parent Location.
 model Field {
   id           String     @id @default(cuid())
   tournamentId String
   tournament   Tournament @relation(fields: [tournamentId], references: [id], onDelete: Cascade)
+  locationId   String
+  location     Location   @relation(fields: [locationId], references: [id], onDelete: Cascade)
   name         String
   sortOrder    Int        @default(0)
   games        Game[]
 
   @@index([tournamentId])
-}
-
-model Venue {
-  id           String     @id @default(cuid())
-  tournamentId String
-  tournament   Tournament @relation(fields: [tournamentId], references: [id], onDelete: Cascade)
-  name         String
-  street       String?
-  city         String?
-  state        String?
-  postalCode   String?
-  latitude     Float?
-  longitude    Float?
-  sortOrder    Int        @default(0)
-
-  @@index([tournamentId])
+  @@index([locationId])
 }
 
 // --- Games ---
@@ -185,10 +197,10 @@ model Game {
   pool                  Pool?          @relation(fields: [poolId], references: [id], onDelete: SetNull)
   fieldId               String
   field                 Field          @relation(fields: [fieldId], references: [id], onDelete: Cascade)
-  homeTeamId            String
-  homeTeam              Team           @relation("HomeTeam", fields: [homeTeamId], references: [id], onDelete: Cascade)
-  awayTeamId            String
-  awayTeam              Team           @relation("AwayTeam", fields: [awayTeamId], references: [id], onDelete: Cascade)
+  homeTeamId            String?
+  homeTeam              Team?          @relation("HomeTeam", fields: [homeTeamId], references: [id], onDelete: Cascade)
+  awayTeamId            String?
+  awayTeam              Team?          @relation("AwayTeam", fields: [awayTeamId], references: [id], onDelete: Cascade)
   scheduledAt           DateTime
   status                GameStatus     @default(SCHEDULED)
   resultType            GameResultType @default(REGULAR)
@@ -199,10 +211,11 @@ model Game {
   homeOffensiveInnings  Float?
   awayOffensiveInnings  Float?
   bracketId             String?
-  bracket               Bracket?       @relation(fields: [bracketId], references: [id], onDelete: SetNull)
+  bracket               Bracket?       @relation(fields: [bracketId], references: [id], onDelete: Cascade)
   bracketRoundId        String?
-  bracketRound          BracketRound?  @relation(fields: [bracketRoundId], references: [id], onDelete: SetNull)
+  bracketRound          BracketRound?  @relation(fields: [bracketRoundId], references: [id], onDelete: Cascade)
   bracketPosition       Int?
+  bracketMatch          BracketMatch?
   mediaAssets           MediaAsset[]
   createdAt             DateTime       @default(now())
   updatedAt             DateTime       @updatedAt
@@ -221,12 +234,17 @@ enum BracketRoundType {
   FINAL
 }
 
+enum BracketFormat {
+  SINGLE_ELIMINATION
+}
+
 model Bracket {
   id           String         @id @default(cuid())
   tournamentId String
   tournament   Tournament     @relation(fields: [tournamentId], references: [id], onDelete: Cascade)
   name         String
   sortOrder    Int            @default(0)
+  format       BracketFormat  @default(SINGLE_ELIMINATION)
   rounds       BracketRound[]
   games        Game[]
 
@@ -241,9 +259,24 @@ model BracketRound {
   roundIndex Int
   roundType  BracketRoundType  @default(WINNERS)
   games      Game[]
+  matches    BracketMatch[]
 
   @@unique([bracketId, roundIndex])
   @@index([bracketId])
+}
+
+/// Single-elimination slot: links a bracket round position to one Game (teams may be null until seeded/advanced).
+model BracketMatch {
+  id             String       @id @default(cuid())
+  bracketRoundId String
+  bracketRound   BracketRound @relation(fields: [bracketRoundId], references: [id], onDelete: Cascade)
+  /// Order within the round (0-based). Pairs (0 vs 1), (2 vs 3) in round 0; winners feed the next round.
+  matchIndex     Int
+  gameId         String?      @unique
+  game           Game?        @relation(fields: [gameId], references: [id], onDelete: Cascade)
+
+  @@unique([bracketRoundId, matchIndex])
+  @@index([bracketRoundId])
 }
 
 // --- Standings (materialized per pool) ---
@@ -263,7 +296,8 @@ model PoolStanding {
   defensiveInnings     Float    @default(0)
   offensiveInnings     Float    @default(0)
   forfeitLosses        Int      @default(0)
-  /// Manual ordering when automated tiebreakers exhaust (coin toss); lower = higher rank
+  /// Auto tiebreak mode: priority before coin flip among teams tied on points (lower = better).
+  /// Manual pool mode: display position (1 = first); use for withdrawals / director override.
   tiebreakOverrideRank Int?
   displayOrder         Int      @default(0)
   lastComputedAt       DateTime?
@@ -276,6 +310,15 @@ model PoolStanding {
 
 // --- Content ---
 
+enum AnnouncementEmailStatus {
+  NOT_SENT
+  SENDING
+  SENT
+  FAILED
+  SKIPPED_NO_SUBSCRIBERS
+  SKIPPED_NO_API_KEY
+}
+
 model Announcement {
   id                 String     @id @default(cuid())
   tournamentId       String
@@ -284,7 +327,11 @@ model Announcement {
   body               String     @db.Text
   priority           Boolean    @default(false)
   publishedAt        DateTime   @default(now())
+  /// Admin requested subscriber email on last save (checkbox “Send as email”).
   notifySubscribers  Boolean    @default(false)
+  emailDeliveryStatus AnnouncementEmailStatus @default(NOT_SENT)
+  emailSentAt        DateTime?
+  emailError         String?    @db.Text
   createdAt          DateTime   @default(now())
   updatedAt          DateTime   @updatedAt
 

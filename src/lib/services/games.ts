@@ -30,7 +30,7 @@ export async function listGamesForTournament(tournamentId: string, filters: Game
     where,
     orderBy: { scheduledAt: "asc" },
     include: {
-      field: true,
+      field: { include: { location: { select: { name: true } } } },
       homeTeam: true,
       awayTeam: true,
       pool: true,

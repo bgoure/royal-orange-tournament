@@ -1,0 +1,14 @@
+export const adminNavItems = [
+  { href: "/admin", label: "Dashboard", segment: "" },
+  { href: "/admin/teams", label: "Teams", segment: "teams" },
+  { href: "/admin/divisions", label: "Divisions & Pools", segment: "divisions" },
+  { href: "/admin/games", label: "Games", segment: "games" },
+  { href: "/admin/standings", label: "Standings", segment: "standings" },
+  { href: "/admin/brackets", label: "Brackets", segment: "brackets" },
+  { href: "/admin/announcements", label: "Announcements", segment: "announcements" },
+  { href: "/admin/faq", label: "FAQ", segment: "faq" },
+  { href: "/admin/locations", label: "Locations", segment: "locations" },
+  { href: "/admin/fields", label: "Fields", segment: "fields" },
+  { href: "/admin/tournament-settings", label: "Tournament HQ", segment: "tournament-settings" },
+  { href: "/admin/users", label: "Users", segment: "users" },
+] as const;

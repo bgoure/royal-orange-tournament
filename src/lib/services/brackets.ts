@@ -11,7 +11,7 @@ export function listBracketsForTournament(tournamentId: string) {
         include: {
           homeTeam: true,
           awayTeam: true,
-          field: true,
+          field: { include: { location: { select: { name: true } } } },
           bracketRound: true,
         },
       },

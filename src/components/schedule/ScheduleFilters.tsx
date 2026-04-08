@@ -4,7 +4,7 @@ import { useRouter, useSearchParams } from "next/navigation";
 import { useCallback, useMemo, useTransition } from "react";
 
 type TeamOpt = { id: string; name: string; abbreviation: string | null };
-type FieldOpt = { id: string; name: string };
+type FieldOpt = { id: string; label: string };
 
 export function ScheduleFilters({
   teams,
@@ -106,7 +106,7 @@ export function ScheduleFilters({
           <option value="">All fields</option>
           {fields.map((f) => (
             <option key={f.id} value={f.id}>
-              {f.name}
+              {f.label}
             </option>
           ))}
         </select>

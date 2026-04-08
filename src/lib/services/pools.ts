@@ -26,5 +26,6 @@ export async function listFieldsForTournament(tournamentId: string) {
   return prisma.field.findMany({
     where: { tournamentId },
     orderBy: { sortOrder: "asc" },
+    include: { location: { select: { name: true } } },
   });
 }

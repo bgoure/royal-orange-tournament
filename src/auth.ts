@@ -2,7 +2,7 @@ import { PrismaAdapter } from "@auth/prisma-adapter";
 import NextAuth from "next-auth";
 import Credentials from "next-auth/providers/credentials";
 import Google from "next-auth/providers/google";
-import type { UserRole } from "@prisma/client";
+import type { Role } from "@prisma/client";
 import { prisma } from "@/lib/db";
 
 const googleConfigured =
@@ -40,13 +40,13 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
       }
       if (!googleConfigured && session.user && token) {
         session.user.id = token.sub ?? "";
-        session.user.role = (token.role as UserRole | undefined) ?? "USER";
+        session.user.role = (token.role as Role | undefined) ?? "PUBLIC";
       }
       return session;
     },
     async jwt({ token, user }) {
-      if (!googleConfigured && user && "role" in user) {
-        token.role = user.role as UserRole;
+      if (user && "role" in user) {
+        token.role = user.role as Role;
       }
       return token;
     },

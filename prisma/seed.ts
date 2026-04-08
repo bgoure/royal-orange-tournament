@@ -1,9 +1,5 @@
-import {
-  BracketRoundType,
-  GameResultType,
-  GameStatus,
-  PrismaClient,
-} from "@prisma/client";
+import { GameResultType, GameStatus, PrismaClient } from "@prisma/client";
+import { createSingleEliminationBracket } from "../src/lib/services/bracket-generation";
 import { recomputeAllPoolsForTournament } from "../src/lib/services/standings";
 
 const prisma = new PrismaClient();
@@ -29,7 +25,7 @@ async function main() {
   await prisma.pool.deleteMany();
   await prisma.division.deleteMany();
   await prisma.field.deleteMany();
-  await prisma.venue.deleteMany();
+  await prisma.location.deleteMany();
   await prisma.tournament.deleteMany();
   await prisma.session.deleteMany();
   await prisma.account.deleteMany();
@@ -66,36 +62,55 @@ async function main() {
     },
   });
 
+  await prisma.tournamentSubscriber.createMany({
+    data: [
+      {
+        tournamentId: t10.id,
+        email: "coach.demo@example.com",
+        name: "Coach Pat",
+        roleLabel: "Head coach",
+      },
+      {
+        tournamentId: t10.id,
+        email: "manager.demo@example.com",
+        name: "Taylor Manager",
+        roleLabel: "Team manager",
+      },
+      {
+        tournamentId: t10.id,
+        email: "parent.demo@example.com",
+        name: "Chris Parent",
+        roleLabel: "Parent",
+      },
+    ],
+  });
+
   for (const t of [t10, t11]) {
+    const main = await prisma.location.create({
+      data: {
+        tournamentId: t.id,
+        name: "Main Complex",
+        address: "3400 E Palm Valley Blvd, Round Rock, TX 78665",
+        latitude: 30.5086,
+        longitude: -97.6789,
+        isHeadquarters: true,
+        sortOrder: 0,
+      },
+    });
+    await prisma.location.create({
+      data: {
+        tournamentId: t.id,
+        name: "Overflow Parking",
+        address: "2800 County Rd 175, Round Rock, TX 78664",
+        isHeadquarters: false,
+        sortOrder: 1,
+      },
+    });
     await prisma.field.createMany({
       data: [
-        { tournamentId: t.id, name: "Field 1", sortOrder: 0 },
-        { tournamentId: t.id, name: "Field 2", sortOrder: 1 },
-        { tournamentId: t.id, name: "Field 3 (Showcase)", sortOrder: 2 },
-      ],
-    });
-    await prisma.venue.createMany({
-      data: [
-        {
-          tournamentId: t.id,
-          name: "Main Complex",
-          street: "3400 E Palm Valley Blvd",
-          city: "Round Rock",
-          state: "TX",
-          postalCode: "78665",
-          latitude: 30.5086,
-          longitude: -97.6789,
-          sortOrder: 0,
-        },
-        {
-          tournamentId: t.id,
-          name: "Overflow Parking",
-          street: "2800 County Rd 175",
-          city: "Round Rock",
-          state: "TX",
-          postalCode: "78664",
-          sortOrder: 1,
-        },
+        { tournamentId: t.id, locationId: main.id, name: "Field 1", sortOrder: 0 },
+        { tournamentId: t.id, locationId: main.id, name: "Field 2", sortOrder: 1 },
+        { tournamentId: t.id, locationId: main.id, name: "Field 3 (Showcase)", sortOrder: 2 },
       ],
     });
   }
@@ -113,10 +128,10 @@ async function main() {
     data: { tournamentId: t10.id, name: "Division A", sortOrder: 0 },
   });
   const pool10a = await prisma.pool.create({
-    data: { divisionId: div10.id, name: "Pool A", sortOrder: 0 },
+    data: { divisionId: div10.id, name: "Pool A", sortOrder: 0, teamsAdvancing: 2 },
   });
   const pool10b = await prisma.pool.create({
-    data: { divisionId: div10.id, name: "Pool B", sortOrder: 1 },
+    data: { divisionId: div10.id, name: "Pool B", sortOrder: 1, teamsAdvancing: 2 },
   });
 
   const teams10a = await prisma.$transaction([
@@ -241,69 +256,6 @@ async function main() {
     ],
   });
 
-  const bracket10 = await prisma.bracket.create({
-    data: { tournamentId: t10.id, name: "Championship", sortOrder: 0 },
-  });
-  const semi = await prisma.bracketRound.create({
-    data: {
-      bracketId: bracket10.id,
-      name: "Semifinals",
-      roundIndex: 0,
-      roundType: BracketRoundType.WINNERS,
-    },
-  });
-  const final = await prisma.bracketRound.create({
-    data: {
-      bracketId: bracket10.id,
-      name: "Final",
-      roundIndex: 1,
-      roundType: BracketRoundType.FINAL,
-    },
-  });
-
-  await prisma.game.create({
-    data: {
-      tournamentId: t10.id,
-      poolId: null,
-      fieldId: fields10[2]!.id,
-      homeTeamId: tA.id,
-      awayTeamId: tE.id,
-      scheduledAt: dayAt(18, 0, 2),
-      status: GameStatus.SCHEDULED,
-      bracketId: bracket10.id,
-      bracketRoundId: semi.id,
-      bracketPosition: 0,
-    },
-  });
-  await prisma.game.create({
-    data: {
-      tournamentId: t10.id,
-      poolId: null,
-      fieldId: fields10[2]!.id,
-      homeTeamId: tB.id,
-      awayTeamId: tC.id,
-      scheduledAt: dayAt(18, 0, 2),
-      status: GameStatus.SCHEDULED,
-      bracketId: bracket10.id,
-      bracketRoundId: semi.id,
-      bracketPosition: 1,
-    },
-  });
-  await prisma.game.create({
-    data: {
-      tournamentId: t10.id,
-      poolId: null,
-      fieldId: fields10[0]!.id,
-      homeTeamId: tA.id,
-      awayTeamId: tB.id,
-      scheduledAt: dayAt(12, 0, 3),
-      status: GameStatus.SCHEDULED,
-      bracketId: bracket10.id,
-      bracketRoundId: final.id,
-      bracketPosition: 0,
-    },
-  });
-
   const div11 = await prisma.division.create({
     data: { tournamentId: t11.id, name: "Division A", sortOrder: 0 },
   });
@@ -365,6 +317,14 @@ async function main() {
 
   await recomputeAllPoolsForTournament(t10.id);
   await recomputeAllPoolsForTournament(t11.id);
+
+  await createSingleEliminationBracket({
+    tournamentId: t10.id,
+    name: "Championship",
+    fieldId: fields10[2]!.id,
+    startsAt: dayAt(18, 0, 2),
+    hoursBetweenRounds: 2,
+  });
 
   /* demo admin user — sign-in when OAuth is configured; password auth not seeded */
   await prisma.user.create({

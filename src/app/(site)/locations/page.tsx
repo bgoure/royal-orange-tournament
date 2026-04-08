@@ -1,0 +1,138 @@
+import Link from "next/link";
+import { formatLocationAddress } from "@/lib/location-utils";
+import { appleMapsUrl, googleMapsUrl, wazeUrl } from "@/lib/maps-links";
+import { getHeadquartersLocation, listLocations } from "@/lib/services/content";
+import { resolveTournamentHeadquartersCoordinates } from "@/lib/services/weather-location";
+import { getTournamentForRequest } from "@/lib/tournament-context";
+
+function MapLinks({
+  lat,
+  lon,
+  query,
+  mapLink,
+}: {
+  lat: number | null;
+  lon: number | null;
+  query: string;
+  mapLink?: string | null;
+}) {
+  const g = googleMapsUrl(lat, lon, query);
+  const w = wazeUrl(lat, lon, query);
+  const a = appleMapsUrl(lat, lon, query);
+  return (
+    <div className="mt-3 flex flex-wrap gap-2">
+      {mapLink?.trim() ? (
+        <a
+          href={mapLink.trim()}
+          target="_blank"
+          rel="noopener noreferrer"
+          className="rounded-full bg-sky-600 px-3 py-1.5 text-xs font-semibold text-white hover:bg-sky-700"
+        >
+          Linked map
+        </a>
+      ) : null}
+      <a
+        href={g}
+        target="_blank"
+        rel="noopener noreferrer"
+        className="rounded-full bg-emerald-600 px-3 py-1.5 text-xs font-semibold text-white hover:bg-emerald-700"
+      >
+        Google Maps
+      </a>
+      <a
+        href={w}
+        target="_blank"
+        rel="noopener noreferrer"
+        className="rounded-full border border-zinc-200 bg-white px-3 py-1.5 text-xs font-semibold text-zinc-800 hover:bg-zinc-50"
+      >
+        Waze
+      </a>
+      <a
+        href={a}
+        target="_blank"
+        rel="noopener noreferrer"
+        className="rounded-full border border-zinc-200 bg-white px-3 py-1.5 text-xs font-semibold text-zinc-800 hover:bg-zinc-50"
+      >
+        Apple Maps
+      </a>
+    </div>
+  );
+}
+
+export default async function LocationsPage() {
+  const tournament = await getTournamentForRequest();
+  if (!tournament) {
+    return <p className="text-sm text-zinc-500">No tournament selected.</p>;
+  }
+
+  const [hq, locations, resolved] = await Promise.all([
+    getHeadquartersLocation(tournament.id),
+    listLocations(tournament.id),
+    resolveTournamentHeadquartersCoordinates(tournament.id),
+  ]);
+
+  const hqName = hq?.name?.trim() || "Tournament headquarters";
+  const hqAddressText = hq ? formatLocationAddress(hq) : "";
+
+  const useLat = resolved?.latitude ?? null;
+  const useLon = resolved?.longitude ?? null;
+
+  return (
+    <div className="flex flex-col gap-10">
+      <div>
+        <h1 className="text-2xl font-semibold text-zinc-900">Locations</h1>
+        <p className="text-sm text-zinc-600">Headquarters and venues for {tournament.name}.</p>
+        <p className="mt-2 text-sm">
+          <Link href="/faq" className="font-medium text-emerald-700 underline-offset-2 hover:underline">
+            ← FAQ
+          </Link>
+        </p>
+      </div>
+
+      <section>
+        <h2 className="text-sm font-semibold uppercase tracking-wide text-zinc-500">Tournament headquarters</h2>
+        <ul className="mt-3 flex flex-col gap-3">
+          <li className="rounded-xl border border-zinc-200 bg-white px-4 py-3 shadow-sm">
+            <p className="font-medium text-zinc-900">{hqName}</p>
+            {hqAddressText ? <p className="mt-1 text-sm text-zinc-600">{hqAddressText}</p> : null}
+            <p className="mt-2 text-xs text-zinc-500">
+              Weather uses the headquarters location only (coordinates when set, otherwise a geocoded street address).
+            </p>
+            <MapLinks lat={useLat} lon={useLon} query={hqAddressText || tournament.name} />
+          </li>
+        </ul>
+      </section>
+
+      <section>
+        <h2 className="text-sm font-semibold uppercase tracking-wide text-zinc-500">All locations</h2>
+        <ul className="mt-3 flex flex-col gap-3">
+          {locations.length === 0 ? (
+            <li className="text-sm text-zinc-500">No locations listed.</li>
+          ) : (
+            locations.map((loc) => {
+              const address = formatLocationAddress(loc);
+              const query = address || loc.name;
+              return (
+                <li key={loc.id} className="rounded-xl border border-zinc-200 bg-white px-4 py-3 shadow-sm">
+                  <p className="font-medium text-zinc-900">
+                    {loc.name}
+                    {loc.isHeadquarters ? (
+                      <span className="ml-2 text-xs font-normal text-emerald-700">(headquarters)</span>
+                    ) : null}
+                  </p>
+                  {address ? <p className="mt-1 text-sm text-zinc-600">{address}</p> : null}
+                  <MapLinks
+                    lat={loc.latitude}
+                    lon={loc.longitude}
+                    query={query}
+                    mapLink={loc.mapLink}
+                  />
+                </li>
+              );
+            })
+          )}
+        </ul>
+      </section>
+    </div>
+  );
+}

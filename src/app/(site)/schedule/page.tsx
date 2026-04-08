@@ -1,6 +1,7 @@
 import { Suspense } from "react";
 import { GameList } from "@/components/schedule/GameList";
 import { ScheduleFilters } from "@/components/schedule/ScheduleFilters";
+import { formatFieldWithLocation } from "@/lib/field-display";
 import { listFieldsForTournament, listTeamsForTournament } from "@/lib/services/pools";
 import { listGamesForTournament } from "@/lib/services/games";
 import { getTournamentForRequest } from "@/lib/tournament-context";
@@ -42,7 +43,10 @@ export default async function SchedulePage({
             name: t.name,
             abbreviation: t.abbreviation,
           }))}
-          fields={fields.map((f) => ({ id: f.id, name: f.name }))}
+          fields={fields.map((f) => ({
+            id: f.id,
+            label: formatFieldWithLocation(f.name, f.location.name),
+          }))}
           timezone={tournament.timezone}
         />
       </Suspense>

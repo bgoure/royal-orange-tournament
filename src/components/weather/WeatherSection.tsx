@@ -1,4 +1,4 @@
-import { getWeatherForTournament } from "@/lib/services/weather";
+import { getHeadquartersWeatherOutcomeForTournament } from "@/lib/services/weather-service";
 
 function labelForCode(code: number): string {
   if (code === 0) return "Clear";
@@ -11,33 +11,22 @@ function labelForCode(code: number): string {
   return "Storm";
 }
 
-export async function WeatherSection({
-  latitude,
-  longitude,
-  locationLabel,
-}: {
-  latitude: number | null;
-  longitude: number | null;
-  locationLabel: string;
-}) {
-  if (latitude == null || longitude == null) {
+export async function WeatherSection({ tournamentId }: { tournamentId: string }) {
+  const out = await getHeadquartersWeatherOutcomeForTournament(tournamentId);
+  if (!out.ok) {
     return (
       <section className="rounded-xl border border-zinc-200 bg-white p-4 shadow-sm">
         <h2 className="text-sm font-semibold text-zinc-900">Weather</h2>
-        <p className="mt-2 text-sm text-zinc-500">Location coordinates not set for this tournament.</p>
+        <p className="mt-2 text-sm text-zinc-500">
+          {out.reason === "no_headquarters"
+            ? "Mark a location as tournament headquarters and add coordinates or a street address to show the forecast."
+            : "Forecast temporarily unavailable."}
+        </p>
       </section>
     );
   }
 
-  const wx = await getWeatherForTournament({ latitude, longitude });
-  if (!wx) {
-    return (
-      <section className="rounded-xl border border-zinc-200 bg-white p-4 shadow-sm">
-        <h2 className="text-sm font-semibold text-zinc-900">Weather</h2>
-        <p className="mt-2 text-sm text-zinc-500">Forecast temporarily unavailable.</p>
-      </section>
-    );
-  }
+  const { label: locationLabel, weather: wx } = out;
 
   return (
     <section className="rounded-xl border border-zinc-200 bg-white p-4 shadow-sm">

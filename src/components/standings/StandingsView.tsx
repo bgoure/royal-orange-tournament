@@ -23,6 +23,12 @@ export function StandingsView({ pools }: { pools: PoolWith[] }) {
           <h2 className="text-base font-semibold text-zinc-900">
             {pool.division.name} · {pool.name}
           </h2>
+          {pool.standingsManualMode ? (
+            <p className="mt-1 text-xs text-amber-800">
+              Row order reflects director adjustments (for example a withdrawn team). Points and stats still
+              come from recorded games.
+            </p>
+          ) : null}
           <div className="mt-2 overflow-x-auto rounded-xl border border-zinc-200 bg-white shadow-sm">
             <table className="w-full min-w-[640px] text-left text-sm">
               <thead className="border-b border-zinc-200 bg-zinc-50 text-xs font-semibold uppercase tracking-wide text-zinc-600">
