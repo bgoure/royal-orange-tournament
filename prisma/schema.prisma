@@ -1,0 +1,352 @@
+// Tournament Hub — PostgreSQL + Prisma
+// https://pris.ly/d/prisma-schema
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+// --- Auth.js / NextAuth (Prisma adapter) ---
+
+enum UserRole {
+  USER
+  POWER_USER
+  ADMIN
+}
+
+model User {
+  id            String    @id @default(cuid())
+  name          String?
+  email         String?   @unique
+  emailVerified DateTime?
+  image         String?
+  role          UserRole  @default(USER)
+  accounts      Account[]
+  sessions      Session[]
+  createdAt     DateTime  @default(now())
+  updatedAt     DateTime  @updatedAt
+}
+
+model Account {
+  id                String  @id @default(cuid())
+  userId            String
+  type              String
+  provider          String
+  providerAccountId String
+  refresh_token     String? @db.Text
+  access_token      String? @db.Text
+  expires_at        Int?
+  token_type        String?
+  scope             String?
+  id_token          String? @db.Text
+  session_state     String?
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([provider, providerAccountId])
+}
+
+model Session {
+  id           String   @id @default(cuid())
+  sessionToken String   @unique
+  userId       String
+  expires      DateTime
+  user         User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+}
+
+model VerificationToken {
+  identifier String
+  token      String   @unique
+  expires    DateTime
+
+  @@unique([identifier, token])
+}
+
+// --- Tournament domain ---
+
+model Tournament {
+  id            String   @id @default(cuid())
+  name          String
+  slug          String   @unique
+  shortLabel    String?
+  startDate     DateTime @db.Date
+  endDate       DateTime @db.Date
+  timezone      String   @default("America/New_York")
+  locationLabel String
+  latitude      Float?
+  longitude     Float?
+  isPublished   Boolean  @default(true)
+  divisions     Division[]
+  fields        Field[]
+  venues        Venue[]
+  games         Game[]
+  brackets      Bracket[]
+  announcements Announcement[]
+  faqItems      FaqItem[]
+  subscribers   TournamentSubscriber[]
+  mediaAssets   MediaAsset[]
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+}
+
+model Division {
+  id           String     @id @default(cuid())
+  tournamentId String
+  tournament   Tournament @relation(fields: [tournamentId], references: [id], onDelete: Cascade)
+  name         String
+  sortOrder    Int        @default(0)
+  pools        Pool[]
+
+  @@index([tournamentId])
+}
+
+model Pool {
+  id         String      @id @default(cuid())
+  divisionId String
+  division   Division    @relation(fields: [divisionId], references: [id], onDelete: Cascade)
+  name       String
+  sortOrder  Int         @default(0)
+  teams      Team[]
+  games      Game[]
+  standings  PoolStanding[]
+
+  @@index([divisionId])
+}
+
+model Team {
+  id           String   @id @default(cuid())
+  poolId       String
+  pool         Pool     @relation(fields: [poolId], references: [id], onDelete: Cascade)
+  name         String
+  abbreviation String?
+  seed         Int?
+  homeGames    Game[]   @relation("HomeTeam")
+  awayGames    Game[]   @relation("AwayTeam")
+  standings    PoolStanding[]
+  mediaAssets  MediaAsset[]
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+
+  @@index([poolId])
+}
+
+model Field {
+  id           String     @id @default(cuid())
+  tournamentId String
+  tournament   Tournament @relation(fields: [tournamentId], references: [id], onDelete: Cascade)
+  name         String
+  sortOrder    Int        @default(0)
+  games        Game[]
+
+  @@index([tournamentId])
+}
+
+model Venue {
+  id           String     @id @default(cuid())
+  tournamentId String
+  tournament   Tournament @relation(fields: [tournamentId], references: [id], onDelete: Cascade)
+  name         String
+  street       String?
+  city         String?
+  state        String?
+  postalCode   String?
+  latitude     Float?
+  longitude    Float?
+  sortOrder    Int        @default(0)
+
+  @@index([tournamentId])
+}
+
+// --- Games ---
+
+enum GameStatus {
+  SCHEDULED
+  LIVE
+  FINAL
+  POSTPONED
+  CANCELLED
+}
+
+enum GameResultType {
+  REGULAR
+  FORFEIT_HOME_WINS
+  FORFEIT_AWAY_WINS
+}
+
+model Game {
+  id                    String         @id @default(cuid())
+  tournamentId          String
+  tournament            Tournament     @relation(fields: [tournamentId], references: [id], onDelete: Cascade)
+  poolId                String?
+  pool                  Pool?          @relation(fields: [poolId], references: [id], onDelete: SetNull)
+  fieldId               String
+  field                 Field          @relation(fields: [fieldId], references: [id], onDelete: Cascade)
+  homeTeamId            String
+  homeTeam              Team           @relation("HomeTeam", fields: [homeTeamId], references: [id], onDelete: Cascade)
+  awayTeamId            String
+  awayTeam              Team           @relation("AwayTeam", fields: [awayTeamId], references: [id], onDelete: Cascade)
+  scheduledAt           DateTime
+  status                GameStatus     @default(SCHEDULED)
+  resultType            GameResultType @default(REGULAR)
+  homeRuns              Int?
+  awayRuns              Int?
+  homeDefensiveInnings  Float?
+  awayDefensiveInnings  Float?
+  homeOffensiveInnings  Float?
+  awayOffensiveInnings  Float?
+  bracketId             String?
+  bracket               Bracket?       @relation(fields: [bracketId], references: [id], onDelete: SetNull)
+  bracketRoundId        String?
+  bracketRound          BracketRound?  @relation(fields: [bracketRoundId], references: [id], onDelete: SetNull)
+  bracketPosition       Int?
+  mediaAssets           MediaAsset[]
+  createdAt             DateTime       @default(now())
+  updatedAt             DateTime       @updatedAt
+
+  @@index([tournamentId, scheduledAt])
+  @@index([tournamentId, fieldId])
+  @@index([poolId])
+  @@index([bracketId, bracketRoundId])
+}
+
+// --- Brackets ---
+
+enum BracketRoundType {
+  WINNERS
+  LOSERS
+  FINAL
+}
+
+model Bracket {
+  id           String         @id @default(cuid())
+  tournamentId String
+  tournament   Tournament     @relation(fields: [tournamentId], references: [id], onDelete: Cascade)
+  name         String
+  sortOrder    Int            @default(0)
+  rounds       BracketRound[]
+  games        Game[]
+
+  @@index([tournamentId])
+}
+
+model BracketRound {
+  id         String            @id @default(cuid())
+  bracketId  String
+  bracket    Bracket           @relation(fields: [bracketId], references: [id], onDelete: Cascade)
+  name       String
+  roundIndex Int
+  roundType  BracketRoundType  @default(WINNERS)
+  games      Game[]
+
+  @@unique([bracketId, roundIndex])
+  @@index([bracketId])
+}
+
+// --- Standings (materialized per pool) ---
+
+model PoolStanding {
+  id                   String   @id @default(cuid())
+  poolId               String
+  pool                 Pool     @relation(fields: [poolId], references: [id], onDelete: Cascade)
+  teamId               String
+  team                 Team     @relation(fields: [teamId], references: [id], onDelete: Cascade)
+  wins                 Int      @default(0)
+  losses               Int      @default(0)
+  ties                 Int      @default(0)
+  points               Int      @default(0)
+  runsFor              Int      @default(0)
+  runsAgainst          Int      @default(0)
+  defensiveInnings     Float    @default(0)
+  offensiveInnings     Float    @default(0)
+  forfeitLosses        Int      @default(0)
+  /// Manual ordering when automated tiebreakers exhaust (coin toss); lower = higher rank
+  tiebreakOverrideRank Int?
+  displayOrder         Int      @default(0)
+  lastComputedAt       DateTime?
+  createdAt            DateTime @default(now())
+  updatedAt            DateTime @updatedAt
+
+  @@unique([poolId, teamId])
+  @@index([poolId, displayOrder])
+}
+
+// --- Content ---
+
+model Announcement {
+  id                 String     @id @default(cuid())
+  tournamentId       String
+  tournament         Tournament @relation(fields: [tournamentId], references: [id], onDelete: Cascade)
+  title              String
+  body               String     @db.Text
+  priority           Boolean    @default(false)
+  publishedAt        DateTime   @default(now())
+  notifySubscribers  Boolean    @default(false)
+  createdAt          DateTime   @default(now())
+  updatedAt          DateTime   @updatedAt
+
+  @@index([tournamentId, publishedAt])
+}
+
+model FaqItem {
+  id           String     @id @default(cuid())
+  tournamentId String
+  tournament   Tournament @relation(fields: [tournamentId], references: [id], onDelete: Cascade)
+  question     String
+  answer       String     @db.Text
+  sortOrder    Int        @default(0)
+  published    Boolean    @default(true)
+
+  @@index([tournamentId, sortOrder])
+}
+
+model TournamentSubscriber {
+  id           String     @id @default(cuid())
+  tournamentId String
+  tournament   Tournament @relation(fields: [tournamentId], references: [id], onDelete: Cascade)
+  email        String
+  name         String?
+  roleLabel    String?
+  createdAt    DateTime   @default(now())
+
+  @@unique([tournamentId, email])
+}
+
+// --- Weather cache ---
+
+model WeatherCache {
+  id        String   @id @default(cuid())
+  key       String   @unique
+  provider  String
+  payload   Json
+  fetchedAt DateTime @default(now())
+  expiresAt DateTime
+}
+
+// --- Future media ---
+
+enum MediaStatus {
+  PENDING
+  READY
+  FAILED
+}
+
+model MediaAsset {
+  id           String      @id @default(cuid())
+  tournamentId String
+  tournament   Tournament  @relation(fields: [tournamentId], references: [id], onDelete: Cascade)
+  url          String
+  status       MediaStatus @default(PENDING)
+  mimeType     String?
+  gameId       String?
+  game         Game?       @relation(fields: [gameId], references: [id], onDelete: SetNull)
+  teamId       String?
+  team         Team?       @relation(fields: [teamId], references: [id], onDelete: SetNull)
+  createdAt    DateTime    @default(now())
+  updatedAt    DateTime    @updatedAt
+
+  @@index([tournamentId])
+}
