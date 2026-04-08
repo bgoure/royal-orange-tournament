@@ -1,4 +1,5 @@
 import { auth } from "@/auth";
+import { AdminNoTournamentPlaceholder } from "@/components/admin/AdminNoTournamentPlaceholder";
 import { StandingsRulesAdmin } from "@/components/admin/standings/StandingsRulesAdmin";
 import { getPoolsForStandingsAdmin } from "@/lib/services/admin-structure";
 import { can } from "@/lib/rbac/permissions";
@@ -10,14 +11,7 @@ export default async function AdminStandingsPage() {
   const tournament = await getTournamentForRequest();
 
   if (!tournament) {
-    return (
-      <div className="rounded-xl border border-amber-200 bg-amber-50 px-6 py-8 text-center">
-        <h1 className="text-lg font-semibold text-amber-900">No tournament selected</h1>
-        <p className="mt-2 text-sm text-amber-800">
-          Open the public site, choose a tournament from the switcher, then return here.
-        </p>
-      </div>
-    );
+    return <AdminNoTournamentPlaceholder />;
   }
 
   let pools = await getPoolsForStandingsAdmin(tournament.id);

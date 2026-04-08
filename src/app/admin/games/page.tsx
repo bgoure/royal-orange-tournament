@@ -1,4 +1,5 @@
 import { auth } from "@/auth";
+import { AdminNoTournamentPlaceholder } from "@/components/admin/AdminNoTournamentPlaceholder";
 import { GamesAdmin, type AdminGameRow, type PoolWithTeams } from "@/components/admin/games/GamesAdmin";
 import { formatFieldWithLocation } from "@/lib/field-display";
 import { listGamesAdmin } from "@/lib/services/admin-games";
@@ -10,14 +11,7 @@ export default async function AdminGamesPage() {
   const tournament = await getTournamentForRequest();
 
   if (!tournament) {
-    return (
-      <div className="rounded-xl border border-amber-200 bg-amber-50 px-6 py-8 text-center">
-        <h1 className="text-lg font-semibold text-amber-900">No tournament selected</h1>
-        <p className="mt-2 text-sm text-amber-800">
-          Open the public site, choose a tournament from the switcher, then return here.
-        </p>
-      </div>
-    );
+    return <AdminNoTournamentPlaceholder />;
   }
 
   const [games, structure] = await Promise.all([
