@@ -6,13 +6,13 @@ const googleConfigured =
   Boolean(process.env.GOOGLE_CLIENT_ID) && Boolean(process.env.GOOGLE_CLIENT_SECRET);
 
 /**
- * Edge-safe auth configuration (no Prisma / adapter). Used by `middleware.ts`.
- * Full Node setup with adapter lives in `auth.ts`.
+ * Edge-safe auth (no Prisma / adapter). Used by `middleware.ts`.
+ * Never set `session.strategy: "database"` here — middleware has no adapter and that crashes `/admin` on Vercel.
+ * Node routes use `auth.ts` with adapter + explicit `session: { strategy: "jwt" }`.
  */
 export default {
   trustHost: true,
-  secret: process.env.NEXTAUTH_SECRET,
-  session: { strategy: googleConfigured ? "database" : "jwt" },
+  secret: process.env.AUTH_SECRET ?? process.env.NEXTAUTH_SECRET,
   providers: [
     ...(googleConfigured
       ? [
@@ -32,12 +32,14 @@ export default {
   ],
   callbacks: {
     async session({ session, user, token }) {
-      if (googleConfigured && user && session.user) {
+      if (!session.user) return session;
+      /* JWT sessions: subsequent requests have `token` only; OAuth sign-in may pass `user`. */
+      if (user) {
         session.user.id = user.id;
         session.user.role = user.role;
         return session;
       }
-      if (!googleConfigured && session.user && token) {
+      if (token) {
         session.user.id = token.sub ?? "";
         session.user.role = (token.role as "PUBLIC" | "POWER_USER" | "ADMIN" | undefined) ?? "PUBLIC";
       }
