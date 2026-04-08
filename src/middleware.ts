@@ -1,9 +1,14 @@
 import { NextResponse } from "next/server";
-import { auth } from "@/auth";
-import type { Role } from "@prisma/client";
+import NextAuth from "next-auth";
+import authConfig from "@/auth.config";
 
-function isStaffRole(role: Role | undefined): boolean {
-  return role === "POWER_USER" || role === "ADMIN";
+/** Edge middleware must not import `@/auth` (Prisma adapter blows the 1 MB Edge bundle limit). */
+const { auth } = NextAuth(authConfig);
+
+const STAFF_ROLES = new Set<string>(["POWER_USER", "ADMIN"]);
+
+function isStaffRole(role: string | undefined): boolean {
+  return role != null && STAFF_ROLES.has(role);
 }
 
 export default auth((req) => {
@@ -19,7 +24,7 @@ export default auth((req) => {
     return NextResponse.redirect(signIn);
   }
 
-  if (!isStaffRole(req.auth.user.role as Role)) {
+  if (!isStaffRole(req.auth.user.role)) {
     if (isApi) {
       return NextResponse.json({ error: "Forbidden" }, { status: 403 });
     }
