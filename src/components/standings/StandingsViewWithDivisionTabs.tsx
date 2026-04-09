@@ -1,8 +1,9 @@
 "use client";
 
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useState, useTransition } from "react";
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import type { Division, Pool, PoolStanding, Team } from "@prisma/client";
+import { setSelectedDivisionTabId } from "@/app/actions/tournament";
 import {
   buildDivisionTabDescriptors,
   gameMatchesDivisionTab,
@@ -16,10 +17,17 @@ type PoolWith = Pool & {
   standings: Row[];
 };
 
-export function StandingsViewWithDivisionTabs({ pools }: { pools: PoolWith[] }) {
+export function StandingsViewWithDivisionTabs({
+  pools,
+  initialResolvedDivisionId,
+}: {
+  pools: PoolWith[];
+  initialResolvedDivisionId: string;
+}) {
   const router = useRouter();
   const pathname = usePathname();
   const searchParams = useSearchParams();
+  const [pending, startTransition] = useTransition();
 
   const divisions = useMemo(() => {
     const minimal: PoolForDivisionTabs[] = pools.map((p) => ({
@@ -31,26 +39,50 @@ export function StandingsViewWithDivisionTabs({ pools }: { pools: PoolWith[] }) 
   }, [pools]);
 
   const divisionParam = searchParams.get("division");
-  const tabFromUrl = useMemo(() => {
-    if (!divisionParam || divisions.length === 0) return 0;
-    const i = divisions.findIndex((d) => d.id === divisionParam);
-    return i >= 0 ? i : 0;
-  }, [divisionParam, divisions]);
 
-  const [tab, setTab] = useState(tabFromUrl);
+  const effectiveId = useMemo(() => {
+    if (divisions.length === 0) return "";
+    if (divisionParam && divisions.some((d) => d.id === divisionParam)) return divisionParam;
+    if (
+      initialResolvedDivisionId &&
+      divisions.some((d) => d.id === initialResolvedDivisionId)
+    ) {
+      return initialResolvedDivisionId;
+    }
+    return divisions[0]?.id ?? "";
+  }, [divisionParam, divisions, initialResolvedDivisionId]);
+
+  const tabIndex = useMemo(() => {
+    const i = divisions.findIndex((d) => d.id === effectiveId);
+    return i >= 0 ? i : 0;
+  }, [divisions, effectiveId]);
+
+  const [tab, setTab] = useState(tabIndex);
 
   useEffect(() => {
-    setTab(tabFromUrl);
-  }, [tabFromUrl]);
+    setTab(tabIndex);
+  }, [tabIndex]);
+
+  useEffect(() => {
+    if (divisions.length <= 1) return;
+    if (!divisionParam && effectiveId) {
+      const p = new URLSearchParams(searchParams.toString());
+      p.set("division", effectiveId);
+      router.replace(`${pathname}?${p.toString()}`, { scroll: false });
+    }
+  }, [divisions.length, effectiveId, divisionParam, pathname, router, searchParams]);
 
   const selectTab = useCallback(
     (i: number) => {
-      setTab(i);
       const id = divisions[i]?.id;
       if (!id) return;
-      const p = new URLSearchParams(searchParams.toString());
-      p.set("division", id);
-      router.replace(`${pathname}?${p.toString()}`, { scroll: false });
+      setTab(i);
+      startTransition(async () => {
+        await setSelectedDivisionTabId(id);
+        const p = new URLSearchParams(searchParams.toString());
+        p.set("division", id);
+        router.replace(`${pathname}?${p.toString()}`, { scroll: false });
+      });
     },
     [divisions, pathname, router, searchParams],
   );
@@ -81,6 +113,7 @@ export function StandingsViewWithDivisionTabs({ pools }: { pools: PoolWith[] }) 
               type="button"
               role="tab"
               aria-selected={i === tab}
+              disabled={pending}
               onClick={() => selectTab(i)}
               className={`rounded-full px-4 py-2 text-sm font-medium transition-colors ${
                 i === tab

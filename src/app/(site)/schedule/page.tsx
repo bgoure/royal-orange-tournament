@@ -3,6 +3,11 @@ import { GameList } from "@/components/schedule/GameList";
 import { ScheduleFilters } from "@/components/schedule/ScheduleFilters";
 import { formatFieldWithLocation } from "@/lib/field-display";
 import { buildDivisionTabDescriptors } from "@/lib/division-tabs";
+import {
+  divisionValidIdsWithAll,
+  getDivisionTabCookie,
+  resolveDivisionTabForFilters,
+} from "@/lib/division-tab-cookie";
 import { listFieldsForTournament, listPoolsForDivisionTabs, listTeamsForTournament } from "@/lib/services/pools";
 import { listGamesForTournament } from "@/lib/services/games";
 import { getTournamentForRequest } from "@/lib/tournament-context";
@@ -19,19 +24,23 @@ export default async function SchedulePage({
     return <p className="text-sm text-zinc-500">No tournament selected.</p>;
   }
 
-  const [teams, fields, games, poolRows] = await Promise.all([
+  const [teams, fields, poolRows, cookieDivision] = await Promise.all([
     listTeamsForTournament(tournament.id),
     listFieldsForTournament(tournament.id),
-    listGamesForTournament(tournament.id, {
-      day: sp.day,
-      teamId: sp.team,
-      fieldId: sp.field,
-      divisionId: sp.division,
-    }),
     listPoolsForDivisionTabs(tournament.id),
+    getDivisionTabCookie(),
   ]);
 
   const divisionTabs = buildDivisionTabDescriptors(poolRows);
+  const validIds = divisionValidIdsWithAll(divisionTabs);
+  const resolvedDivisionId = resolveDivisionTabForFilters(sp.division, cookieDivision, validIds);
+
+  const games = await listGamesForTournament(tournament.id, {
+    day: sp.day,
+    teamId: sp.team,
+    fieldId: sp.field,
+    divisionId: resolvedDivisionId,
+  });
 
   return (
     <div className="flex flex-col gap-6">
@@ -53,6 +62,7 @@ export default async function SchedulePage({
           }))}
           timezone={tournament.timezone}
           divisionTabs={divisionTabs}
+          serverResolvedDivisionId={resolvedDivisionId}
         />
       </Suspense>
       <GameList games={games} />

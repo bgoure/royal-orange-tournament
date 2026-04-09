@@ -2,6 +2,7 @@
 
 import { useRouter, useSearchParams } from "next/navigation";
 import { useCallback, useMemo, useTransition } from "react";
+import { setSelectedDivisionTabId } from "@/app/actions/tournament";
 import { ALL_DIVISIONS_TAB_ID } from "@/lib/division-tabs";
 
 type TeamOpt = { id: string; name: string };
@@ -13,12 +14,15 @@ export function ScheduleFilters({
   fields,
   timezone,
   divisionTabs,
+  serverResolvedDivisionId,
 }: {
   teams: TeamOpt[];
   fields: FieldOpt[];
   timezone: string;
   /** When length &gt; 1, shows division pills (All + divisions) like standings. */
   divisionTabs: DivisionTabOpt[];
+  /** URL + cookie resolution from server (keeps pills in sync when query is empty). */
+  serverResolvedDivisionId: string;
 }) {
   const router = useRouter();
   const sp = useSearchParams();
@@ -36,10 +40,13 @@ export function ScheduleFilters({
 
   const activeDivisionIndex = useMemo(() => {
     if (tabsWithAll.length === 0) return 0;
-    if (!divisionIdRaw || divisionIdRaw === ALL_DIVISIONS_TAB_ID) return 0;
-    const i = tabsWithAll.findIndex((t) => t.id === divisionIdRaw);
+    const idForPill =
+      divisionIdRaw ||
+      (serverResolvedDivisionId === ALL_DIVISIONS_TAB_ID ? "" : serverResolvedDivisionId);
+    if (!idForPill || idForPill === ALL_DIVISIONS_TAB_ID) return 0;
+    const i = tabsWithAll.findIndex((t) => t.id === idForPill);
     return i >= 0 ? i : 0;
-  }, [divisionIdRaw, tabsWithAll]);
+  }, [divisionIdRaw, serverResolvedDivisionId, tabsWithAll]);
 
   const dayOptions = useMemo(() => {
     const fmt = new Intl.DateTimeFormat("en-CA", {
@@ -81,10 +88,15 @@ export function ScheduleFilters({
 
   const selectDivision = useCallback(
     (id: string) => {
-      if (id === ALL_DIVISIONS_TAB_ID) push({ division: "" });
-      else push({ division: id });
+      startTransition(async () => {
+        await setSelectedDivisionTabId(id);
+        const params = new URLSearchParams(sp.toString());
+        if (id === ALL_DIVISIONS_TAB_ID) params.delete("division");
+        else params.set("division", id);
+        router.push(`/schedule?${params.toString()}`);
+      });
     },
-    [push],
+    [router, sp],
   );
 
   return (
