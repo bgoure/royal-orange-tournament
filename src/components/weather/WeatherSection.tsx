@@ -44,10 +44,10 @@ export async function WeatherSection({ tournamentId }: { tournamentId: string })
       </div>
       <div className="mt-4 flex flex-wrap items-center gap-4">
         <div>
-          <p className="text-3xl font-semibold tabular-nums text-zinc-900">{wx.current.tempF}°F</p>
+          <p className="text-3xl font-semibold tabular-nums text-zinc-900">{wx.current.tempC}°C</p>
           <p className="text-sm text-zinc-600">{labelForCode(wx.current.code)}</p>
-          {wx.current.windMph != null ? (
-            <p className="text-xs text-zinc-500">Wind {wx.current.windMph} mph</p>
+          {wx.current.windKmh != null ? (
+            <p className="text-xs text-zinc-500">Wind {wx.current.windKmh} km/h</p>
           ) : null}
         </div>
         <div className="flex flex-1 flex-wrap gap-2 min-[400px]:justify-end">
@@ -60,7 +60,7 @@ export async function WeatherSection({ tournamentId }: { tournamentId: string })
                 {new Intl.DateTimeFormat(undefined, { weekday: "short" }).format(new Date(d.date + "T12:00:00"))}
               </p>
               <p className="tabular-nums">
-                {d.highF}° / {d.lowF}°
+                {d.highC}° / {d.lowC}°
               </p>
             </div>
           ))}

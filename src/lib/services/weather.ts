@@ -18,13 +18,13 @@ type OpenMeteoDaily = {
 };
 
 export type WeatherWidgetPayload = {
-  current: { tempF: number; code: number; windMph?: number };
-  daily: { date: string; highF: number; lowF: number; code: number }[];
+  current: { tempC: number; code: number; windKmh?: number };
+  daily: { date: string; highC: number; lowC: number; code: number }[];
   fetchedAt: string;
 };
 
 function cacheKey(lat: number, lon: number): string {
-  return `wx:${lat.toFixed(3)}:${lon.toFixed(3)}`;
+  return `wx:m:${lat.toFixed(3)}:${lon.toFixed(3)}`;
 }
 
 export async function getWeatherForTournament(opts: {
@@ -45,8 +45,8 @@ export async function getWeatherForTournament(opts: {
   url.searchParams.set("longitude", String(longitude));
   url.searchParams.set("current", "temperature_2m,weather_code,wind_speed_10m");
   url.searchParams.set("daily", "weather_code,temperature_2m_max,temperature_2m_min");
-  url.searchParams.set("temperature_unit", "fahrenheit");
-  url.searchParams.set("wind_speed_unit", "mph");
+  url.searchParams.set("temperature_unit", "celsius");
+  url.searchParams.set("wind_speed_unit", "kmh");
   url.searchParams.set("timezone", "auto");
   url.searchParams.set("forecast_days", "5");
 
@@ -60,16 +60,16 @@ export async function getWeatherForTournament(opts: {
 
   const daily = data.daily.time.map((date, i) => ({
     date,
-    highF: Math.round(data.daily.temperature_2m_max[i] ?? 0),
-    lowF: Math.round(data.daily.temperature_2m_min[i] ?? 0),
+    highC: Math.round(data.daily.temperature_2m_max[i] ?? 0),
+    lowC: Math.round(data.daily.temperature_2m_min[i] ?? 0),
     code: data.daily.weather_code[i] ?? 0,
   }));
 
   const payload: WeatherWidgetPayload = {
     current: {
-      tempF: Math.round(data.current.temperature_2m),
+      tempC: Math.round(data.current.temperature_2m),
       code: data.current.weather_code,
-      windMph: data.current.wind_speed_10m
+      windKmh: data.current.wind_speed_10m
         ? Math.round(data.current.wind_speed_10m)
         : undefined,
     },
