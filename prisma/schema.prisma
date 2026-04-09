@@ -6,8 +6,11 @@ generator client {
 }
 
 datasource db {
-  provider = "postgresql"
-  url      = env("DATABASE_URL")
+  provider  = "postgresql"
+  /// App queries (Neon pooler / PgBouncer–compatible URL is OK).
+  url       = env("DATABASE_URL")
+  /// Migrations need a direct Postgres session (non-pooler). On Neon, copy the "Direct" connection string.
+  directUrl = env("DIRECT_URL")
 }
 
 // --- Auth.js / NextAuth (Prisma adapter) ---

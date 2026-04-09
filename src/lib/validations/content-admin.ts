@@ -44,6 +44,10 @@ export function parsedOptionalCoordinates(latRaw: string | undefined, lonRaw: st
   };
 }
 
+export const tournamentRenameSchema = z.object({
+  name: z.string().trim().min(1, "Name is required").max(200),
+});
+
 export const tournamentHeadquartersSchema = z.object({
   headquartersLocationId: z.string().min(1),
   headquartersName: z.string().trim().max(200).optional(),

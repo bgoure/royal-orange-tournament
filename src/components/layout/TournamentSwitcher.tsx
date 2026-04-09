@@ -6,7 +6,6 @@ import { setSelectedTournamentSlug } from "@/app/actions/tournament";
 
 type TournamentOption = {
   slug: string;
-  shortLabel: string | null;
   name: string;
 };
 
@@ -37,7 +36,7 @@ export function TournamentSwitcher({
       >
         {tournaments.map((t) => (
           <option key={t.slug} value={t.slug}>
-            {t.shortLabel ? `${t.shortLabel} — ${t.name}` : t.name}
+            {t.name}
           </option>
         ))}
       </select>

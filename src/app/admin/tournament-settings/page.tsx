@@ -5,6 +5,7 @@ import {
   type HeadquartersLocationOption,
   type TournamentHeadquartersState,
 } from "@/components/admin/tournament/TournamentHeadquartersForm";
+import { TournamentRenameForm } from "@/components/admin/tournament/TournamentRenameForm";
 import { can } from "@/lib/rbac/permissions";
 import { formatLocationAddress } from "@/lib/location-utils";
 import { getHeadquartersLocation, listLocations } from "@/lib/services/content";
@@ -47,27 +48,33 @@ export default async function AdminTournamentSettingsPage() {
 
   if (!headquarters) {
     return (
-      <TournamentHeadquartersForm
-        headquarters={{
-          headquartersLocationId: "",
-          name: "",
-          address: "",
-          latitude: null,
-          longitude: null,
-        }}
-        locations={options}
-        tournamentName={tournament.name}
-        canManage={canManage}
-      />
+      <div className="flex flex-col gap-8">
+        <TournamentRenameForm tournamentName={tournament.name} canManage={canManage} />
+        <TournamentHeadquartersForm
+          headquarters={{
+            headquartersLocationId: "",
+            name: "",
+            address: "",
+            latitude: null,
+            longitude: null,
+          }}
+          locations={options}
+          tournamentName={tournament.name}
+          canManage={canManage}
+        />
+      </div>
     );
   }
 
   return (
-    <TournamentHeadquartersForm
-      headquarters={headquarters}
-      locations={options}
-      tournamentName={tournament.name}
-      canManage={canManage}
-    />
+    <div className="flex flex-col gap-8">
+      <TournamentRenameForm tournamentName={tournament.name} canManage={canManage} />
+      <TournamentHeadquartersForm
+        headquarters={headquarters}
+        locations={options}
+        tournamentName={tournament.name}
+        canManage={canManage}
+      />
+    </div>
   );
 }
