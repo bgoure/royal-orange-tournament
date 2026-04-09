@@ -15,12 +15,6 @@ export function divisionValidIdsWithAll(descriptors: { id: string }[]): Set<stri
   return new Set([ALL_DIVISIONS_TAB_ID, ...descriptors.map((d) => d.id)]);
 }
 
-/** Standings: only concrete division tab ids (no “All”). */
-export function divisionValidIdsStandingsOnly(descriptors: { id: string }[]): Set<string> {
-  if (descriptors.length <= 1) return new Set();
-  return new Set(descriptors.map((d) => d.id));
-}
-
 /** URL wins if valid; else cookie if valid; else all. */
 export function resolveDivisionTabForFilters(
   urlDivision: string | undefined,
@@ -32,18 +26,4 @@ export function resolveDivisionTabForFilters(
   if (u && valid.has(u)) return u;
   if (cookieValue && valid.has(cookieValue)) return cookieValue;
   return ALL_DIVISIONS_TAB_ID;
-}
-
-/** URL wins; else cookie; else first tab id. */
-export function resolveDivisionTabForStandings(
-  urlDivision: string | undefined,
-  cookieValue: string | null,
-  valid: Set<string>,
-  firstTabId: string,
-): string {
-  if (valid.size === 0) return firstTabId;
-  const u = urlDivision?.trim() ?? "";
-  if (u && valid.has(u)) return u;
-  if (cookieValue && valid.has(cookieValue)) return cookieValue;
-  return firstTabId;
 }

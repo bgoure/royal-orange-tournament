@@ -2,9 +2,9 @@ import { Suspense } from "react";
 import { StandingsViewWithDivisionTabs } from "@/components/standings/StandingsViewWithDivisionTabs";
 import { buildDivisionTabDescriptors } from "@/lib/division-tabs";
 import {
-  divisionValidIdsStandingsOnly,
+  divisionValidIdsWithAll,
   getDivisionTabCookie,
-  resolveDivisionTabForStandings,
+  resolveDivisionTabForFilters,
 } from "@/lib/division-tab-cookie";
 import { listPoolsWithStandings } from "@/lib/services/pools";
 import { getTournamentForRequest } from "@/lib/tournament-context";
@@ -32,12 +32,8 @@ export default async function StandingsPage({
     division: p.division,
   }));
   const divisionDescriptors = buildDivisionTabDescriptors(minimal);
-  const validIds = divisionValidIdsStandingsOnly(divisionDescriptors);
-  const firstTabId = divisionDescriptors[0]?.id ?? "";
-  const resolvedDivisionId =
-    divisionDescriptors.length > 1
-      ? resolveDivisionTabForStandings(sp.division, cookieDivision, validIds, firstTabId)
-      : firstTabId;
+  const validDivisionIds = divisionValidIdsWithAll(divisionDescriptors);
+  const resolvedDivisionId = resolveDivisionTabForFilters(sp.division, cookieDivision, validDivisionIds);
 
   return (
     <div className="flex flex-col gap-6">

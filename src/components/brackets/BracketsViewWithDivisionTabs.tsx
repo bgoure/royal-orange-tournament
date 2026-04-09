@@ -2,30 +2,57 @@
 
 import { useCallback, useEffect, useMemo, useState, useTransition } from "react";
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
-import type { Division, Pool, PoolStanding, Team } from "@prisma/client";
+import type { Bracket, BracketRound, Division, Field, Game, Pool, Team } from "@prisma/client";
 import { setSelectedDivisionTabId } from "@/app/actions/tournament";
+import { BracketsView } from "@/components/brackets/BracketsView";
 import {
   ALL_DIVISIONS_TAB_ID,
+  bracketGameMatchesDivisionTab,
   buildDivisionTabDescriptors,
-  gameMatchesDivisionTab,
   type PoolForDivisionTabs,
 } from "@/lib/division-tabs";
-import { StandingsView } from "@/components/standings/StandingsView";
 
-type Row = PoolStanding & { team: Team };
-type PoolWith = Pool & {
-  division: Division;
-  standings: Row[];
+type TeamWithPool = Team & {
+  pool: (Pool & { division: Division }) | null;
+};
+
+type GameRow = Game & {
+  homeTeam: TeamWithPool | null;
+  awayTeam: TeamWithPool | null;
+  field: Field & { location: { name: string } };
+  bracketRound: BracketRound | null;
+};
+
+type BracketWith = Bracket & {
+  rounds: BracketRound[];
+  games: GameRow[];
 };
 
 type TabOption = { id: string; name: string };
 
-/** Division pills match home/schedule: All + division tabs when multiple divisions. */
-export function StandingsViewWithDivisionTabs({
-  pools,
+function filterBracketsForTab(brackets: BracketWith[], tabId: string): BracketWith[] {
+  if (tabId === ALL_DIVISIONS_TAB_ID) return brackets;
+  return brackets
+    .map((b) => {
+      const games = b.games.filter((g) => bracketGameMatchesDivisionTab(g, tabId));
+      if (games.length === 0) return null;
+      const roundIds = new Set(
+        games.map((g) => g.bracketRoundId).filter((id): id is string => id != null),
+      );
+      const rounds = b.rounds.filter((r) => roundIds.has(r.id));
+      return { ...b, games, rounds };
+    })
+    .filter((b): b is BracketWith => b != null);
+}
+
+/** Division pills align with home, schedule, and standings. */
+export function BracketsViewWithDivisionTabs({
+  poolsForTabs,
+  brackets,
   initialResolvedDivisionId,
 }: {
-  pools: PoolWith[];
+  poolsForTabs: PoolForDivisionTabs[];
+  brackets: BracketWith[];
   initialResolvedDivisionId: string;
 }) {
   const router = useRouter();
@@ -33,19 +60,12 @@ export function StandingsViewWithDivisionTabs({
   const searchParams = useSearchParams();
   const [pending, startTransition] = useTransition();
 
-  const divisionDescriptors = useMemo(() => {
-    const minimal: PoolForDivisionTabs[] = pools.map((p) => ({
-      id: p.id,
-      name: p.name,
-      division: p.division,
-    }));
-    return buildDivisionTabDescriptors(minimal);
-  }, [pools]);
+  const baseTabs = useMemo(() => buildDivisionTabDescriptors(poolsForTabs), [poolsForTabs]);
 
   const tabs: TabOption[] = useMemo(() => {
-    if (divisionDescriptors.length <= 1) return [];
-    return [{ id: ALL_DIVISIONS_TAB_ID, name: "All" }, ...divisionDescriptors];
-  }, [divisionDescriptors]);
+    if (baseTabs.length <= 1) return [];
+    return [{ id: ALL_DIVISIONS_TAB_ID, name: "All" }, ...baseTabs];
+  }, [baseTabs]);
 
   const tabIds = useMemo(() => tabs.map((t) => t.id), [tabs]);
 
@@ -98,16 +118,10 @@ export function StandingsViewWithDivisionTabs({
   );
 
   const activeId = tabs[tab]?.id ?? ALL_DIVISIONS_TAB_ID;
-  const visible = useMemo(() => {
-    if (divisionDescriptors.length === 0) return [];
-    if (divisionDescriptors.length <= 1) return pools;
-    if (activeId === ALL_DIVISIONS_TAB_ID) return pools;
-    return pools.filter((p) => gameMatchesDivisionTab({ pool: p }, activeId));
-  }, [activeId, divisionDescriptors.length, pools]);
-
-  if (divisionDescriptors.length === 0) {
-    return <StandingsView pools={[]} />;
-  }
+  const visibleBrackets = useMemo(
+    () => filterBracketsForTab(brackets, activeId),
+    [brackets, activeId],
+  );
 
   return (
     <div className="flex flex-col gap-4">
@@ -136,7 +150,11 @@ export function StandingsViewWithDivisionTabs({
           ))}
         </div>
       ) : null}
-      <StandingsView pools={visible} />
+      {brackets.length > 0 && visibleBrackets.length === 0 ? (
+        <p className="text-sm text-zinc-500">No bracket games for this division.</p>
+      ) : (
+        <BracketsView brackets={visibleBrackets} />
+      )}
     </div>
   );
 }

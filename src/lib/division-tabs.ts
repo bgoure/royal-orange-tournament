@@ -101,3 +101,21 @@ export function gameMatchesDivisionTab(game: { pool: PoolDiv }, tabId: string): 
   }
   return game.pool.division.id === tabId;
 }
+
+type PoolRef = { name: string; division: { id: string } };
+
+/** Bracket game: matches tab if either team’s pool matches, or both teams are still TBD. */
+export function bracketGameMatchesDivisionTab(
+  game: {
+    homeTeam: { pool: PoolRef | null } | null;
+    awayTeam: { pool: PoolRef | null } | null;
+  },
+  tabId: string,
+): boolean {
+  if (tabId === ALL_DIVISIONS_TAB_ID) return true;
+  const fromTeam = (t: { pool: PoolRef | null } | null) =>
+    t?.pool ? gameMatchesDivisionTab({ pool: t.pool }, tabId) : false;
+  if (fromTeam(game.homeTeam) || fromTeam(game.awayTeam)) return true;
+  if (!game.homeTeam && !game.awayTeam) return true;
+  return false;
+}
