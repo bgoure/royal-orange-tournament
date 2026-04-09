@@ -1,7 +1,7 @@
 import { BracketFormat, BracketRoundType, GameStatus } from "@prisma/client";
 import { prisma } from "@/lib/db";
 import {
-  collectAdvancingTeamIds,
+  collectAdvancingSlotDescriptors,
   isPowerOfTwo,
   singleElimRoundName,
   type PoolAdvancerInput,
@@ -27,6 +27,7 @@ async function loadPoolAdvancerInputs(tournamentId: string): Promise<PoolAdvance
   });
 
   return pools.map((p) => ({
+    poolId: p.id,
     poolSortKey: `${p.division.sortOrder}-${p.sortOrder}`,
     teamsAdvancing: p.teamsAdvancing,
     standingsRows: p.standings.map((s) => ({
@@ -61,7 +62,8 @@ export async function regenerateSingleEliminationBracket(opts: RegenerateBracket
   if (!field) throw new Error("Field not found");
 
   const poolInputs = await loadPoolAdvancerInputs(tournamentId);
-  const advancers = collectAdvancingTeamIds(poolInputs);
+  const slots = collectAdvancingSlotDescriptors(poolInputs);
+  const advancers = slots.map((s) => s.teamId);
 
   if (advancers.length < 2) {
     throw new Error(
@@ -108,9 +110,12 @@ export async function regenerateSingleEliminationBracket(opts: RegenerateBracket
         let homeId: string | null = null;
         let awayId: string | null = null;
         if (r === 0) {
-          homeId = advancers[2 * m] ?? null;
-          awayId = advancers[2 * m + 1] ?? null;
+          homeId = slots[2 * m]?.teamId ?? null;
+          awayId = slots[2 * m + 1]?.teamId ?? null;
         }
+
+        const homeSlot = r === 0 ? slots[2 * m] : undefined;
+        const awaySlot = r === 0 ? slots[2 * m + 1] : undefined;
 
         const game = await tx.game.create({
           data: {
@@ -133,6 +138,10 @@ export async function regenerateSingleEliminationBracket(opts: RegenerateBracket
             bracketRoundId: roundRecord.id,
             matchIndex: m,
             gameId: game.id,
+            homeSourcePoolId: homeSlot?.poolId ?? null,
+            homeSourceRank: homeSlot?.rank ?? null,
+            awaySourcePoolId: awaySlot?.poolId ?? null,
+            awaySourceRank: awaySlot?.rank ?? null,
           },
         });
       }

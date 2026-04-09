@@ -20,6 +20,7 @@ describe("collectAdvancingTeamIds", () => {
   it("interleaves pool finish ranks", () => {
     const ids = collectAdvancingTeamIds([
       {
+        poolId: "pool-a",
         poolSortKey: "a",
         teamsAdvancing: 2,
         standingsRows: [
@@ -28,6 +29,7 @@ describe("collectAdvancingTeamIds", () => {
         ],
       },
       {
+        poolId: "pool-b",
         poolSortKey: "b",
         teamsAdvancing: 2,
         standingsRows: [

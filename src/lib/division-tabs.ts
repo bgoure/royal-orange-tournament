@@ -104,11 +104,17 @@ export function gameMatchesDivisionTab(game: { pool: PoolDiv }, tabId: string): 
 
 type PoolRef = { name: string; division: { id: string } };
 
-/** Bracket game: matches tab if either team’s pool matches, or both teams are still TBD. */
+type SourcePool = { name: string; division: { id: string } } | null;
+
+/** Bracket game: matches tab if either team’s pool matches, round-0 placeholder pools, or both slots still TBD. */
 export function bracketGameMatchesDivisionTab(
   game: {
     homeTeam: { pool: PoolRef | null } | null;
     awayTeam: { pool: PoolRef | null } | null;
+    bracketMatch?: {
+      homeSourcePool: SourcePool;
+      awaySourcePool: SourcePool;
+    } | null;
   },
   tabId: string,
 ): boolean {
@@ -116,6 +122,14 @@ export function bracketGameMatchesDivisionTab(
   const fromTeam = (t: { pool: PoolRef | null } | null) =>
     t?.pool ? gameMatchesDivisionTab({ pool: t.pool }, tabId) : false;
   if (fromTeam(game.homeTeam) || fromTeam(game.awayTeam)) return true;
+  const fromSource = (pool: SourcePool) =>
+    pool ? gameMatchesDivisionTab({ pool }, tabId) : false;
+  if (
+    fromSource(game.bracketMatch?.homeSourcePool ?? null) ||
+    fromSource(game.bracketMatch?.awaySourcePool ?? null)
+  ) {
+    return true;
+  }
   if (!game.homeTeam && !game.awayTeam) return true;
   return false;
 }

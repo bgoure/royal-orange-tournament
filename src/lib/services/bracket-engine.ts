@@ -7,29 +7,46 @@ export function isPowerOfTwo(n: number): boolean {
 }
 
 export type PoolAdvancerInput = {
+  poolId: string;
   /** Stable ordering key (e.g. division.sort + pool.sort). */
   poolSortKey: string;
   teamsAdvancing: number;
   standingsRows: { teamId: string; displayOrder: number }[];
 };
 
+export type AdvancingSlotDescriptor = {
+  poolId: string;
+  /** 1 = first in pool (by display order). */
+  rank: number;
+  teamId: string;
+};
+
 /**
  * Take top K from each pool (by displayOrder), then interleave pools by finish depth:
  * all pool #1 seeds, then all pool #2 seeds, etc. Keeps pool leaders spread across the bracket (v1).
  */
-export function collectAdvancingTeamIds(pools: PoolAdvancerInput[]): string[] {
+/** Same interleave order as advancing team ids, with pool + finishing rank per slot. */
+export function collectAdvancingSlotDescriptors(pools: PoolAdvancerInput[]): AdvancingSlotDescriptor[] {
   const rowsPerPool = pools.map((p) => {
     const sorted = [...p.standingsRows].sort((a, b) => a.displayOrder - b.displayOrder);
-    return sorted.slice(0, Math.max(0, p.teamsAdvancing)).map((r) => r.teamId);
+    return sorted.slice(0, Math.max(0, p.teamsAdvancing)).map((r, idx) => ({
+      poolId: p.poolId,
+      rank: idx + 1,
+      teamId: r.teamId,
+    }));
   });
   const maxDepth = rowsPerPool.reduce((m, r) => Math.max(m, r.length), 0);
-  const out: string[] = [];
+  const out: AdvancingSlotDescriptor[] = [];
   for (let depth = 0; depth < maxDepth; depth++) {
     for (const row of rowsPerPool) {
       if (depth < row.length) out.push(row[depth]!);
     }
   }
   return out;
+}
+
+export function collectAdvancingTeamIds(pools: PoolAdvancerInput[]): string[] {
+  return collectAdvancingSlotDescriptors(pools).map((s) => s.teamId);
 }
 
 export function singleElimRoundName(roundIndex: number, totalRounds: number): string {

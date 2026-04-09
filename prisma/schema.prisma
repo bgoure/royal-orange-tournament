@@ -140,6 +140,8 @@ model Pool {
   teams      Team[]
   games      Game[]
   standings  PoolStanding[]
+  homeSourceBracketMatches BracketMatch[] @relation("BracketMatchHomeSource")
+  awaySourceBracketMatches BracketMatch[] @relation("BracketMatchAwaySource")
 
   @@index([divisionId])
 }
@@ -278,6 +280,13 @@ model BracketMatch {
   matchIndex     Int
   gameId         String?      @unique
   game           Game?        @relation(fields: [gameId], references: [id], onDelete: Cascade)
+  /// Round 0: pool standing rank (1 = first in pool) for the home/away slot when teams are not yet assigned.
+  homeSourcePoolId String?
+  homeSourceRank   Int?
+  awaySourcePoolId String?
+  awaySourceRank   Int?
+  homeSourcePool Pool? @relation("BracketMatchHomeSource", fields: [homeSourcePoolId], references: [id], onDelete: SetNull)
+  awaySourcePool Pool? @relation("BracketMatchAwaySource", fields: [awaySourcePoolId], references: [id], onDelete: SetNull)
 
   @@unique([bracketRoundId, matchIndex])
   @@index([bracketRoundId])

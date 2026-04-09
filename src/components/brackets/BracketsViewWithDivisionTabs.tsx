@@ -2,7 +2,16 @@
 
 import { useCallback, useEffect, useMemo, useState, useTransition } from "react";
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
-import type { Bracket, BracketRound, Division, Field, Game, Pool, Team } from "@prisma/client";
+import type {
+  Bracket,
+  BracketMatch,
+  BracketRound,
+  Division,
+  Field,
+  Game,
+  Pool,
+  Team,
+} from "@prisma/client";
 import { setSelectedDivisionTabId } from "@/app/actions/tournament";
 import { BracketsView } from "@/components/brackets/BracketsView";
 import {
@@ -16,11 +25,17 @@ type TeamWithPool = Team & {
   pool: (Pool & { division: Division }) | null;
 };
 
+type BracketMatchWithPools = BracketMatch & {
+  homeSourcePool: (Pool & { division: Division }) | null;
+  awaySourcePool: (Pool & { division: Division }) | null;
+};
+
 type GameRow = Game & {
   homeTeam: TeamWithPool | null;
   awayTeam: TeamWithPool | null;
   field: Field & { location: { name: string } };
   bracketRound: BracketRound | null;
+  bracketMatch: BracketMatchWithPools | null;
 };
 
 type BracketWith = Bracket & {

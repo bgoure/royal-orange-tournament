@@ -13,6 +13,12 @@ export function listBracketsForTournament(tournamentId: string) {
           awayTeam: { include: { pool: { include: { division: true } } } },
           field: { include: { location: { select: { name: true } } } },
           bracketRound: true,
+          bracketMatch: {
+            include: {
+              homeSourcePool: { include: { division: true } },
+              awaySourcePool: { include: { division: true } },
+            },
+          },
         },
       },
     },
