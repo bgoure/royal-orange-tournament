@@ -32,7 +32,6 @@ const optionalSeed = z.preprocess((v) => {
 export const teamCreateSchema = z.object({
   poolId: z.string().min(1, "Pool is required"),
   name: z.string().trim().min(1, "Name is required").max(120),
-  abbreviation: z.string().trim().max(12).optional().transform((s) => (s === "" ? undefined : s)),
   seed: optionalSeed,
 });
 
@@ -40,6 +39,5 @@ export const teamUpdateSchema = z.object({
   id: z.string().min(1),
   poolId: z.string().min(1),
   name: z.string().trim().min(1).max(120),
-  abbreviation: z.string().trim().max(12).optional().transform((s) => (s === "" ? undefined : s)),
   seed: optionalSeed,
 });

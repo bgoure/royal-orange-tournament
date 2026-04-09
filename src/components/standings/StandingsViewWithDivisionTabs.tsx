@@ -3,6 +3,11 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import type { Division, Pool, PoolStanding, Team } from "@prisma/client";
+import {
+  buildDivisionTabDescriptors,
+  gameMatchesDivisionTab,
+  type PoolForDivisionTabs,
+} from "@/lib/division-tabs";
 import { StandingsView } from "@/components/standings/StandingsView";
 
 type Row = PoolStanding & { team: Team };
@@ -11,66 +16,19 @@ type PoolWith = Pool & {
   standings: Row[];
 };
 
-type DivisionTab = {
-  id: string;
-  name: string;
-  sortOrder: number;
-  pools: PoolWith[];
-};
-
-function buildTabsFromDivisionIds(pools: PoolWith[]): DivisionTab[] {
-  const m = new Map<string, DivisionTab>();
-  for (const p of pools) {
-    const d = p.division;
-    const existing = m.get(d.id);
-    if (existing) {
-      existing.pools.push(p);
-    } else {
-      m.set(d.id, { id: d.id, name: d.name, sortOrder: d.sortOrder, pools: [p] });
-    }
-  }
-  return [...m.values()].sort(
-    (a, b) => a.sortOrder - b.sortOrder || a.name.localeCompare(b.name),
-  );
-}
-
-/** When all pools sit under one division row but pool names start with "10U · …", "11U · …", etc. */
-function syntheticAgeBracketTabs(pools: PoolWith[]): DivisionTab[] | null {
-  if (pools.length < 2) return null;
-  const re = /^(\d{1,2}U)\s*[·\-—.]?\s*/i;
-  const bucket = new Map<string, PoolWith[]>();
-  for (const p of pools) {
-    const m = p.name.match(re);
-    if (!m) return null;
-    const key = m[1]!.toUpperCase();
-    const list = bucket.get(key) ?? [];
-    list.push(p);
-    bucket.set(key, list);
-  }
-  if (bucket.size <= 1) return null;
-  return [...bucket.entries()]
-    .sort(([a], [b]) => a.localeCompare(b))
-    .map(([name], i) => ({
-      id: `synthetic-age-${name}`,
-      name,
-      sortOrder: i,
-      pools: bucket.get(name)!,
-    }));
-}
-
-function buildStandingsTabs(pools: PoolWith[]): DivisionTab[] {
-  const byRealDivision = buildTabsFromDivisionIds(pools);
-  if (byRealDivision.length > 1) return byRealDivision;
-  const synthetic = syntheticAgeBracketTabs(pools);
-  return synthetic ?? byRealDivision;
-}
-
 export function StandingsViewWithDivisionTabs({ pools }: { pools: PoolWith[] }) {
   const router = useRouter();
   const pathname = usePathname();
   const searchParams = useSearchParams();
 
-  const divisions = useMemo(() => buildStandingsTabs(pools), [pools]);
+  const divisions = useMemo(() => {
+    const minimal: PoolForDivisionTabs[] = pools.map((p) => ({
+      id: p.id,
+      name: p.name,
+      division: p.division,
+    }));
+    return buildDivisionTabDescriptors(minimal);
+  }, [pools]);
 
   const divisionParam = searchParams.get("division");
   const tabFromUrl = useMemo(() => {
@@ -97,11 +55,17 @@ export function StandingsViewWithDivisionTabs({ pools }: { pools: PoolWith[] }) 
     [divisions, pathname, router, searchParams],
   );
 
+  const visible = useMemo(() => {
+    if (divisions.length === 0) return [];
+    if (divisions.length <= 1) return pools;
+    const id = divisions[tab]?.id;
+    if (!id) return pools;
+    return pools.filter((p) => gameMatchesDivisionTab({ pool: p }, id));
+  }, [divisions, pools, tab]);
+
   if (divisions.length === 0) {
     return <StandingsView pools={[]} />;
   }
-
-  const visible = divisions[tab]?.pools ?? [];
 
   return (
     <div className="flex flex-col gap-4">

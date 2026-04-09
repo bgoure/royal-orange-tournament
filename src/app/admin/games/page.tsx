@@ -30,7 +30,6 @@ export default async function AdminGamesPage() {
       teams: p.teams.map((t) => ({
         id: t.id,
         name: t.name,
-        abbreviation: t.abbreviation,
       })),
     })),
   );

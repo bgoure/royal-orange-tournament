@@ -136,25 +136,25 @@ async function main() {
 
   const teams10a = await prisma.$transaction([
     prisma.team.create({
-      data: { poolId: pool10a.id, name: "Lightning", abbreviation: "LTN", seed: 1 },
+      data: { poolId: pool10a.id, name: "Lightning", seed: 1 },
     }),
     prisma.team.create({
-      data: { poolId: pool10a.id, name: "Storm", abbreviation: "STM", seed: 2 },
+      data: { poolId: pool10a.id, name: "Storm", seed: 2 },
     }),
     prisma.team.create({
-      data: { poolId: pool10a.id, name: "Riptide", abbreviation: "RPT", seed: 3 },
+      data: { poolId: pool10a.id, name: "Riptide", seed: 3 },
     }),
     prisma.team.create({
-      data: { poolId: pool10a.id, name: "Vipers", abbreviation: "VIP", seed: 4 },
+      data: { poolId: pool10a.id, name: "Vipers", seed: 4 },
     }),
   ]);
 
   const teams10b = await prisma.$transaction([
     prisma.team.create({
-      data: { poolId: pool10b.id, name: "Thunder", abbreviation: "THU", seed: 1 },
+      data: { poolId: pool10b.id, name: "Thunder", seed: 1 },
     }),
     prisma.team.create({
-      data: { poolId: pool10b.id, name: "Mustangs", abbreviation: "MUS", seed: 2 },
+      data: { poolId: pool10b.id, name: "Mustangs", seed: 2 },
     }),
   ]);
 
@@ -263,10 +263,10 @@ async function main() {
     data: { divisionId: div11.id, name: "Pool A", sortOrder: 0 },
   });
   const u11a = await prisma.team.create({
-    data: { poolId: pool11.id, name: "Coyotes", abbreviation: "COY" },
+    data: { poolId: pool11.id, name: "Coyotes" },
   });
   const u11b = await prisma.team.create({
-    data: { poolId: pool11.id, name: "Eagles", abbreviation: "EGL" },
+    data: { poolId: pool11.id, name: "Eagles" },
   });
   await prisma.game.create({
     data: {

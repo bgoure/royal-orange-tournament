@@ -1,9 +1,10 @@
-import Link from "next/link";
+import { Suspense } from "react";
 import { AnnouncementList } from "@/components/announcements/AnnouncementList";
-import { GameList } from "@/components/schedule/GameList";
+import { UpcomingGamesWithDivisionTabs } from "@/components/schedule/UpcomingGamesWithDivisionTabs";
 import { WeatherSection } from "@/components/weather/WeatherSection";
 import { listAnnouncements } from "@/lib/services/announcements";
 import { listUpcomingGamesForHome } from "@/lib/services/games";
+import { listPoolsForDivisionTabs } from "@/lib/services/pools";
 import { getTournamentForRequest } from "@/lib/tournament-context";
 
 export default async function HomePage() {
@@ -20,9 +21,10 @@ export default async function HomePage() {
     );
   }
 
-  const [announcements, upcomingGames] = await Promise.all([
+  const [announcements, upcomingGames, poolsForTabs] = await Promise.all([
     listAnnouncements(tournament.id),
     listUpcomingGamesForHome(tournament.id),
+    listPoolsForDivisionTabs(tournament.id),
   ]);
 
   return (
@@ -46,13 +48,10 @@ export default async function HomePage() {
         <h2 className="text-sm font-semibold uppercase tracking-wide text-zinc-500">Upcoming games</h2>
         <p className="mt-1 text-xs text-zinc-500">Next games on the schedule. Times shown in your local timezone.</p>
         <div className="mt-3">
-          <GameList games={upcomingGames} emptyMessage="No upcoming games scheduled." />
+          <Suspense fallback={<div className="h-32 animate-pulse rounded-xl bg-zinc-100" aria-hidden />}>
+            <UpcomingGamesWithDivisionTabs poolsForTabs={poolsForTabs} games={upcomingGames} />
+          </Suspense>
         </div>
-        <p className="mt-3 text-sm">
-          <Link href="/schedule" className="font-medium text-emerald-700 hover:text-emerald-800 hover:underline">
-            See more
-          </Link>
-        </p>
       </section>
 
       <WeatherSection tournamentId={tournament.id} />

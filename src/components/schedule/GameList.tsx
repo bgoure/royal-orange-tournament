@@ -1,11 +1,11 @@
-import type { Field, Game, Pool, Team } from "@prisma/client";
+import type { Division, Field, Game, Pool, Team } from "@prisma/client";
 import { formatFieldWithLocation } from "@/lib/field-display";
 
-type GameWithTeams = Game & {
+export type GameWithTeams = Game & {
   field: Field & { location: { name: string } };
   homeTeam: Team | null;
   awayTeam: Team | null;
-  pool: Pool | null;
+  pool: (Pool & { division: Division }) | null;
 };
 
 const statusStyles: Record<string, string> = {
@@ -51,13 +51,9 @@ export function GameList({
             <div className="min-w-0 flex-1">
               <p className="text-xs text-zinc-500">{fmtTime(g.scheduledAt)}</p>
               <p className="font-medium text-zinc-900">
-                <span className="text-zinc-800">
-                  {g.awayTeam ? g.awayTeam.abbreviation ?? g.awayTeam.name : "TBD"}
-                </span>
-                <span className="mx-1 text-zinc-400">@</span>
-                <span className="text-zinc-800">
-                  {g.homeTeam ? g.homeTeam.abbreviation ?? g.homeTeam.name : "TBD"}
-                </span>
+                <span className="text-zinc-800">{g.awayTeam ? g.awayTeam.name : "TBD"}</span>
+                <span className="mx-1.5 text-zinc-400">vs</span>
+                <span className="text-zinc-800">{g.homeTeam ? g.homeTeam.name : "TBD"}</span>
               </p>
               <p className="text-xs text-zinc-500">
                 {formatFieldWithLocation(g.field.name, g.field.location.name)}

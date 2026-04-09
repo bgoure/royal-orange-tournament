@@ -80,17 +80,11 @@ export function TeamsAdmin({ teams, poolOptions, tournamentName, isAdmin }: Prop
                   ))}
                 </select>
               </div>
-              <div>
+              <div className="sm:col-span-2">
                 <label htmlFor="team-name" className={labelClass}>
                   Team name
                 </label>
                 <input id="team-name" name="name" required className={formClass} placeholder="Lightning" />
-              </div>
-              <div>
-                <label htmlFor="team-abbr" className={labelClass}>
-                  Abbreviation
-                </label>
-                <input id="team-abbr" name="abbreviation" className={formClass} placeholder="LTN" maxLength={12} />
               </div>
               <div>
                 <label htmlFor="team-seed" className={labelClass}>
@@ -114,7 +108,6 @@ export function TeamsAdmin({ teams, poolOptions, tournamentName, isAdmin }: Prop
             <thead className="border-b border-zinc-200 bg-zinc-50 text-xs font-semibold uppercase tracking-wide text-zinc-500">
               <tr>
                 <th className="px-4 py-3">Team</th>
-                <th className="px-4 py-3">Abbr</th>
                 <th className="px-4 py-3">Seed</th>
                 <th className="px-4 py-3">Division</th>
                 <th className="px-4 py-3">Pool</th>
@@ -150,7 +143,6 @@ function TeamRow({
     <>
       <tr className="align-top">
         <td className="px-4 py-3 font-medium text-zinc-900">{team.name}</td>
-        <td className="px-4 py-3 text-zinc-600">{team.abbreviation ?? "—"}</td>
         <td className="px-4 py-3 tabular-nums text-zinc-600">{team.seed ?? "—"}</td>
         <td className="px-4 py-3 text-zinc-600">{division.name}</td>
         <td className="px-4 py-3 text-zinc-600">{team.pool.name}</td>
@@ -172,10 +164,10 @@ function TeamRow({
         </td>
       </tr>
       <tr>
-        <td colSpan={6} className="bg-zinc-50/80 px-4 pb-4 pt-0">
+        <td colSpan={5} className="bg-zinc-50/80 px-4 pb-4 pt-0">
           <ActionMessage state={updState} />
           <ActionMessage state={delState} />
-          <form action={updAction} className="mt-2 grid gap-3 rounded-lg border border-zinc-200 bg-white p-4 sm:grid-cols-2 lg:grid-cols-6">
+          <form action={updAction} className="mt-2 grid gap-3 rounded-lg border border-zinc-200 bg-white p-4 sm:grid-cols-2 lg:grid-cols-5">
             <input type="hidden" name="id" value={team.id} />
             <div className="lg:col-span-2">
               <label className={labelClass}>Pool</label>
@@ -187,13 +179,9 @@ function TeamRow({
                 ))}
               </select>
             </div>
-            <div>
+            <div className="lg:col-span-2">
               <label className={labelClass}>Name</label>
               <input name="name" required defaultValue={team.name} className={formClass} />
-            </div>
-            <div>
-              <label className={labelClass}>Abbreviation</label>
-              <input name="abbreviation" defaultValue={team.abbreviation ?? ""} className={formClass} />
             </div>
             <div>
               <label className={labelClass}>Seed</label>

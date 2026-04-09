@@ -1,12 +1,13 @@
 import type { Prisma } from "@prisma/client";
 import { GameStatus } from "@prisma/client";
+import { divisionTabGameWhere } from "@/lib/division-tabs";
 import { prisma } from "@/lib/db";
 
 const gameListInclude = {
   field: { include: { location: { select: { name: true } } } },
   homeTeam: true,
   awayTeam: true,
-  pool: true,
+  pool: { include: { division: true } },
   bracketRound: true,
 } as const;
 
@@ -17,16 +18,20 @@ export type GameListFilters = {
   day?: string;
   teamId?: string;
   fieldId?: string;
+  /** Division tab id, or `all` / omitted for every division (+ bracket games with no pool). */
+  divisionId?: string;
 };
 
 export async function listGamesForTournament(tournamentId: string, filters: GameListFilters = {}) {
-  const where: Prisma.GameWhereInput = { tournamentId };
+  const conditions: Prisma.GameWhereInput[] = [{ tournamentId }];
 
   if (filters.teamId) {
-    where.OR = [{ homeTeamId: filters.teamId }, { awayTeamId: filters.teamId }];
+    conditions.push({
+      OR: [{ homeTeamId: filters.teamId }, { awayTeamId: filters.teamId }],
+    });
   }
   if (filters.fieldId) {
-    where.fieldId = filters.fieldId;
+    conditions.push({ fieldId: filters.fieldId });
   }
   if (filters.day) {
     const start = new Date(filters.day);
@@ -34,12 +39,14 @@ export async function listGamesForTournament(tournamentId: string, filters: Game
       start.setHours(0, 0, 0, 0);
       const end = new Date(start);
       end.setDate(end.getDate() + 1);
-      where.scheduledAt = { gte: start, lt: end };
+      conditions.push({ scheduledAt: { gte: start, lt: end } });
     }
   }
+  const divW = divisionTabGameWhere(filters.divisionId);
+  if (divW) conditions.push(divW);
 
   return prisma.game.findMany({
-    where,
+    where: { AND: conditions },
     orderBy: { scheduledAt: "asc" },
     include: gameListInclude,
   });

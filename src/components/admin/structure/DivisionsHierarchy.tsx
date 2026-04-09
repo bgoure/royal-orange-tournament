@@ -276,7 +276,7 @@ function PoolRow({
             <ul className="mt-2 flex flex-wrap gap-2 text-xs text-zinc-600">
               {pool.teams.map((t) => (
                 <li key={t.id} className="rounded-full bg-zinc-100 px-2 py-1">
-                  {t.abbreviation ?? t.name}
+                  {t.name}
                 </li>
               ))}
             </ul>

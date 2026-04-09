@@ -29,3 +29,16 @@ export async function listFieldsForTournament(tournamentId: string) {
     include: { location: { select: { name: true } } },
   });
 }
+
+/** Pools + division metadata for schedule/home division tabs (aligned with standings). */
+export async function listPoolsForDivisionTabs(tournamentId: string) {
+  return prisma.pool.findMany({
+    where: { division: { tournamentId } },
+    orderBy: [{ division: { sortOrder: "asc" } }, { sortOrder: "asc" }],
+    select: {
+      id: true,
+      name: true,
+      division: { select: { id: true, name: true, sortOrder: true } },
+    },
+  });
+}

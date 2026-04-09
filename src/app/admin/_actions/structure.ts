@@ -197,7 +197,6 @@ export async function createTeam(_prev: ActionResult | undefined, formData: Form
   const parsed = teamCreateSchema.safeParse({
     poolId: formData.get("poolId"),
     name: formData.get("name"),
-    abbreviation: formData.get("abbreviation"),
     seed: seedRaw === "" || seedRaw == null ? null : seedRaw,
   });
   if (!parsed.success) {
@@ -209,7 +208,6 @@ export async function createTeam(_prev: ActionResult | undefined, formData: Form
     data: {
       poolId: parsed.data.poolId,
       name: parsed.data.name,
-      abbreviation: parsed.data.abbreviation,
       seed: parsed.data.seed ?? undefined,
     },
   });
@@ -231,7 +229,6 @@ export async function updateTeam(_prev: ActionResult | undefined, formData: Form
     id: formData.get("id"),
     poolId: formData.get("poolId"),
     name: formData.get("name"),
-    abbreviation: formData.get("abbreviation"),
     seed: seedRaw === "" || seedRaw == null ? null : seedRaw,
   });
   if (!parsed.success) {
@@ -249,7 +246,6 @@ export async function updateTeam(_prev: ActionResult | undefined, formData: Form
     data: {
       poolId: parsed.data.poolId,
       name: parsed.data.name,
-      abbreviation: parsed.data.abbreviation ?? null,
       seed: parsed.data.seed ?? null,
     },
   });

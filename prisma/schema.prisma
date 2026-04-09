@@ -149,7 +149,6 @@ model Team {
   poolId       String
   pool         Pool     @relation(fields: [poolId], references: [id], onDelete: Cascade)
   name         String
-  abbreviation String?
   seed         Int?
   homeGames    Game[]   @relation("HomeTeam")
   awayGames    Game[]   @relation("AwayTeam")

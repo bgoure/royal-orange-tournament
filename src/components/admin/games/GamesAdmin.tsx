@@ -26,7 +26,7 @@ export type AdminGameRow = Game & {
 export type PoolWithTeams = {
   poolId: string;
   label: string;
-  teams: { id: string; name: string; abbreviation: string | null }[];
+  teams: { id: string; name: string }[];
 };
 
 const formClass =
@@ -172,7 +172,7 @@ export function GamesAdmin({ games, fields, poolsWithTeams, tournamentName, isAd
                   <option value="">Select…</option>
                   {teamOptions.map((t) => (
                     <option key={t.id} value={t.id}>
-                      {t.abbreviation ? `${t.abbreviation} — ${t.name}` : t.name}
+                      {t.name}
                     </option>
                   ))}
                 </select>
@@ -185,7 +185,7 @@ export function GamesAdmin({ games, fields, poolsWithTeams, tournamentName, isAd
                   <option value="">Select…</option>
                   {teamOptions.map((t) => (
                     <option key={t.id} value={t.id}>
-                      {t.abbreviation ? `${t.abbreviation} — ${t.name}` : t.name}
+                      {t.name}
                     </option>
                   ))}
                 </select>
@@ -287,8 +287,8 @@ function GameCard({
     return p?.teams ?? [];
   }, [poolsWithTeams, metaPoolId]);
 
-  const awayLabel = game.awayTeam ? (game.awayTeam.abbreviation ?? game.awayTeam.name) : "TBD";
-  const homeLabel = game.homeTeam ? (game.homeTeam.abbreviation ?? game.homeTeam.name) : "TBD";
+  const awayLabel = game.awayTeam ? game.awayTeam.name : "TBD";
+  const homeLabel = game.homeTeam ? game.homeTeam.name : "TBD";
   const iso = typeof game.scheduledAt === "string" ? game.scheduledAt : new Date(game.scheduledAt).toISOString();
 
   return (
@@ -297,7 +297,7 @@ function GameCard({
         <div>
           <p className="text-xs font-medium text-zinc-500">{fmtWhen(iso)}</p>
           <p className="text-base font-semibold text-zinc-900">
-            {awayLabel} <span className="font-normal text-zinc-400">@</span> {homeLabel}
+            {awayLabel} <span className="font-normal text-zinc-400">vs</span> {homeLabel}
           </p>
           <p className="text-xs text-zinc-600">
             {formatFieldWithLocation(game.field.name, game.field.location.name)}
@@ -492,7 +492,7 @@ function GameCard({
                   <option value="">Select…</option>
                   {metaTeams.map((t) => (
                     <option key={t.id} value={t.id}>
-                      {t.abbreviation ? `${t.abbreviation} — ${t.name}` : t.name}
+                      {t.name}
                     </option>
                   ))}
                 </select>
@@ -508,7 +508,7 @@ function GameCard({
                   <option value="">Select…</option>
                   {metaTeams.map((t) => (
                     <option key={t.id} value={t.id}>
-                      {t.abbreviation ? `${t.abbreviation} — ${t.name}` : t.name}
+                      {t.name}
                     </option>
                   ))}
                 </select>
