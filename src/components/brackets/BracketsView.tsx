@@ -67,8 +67,7 @@ export function BracketsView({ brackets }: { brackets: BracketWith[] }) {
                                   {formatFieldWithLocation(g.field.name, g.field.location.name)}
                                 </p>
                                 <p className="font-medium text-zinc-900">
-                                  {g.awayTeam ? g.awayTeam.abbreviation ?? g.awayTeam.name : "TBD"} @{" "}
-                                  {g.homeTeam ? g.homeTeam.abbreviation ?? g.homeTeam.name : "TBD"}
+                                  {g.awayTeam ? g.awayTeam.name : "TBD"} @ {g.homeTeam ? g.homeTeam.name : "TBD"}
                                   {g.status === "FINAL" && g.homeRuns != null && g.awayRuns != null ? (
                                     <span className="ml-2 tabular-nums text-zinc-600">
                                       ({g.awayRuns}–{g.homeRuns})

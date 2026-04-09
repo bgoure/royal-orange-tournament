@@ -9,6 +9,7 @@ import {
   createGame,
   deleteGame,
   updateGameMeta,
+  updateGameNumber,
   updateGameScoring,
   type GameActionResult,
 } from "@/app/admin/_actions/games";
@@ -201,6 +202,19 @@ export function GamesAdmin({ games, fields, poolsWithTeams, tournamentName, isAd
                   ))}
                 </select>
               </div>
+              <div>
+                <label htmlFor="cg-game-num" className={labelClass}>
+                  Game ID / # (optional)
+                </label>
+                <input
+                  id="cg-game-num"
+                  name="gameNumber"
+                  type="text"
+                  maxLength={64}
+                  placeholder="e.g. 12 or Field 3"
+                  className={`${formClass} mt-1 w-full`}
+                />
+              </div>
             </div>
             <button type="submit" disabled={createPending} className={`${btnPrimary} w-fit`}>
               {createPending ? "Creating…" : "Create game"}
@@ -259,6 +273,10 @@ function GameCard({
   );
   const [metaState, metaAction, metaPending] = useActionState(
     updateGameMeta,
+    undefined as GameActionResult | undefined,
+  );
+  const [numState, numAction, numPending] = useActionState(
+    updateGameNumber,
     undefined as GameActionResult | undefined,
   );
   const [delState, delAction, delPending] = useActionState(deleteGame, undefined as GameActionResult | undefined);
@@ -495,6 +513,18 @@ function GameCard({
                   ))}
                 </select>
               </div>
+              <div>
+                <label className={labelClass}>Game ID / #</label>
+                <input
+                  name="gameNumber"
+                  type="text"
+                  maxLength={64}
+                  defaultValue={game.gameNumber ?? ""}
+                  placeholder="Director label or bracket game #"
+                  className={`${formClass} mt-1 w-full`}
+                />
+                <p className="mt-1 text-[10px] text-zinc-500">Clear the field and save to remove.</p>
+              </div>
             </div>
             <button type="submit" disabled={metaPending} className={`${btnSecondary} w-fit px-3 py-2 text-sm`}>
               {metaPending ? "Saving…" : "Save schedule & teams"}
@@ -502,9 +532,32 @@ function GameCard({
           </form>
         </div>
       ) : (
-        <div className="border-t border-zinc-100 bg-zinc-50 px-4 py-3 text-xs text-zinc-600">
-          Playoff game: teams fill automatically when prior-round games go FINAL (or from first-round seeding).
-          Use scoring below; schedule field/time can be adjusted when bracket games support full edit.
+        <div className="border-t border-zinc-100 p-4">
+          <h3 className="text-xs font-semibold uppercase tracking-wide text-zinc-500">Game ID / number</h3>
+          <p className="mt-1 text-xs text-zinc-600">
+            Bracket games: set a director-facing game label or number. Teams still fill when prior-round games go
+            FINAL.
+          </p>
+          <ActionMessage state={numState} />
+          <form action={numAction} className="mt-3 flex flex-wrap items-end gap-3">
+            <input type="hidden" name="id" value={game.id} />
+            <div className="min-w-[12rem] flex-1">
+              <label className={labelClass} htmlFor={`bracket-gn-${game.id}`}>
+                Game ID / #
+              </label>
+              <input
+                id={`bracket-gn-${game.id}`}
+                name="gameNumber"
+                type="text"
+                maxLength={64}
+                defaultValue={game.gameNumber ?? ""}
+                className={`${formClass} mt-1 w-full`}
+              />
+            </div>
+            <button type="submit" disabled={numPending} className={`${btnSecondary} px-3 py-2 text-sm`}>
+              {numPending ? "Saving…" : "Save game number"}
+            </button>
+          </form>
         </div>
       )}
     </article>

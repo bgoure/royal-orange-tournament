@@ -51,9 +51,7 @@ export function StandingsView({ pools }: { pools: PoolWith[] }) {
                 {pool.standings.map((s, idx) => (
                   <tr key={s.id} className="text-zinc-800">
                     <td className="px-3 py-2 tabular-nums text-zinc-500">{idx + 1}</td>
-                    <td className="px-3 py-2 font-medium">
-                      {s.team.abbreviation ?? s.team.name}
-                    </td>
+                    <td className="px-3 py-2 font-medium">{s.team.name}</td>
                     <td className="px-3 py-2 text-right tabular-nums">{s.wins}</td>
                     <td className="px-3 py-2 text-right tabular-nums">{s.losses}</td>
                     <td className="px-3 py-2 text-right tabular-nums">{s.ties}</td>

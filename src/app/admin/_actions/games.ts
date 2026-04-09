@@ -15,6 +15,7 @@ import { recomputePoolStandings } from "@/lib/services/standings";
 import {
   createGameSchema,
   updateGameMetaSchema,
+  updateGameNumberSchema,
   updateGameScoringSchema,
 } from "@/lib/validations/games-admin";
 import { getTournamentForRequest } from "@/lib/tournament-context";
@@ -67,6 +68,7 @@ export async function createGame(
     awayTeamId: formData.get("awayTeamId"),
     scheduledAt: formData.get("scheduledAt"),
     status: formData.get("status") || undefined,
+    gameNumber: formData.get("gameNumber"),
   });
   if (!parsed.success) {
     return {
@@ -95,6 +97,7 @@ export async function createGame(
         scheduledAt,
         status: parsed.data.status,
         resultType: "REGULAR",
+        gameNumber: parsed.data.gameNumber ?? null,
       },
     });
 
@@ -186,6 +189,7 @@ export async function updateGameMeta(
     homeTeamId: formData.get("homeTeamId"),
     awayTeamId: formData.get("awayTeamId"),
     scheduledAt: formData.get("scheduledAt"),
+    gameNumber: formData.get("gameNumber"),
   });
   if (!parsed.success) {
     return { ok: false, error: "Invalid schedule or matchup input" };
@@ -211,6 +215,7 @@ export async function updateGameMeta(
         homeTeamId: d.homeTeamId,
         awayTeamId: d.awayTeamId,
         scheduledAt,
+        gameNumber: d.gameNumber,
       },
     });
 
@@ -222,6 +227,41 @@ export async function updateGameMeta(
     return { ok: true };
   } catch (e) {
     const msg = e instanceof Error ? e.message : "Failed to update game";
+    return { ok: false, error: msg };
+  }
+}
+
+export async function updateGameNumber(
+  _prev: GameActionResult | undefined,
+  formData: FormData,
+): Promise<GameActionResult> {
+  const ctx = await tournamentContext();
+  if ("error" in ctx) return { ok: false, error: ctx.error };
+  if (!can(ctx.session.user.role, "game:update")) return deny();
+
+  const parsed = updateGameNumberSchema.safeParse({
+    id: formData.get("id"),
+    gameNumber: formData.get("gameNumber"),
+  });
+  if (!parsed.success) {
+    return { ok: false, error: "Invalid game ID or number" };
+  }
+
+  try {
+    await assertGameInTournament(parsed.data.id, ctx.tournament.id);
+    await prisma.game.update({
+      where: { id: parsed.data.id },
+      data: { gameNumber: parsed.data.gameNumber },
+    });
+
+    revalidatePath("/admin/games");
+    revalidatePath("/schedule");
+    revalidatePath("/standings");
+    revalidatePath("/brackets");
+    revalidatePath("/");
+    return { ok: true };
+  } catch (e) {
+    const msg = e instanceof Error ? e.message : "Failed to update game number";
     return { ok: false, error: msg };
   }
 }
