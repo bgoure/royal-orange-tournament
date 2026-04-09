@@ -26,9 +26,15 @@ function fmtTime(d: Date) {
   }).format(d);
 }
 
-export function GameList({ games }: { games: GameWithTeams[] }) {
+export function GameList({
+  games,
+  emptyMessage = "No games match your filters.",
+}: {
+  games: GameWithTeams[];
+  emptyMessage?: string;
+}) {
   if (games.length === 0) {
-    return <p className="text-sm text-zinc-500">No games match your filters.</p>;
+    return <p className="text-sm text-zinc-500">{emptyMessage}</p>;
   }
 
   return (

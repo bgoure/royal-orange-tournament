@@ -1,5 +1,17 @@
 import type { Prisma } from "@prisma/client";
+import { GameStatus } from "@prisma/client";
 import { prisma } from "@/lib/db";
+
+const gameListInclude = {
+  field: { include: { location: { select: { name: true } } } },
+  homeTeam: true,
+  awayTeam: true,
+  pool: true,
+  bracketRound: true,
+} as const;
+
+/** Next N not-yet-finished games for the home page (chronological, excludes final/cancelled). */
+const UPCOMING_HOME_MAX = 7;
 
 export type GameListFilters = {
   day?: string;
@@ -29,13 +41,21 @@ export async function listGamesForTournament(tournamentId: string, filters: Game
   return prisma.game.findMany({
     where,
     orderBy: { scheduledAt: "asc" },
-    include: {
-      field: { include: { location: { select: { name: true } } } },
-      homeTeam: true,
-      awayTeam: true,
-      pool: true,
-      bracketRound: true,
+    include: gameListInclude,
+  });
+}
+
+export async function listUpcomingGamesForHome(tournamentId: string) {
+  const now = new Date();
+  return prisma.game.findMany({
+    where: {
+      tournamentId,
+      status: { notIn: [GameStatus.FINAL, GameStatus.CANCELLED] },
+      OR: [{ scheduledAt: { gte: now } }, { status: GameStatus.LIVE }],
     },
+    orderBy: { scheduledAt: "asc" },
+    take: UPCOMING_HOME_MAX,
+    include: gameListInclude,
   });
 }
 

@@ -1,8 +1,9 @@
+import Link from "next/link";
 import { AnnouncementList } from "@/components/announcements/AnnouncementList";
 import { GameList } from "@/components/schedule/GameList";
 import { WeatherSection } from "@/components/weather/WeatherSection";
 import { listAnnouncements } from "@/lib/services/announcements";
-import { listTodaysGames } from "@/lib/services/games";
+import { listUpcomingGamesForHome } from "@/lib/services/games";
 import { getTournamentForRequest } from "@/lib/tournament-context";
 
 export default async function HomePage() {
@@ -19,9 +20,9 @@ export default async function HomePage() {
     );
   }
 
-  const [announcements, todaysGames] = await Promise.all([
+  const [announcements, upcomingGames] = await Promise.all([
     listAnnouncements(tournament.id),
-    listTodaysGames(tournament.id, tournament.timezone),
+    listUpcomingGamesForHome(tournament.id),
   ]);
 
   return (
@@ -34,8 +35,6 @@ export default async function HomePage() {
         </p>
       </div>
 
-      <WeatherSection tournamentId={tournament.id} />
-
       <section>
         <h2 className="text-sm font-semibold uppercase tracking-wide text-zinc-500">Announcements</h2>
         <div className="mt-3">
@@ -44,12 +43,19 @@ export default async function HomePage() {
       </section>
 
       <section>
-        <h2 className="text-sm font-semibold uppercase tracking-wide text-zinc-500">Today&apos;s games</h2>
-        <p className="mt-1 text-xs text-zinc-500">Times shown in your local browser timezone.</p>
+        <h2 className="text-sm font-semibold uppercase tracking-wide text-zinc-500">Upcoming games</h2>
+        <p className="mt-1 text-xs text-zinc-500">Next games on the schedule. Times shown in your local timezone.</p>
         <div className="mt-3">
-          <GameList games={todaysGames} />
+          <GameList games={upcomingGames} emptyMessage="No upcoming games scheduled." />
         </div>
+        <p className="mt-3 text-sm">
+          <Link href="/schedule" className="font-medium text-emerald-700 hover:text-emerald-800 hover:underline">
+            See more
+          </Link>
+        </p>
       </section>
+
+      <WeatherSection tournamentId={tournament.id} />
     </div>
   );
 }
