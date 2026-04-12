@@ -11,6 +11,56 @@ function fmtRatio(num: number, den: number): string {
   return (num / den).toFixed(3);
 }
 
+function MobileStandingCard({ s, rank }: { s: Row; rank: number }) {
+  return (
+    <div className="rounded-xl border border-zinc-200 bg-white px-4 py-3 shadow-sm">
+      <div className="flex items-center justify-between">
+        <div className="flex items-center gap-3">
+          <span className="flex size-7 shrink-0 items-center justify-center rounded-full bg-emerald-50 text-xs font-bold text-emerald-700">
+            {rank}
+          </span>
+          <span className="font-semibold text-zinc-900">{s.team.name}</span>
+        </div>
+        <span className="rounded-full bg-zinc-100 px-2.5 py-0.5 text-xs font-bold tabular-nums text-zinc-800">
+          {s.points} pts
+        </span>
+      </div>
+      <div className="mt-2.5 grid grid-cols-3 gap-2 text-center text-[11px]">
+        <div className="rounded-lg bg-emerald-50 px-2 py-1.5">
+          <p className="font-bold tabular-nums text-emerald-800">{s.wins}</p>
+          <p className="text-emerald-600">Wins</p>
+        </div>
+        <div className="rounded-lg bg-red-50 px-2 py-1.5">
+          <p className="font-bold tabular-nums text-red-800">{s.losses}</p>
+          <p className="text-red-600">Losses</p>
+        </div>
+        <div className="rounded-lg bg-zinc-50 px-2 py-1.5">
+          <p className="font-bold tabular-nums text-zinc-800">{s.ties}</p>
+          <p className="text-zinc-500">Ties</p>
+        </div>
+      </div>
+      <div className="mt-2 grid grid-cols-4 gap-1.5 text-center text-[10px] text-zinc-500">
+        <div>
+          <p className="tabular-nums font-medium text-zinc-700">{s.runsFor}</p>
+          <p>RF</p>
+        </div>
+        <div>
+          <p className="tabular-nums font-medium text-zinc-700">{s.runsAgainst}</p>
+          <p>RA</p>
+        </div>
+        <div>
+          <p className="tabular-nums font-medium text-zinc-700">{fmtRatio(s.runsAgainst, s.defensiveInnings)}</p>
+          <p>RA/DI</p>
+        </div>
+        <div>
+          <p className="tabular-nums font-medium text-zinc-700">{fmtRatio(s.runsFor, s.offensiveInnings)}</p>
+          <p>RF/OI</p>
+        </div>
+      </div>
+    </div>
+  );
+}
+
 export function StandingsView({ pools }: { pools: PoolWith[] }) {
   if (pools.length === 0) {
     return <p className="text-sm text-zinc-500">No pools for this tournament.</p>;
@@ -29,7 +79,16 @@ export function StandingsView({ pools }: { pools: PoolWith[] }) {
               come from recorded games.
             </p>
           ) : null}
-          <div className="mt-2 overflow-x-auto rounded-xl border border-zinc-200 bg-white shadow-sm">
+
+          {/* Mobile card view */}
+          <div className="mt-2 flex flex-col gap-2 md:hidden">
+            {pool.standings.map((s, idx) => (
+              <MobileStandingCard key={s.id} s={s} rank={idx + 1} />
+            ))}
+          </div>
+
+          {/* Desktop table view */}
+          <div className="mt-2 hidden overflow-x-auto rounded-xl border border-zinc-200 bg-white shadow-sm md:block">
             <table className="w-full min-w-[640px] text-left text-sm">
               <thead className="border-b border-zinc-200 bg-zinc-50 text-xs font-semibold uppercase tracking-wide text-zinc-600">
                 <tr>
