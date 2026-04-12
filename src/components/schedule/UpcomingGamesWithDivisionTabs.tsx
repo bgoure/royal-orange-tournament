@@ -100,7 +100,7 @@ export function UpcomingGamesWithDivisionTabs({
   return (
     <div className="flex flex-col gap-3">
       <DivisionTabs tabs={tabs} activeIndex={tab} onSelect={selectTab} disabled={pending} />
-      <GameList games={visible} emptyMessage="No upcoming games scheduled for this division." />
+      <GameList games={visible} emptyMessage="No upcoming games scheduled for this division." horizontal />
       <p className="text-sm">
         <Link href={scheduleHref} className="font-medium text-royal-light hover:text-royal hover:underline">
           See more
