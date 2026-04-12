@@ -16,17 +16,17 @@ export async function SiteHeader({ currentSlug }: { currentSlug: string }) {
   const effectiveSlug = currentSlug || tournaments[0]?.slug || "";
 
   return (
-    <header className="sticky top-0 z-40 border-b border-zinc-200/80 bg-white/90 backdrop-blur-md">
-      <div className="mx-auto flex max-w-5xl flex-col gap-3 px-4 py-3 sm:flex-row sm:items-center sm:justify-between sm:gap-4">
-        <div className="flex min-w-0 flex-1 flex-col gap-1">
-          <Link href="/" className="text-lg font-semibold tracking-tight text-zinc-900">
+    <header className="sticky top-0 z-40 border-b border-zinc-200/80 bg-white/95 backdrop-blur-md">
+      <div className="mx-auto flex max-w-5xl items-center justify-between gap-3 px-4 py-3">
+        <div className="flex min-w-0 flex-1 items-center gap-3">
+          <Link href="/" className="shrink-0 text-lg font-semibold tracking-tight text-zinc-900">
             Tournament <span className="text-emerald-700">Hub</span>
           </Link>
           {tournaments.length > 0 ? (
             <TournamentSwitcher tournaments={tournaments} currentSlug={effectiveSlug} />
           ) : null}
         </div>
-        <nav className="flex flex-wrap gap-1 sm:justify-end">
+        <nav className="hidden gap-1 md:flex">
           {nav.map((item) => (
             <Link
               key={item.href}
