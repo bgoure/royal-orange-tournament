@@ -35,7 +35,7 @@ function MapLinks({
         href={g}
         target="_blank"
         rel="noopener noreferrer"
-        className="rounded-full bg-emerald-600 px-3 py-1.5 text-xs font-semibold text-white hover:bg-emerald-700"
+        className="rounded-full bg-royal-light px-3 py-1.5 text-xs font-semibold text-white hover:bg-royal"
       >
         Google Maps
       </a>
@@ -83,7 +83,7 @@ export default async function LocationsPage() {
         <h1 className="text-2xl font-semibold text-zinc-900">Locations</h1>
         <p className="text-sm text-zinc-600">Headquarters and venues for {tournament.name}.</p>
         <p className="mt-2 text-sm">
-          <Link href="/faq" className="font-medium text-emerald-700 underline-offset-2 hover:underline">
+          <Link href="/faq" className="font-medium text-royal-light underline-offset-2 hover:underline">
             ← FAQ
           </Link>
         </p>
@@ -117,7 +117,7 @@ export default async function LocationsPage() {
                   <p className="font-medium text-zinc-900">
                     {loc.name}
                     {loc.isHeadquarters ? (
-                      <span className="ml-2 text-xs font-normal text-emerald-700">(headquarters)</span>
+                      <span className="ml-2 text-xs font-normal text-royal-light">(headquarters)</span>
                     ) : null}
                   </p>
                   {address ? <p className="mt-1 text-sm text-zinc-600">{address}</p> : null}

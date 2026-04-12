@@ -14,6 +14,7 @@ import type {
 } from "@prisma/client";
 import { setSelectedDivisionTabId } from "@/app/actions/tournament";
 import { BracketsView } from "@/components/brackets/BracketsView";
+import { DivisionTabs } from "@/components/layout/DivisionTabs";
 import {
   ALL_DIVISIONS_TAB_ID,
   bracketGameMatchesDivisionTab,
@@ -140,31 +141,7 @@ export function BracketsViewWithDivisionTabs({
 
   return (
     <div className="flex flex-col gap-4">
-      {tabs.length > 1 ? (
-        <div
-          className="flex flex-wrap gap-2 border-b border-zinc-200 pb-3"
-          role="tablist"
-          aria-label="Divisions"
-        >
-          {tabs.map((d, i) => (
-            <button
-              key={d.id}
-              type="button"
-              role="tab"
-              aria-selected={i === tab}
-              disabled={pending}
-              onClick={() => selectTab(i)}
-              className={`rounded-full px-4 py-2 text-sm font-medium transition-colors ${
-                i === tab
-                  ? "bg-emerald-700 text-white shadow-sm"
-                  : "bg-zinc-100 text-zinc-700 hover:bg-zinc-200"
-              }`}
-            >
-              {d.name}
-            </button>
-          ))}
-        </div>
-      ) : null}
+      <DivisionTabs tabs={tabs} activeIndex={tab} onSelect={selectTab} disabled={pending} />
       {brackets.length > 0 && visibleBrackets.length === 0 ? (
         <p className="text-sm text-zinc-500">No bracket games for this division.</p>
       ) : (

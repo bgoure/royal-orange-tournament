@@ -11,7 +11,7 @@ export type GameWithTeams = Game & {
 const statusStyles: Record<string, string> = {
   SCHEDULED: "bg-zinc-100 text-zinc-700",
   LIVE: "bg-red-100 text-red-800 animate-pulse",
-  FINAL: "bg-emerald-100 text-emerald-900",
+  FINAL: "bg-royal-50 text-royal",
   POSTPONED: "bg-amber-100 text-amber-900",
   CANCELLED: "bg-zinc-200 text-zinc-600 line-through",
 };
