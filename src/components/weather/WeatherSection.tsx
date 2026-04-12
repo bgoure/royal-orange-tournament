@@ -26,7 +26,7 @@ export async function WeatherSection({ tournamentId }: { tournamentId: string })
   const out = await getHeadquartersWeatherOutcomeForTournament(tournamentId);
   if (!out.ok) {
     return (
-      <section className="flex flex-col justify-center rounded-2xl border border-zinc-200 bg-gradient-to-br from-emerald-50 to-sky-50 p-5 shadow-sm">
+      <section className="flex flex-col justify-center rounded-2xl border border-zinc-200 bg-gradient-to-br from-royal-50 to-accent-50 p-5 shadow-sm">
         <h2 className="text-sm font-semibold text-zinc-900">Weather</h2>
         <p className="mt-2 text-sm text-zinc-500">
           {out.reason === "no_headquarters"
@@ -40,7 +40,7 @@ export async function WeatherSection({ tournamentId }: { tournamentId: string })
   const { label: locationLabel, weather: wx } = out;
 
   return (
-    <section className="flex flex-col justify-between rounded-2xl border border-zinc-200 bg-gradient-to-br from-emerald-50 via-white to-sky-50 p-5 shadow-sm">
+    <section className="flex flex-col justify-between rounded-2xl border border-zinc-200 bg-gradient-to-br from-royal-50 via-white to-accent-50 p-5 shadow-sm">
       <div>
         <div className="flex items-start justify-between gap-2">
           <div className="flex items-center gap-2">
