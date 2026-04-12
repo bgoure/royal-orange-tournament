@@ -10,5 +10,6 @@ export const adminNavItems = [
   { href: "/admin/locations", label: "Locations", segment: "locations" },
   { href: "/admin/fields", label: "Fields", segment: "fields" },
   { href: "/admin/tournament-settings", label: "Tournament HQ", segment: "tournament-settings" },
+  { href: "/admin/logos", label: "Logos", segment: "logos" },
   { href: "/admin/users", label: "Users", segment: "users" },
 ] as const;
