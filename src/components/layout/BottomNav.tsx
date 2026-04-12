@@ -71,11 +71,11 @@ export function BottomNav() {
               href={t.href === "/more" ? "/faq" : t.href}
               className={`flex flex-col items-center gap-0.5 px-3 py-2 text-[10px] font-medium transition-colors ${
                 active
-                  ? "text-emerald-700"
+                  ? "text-royal"
                   : "text-zinc-400 active:text-zinc-600"
               }`}
             >
-              <span className={active ? "text-emerald-700" : "text-zinc-400"}>{t.icon}</span>
+              <span className={active ? "text-royal" : "text-zinc-400"}>{t.icon}</span>
               {t.label}
             </Link>
           );

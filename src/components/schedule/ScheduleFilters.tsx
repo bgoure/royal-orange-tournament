@@ -4,6 +4,7 @@ import { useRouter, useSearchParams } from "next/navigation";
 import { useCallback, useMemo, useTransition } from "react";
 import { setSelectedDivisionTabId } from "@/app/actions/tournament";
 import { ALL_DIVISIONS_TAB_ID } from "@/lib/division-tabs";
+import { DivisionTabs } from "@/components/layout/DivisionTabs";
 
 type TeamOpt = { id: string; name: string };
 type FieldOpt = { id: string; label: string };
@@ -101,31 +102,12 @@ export function ScheduleFilters({
 
   return (
     <div className="flex flex-col gap-4">
-      {tabsWithAll.length > 1 ? (
-        <div
-          className="flex flex-wrap gap-2 border-b border-zinc-200 pb-3"
-          role="tablist"
-          aria-label="Divisions"
-        >
-          {tabsWithAll.map((t, i) => (
-            <button
-              key={t.id}
-              type="button"
-              role="tab"
-              aria-selected={i === activeDivisionIndex}
-              disabled={pending}
-              onClick={() => selectDivision(t.id)}
-              className={`rounded-full px-4 py-2 text-sm font-medium transition-colors ${
-                i === activeDivisionIndex
-                  ? "bg-emerald-700 text-white shadow-sm"
-                  : "bg-zinc-100 text-zinc-700 hover:bg-zinc-200"
-              }`}
-            >
-              {t.name}
-            </button>
-          ))}
-        </div>
-      ) : null}
+      <DivisionTabs
+        tabs={tabsWithAll}
+        activeIndex={activeDivisionIndex}
+        onSelect={(i) => selectDivision(tabsWithAll[i]!.id)}
+        disabled={pending}
+      />
       <div className="flex flex-col gap-3 rounded-xl border border-zinc-200 bg-zinc-50/80 p-3 sm:flex-row sm:flex-wrap sm:items-end">
       <label className="flex flex-col gap-1 text-xs font-medium text-zinc-600">
         Day

@@ -16,7 +16,7 @@ export default async function FaqPage() {
         <h1 className="text-2xl font-semibold text-zinc-900">FAQ</h1>
         <p className="text-sm text-zinc-600">Answers for {tournament.name}.</p>
         <p className="mt-2 text-sm">
-          <Link href="/locations" className="font-medium text-emerald-700 underline-offset-2 hover:underline">
+          <Link href="/locations" className="font-medium text-royal-light underline-offset-2 hover:underline">
             Venues &amp; tournament headquarters →
           </Link>
         </p>

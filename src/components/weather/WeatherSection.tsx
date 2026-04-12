@@ -26,12 +26,11 @@ export async function WeatherSection({ tournamentId }: { tournamentId: string })
   const out = await getHeadquartersWeatherOutcomeForTournament(tournamentId);
   if (!out.ok) {
     return (
-      <section className="flex flex-col justify-center rounded-2xl border border-zinc-200 bg-gradient-to-br from-emerald-50 to-sky-50 p-5 shadow-sm">
-        <h2 className="text-sm font-semibold text-zinc-900">Weather</h2>
-        <p className="mt-2 text-sm text-zinc-500">
+      <section className="flex items-center rounded-2xl border border-zinc-200 bg-gradient-to-r from-royal-50 to-accent-50 px-4 py-3 shadow-sm">
+        <p className="text-xs text-zinc-500">
           {out.reason === "no_headquarters"
-            ? "Mark a location as tournament headquarters and add coordinates or a street address to show the forecast."
-            : "Forecast temporarily unavailable."}
+            ? "Set tournament headquarters to show weather."
+            : "Weather unavailable."}
         </p>
       </section>
     );
@@ -40,44 +39,37 @@ export async function WeatherSection({ tournamentId }: { tournamentId: string })
   const { label: locationLabel, weather: wx } = out;
 
   return (
-    <section className="flex flex-col justify-between rounded-2xl border border-zinc-200 bg-gradient-to-br from-emerald-50 via-white to-sky-50 p-5 shadow-sm">
-      <div>
-        <div className="flex items-start justify-between gap-2">
-          <div className="flex items-center gap-2">
-            <span className="text-3xl" aria-hidden>{emojiForCode(wx.current.code)}</span>
-            <div>
-              <p className="text-3xl font-bold tabular-nums text-zinc-900">{wx.current.tempC}°C</p>
-              <p className="text-sm font-medium text-zinc-600">{labelForCode(wx.current.code)}</p>
-            </div>
-          </div>
-          <div className="text-right">
-            <p className="text-[11px] font-medium text-zinc-500">{locationLabel}</p>
-            {wx.current.windKmh != null ? (
-              <p className="text-[11px] text-zinc-400">Wind {wx.current.windKmh} km/h</p>
-            ) : null}
+    <section className="rounded-2xl border border-zinc-200 bg-gradient-to-r from-royal-50 via-white to-accent-50 px-4 py-3 shadow-sm" title={locationLabel}>
+      <div className="flex items-center gap-3">
+        {/* Current weather — left side */}
+        <div className="flex shrink-0 items-center gap-1.5">
+          <span className="text-2xl" aria-hidden>{emojiForCode(wx.current.code)}</span>
+          <div>
+            <p className="text-xl font-bold tabular-nums leading-tight text-zinc-900">{wx.current.tempC}°C</p>
+            <p className="text-[10px] text-zinc-500">{labelForCode(wx.current.code)}{wx.current.windKmh != null ? ` · ${wx.current.windKmh} km/h` : ""}</p>
           </div>
         </div>
+
+        {/* Divider */}
+        <div className="h-10 w-px shrink-0 bg-zinc-200" />
+
+        {/* 5-day forecast — right side, scrollable */}
+        <div className="flex min-w-0 flex-1 gap-1 overflow-x-auto">
+          {wx.daily.slice(0, 5).map((d) => (
+            <div
+              key={d.date}
+              className="flex min-w-[2.8rem] flex-1 flex-col items-center rounded-lg bg-white/60 px-1 py-1 text-center text-[10px]"
+            >
+              <p className="font-semibold text-zinc-700">
+                {new Intl.DateTimeFormat(undefined, { weekday: "narrow" }).format(new Date(d.date + "T12:00:00"))}
+              </p>
+              <p className="tabular-nums text-zinc-500">
+                {d.highC}°/{d.lowC}°
+              </p>
+            </div>
+          ))}
+        </div>
       </div>
-      <div className="mt-4 flex gap-1.5 overflow-x-auto">
-        {wx.daily.slice(0, 5).map((d) => (
-          <div
-            key={d.date}
-            className="flex min-w-[3.5rem] flex-1 flex-col items-center gap-0.5 rounded-xl bg-white/70 px-2 py-2 text-center text-[11px]"
-          >
-            <p className="font-semibold text-zinc-800">
-              {new Intl.DateTimeFormat(undefined, { weekday: "short" }).format(new Date(d.date + "T12:00:00"))}
-            </p>
-            <span className="text-sm" aria-hidden>{emojiForCode(0)}</span>
-            <p className="tabular-nums text-zinc-600">
-              {d.highC}°/{d.lowC}°
-            </p>
-          </div>
-        ))}
-      </div>
-      <p className="mt-2 text-right text-[10px] text-zinc-400">
-        Updated{" "}
-        {new Intl.DateTimeFormat(undefined, { timeStyle: "short" }).format(new Date(wx.fetchedAt))}
-      </p>
     </section>
   );
 }

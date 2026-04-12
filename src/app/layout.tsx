@@ -13,8 +13,8 @@ const geistMono = Geist_Mono({
 });
 
 export const metadata: Metadata = {
-  title: "Tournament Hub",
-  description: "Youth baseball tournaments — schedules, scores, standings, and brackets.",
+  title: "R&O 2026",
+  description: "Royal & Orange 2026 — schedules, scores, standings, and brackets.",
 };
 
 export default function RootLayout({

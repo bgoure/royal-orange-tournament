@@ -10,6 +10,21 @@
   --color-foreground: var(--foreground);
   --font-sans: var(--font-geist-sans);
   --font-mono: var(--font-geist-mono);
+  --color-royal: #1e3a8a;
+  --color-royal-light: #2563eb;
+  --color-royal-50: #eff6ff;
+  --color-royal-100: #dbeafe;
+  --color-royal-200: #bfdbfe;
+  --color-royal-700: #1d4ed8;
+  --color-royal-800: #1e40af;
+  --color-royal-900: #1e3a8a;
+  --color-accent: #ea580c;
+  --color-accent-light: #f97316;
+  --color-accent-50: #fff7ed;
+  --color-accent-100: #ffedd5;
+  --color-accent-200: #fed7aa;
+  --color-accent-700: #c2410c;
+  --color-accent-800: #9a3412;
 }
 
 @supports (padding: env(safe-area-inset-bottom)) {

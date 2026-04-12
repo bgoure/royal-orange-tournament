@@ -18,7 +18,7 @@ function QuickLinkCard({ href, label, description, icon }: { href: string; label
   return (
     <Link
       href={href}
-      className="group flex flex-col items-center justify-center gap-1.5 rounded-2xl border border-zinc-200 bg-white p-4 text-center shadow-sm transition-all hover:border-emerald-200 hover:shadow-md active:scale-[0.98]"
+      className="group flex flex-col items-center justify-center gap-1.5 rounded-2xl border border-zinc-200 bg-white p-4 text-center shadow-sm transition-all hover:border-royal-200 hover:shadow-md active:scale-[0.98]"
     >
       {icon}
       <span className="text-sm font-semibold text-zinc-900">{label}</span>
@@ -72,16 +72,16 @@ export default async function HomePage({
         <WeatherSection tournamentId={tournament.id} />
         <div className="grid grid-cols-2 gap-3">
           <QuickLinkCard href="/schedule" label="Schedule" description="Game times & fields" icon={
-            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={1.5} className="size-7 text-emerald-600"><rect x="3" y="4" width="18" height="18" rx="2" /><path d="M16 2v4M8 2v4M3 10h18" /></svg>
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={1.5} className="size-7 text-accent"><rect x="3" y="4" width="18" height="18" rx="2" /><path d="M16 2v4M8 2v4M3 10h18" /></svg>
           } />
           <QuickLinkCard href="/standings" label="Standings" description="Pool rankings" icon={
-            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={1.5} className="size-7 text-emerald-600"><path d="M8 21V16M12 21V10M16 21V4" /></svg>
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={1.5} className="size-7 text-royal-light"><path d="M8 21V16M12 21V10M16 21V4" /></svg>
           } />
           <QuickLinkCard href="/brackets" label="Brackets" description="Playoff rounds" icon={
-            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={1.5} className="size-7 text-emerald-600"><path d="M4 4v6h4M4 7h4M20 4v6h-4M20 7h-4M4 20v-6h4M4 17h4M20 20v-6h-4M20 17h-4M8 7h2a2 2 0 012 2v6a2 2 0 01-2 2H8M16 7h-2a2 2 0 00-2 2v6a2 2 0 002 2h2" /></svg>
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={1.5} className="size-7 text-accent"><path d="M4 4v6h4M4 7h4M20 4v6h-4M20 7h-4M4 20v-6h4M4 17h4M20 20v-6h-4M20 17h-4M8 7h2a2 2 0 012 2v6a2 2 0 01-2 2H8M16 7h-2a2 2 0 00-2 2v6a2 2 0 002 2h2" /></svg>
           } />
           <QuickLinkCard href="/locations" label="Locations" description="Venues & maps" icon={
-            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={1.5} className="size-7 text-emerald-600"><path d="M12 2C8.13 2 5 5.13 5 9c0 5.25 7 13 7 13s7-7.75 7-13c0-3.87-3.13-7-7-7z" /><circle cx="12" cy="9" r="2.5" /></svg>
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={1.5} className="size-7 text-royal-light"><path d="M12 2C8.13 2 5 5.13 5 9c0 5.25 7 13 7 13s7-7.75 7-13c0-3.87-3.13-7-7-7z" /><circle cx="12" cy="9" r="2.5" /></svg>
           } />
         </div>
       </div>
