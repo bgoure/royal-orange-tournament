@@ -27,17 +27,29 @@ export default function SettingsPage() {
         <p className="mt-1 text-sm text-zinc-600">Email notifications are not configured in this public build.</p>
       </section>
 
-      <div className="border-t border-zinc-200 pt-6">
-        <Link
-          href="/admin"
-          className="flex min-h-[44px] items-center gap-3 rounded-lg px-4 py-3 text-sm text-zinc-500 transition-colors hover:bg-zinc-50 hover:text-zinc-700 active:opacity-90"
-        >
-          <span className="text-zinc-400">
+      <section
+        className="rounded-2xl border border-dashed border-zinc-200/90 bg-zinc-100/80 p-4 shadow-inner"
+        aria-label="Staff access"
+      >
+        <div className="flex items-start gap-3">
+          <span className="mt-0.5 shrink-0 text-zinc-400" aria-hidden>
             <CogIcon />
           </span>
-          <span>Admin Portal</span>
-        </Link>
-      </div>
+          <div className="min-w-0 flex-1">
+            <p className="text-xs font-medium uppercase tracking-wide text-zinc-400">Staff</p>
+            <p className="mt-1 text-sm text-zinc-500">
+              Directors and scorekeepers: open the admin portal to manage schedules, teams, and results (sign-in
+              required).
+            </p>
+            <Link
+              href="/admin"
+              className="mt-3 inline-flex min-h-[40px] items-center rounded-lg border border-zinc-200/90 bg-white/70 px-3 py-2 text-sm text-zinc-600 shadow-sm transition-colors hover:border-zinc-300 hover:bg-white hover:text-zinc-800 active:opacity-90"
+            >
+              Open admin portal
+            </Link>
+          </div>
+        </div>
+      </section>
     </div>
   );
 }
