@@ -11,6 +11,7 @@ import type {
   Pool,
   Team,
 } from "@prisma/client";
+import { formatBracketGameScheduledAt } from "@/lib/datetime-tournament";
 import { formatFieldWithLocation } from "@/lib/field-display";
 import { EmptyState } from "@/components/ui/EmptyState";
 
@@ -43,15 +44,6 @@ function ordinal(n: number): string {
   if (j === 2 && k !== 12) return `${n}nd`;
   if (j === 3 && k !== 13) return `${n}rd`;
   return `${n}th`;
-}
-
-function fmtTime(d: Date) {
-  return new Intl.DateTimeFormat(undefined, {
-    month: "short",
-    day: "numeric",
-    hour: "numeric",
-    minute: "2-digit",
-  }).format(d);
 }
 
 function matchSortIndex(g: GameRow): number {
@@ -95,11 +87,13 @@ function BracketMatchCard({
   roundIndex,
   matchIndex,
   prevRoundName,
+  timeZone,
 }: {
   game: GameRow;
   roundIndex: number;
   matchIndex: number;
   prevRoundName: string | null;
+  timeZone?: string | null;
 }) {
   const bm = game.bracketMatch;
   const bracketMatchIndex = bm?.matchIndex ?? matchIndex;
@@ -121,10 +115,11 @@ function BracketMatchCard({
     "home",
     prevRoundName,
   );
+  const t = formatBracketGameScheduledAt(game.scheduledAt, timeZone);
   const scheduled =
     game.gameNumber != null && game.gameNumber !== ""
-      ? `Game #${game.gameNumber} · ${fmtTime(game.scheduledAt)}`
-      : fmtTime(game.scheduledAt);
+      ? `Game #${game.gameNumber} · ${t}`
+      : t;
 
   return (
     <article
@@ -163,9 +158,11 @@ function BracketMatchCard({
 function BracketGrid({
   byRound,
   roundsOrdered,
+  timeZone,
 }: {
   byRound: Map<string, GameRow[]>;
   roundsOrdered: BracketRound[];
+  timeZone?: string | null;
 }) {
   return (
     <div className="mt-4 flex gap-6 overflow-x-auto pb-2 md:overflow-visible">
@@ -192,6 +189,7 @@ function BracketGrid({
                     roundIndex={ri}
                     matchIndex={mi}
                     prevRoundName={prevRoundName}
+                    timeZone={timeZone}
                   />
                 ))
               )}
@@ -207,10 +205,12 @@ function MobileMatchRow({
   game,
   roundLabel,
   prevRoundName,
+  timeZone,
 }: {
   game: GameRow;
   roundLabel: string;
   prevRoundName: string | null;
+  timeZone?: string | null;
 }) {
   const bm = game.bracketMatch;
   const mi = bm?.matchIndex ?? 0;
@@ -254,13 +254,15 @@ function MobileMatchRow({
           </span>
         </div>
       ) : (
-        <p className="mt-2 text-xs text-zinc-500">Upcoming · {fmtTime(game.scheduledAt)}</p>
+        <p className="mt-2 text-xs text-zinc-500">
+          Upcoming · {formatBracketGameScheduledAt(game.scheduledAt, timeZone)}
+        </p>
       )}
     </li>
   );
 }
 
-function BracketMobileList({ b }: { b: BracketWith }) {
+function BracketMobileList({ b, timeZone }: { b: BracketWith; timeZone?: string | null }) {
   const sorted = [...b.games].sort((a, c) => {
     const ra = a.bracketRound?.roundIndex ?? 0;
     const rb = c.bracketRound?.roundIndex ?? 0;
@@ -283,6 +285,7 @@ function BracketMobileList({ b }: { b: BracketWith }) {
             game={g}
             roundLabel={r?.name ?? "Round"}
             prevRoundName={prev}
+            timeZone={timeZone}
           />
         );
       })}
@@ -290,7 +293,14 @@ function BracketMobileList({ b }: { b: BracketWith }) {
   );
 }
 
-export function BracketsView({ brackets }: { brackets: BracketWith[] }) {
+export function BracketsView({
+  brackets,
+  tournamentTimezone,
+}: {
+  brackets: BracketWith[];
+  /** IANA zone from `tournament.timezone` — venue wall-clock for game times. */
+  tournamentTimezone?: string | null;
+}) {
   const [mobileView, setMobileView] = useState<"bracket" | "list">("list");
 
   if (brackets.length === 0) {
@@ -351,14 +361,14 @@ export function BracketsView({ brackets }: { brackets: BracketWith[] }) {
             </div>
 
             <div className="mt-4 hidden md:block">
-              <BracketGrid byRound={byRound} roundsOrdered={roundsOrdered} />
+              <BracketGrid byRound={byRound} roundsOrdered={roundsOrdered} timeZone={tournamentTimezone} />
             </div>
             <div className="mt-4 md:hidden">
               {mobileView === "list" ? (
-                <BracketMobileList b={b} />
+                <BracketMobileList b={b} timeZone={tournamentTimezone} />
               ) : (
                 <div className="overflow-x-auto pb-2">
-                  <BracketGrid byRound={byRound} roundsOrdered={roundsOrdered} />
+                  <BracketGrid byRound={byRound} roundsOrdered={roundsOrdered} timeZone={tournamentTimezone} />
                 </div>
               )}
             </div>

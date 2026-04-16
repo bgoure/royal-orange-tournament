@@ -1,4 +1,5 @@
 import type { Division, Field, Game, Pool, Team } from "@prisma/client";
+import { formatGameScheduledAt, formatGameScheduledAtShort } from "@/lib/datetime-tournament";
 import { formatFieldWithLocation } from "@/lib/field-display";
 import { EmptyState } from "@/components/ui/EmptyState";
 
@@ -37,24 +38,17 @@ export function isLiveGameToday(g: GameWithTeams, timezone: string): boolean {
   return dayKeyInTz(g.scheduledAt, timezone) === dayKeyInTz(now, timezone);
 }
 
-function fmtTime(d: Date) {
-  return new Intl.DateTimeFormat(undefined, {
-    weekday: "short",
-    month: "short",
-    day: "numeric",
-    hour: "numeric",
-    minute: "2-digit",
-  }).format(d);
-}
-
 function GameCard({
   g,
   compact,
   liveProminent,
+  displayTimeZone,
 }: {
   g: GameWithTeams;
   compact?: boolean;
   liveProminent?: boolean;
+  /** Tournament IANA zone — same wall-clock for SSR and browser. */
+  displayTimeZone?: string | null;
 }) {
   const st = statusStyles[g.status] ?? statusStyles.SCHEDULED;
   const border = cardBorder[g.status] ?? cardBorder.default;
@@ -71,7 +65,11 @@ function GameCard({
       } ${compact ? "w-[200px] shrink-0 px-3 py-2.5" : "px-4 py-3"}`}
     >
       <div className="flex items-center justify-between gap-2">
-        <p className="text-[11px] text-zinc-500">{compact ? fmtTimeShort(g.scheduledAt) : fmtTime(g.scheduledAt)}</p>
+        <p className="text-[11px] text-zinc-500">
+          {compact
+            ? formatGameScheduledAtShort(g.scheduledAt, displayTimeZone)
+            : formatGameScheduledAt(g.scheduledAt, displayTimeZone)}
+        </p>
         <span
           className={`shrink-0 rounded-full px-2 py-0.5 text-[10px] font-bold uppercase ${st} ${
             g.status === "LIVE" && liveProminent ? "ring-2 ring-red-200" : ""
@@ -110,19 +108,19 @@ function GameCard({
   );
 }
 
-function fmtTimeShort(d: Date) {
-  return new Intl.DateTimeFormat(undefined, {
-    weekday: "short",
-    hour: "numeric",
-    minute: "2-digit",
-  }).format(d);
-}
-
-function HorizontalGameRow({ games, liveProminent }: { games: GameWithTeams[]; liveProminent?: boolean }) {
+function HorizontalGameRow({
+  games,
+  liveProminent,
+  displayTimeZone,
+}: {
+  games: GameWithTeams[];
+  liveProminent?: boolean;
+  displayTimeZone?: string | null;
+}) {
   return (
     <ul className="-mx-4 flex gap-2.5 overflow-x-auto px-4 pb-2 snap-x snap-mandatory">
       {games.map((g) => (
-        <GameCard key={g.id} g={g} compact liveProminent={liveProminent} />
+        <GameCard key={g.id} g={g} compact liveProminent={liveProminent} displayTimeZone={displayTimeZone} />
       ))}
     </ul>
   );
@@ -178,11 +176,11 @@ export function GameList({
           <span className="text-xs text-red-800">Happening now</span>
         </div>
         {horizontal ? (
-          <HorizontalGameRow games={liveToday} liveProminent />
+          <HorizontalGameRow games={liveToday} liveProminent displayTimeZone={timezone} />
         ) : (
           <ul className="flex flex-col gap-2">
             {liveToday.map((g) => (
-              <GameCard key={g.id} g={g} liveProminent />
+              <GameCard key={g.id} g={g} liveProminent displayTimeZone={timezone} />
             ))}
           </ul>
         )}
@@ -193,7 +191,7 @@ export function GameList({
     return (
       <div className="flex flex-col gap-4">
         {liveBlock}
-        {rest.length > 0 ? <HorizontalGameRow games={rest} /> : null}
+        {rest.length > 0 ? <HorizontalGameRow games={rest} displayTimeZone={timezone} /> : null}
       </div>
     );
   }
@@ -204,7 +202,7 @@ export function GameList({
       {rest.length > 0 ? (
         <ul className="flex flex-col gap-2">
           {rest.map((g) => (
-            <GameCard key={g.id} g={g} />
+            <GameCard key={g.id} g={g} displayTimeZone={timezone} />
           ))}
         </ul>
       ) : null}

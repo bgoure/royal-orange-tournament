@@ -64,10 +64,12 @@ export function BracketsViewWithDivisionTabs({
   poolsForTabs,
   brackets,
   initialResolvedDivisionId,
+  tournamentTimezone,
 }: {
   poolsForTabs: PoolForDivisionTabs[];
   brackets: BracketWith[];
   initialResolvedDivisionId: string;
+  tournamentTimezone?: string | null;
 }) {
   const searchParams = useSearchParams();
 
@@ -97,7 +99,7 @@ export function BracketsViewWithDivisionTabs({
       {brackets.length > 0 && visibleBrackets.length === 0 ? (
         <p className="text-sm text-zinc-500">No bracket games for this division.</p>
       ) : (
-        <BracketsView brackets={visibleBrackets} />
+        <BracketsView brackets={visibleBrackets} tournamentTimezone={tournamentTimezone} />
       )}
     </>
   );

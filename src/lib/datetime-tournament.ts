@@ -37,3 +37,43 @@ export function formatJsDateAsDatetimeLocalInZone(date: Date, timeZone: string):
   if (!dt.isValid) return "";
   return dt.toFormat("yyyy-MM-dd'T'HH:mm");
 }
+
+/**
+ * Format a game instant for the public schedule using the tournament venue timezone.
+ * Always pass `timeZone` from `tournament.timezone` so server (often UTC) and browsers agree
+ * on the wall-clock time organizers intended.
+ */
+export function formatGameScheduledAt(d: Date, timeZone?: string | null): string {
+  const opts: Intl.DateTimeFormatOptions = {
+    weekday: "short",
+    month: "short",
+    day: "numeric",
+    hour: "numeric",
+    minute: "2-digit",
+  };
+  if (timeZone?.trim()) opts.timeZone = timeZone.trim();
+  return new Intl.DateTimeFormat(undefined, opts).format(d);
+}
+
+/** Compact variant for horizontal game cards on home. */
+export function formatGameScheduledAtShort(d: Date, timeZone?: string | null): string {
+  const opts: Intl.DateTimeFormatOptions = {
+    weekday: "short",
+    hour: "numeric",
+    minute: "2-digit",
+  };
+  if (timeZone?.trim()) opts.timeZone = timeZone.trim();
+  return new Intl.DateTimeFormat(undefined, opts).format(d);
+}
+
+/** Bracket match cards (month/day, no weekday). */
+export function formatBracketGameScheduledAt(d: Date, timeZone?: string | null): string {
+  const opts: Intl.DateTimeFormatOptions = {
+    month: "short",
+    day: "numeric",
+    hour: "numeric",
+    minute: "2-digit",
+  };
+  if (timeZone?.trim()) opts.timeZone = timeZone.trim();
+  return new Intl.DateTimeFormat(undefined, opts).format(d);
+}

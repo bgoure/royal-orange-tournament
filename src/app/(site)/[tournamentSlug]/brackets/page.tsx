@@ -56,6 +56,7 @@ export default async function BracketsPage({
           poolsForTabs={poolsForTabs}
           brackets={brackets}
           initialResolvedDivisionId={resolvedDivisionId}
+          tournamentTimezone={tournament.timezone}
         />
       </Suspense>
     </div>
