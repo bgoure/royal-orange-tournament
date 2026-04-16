@@ -1,0 +1,14 @@
+---
+description: Commit and push after substantive changes unless user opts out
+alwaysApply: true
+---
+
+# Git — commit and push by default
+
+After completing substantive code or config changes in this repo:
+
+1. **Stage**, **commit** with a clear, accurate message, and **push** to the current branch’s upstream (usually `origin/main`).
+2. Skip push only when there is **nothing to commit**, the user has asked **not** to push, or they are in the middle of a **WIP** they explicitly want local-only.
+3. If the user says **stop pushing** (or similar), honor that until they say to resume.
+
+Do not create empty commits. Resolve or surface merge/push failures instead of leaving the branch unsynced without explanation.
