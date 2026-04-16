@@ -77,16 +77,31 @@ export function divisionTabGameWhere(
   if (!divisionId || divisionId === ALL_DIVISIONS_TAB_ID) return undefined;
   if (divisionId.startsWith("synthetic-age-")) {
     const label = divisionId.slice("synthetic-age-".length);
-    return {
-      pool: {
-        name: {
-          startsWith: label,
-          mode: "insensitive",
-        },
+    const poolNameMatch: Prisma.PoolWhereInput = {
+      name: {
+        startsWith: label,
+        mode: "insensitive",
       },
     };
+    return {
+      OR: [
+        { pool: poolNameMatch },
+        { homeTeam: { pool: poolNameMatch } },
+        { awayTeam: { pool: poolNameMatch } },
+        { bracketMatch: { homeSourcePool: poolNameMatch } },
+        { bracketMatch: { awaySourcePool: poolNameMatch } },
+      ],
+    };
   }
-  return { pool: { divisionId: divisionId } };
+  return {
+    OR: [
+      { pool: { divisionId: divisionId } },
+      { homeTeam: { pool: { divisionId: divisionId } } },
+      { awayTeam: { pool: { divisionId: divisionId } } },
+      { bracketMatch: { homeSourcePool: { divisionId: divisionId } } },
+      { bracketMatch: { awaySourcePool: { divisionId: divisionId } } },
+    ],
+  };
 }
 
 type PoolDiv = { name: string; division: { id: string } } | null;
