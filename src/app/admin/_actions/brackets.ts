@@ -10,6 +10,7 @@ import {
   createSingleEliminationBracket,
   regenerateSingleEliminationBracket,
 } from "@/lib/services/bracket-generation";
+import { parseDatetimeLocalInTimeZone } from "@/lib/datetime-tournament";
 import { getTournamentForRequest } from "@/lib/tournament-context";
 import {
   createBracketSchema,
@@ -88,9 +89,11 @@ export async function createPlayoffBracket(
     return { ok: false, error: parsed.error.flatten().formErrors.join(", ") || "Invalid input" };
   }
 
-  const started = new Date(parsed.data.scheduledAt);
-  if (Number.isNaN(started.getTime())) {
-    return { ok: false, error: "Invalid start time" };
+  let started: Date;
+  try {
+    started = parseDatetimeLocalInTimeZone(parsed.data.scheduledAt, ctx.tournament.timezone);
+  } catch {
+    return { ok: false, error: "Invalid start time for this tournament's timezone" };
   }
 
   const field = await prisma.field.findFirst({
@@ -134,9 +137,11 @@ export async function regeneratePlayoffBracket(
     return { ok: false, error: parsed.error.flatten().formErrors.join(", ") || "Invalid input" };
   }
 
-  const started = new Date(parsed.data.scheduledAt);
-  if (Number.isNaN(started.getTime())) {
-    return { ok: false, error: "Invalid start time" };
+  let started: Date;
+  try {
+    started = parseDatetimeLocalInTimeZone(parsed.data.scheduledAt, ctx.tournament.timezone);
+  } catch {
+    return { ok: false, error: "Invalid start time for this tournament's timezone" };
   }
 
   const bracket = await prisma.bracket.findFirst({

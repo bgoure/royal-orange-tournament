@@ -34,6 +34,7 @@ export default async function AdminBracketsPage() {
       brackets={brackets}
       tournamentName={tournament.name}
       tournamentSlug={tournament.slug}
+      tournamentTimezone={tournament.timezone}
       canConfigure={canConfigure}
     />
   );

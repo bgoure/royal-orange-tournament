@@ -46,6 +46,7 @@ export default async function AdminGamesPage() {
       fields={fieldRows}
       poolsWithTeams={poolsWithTeams}
       tournamentName={tournament.name}
+      tournamentTimezone={tournament.timezone}
       isAdmin={isAdmin}
     />
   );

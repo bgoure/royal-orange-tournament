@@ -19,6 +19,7 @@ import {
   updateGameNumberSchema,
   updateGameScoringSchema,
 } from "@/lib/validations/games-admin";
+import { parseDatetimeLocalInTimeZone } from "@/lib/datetime-tournament";
 import { getTournamentForRequest } from "@/lib/tournament-context";
 import type { Session } from "next-auth";
 import type { Tournament } from "@prisma/client";
@@ -83,9 +84,11 @@ export async function createGame(
     await assertFieldInTournament(parsed.data.fieldId, tournament.id);
     await assertTeamsInPool(parsed.data.homeTeamId, parsed.data.awayTeamId, parsed.data.poolId);
 
-    const scheduledAt = new Date(parsed.data.scheduledAt);
-    if (Number.isNaN(scheduledAt.getTime())) {
-      return { ok: false, error: "Invalid date/time" };
+    let scheduledAt: Date;
+    try {
+      scheduledAt = parseDatetimeLocalInTimeZone(parsed.data.scheduledAt, tournament.timezone);
+    } catch {
+      return { ok: false, error: "Invalid date/time for this tournament's timezone" };
     }
 
     await prisma.game.create({
@@ -198,9 +201,11 @@ export async function updateGameMeta(
     await assertFieldInTournament(d.fieldId, ctx.tournament.id);
     await assertTeamsInPool(d.homeTeamId, d.awayTeamId, d.poolId);
 
-    const scheduledAt = new Date(d.scheduledAt);
-    if (Number.isNaN(scheduledAt.getTime())) {
-      return { ok: false, error: "Invalid date/time" };
+    let scheduledAt: Date;
+    try {
+      scheduledAt = parseDatetimeLocalInTimeZone(d.scheduledAt, ctx.tournament.timezone);
+    } catch {
+      return { ok: false, error: "Invalid date/time for this tournament's timezone" };
     }
 
     await prisma.game.update({

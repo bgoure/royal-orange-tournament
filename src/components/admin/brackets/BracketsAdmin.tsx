@@ -10,6 +10,7 @@ import {
   type BracketActionResult,
 } from "@/app/admin/_actions/brackets";
 import { ActionMessage } from "@/components/admin/structure/ActionMessage";
+import { formatJsDateAsDatetimeLocalInZone } from "@/lib/datetime-tournament";
 import { tournamentPath } from "@/lib/tournament-public-path";
 
 type PoolRow = Pool & { division: { name: string } };
@@ -29,13 +30,6 @@ const btnPrimary =
 const btnSecondary =
   "rounded-md border border-zinc-300 bg-white px-3 py-2 text-sm font-medium text-zinc-800 hover:bg-zinc-50 disabled:opacity-50";
 
-function toDatetimeLocalValue(d: Date) {
-  const x = typeof d === "string" ? new Date(d) : d;
-  if (Number.isNaN(x.getTime())) return "";
-  const p = (n: number) => String(n).padStart(2, "0");
-  return `${x.getFullYear()}-${p(x.getMonth() + 1)}-${p(x.getDate())}T${p(x.getHours())}:${p(x.getMinutes())}`;
-}
-
 type FieldSelectOption = { id: string; label: string };
 
 type Props = {
@@ -44,10 +38,20 @@ type Props = {
   brackets: BracketRow[];
   tournamentName: string;
   tournamentSlug: string;
+  /** IANA zone for first-round start (`datetime-local` matches tournament settings). */
+  tournamentTimezone: string;
   canConfigure: boolean;
 };
 
-export function BracketsAdmin({ pools, fields, brackets, tournamentName, tournamentSlug, canConfigure }: Props) {
+export function BracketsAdmin({
+  pools,
+  fields,
+  brackets,
+  tournamentName,
+  tournamentSlug,
+  tournamentTimezone,
+  canConfigure,
+}: Props) {
   const [advState, advAction, advPending] = useActionState(
     updatePoolTeamsAdvancing,
     undefined as BracketActionResult | undefined,
@@ -61,7 +65,7 @@ export function BracketsAdmin({ pools, fields, brackets, tournamentName, tournam
     undefined as BracketActionResult | undefined,
   );
 
-  const defaultStart = toDatetimeLocalValue(new Date());
+  const defaultStart = formatJsDateAsDatetimeLocalInZone(new Date(), tournamentTimezone);
 
   return (
     <div className="flex flex-col gap-10">
@@ -178,7 +182,7 @@ export function BracketsAdmin({ pools, fields, brackets, tournamentName, tournam
                 </select>
               </div>
               <div>
-                <label className={labelClass}>First-round start</label>
+                <label className={labelClass}>First-round start ({tournamentTimezone})</label>
                 <input
                   name="scheduledAt"
                   type="datetime-local"
@@ -236,7 +240,7 @@ export function BracketsAdmin({ pools, fields, brackets, tournamentName, tournam
                 </select>
                 </div>
                 <div>
-                  <label className={labelClass}>First-round start</label>
+                  <label className={labelClass}>First-round start ({tournamentTimezone})</label>
                   <input
                     name="scheduledAt"
                     type="datetime-local"

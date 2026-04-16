@@ -15,6 +15,7 @@ import {
 } from "@/app/admin/_actions/games";
 import { ActionMessage } from "@/components/admin/structure/ActionMessage";
 import { ConfirmForm } from "@/components/admin/structure/ConfirmForm";
+import { formatJsDateAsDatetimeLocalInZone } from "@/lib/datetime-tournament";
 
 export type AdminGameRow = Game & {
   homeTeam: Team | null;
@@ -39,16 +40,10 @@ const btnSecondary =
 const btnDanger =
   "rounded-md border border-red-200 bg-red-50 px-2 py-1 text-xs font-medium text-red-800 hover:bg-red-100 disabled:opacity-50";
 
-function toDatetimeLocalValue(iso: string) {
-  const d = new Date(iso);
-  if (Number.isNaN(d.getTime())) return "";
-  const p = (n: number) => String(n).padStart(2, "0");
-  return `${d.getFullYear()}-${p(d.getMonth() + 1)}-${p(d.getDate())}T${p(d.getHours())}:${p(d.getMinutes())}`;
-}
-
-function fmtWhen(iso: string) {
+function fmtWhen(iso: string, timeZone: string) {
   try {
     return new Intl.DateTimeFormat(undefined, {
+      timeZone,
       weekday: "short",
       month: "short",
       day: "numeric",
@@ -67,10 +62,19 @@ type Props = {
   fields: AdminFieldOption[];
   poolsWithTeams: PoolWithTeams[];
   tournamentName: string;
+  /** IANA zone for interpreting `datetime-local` values (matches tournament settings). */
+  tournamentTimezone: string;
   isAdmin: boolean;
 };
 
-export function GamesAdmin({ games, fields, poolsWithTeams, tournamentName, isAdmin }: Props) {
+export function GamesAdmin({
+  games,
+  fields,
+  poolsWithTeams,
+  tournamentName,
+  tournamentTimezone,
+  isAdmin,
+}: Props) {
   const [createState, createAction, createPending] = useActionState(createGame, undefined as GameActionResult | undefined);
   const [poolId, setPoolId] = useState(poolsWithTeams[0]?.poolId ?? "");
 
@@ -85,8 +89,11 @@ export function GamesAdmin({ games, fields, poolsWithTeams, tournamentName, isAd
         <div>
           <p className="text-xs font-medium uppercase tracking-wide text-zinc-500">Tournament</p>
           <h1 className="text-2xl font-semibold tracking-tight text-zinc-900">Games</h1>
-          <p className="mt-1 text-sm text-zinc-600">{tournamentName}</p>
-        </div>
+        <p className="mt-1 text-sm text-zinc-600">{tournamentName}</p>
+        <p className="mt-1 text-xs text-zinc-500">
+          Game start times use the tournament timezone: <span className="font-mono">{tournamentTimezone}</span>
+        </p>
+      </div>
         <div className="flex flex-wrap gap-2">
           <Link href="/admin/divisions" className={`${btnSecondary} px-3 py-2 text-sm`}>
             Divisions &amp; pools
@@ -160,7 +167,7 @@ export function GamesAdmin({ games, fields, poolsWithTeams, tournamentName, isAd
               </div>
               <div>
                 <label htmlFor="cg-when" className={labelClass}>
-                  Start
+                  Start ({tournamentTimezone})
                 </label>
                 <input id="cg-when" name="scheduledAt" type="datetime-local" required className={`${formClass} mt-1 w-full`} />
               </div>
@@ -233,6 +240,7 @@ export function GamesAdmin({ games, fields, poolsWithTeams, tournamentName, isAd
               game={game}
               fields={fields}
               poolsWithTeams={poolsWithTeams}
+              tournamentTimezone={tournamentTimezone}
               isAdmin={isAdmin}
             />
           ))}
@@ -260,11 +268,13 @@ function GameCard({
   game,
   fields,
   poolsWithTeams,
+  tournamentTimezone,
   isAdmin,
 }: {
   game: AdminGameRow;
   fields: AdminFieldOption[];
   poolsWithTeams: PoolWithTeams[];
+  tournamentTimezone: string;
   isAdmin: boolean;
 }) {
   const [scoreState, scoreAction, scorePending] = useActionState(
@@ -295,7 +305,7 @@ function GameCard({
     <article className="overflow-hidden rounded-xl border border-zinc-200 bg-white shadow-sm">
       <div className="flex flex-wrap items-start justify-between gap-3 border-b border-zinc-100 bg-zinc-50 px-4 py-3">
         <div>
-          <p className="text-xs font-medium text-zinc-500">{fmtWhen(iso)}</p>
+          <p className="text-xs font-medium text-zinc-500">{fmtWhen(iso, tournamentTimezone)}</p>
           <p className="text-base font-semibold text-zinc-900">
             {awayLabel} <span className="font-normal text-zinc-400">vs</span> {homeLabel}
           </p>
@@ -472,12 +482,12 @@ function GameCard({
                 </select>
               </div>
               <div>
-                <label className={labelClass}>Start</label>
+                <label className={labelClass}>Start ({tournamentTimezone})</label>
                 <input
                   name="scheduledAt"
                   type="datetime-local"
                   required
-                  defaultValue={toDatetimeLocalValue(iso)}
+                  defaultValue={formatJsDateAsDatetimeLocalInZone(new Date(iso), tournamentTimezone)}
                   className={`${formClass} mt-1 w-full`}
                 />
               </div>
