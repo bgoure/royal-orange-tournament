@@ -1,6 +1,6 @@
 "use client";
 
-import { useId } from "react";
+import { useId, useRef, type KeyboardEvent } from "react";
 
 export type DivisionOption = { id: string; name: string };
 
@@ -13,9 +13,9 @@ type DivisionSwitcherProps = {
 };
 
 const pillActive =
-  "border-2 border-transparent bg-accent text-white shadow-sm";
+  "border-2 border-transparent bg-accent font-semibold text-white shadow-sm";
 const pillInactive =
-  "border-2 border-gray-300 bg-white text-gray-700 hover:border-gray-400 hover:bg-gray-50";
+  "border-2 border-gray-300 bg-white font-medium text-gray-700 hover:border-gray-400 hover:bg-gray-50";
 const pillTransition = "transition-colors duration-200 ease-out";
 
 /** 44px min touch target on small screens; slightly shorter on md+ */
@@ -63,10 +63,26 @@ export function DivisionSwitcher({
   className,
 }: DivisionSwitcherProps) {
   const selectId = useId();
+  const twoPillRefs = useRef<(HTMLButtonElement | null)[]>([]);
 
   if (divisions.length < 2) return null;
 
   if (divisions.length === 2) {
+    const onPillKeyDown = (e: KeyboardEvent<HTMLButtonElement>, index: number) => {
+      if (disabled) return;
+      if (e.key === "ArrowRight" || e.key === "ArrowDown") {
+        e.preventDefault();
+        const next = (index + 1) % divisions.length;
+        onDivisionChange(divisions[next]!.id);
+        queueMicrotask(() => twoPillRefs.current[next]?.focus());
+      } else if (e.key === "ArrowLeft" || e.key === "ArrowUp") {
+        e.preventDefault();
+        const prev = (index - 1 + divisions.length) % divisions.length;
+        onDivisionChange(divisions[prev]!.id);
+        queueMicrotask(() => twoPillRefs.current[prev]?.focus());
+      }
+    };
+
     return (
       <div
         className={[
@@ -76,23 +92,30 @@ export function DivisionSwitcher({
         ]
           .filter(Boolean)
           .join(" ")}
-        role="group"
+        role="radiogroup"
         aria-label="Division"
       >
-        {divisions.map((d) => {
+        {divisions.map((d, index) => {
           const active = d.id === selectedDivision;
           return (
             <button
               key={d.id}
+              ref={(el) => {
+                twoPillRefs.current[index] = el;
+              }}
               type="button"
+              role="radio"
               disabled={disabled}
-              aria-pressed={active}
+              tabIndex={active ? 0 : -1}
+              aria-checked={active}
+              aria-current={active ? "true" : undefined}
               onClick={() => onDivisionChange(d.id)}
+              onKeyDown={(e) => onPillKeyDown(e, index)}
               className={[
                 tapMin,
                 pillTransition,
                 "disabled:pointer-events-none disabled:opacity-50",
-                "min-w-0 flex-1 rounded-full px-3 py-2 text-sm font-medium",
+                "min-w-0 flex-1 rounded-full px-3 py-2 text-sm",
                 "sm:text-base md:w-auto md:flex-none md:min-w-[7.5rem] md:px-4",
                 "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent focus-visible:ring-offset-2",
                 active ? pillActive : pillInactive,
@@ -110,12 +133,10 @@ export function DivisionSwitcher({
     <div
       className={["relative w-full md:w-auto md:max-w-[20rem]", className].filter(Boolean).join(" ")}
     >
-      <label htmlFor={selectId} className="sr-only">
-        Division
-      </label>
       <select
         id={selectId}
         className={selectClass}
+        aria-label="Division"
         disabled={disabled}
         value={selectedDivision}
         onChange={(e) => onDivisionChange(e.target.value)}
