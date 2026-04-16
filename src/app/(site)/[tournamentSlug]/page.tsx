@@ -63,16 +63,25 @@ export default async function TournamentHomePage({
 
   return (
     <div className="flex flex-col gap-4">
-      <div>
-        <h1 className="text-2xl font-semibold tracking-tight text-zinc-900">{tournament.name}</h1>
-        <p className="text-sm text-zinc-600">
-          {tournament.shortLabel ? `${tournament.shortLabel} · ` : ""}
-          {tournament.locationLabel}
-        </p>
-      </div>
-
       <div className="grid grid-cols-1 gap-3 md:grid-cols-2">
-        <WeatherSection tournamentId={tournament.id} />
+        <div className="flex flex-col gap-3">
+          <WeatherSection tournamentId={tournament.id} />
+          <section>
+            <h2 className="text-sm font-semibold uppercase tracking-wide text-zinc-500">Upcoming games</h2>
+            <p className="mt-1 text-xs text-zinc-500">Next games on the schedule. Times shown in your local timezone.</p>
+            <div className="mt-3">
+              <Suspense fallback={<div className="h-32 animate-pulse rounded-xl bg-zinc-100" aria-hidden />}>
+                <UpcomingGamesWithDivisionTabs
+                  tournamentSlug={tournamentSlug}
+                  poolsForTabs={poolsForTabs}
+                  games={upcomingGames}
+                  initialResolvedDivisionId={resolvedDivisionId}
+                  timezone={tournament.timezone}
+                />
+              </Suspense>
+            </div>
+          </section>
+        </div>
         <div className="grid grid-cols-2 gap-3">
           <QuickLinkCard href={tp("schedule")} label="Schedule & Results" description="Times, fields & scores" icon={
             <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={1.5} className="size-7 text-accent"><rect x="3" y="4" width="18" height="18" rx="2" /><path d="M16 2v4M8 2v4M3 10h18" /></svg>
@@ -93,22 +102,6 @@ export default async function TournamentHomePage({
         <h2 className="text-sm font-semibold uppercase tracking-wide text-zinc-500">Announcements</h2>
         <div className="mt-3">
           <AnnouncementList items={announcements} />
-        </div>
-      </section>
-
-      <section>
-        <h2 className="text-sm font-semibold uppercase tracking-wide text-zinc-500">Upcoming games</h2>
-        <p className="mt-1 text-xs text-zinc-500">Next games on the schedule. Times shown in your local timezone.</p>
-        <div className="mt-3">
-          <Suspense fallback={<div className="h-32 animate-pulse rounded-xl bg-zinc-100" aria-hidden />}>
-            <UpcomingGamesWithDivisionTabs
-              tournamentSlug={tournamentSlug}
-              poolsForTabs={poolsForTabs}
-              games={upcomingGames}
-              initialResolvedDivisionId={resolvedDivisionId}
-              timezone={tournament.timezone}
-            />
-          </Suspense>
         </div>
       </section>
     </div>
