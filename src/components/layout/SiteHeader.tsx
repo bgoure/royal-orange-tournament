@@ -1,4 +1,5 @@
 import Link from "next/link";
+import { Suspense } from "react";
 import { SiteHeaderDivisionTabs } from "@/components/layout/SiteHeaderDivisionTabs";
 import type { DivisionTabDescriptor } from "@/lib/division-tabs";
 
@@ -25,10 +26,20 @@ export async function SiteHeader({
           <Link href="/" className="shrink-0 text-lg font-bold tracking-tight text-white">
             R&O <span className="text-accent-light">2026</span>
           </Link>
-          <SiteHeaderDivisionTabs
-            divisionDescriptors={divisionTabDescriptors}
-            cookieDivision={cookieDivision}
-          />
+          <Suspense
+            fallback={
+              <div className="flex min-h-11 flex-wrap gap-2" aria-hidden>
+                <span className="h-11 w-12 animate-pulse rounded-full bg-white/15" />
+                <span className="h-11 w-12 animate-pulse rounded-full bg-white/15" />
+                <span className="h-11 w-12 animate-pulse rounded-full bg-white/15" />
+              </div>
+            }
+          >
+            <SiteHeaderDivisionTabs
+              divisionDescriptors={divisionTabDescriptors}
+              cookieDivision={cookieDivision}
+            />
+          </Suspense>
         </div>
         <nav className="hidden gap-1 md:flex md:shrink-0">
           {nav.map((item) => (
