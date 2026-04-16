@@ -1,6 +1,7 @@
 "use client";
 
 import { useId, useRef, type KeyboardEvent } from "react";
+import { ALL_DIVISIONS_TAB_ID } from "@/lib/division-tabs";
 
 export type DivisionOption = { id: string; name: string };
 
@@ -63,23 +64,27 @@ export function DivisionSwitcher({
   className,
 }: DivisionSwitcherProps) {
   const selectId = useId();
-  const twoPillRefs = useRef<(HTMLButtonElement | null)[]>([]);
+  const pillRefs = useRef<(HTMLButtonElement | null)[]>([]);
 
   if (divisions.length < 2) return null;
 
-  if (divisions.length === 2) {
+  /** Tournament divisions only (excludes synthetic "All"); drives pill vs select UI */
+  const realDivisionCount = divisions.filter((d) => d.id !== ALL_DIVISIONS_TAB_ID).length;
+  const usePillSwitcher = realDivisionCount === 2;
+
+  if (usePillSwitcher) {
     const onPillKeyDown = (e: KeyboardEvent<HTMLButtonElement>, index: number) => {
       if (disabled) return;
       if (e.key === "ArrowRight" || e.key === "ArrowDown") {
         e.preventDefault();
         const next = (index + 1) % divisions.length;
         onDivisionChange(divisions[next]!.id);
-        queueMicrotask(() => twoPillRefs.current[next]?.focus());
+        queueMicrotask(() => pillRefs.current[next]?.focus());
       } else if (e.key === "ArrowLeft" || e.key === "ArrowUp") {
         e.preventDefault();
         const prev = (index - 1 + divisions.length) % divisions.length;
         onDivisionChange(divisions[prev]!.id);
-        queueMicrotask(() => twoPillRefs.current[prev]?.focus());
+        queueMicrotask(() => pillRefs.current[prev]?.focus());
       }
     };
 
@@ -101,7 +106,7 @@ export function DivisionSwitcher({
             <button
               key={d.id}
               ref={(el) => {
-                twoPillRefs.current[index] = el;
+                pillRefs.current[index] = el;
               }}
               type="button"
               role="radio"
