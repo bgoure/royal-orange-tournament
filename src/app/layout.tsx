@@ -1,6 +1,5 @@
 import type { Metadata, Viewport } from "next";
 import { Geist, Geist_Mono } from "next/font/google";
-import { getTournamentForRequest } from "@/lib/tournament-context";
 import "./globals.css";
 
 const geistSans = Geist({
@@ -13,20 +12,18 @@ const geistMono = Geist_Mono({
   subsets: ["latin"],
 });
 
-export async function generateViewport(): Promise<Viewport> {
-  const t = await getTournamentForRequest();
-  return {
-    width: "device-width",
-    initialScale: 1,
-    maximumScale: 1,
-    userScalable: false,
-    themeColor: t?.pwaThemeColor?.trim() || "#1a1a2e",
-  };
-}
+export const viewport: Viewport = {
+  width: "device-width",
+  initialScale: 1,
+  maximumScale: 1,
+  userScalable: false,
+};
 
 export const metadata: Metadata = {
   title: "R&O 2026",
   description: "Royal & Orange 2026 — schedules, scores, standings, and brackets.",
+  manifest: "/manifest.json",
+  themeColor: "#1a1a2e",
   appleWebApp: {
     capable: true,
     statusBarStyle: "black-translucent",
