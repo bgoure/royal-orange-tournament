@@ -22,9 +22,17 @@ export async function getSelectedTournamentSlug(): Promise<string | null> {
   return c.get(TOURNAMENT_SLUG_COOKIE)?.value ?? null;
 }
 
+/** Public URL segment may differ in case from stored `slug`; Postgres compare is case-sensitive by default. */
+function publishedSlugWhere(slug: string) {
+  return {
+    slug: { equals: slug, mode: "insensitive" as const },
+    isPublished: true as const,
+  };
+}
+
 export async function getPublishedTournamentBySlug(slug: string) {
   return prisma.tournament.findFirst({
-    where: { slug, isPublished: true },
+    where: publishedSlugWhere(slug),
   });
 }
 
@@ -48,7 +56,7 @@ export async function getTournamentForRequest() {
   const slug = await getSelectedTournamentSlug();
   if (slug) {
     const t = await prisma.tournament.findFirst({
-      where: { slug, isPublished: true },
+      where: publishedSlugWhere(slug),
     });
     if (t) return t;
   }

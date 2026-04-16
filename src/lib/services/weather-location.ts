@@ -103,7 +103,10 @@ export async function resolveTournamentHeadquartersCoordinatesBySlug(
   slug: string,
 ): Promise<HeadquartersCoordsResult | null> {
   const t = await prisma.tournament.findFirst({
-    where: { slug, isPublished: true },
+    where: {
+      slug: { equals: slug, mode: "insensitive" },
+      isPublished: true,
+    },
     select: { id: true },
   });
   if (!t) return null;

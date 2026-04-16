@@ -32,13 +32,16 @@ export async function setSelectedDivisionTabId(tabId: string, tournamentSlug: st
 
 export async function setSelectedTournamentSlug(slug: string) {
   const exists = await prisma.tournament.findFirst({
-    where: { slug, isPublished: true },
+    where: {
+      slug: { equals: slug, mode: "insensitive" },
+      isPublished: true,
+    },
     select: { slug: true },
   });
   if (!exists) return { ok: false as const };
 
   const c = await cookies();
-  c.set(TOURNAMENT_SLUG_COOKIE, slug, cookieOpts);
+  c.set(TOURNAMENT_SLUG_COOKIE, exists.slug, cookieOpts);
   c.delete(DIVISION_TAB_COOKIE);
 
   revalidatePath("/", "layout");
