@@ -3,7 +3,7 @@
 import { useMemo } from "react";
 import { useSearchParams } from "next/navigation";
 import type { Division, Pool, PoolStanding, Team } from "@prisma/client";
-import { divisionValidIdsWithAll } from "@/lib/division-tab-cookie";
+import { divisionValidIdsWithAll } from "@/lib/division-tab-utils";
 import {
   ALL_DIVISIONS_TAB_ID,
   buildDivisionTabDescriptors,

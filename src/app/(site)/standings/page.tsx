@@ -1,11 +1,11 @@
 import { Suspense } from "react";
 import { StandingsViewWithDivisionTabs } from "@/components/standings/StandingsViewWithDivisionTabs";
 import { buildDivisionTabDescriptors } from "@/lib/division-tabs";
+import { getDivisionTabCookie } from "@/lib/division-tab-cookie";
 import {
   divisionValidIdsWithAll,
-  getDivisionTabCookie,
   resolveDivisionTabForFilters,
-} from "@/lib/division-tab-cookie";
+} from "@/lib/division-tab-utils";
 import { listPoolsWithStandings } from "@/lib/services/pools";
 import { getTournamentForRequest } from "@/lib/tournament-context";
 

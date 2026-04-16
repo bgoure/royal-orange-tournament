@@ -1,29 +1,9 @@
 import { cookies } from "next/headers";
-import { ALL_DIVISIONS_TAB_ID } from "@/lib/division-tabs";
+import { DIVISION_TAB_COOKIE } from "@/lib/division-tab-utils";
 
-export const DIVISION_TAB_COOKIE = "tournament_division_tab";
-
+/** Server-only: read division tab cookie. Do not import this file from client components. */
 export async function getDivisionTabCookie(): Promise<string | null> {
   const v = (await cookies()).get(DIVISION_TAB_COOKIE)?.value;
   if (!v || v.trim() === "") return null;
   return v.trim();
-}
-
-/** Home/schedule: All + division ids when multiple tabs exist. */
-export function divisionValidIdsWithAll(descriptors: { id: string }[]): Set<string> {
-  if (descriptors.length <= 1) return new Set();
-  return new Set([ALL_DIVISIONS_TAB_ID, ...descriptors.map((d) => d.id)]);
-}
-
-/** URL wins if valid; else cookie if valid; else all. */
-export function resolveDivisionTabForFilters(
-  urlDivision: string | undefined,
-  cookieValue: string | null,
-  valid: Set<string>,
-): string {
-  if (valid.size === 0) return ALL_DIVISIONS_TAB_ID;
-  const u = urlDivision?.trim() ?? "";
-  if (u && valid.has(u)) return u;
-  if (cookieValue && valid.has(cookieValue)) return cookieValue;
-  return ALL_DIVISIONS_TAB_ID;
 }

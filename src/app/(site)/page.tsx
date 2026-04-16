@@ -4,11 +4,11 @@ import { AnnouncementList } from "@/components/announcements/AnnouncementList";
 import { UpcomingGamesWithDivisionTabs } from "@/components/schedule/UpcomingGamesWithDivisionTabs";
 import { WeatherSection } from "@/components/weather/WeatherSection";
 import { buildDivisionTabDescriptors } from "@/lib/division-tabs";
+import { getDivisionTabCookie } from "@/lib/division-tab-cookie";
 import {
   divisionValidIdsWithAll,
-  getDivisionTabCookie,
   resolveDivisionTabForFilters,
-} from "@/lib/division-tab-cookie";
+} from "@/lib/division-tab-utils";
 import { listAnnouncements } from "@/lib/services/announcements";
 import { listUpcomingGamesForHome } from "@/lib/services/games";
 import { listPoolsForDivisionTabs } from "@/lib/services/pools";

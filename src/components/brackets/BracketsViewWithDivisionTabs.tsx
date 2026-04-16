@@ -13,7 +13,7 @@ import type {
   Team,
 } from "@prisma/client";
 import { BracketsView } from "@/components/brackets/BracketsView";
-import { divisionValidIdsWithAll } from "@/lib/division-tab-cookie";
+import { divisionValidIdsWithAll } from "@/lib/division-tab-utils";
 import {
   ALL_DIVISIONS_TAB_ID,
   bracketGameMatchesDivisionTab,

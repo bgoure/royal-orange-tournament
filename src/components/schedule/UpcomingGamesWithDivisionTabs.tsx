@@ -3,7 +3,7 @@
 import Link from "next/link";
 import { useMemo } from "react";
 import { useSearchParams } from "next/navigation";
-import { divisionValidIdsWithAll } from "@/lib/division-tab-cookie";
+import { divisionValidIdsWithAll } from "@/lib/division-tab-utils";
 import {
   ALL_DIVISIONS_TAB_ID,
   buildDivisionTabDescriptors,

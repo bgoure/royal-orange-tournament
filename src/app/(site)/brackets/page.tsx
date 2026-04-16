@@ -1,11 +1,11 @@
 import { Suspense } from "react";
 import { BracketsViewWithDivisionTabs } from "@/components/brackets/BracketsViewWithDivisionTabs";
 import { buildDivisionTabDescriptors } from "@/lib/division-tabs";
+import { getDivisionTabCookie } from "@/lib/division-tab-cookie";
 import {
   divisionValidIdsWithAll,
-  getDivisionTabCookie,
   resolveDivisionTabForFilters,
-} from "@/lib/division-tab-cookie";
+} from "@/lib/division-tab-utils";
 import { listBracketsForTournament } from "@/lib/services/brackets";
 import { listPoolsForDivisionTabs } from "@/lib/services/pools";
 import { getTournamentForRequest } from "@/lib/tournament-context";

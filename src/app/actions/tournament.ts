@@ -4,7 +4,7 @@ import { cookies } from "next/headers";
 import { revalidatePath } from "next/cache";
 import { prisma } from "@/lib/db";
 import { ALL_DIVISIONS_TAB_ID } from "@/lib/division-tabs";
-import { DIVISION_TAB_COOKIE } from "@/lib/division-tab-cookie";
+import { DIVISION_TAB_COOKIE } from "@/lib/division-tab-utils";
 import { TOURNAMENT_SLUG_COOKIE } from "@/lib/tournament-context";
 
 const cookieOpts = {

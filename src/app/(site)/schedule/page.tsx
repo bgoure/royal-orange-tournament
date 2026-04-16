@@ -4,11 +4,11 @@ import { SchedulePullToRefresh } from "@/components/schedule/SchedulePullToRefre
 import { ScheduleFilters } from "@/components/schedule/ScheduleFilters";
 import { formatFieldWithLocation } from "@/lib/field-display";
 import { buildDivisionTabDescriptors } from "@/lib/division-tabs";
+import { getDivisionTabCookie } from "@/lib/division-tab-cookie";
 import {
   divisionValidIdsWithAll,
-  getDivisionTabCookie,
   resolveDivisionTabForFilters,
-} from "@/lib/division-tab-cookie";
+} from "@/lib/division-tab-utils";
 import { listFieldsForTournament, listPoolsForDivisionTabs, listTeamsForTournament } from "@/lib/services/pools";
 import { listGamesForTournament } from "@/lib/services/games";
 import { getTournamentForRequest } from "@/lib/tournament-context";

@@ -11,7 +11,7 @@ import {
 import {
   divisionValidIdsWithAll,
   resolveDivisionTabForFilters,
-} from "@/lib/division-tab-cookie";
+} from "@/lib/division-tab-utils";
 
 const DIVISION_TAB_PATHS = new Set(["/", "/schedule", "/standings", "/brackets"]);
 
