@@ -1,9 +1,10 @@
 import { Suspense } from "react";
 import { BracketsViewWithDivisionTabs } from "@/components/brackets/BracketsViewWithDivisionTabs";
+import { getDivisionTabCookie } from "@/lib/division-tab-cookie";
 import { buildDivisionTabDescriptors } from "@/lib/division-tabs";
 import {
   defaultDivisionTabId,
-  divisionValidIdsWithAll,
+  divisionValidIds,
   resolveDivisionTabForFilters,
 } from "@/lib/division-tab-utils";
 import { listBracketsForTournament } from "@/lib/services/brackets";
@@ -31,9 +32,11 @@ export default async function BracketsPage({
   ]);
 
   const divisionDescriptors = buildDivisionTabDescriptors(poolsForTabs);
-  const validDivisionIds = divisionValidIdsWithAll(divisionDescriptors);
+  const cookieDivision = await getDivisionTabCookie();
+  const validDivisionIds = divisionValidIds(divisionDescriptors);
   const resolvedDivisionId = resolveDivisionTabForFilters(
     sp.division,
+    cookieDivision,
     validDivisionIds,
     defaultDivisionTabId(divisionDescriptors),
   );

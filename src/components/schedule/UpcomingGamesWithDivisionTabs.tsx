@@ -3,9 +3,11 @@
 import Link from "next/link";
 import { useMemo } from "react";
 import { useSearchParams } from "next/navigation";
-import { divisionValidIdsWithAll } from "@/lib/division-tab-utils";
 import {
-  ALL_DIVISIONS_TAB_ID,
+  defaultDivisionTabId,
+  divisionValidIds,
+} from "@/lib/division-tab-utils";
+import {
   buildDivisionTabDescriptors,
   gameMatchesDivisionTab,
   type PoolForDivisionTabs,
@@ -30,30 +32,32 @@ export function UpcomingGamesWithDivisionTabs({
 
   const baseTabs = useMemo(() => buildDivisionTabDescriptors(poolsForTabs), [poolsForTabs]);
 
-  const validIds = useMemo(() => divisionValidIdsWithAll(baseTabs), [baseTabs]);
+  const defaultTab = useMemo(() => defaultDivisionTabId(baseTabs), [baseTabs]);
+
+  const validIds = useMemo(() => divisionValidIds(baseTabs), [baseTabs]);
 
   const effectiveDivisionId = useMemo(() => {
-    if (baseTabs.length <= 1) return ALL_DIVISIONS_TAB_ID;
+    if (baseTabs.length <= 1) return defaultTab;
     const param = searchParams.get("division") ?? undefined;
     if (param && validIds.has(param)) return param;
     if (initialResolvedDivisionId && validIds.has(initialResolvedDivisionId)) {
       return initialResolvedDivisionId;
     }
-    return ALL_DIVISIONS_TAB_ID;
-  }, [baseTabs.length, searchParams, validIds, initialResolvedDivisionId]);
+    return defaultTab;
+  }, [baseTabs.length, searchParams, validIds, initialResolvedDivisionId, defaultTab]);
 
   const visible =
     baseTabs.length <= 1 ? games : games.filter((g) => gameMatchesDivisionTab(g, effectiveDivisionId));
 
   const scheduleHref = useMemo(() => {
     const p = new URLSearchParams();
-    if (effectiveDivisionId && effectiveDivisionId !== ALL_DIVISIONS_TAB_ID) {
+    if (baseTabs.length > 1 && effectiveDivisionId) {
       p.set("division", effectiveDivisionId);
     }
     const qs = p.toString();
     const base = tournamentPath(tournamentSlug, "schedule");
     return qs ? `${base}?${qs}` : base;
-  }, [effectiveDivisionId, tournamentSlug]);
+  }, [effectiveDivisionId, baseTabs.length, tournamentSlug]);
 
   return (
     <div className="flex flex-col gap-3">

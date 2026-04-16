@@ -4,13 +4,10 @@ import { useEffect, useMemo, useTransition } from "react";
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import { setSelectedDivisionTabId } from "@/app/actions/tournament";
 import { DivisionSwitcher } from "@/components/layout/DivisionSwitcher";
-import {
-  ALL_DIVISIONS_TAB_ID,
-  type DivisionTabDescriptor,
-} from "@/lib/division-tabs";
+import type { DivisionTabDescriptor } from "@/lib/division-tabs";
 import {
   defaultDivisionTabId,
-  divisionValidIdsWithAll,
+  divisionValidIds,
   resolveDivisionTabForFilters,
 } from "@/lib/division-tab-utils";
 import { isDivisionTabBasePath } from "@/lib/tournament-public-path";
@@ -18,9 +15,11 @@ import { isDivisionTabBasePath } from "@/lib/tournament-public-path";
 export function SiteHeaderDivisionTabs({
   tournamentSlug,
   divisionDescriptors,
+  cookieDivision,
 }: {
   tournamentSlug: string;
   divisionDescriptors: DivisionTabDescriptor[];
+  cookieDivision: string | null;
 }) {
   const router = useRouter();
   const pathname = usePathname();
@@ -29,11 +28,11 @@ export function SiteHeaderDivisionTabs({
 
   const tabs = useMemo(() => {
     if (divisionDescriptors.length <= 1) return [];
-    return [{ id: ALL_DIVISIONS_TAB_ID, name: "All" }, ...divisionDescriptors];
+    return divisionDescriptors;
   }, [divisionDescriptors]);
 
   const validIds = useMemo(
-    () => divisionValidIdsWithAll(divisionDescriptors),
+    () => divisionValidIds(divisionDescriptors),
     [divisionDescriptors],
   );
 
@@ -43,13 +42,14 @@ export function SiteHeaderDivisionTabs({
   );
 
   const effectiveId = useMemo(() => {
-    if (tabs.length === 0) return ALL_DIVISIONS_TAB_ID;
+    if (tabs.length === 0) return defaultTabId;
     return resolveDivisionTabForFilters(
       searchParams.get("division") ?? undefined,
+      cookieDivision,
       validIds,
       defaultTabId,
     );
-  }, [tabs.length, searchParams, validIds, defaultTabId]);
+  }, [tabs.length, searchParams, cookieDivision, validIds, defaultTabId]);
 
   const showTabs = isDivisionTabBasePath(pathname, tournamentSlug) && tabs.length > 1;
 
@@ -62,10 +62,7 @@ export function SiteHeaderDivisionTabs({
     if (validIds.size <= 1) return;
 
     const p = new URLSearchParams(searchParams.toString());
-    const nextDiv =
-      effectiveId === ALL_DIVISIONS_TAB_ID ? null : effectiveId;
-    if (nextDiv === null) p.delete("division");
-    else p.set("division", nextDiv);
+    p.set("division", effectiveId);
 
     const oldDiv = searchParams.get("division");
     const newDiv = p.get("division");
@@ -81,8 +78,7 @@ export function SiteHeaderDivisionTabs({
     startTransition(async () => {
       await setSelectedDivisionTabId(id, tournamentSlug);
       const p = new URLSearchParams(searchParams.toString());
-      if (id === ALL_DIVISIONS_TAB_ID) p.delete("division");
-      else p.set("division", id);
+      p.set("division", id);
       const qs = p.toString();
       const next = qs ? `${pathname}?${qs}` : pathname;
       router.replace(next, { scroll: false });

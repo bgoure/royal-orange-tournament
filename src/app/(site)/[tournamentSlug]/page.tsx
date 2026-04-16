@@ -3,10 +3,11 @@ import Link from "next/link";
 import { AnnouncementList } from "@/components/announcements/AnnouncementList";
 import { UpcomingGamesWithDivisionTabs } from "@/components/schedule/UpcomingGamesWithDivisionTabs";
 import { WeatherSection } from "@/components/weather/WeatherSection";
+import { getDivisionTabCookie } from "@/lib/division-tab-cookie";
 import { buildDivisionTabDescriptors } from "@/lib/division-tabs";
 import {
   defaultDivisionTabId,
-  divisionValidIdsWithAll,
+  divisionValidIds,
   resolveDivisionTabForFilters,
 } from "@/lib/division-tab-utils";
 import { listAnnouncements } from "@/lib/services/announcements";
@@ -49,9 +50,11 @@ export default async function TournamentHomePage({
   ]);
 
   const divisionDescriptors = buildDivisionTabDescriptors(poolsForTabs);
-  const validDivisionIds = divisionValidIdsWithAll(divisionDescriptors);
+  const cookieDivision = await getDivisionTabCookie();
+  const validDivisionIds = divisionValidIds(divisionDescriptors);
   const resolvedDivisionId = resolveDivisionTabForFilters(
     sp.division,
+    cookieDivision,
     validDivisionIds,
     defaultDivisionTabId(divisionDescriptors),
   );

@@ -7,9 +7,11 @@ import { tournamentPath } from "@/lib/tournament-public-path";
 export async function SiteHeader({
   tournamentSlug,
   divisionTabDescriptors,
+  cookieDivision,
 }: {
   tournamentSlug: string;
   divisionTabDescriptors: DivisionTabDescriptor[];
+  cookieDivision: string | null;
 }) {
   const tp = (...s: string[]) => tournamentPath(tournamentSlug, ...s);
   const nav = [
@@ -40,6 +42,7 @@ export async function SiteHeader({
             <SiteHeaderDivisionTabs
               tournamentSlug={tournamentSlug}
               divisionDescriptors={divisionTabDescriptors}
+              cookieDivision={cookieDivision}
             />
           </Suspense>
         </div>

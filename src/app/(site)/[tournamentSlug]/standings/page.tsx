@@ -1,9 +1,10 @@
 import { Suspense } from "react";
 import { StandingsViewWithDivisionTabs } from "@/components/standings/StandingsViewWithDivisionTabs";
+import { getDivisionTabCookie } from "@/lib/division-tab-cookie";
 import { buildDivisionTabDescriptors } from "@/lib/division-tabs";
 import {
   defaultDivisionTabId,
-  divisionValidIdsWithAll,
+  divisionValidIds,
   resolveDivisionTabForFilters,
 } from "@/lib/division-tab-utils";
 import { listPoolsWithStandings } from "@/lib/services/pools";
@@ -32,9 +33,11 @@ export default async function StandingsPage({
     division: p.division,
   }));
   const divisionDescriptors = buildDivisionTabDescriptors(minimal);
-  const validDivisionIds = divisionValidIdsWithAll(divisionDescriptors);
+  const cookieDivision = await getDivisionTabCookie();
+  const validDivisionIds = divisionValidIds(divisionDescriptors);
   const resolvedDivisionId = resolveDivisionTabForFilters(
     sp.division,
+    cookieDivision,
     validDivisionIds,
     defaultDivisionTabId(divisionDescriptors),
   );

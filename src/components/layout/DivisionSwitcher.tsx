@@ -1,7 +1,6 @@
 "use client";
 
 import { useId, useRef, type KeyboardEvent } from "react";
-import { ALL_DIVISIONS_TAB_ID } from "@/lib/division-tabs";
 
 export type DivisionOption = { id: string; name: string };
 
@@ -68,9 +67,7 @@ export function DivisionSwitcher({
 
   if (divisions.length < 2) return null;
 
-  /** Tournament divisions only (excludes synthetic "All"); drives pill vs select UI */
-  const realDivisionCount = divisions.filter((d) => d.id !== ALL_DIVISIONS_TAB_ID).length;
-  const usePillSwitcher = realDivisionCount === 2;
+  const usePillSwitcher = divisions.length === 2;
 
   if (usePillSwitcher) {
     const onPillKeyDown = (e: KeyboardEvent<HTMLButtonElement>, index: number) => {

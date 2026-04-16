@@ -13,9 +13,11 @@ import type {
   Team,
 } from "@prisma/client";
 import { BracketsView } from "@/components/brackets/BracketsView";
-import { divisionValidIdsWithAll } from "@/lib/division-tab-utils";
 import {
-  ALL_DIVISIONS_TAB_ID,
+  defaultDivisionTabId,
+  divisionValidIds,
+} from "@/lib/division-tab-utils";
+import {
   bracketGameMatchesDivisionTab,
   buildDivisionTabDescriptors,
   type PoolForDivisionTabs,
@@ -44,7 +46,6 @@ type BracketWith = Bracket & {
 };
 
 function filterBracketsForTab(brackets: BracketWith[], tabId: string): BracketWith[] {
-  if (tabId === ALL_DIVISIONS_TAB_ID) return brackets;
   return brackets
     .map((b) => {
       const games = b.games.filter((g) => bracketGameMatchesDivisionTab(g, tabId));
@@ -72,17 +73,19 @@ export function BracketsViewWithDivisionTabs({
 
   const baseTabs = useMemo(() => buildDivisionTabDescriptors(poolsForTabs), [poolsForTabs]);
 
-  const validIds = useMemo(() => divisionValidIdsWithAll(baseTabs), [baseTabs]);
+  const defaultTab = useMemo(() => defaultDivisionTabId(baseTabs), [baseTabs]);
+
+  const validIds = useMemo(() => divisionValidIds(baseTabs), [baseTabs]);
 
   const effectiveDivisionId = useMemo(() => {
-    if (baseTabs.length <= 1) return ALL_DIVISIONS_TAB_ID;
+    if (baseTabs.length <= 1) return defaultTab;
     const param = searchParams.get("division") ?? undefined;
     if (param && validIds.has(param)) return param;
     if (initialResolvedDivisionId && validIds.has(initialResolvedDivisionId)) {
       return initialResolvedDivisionId;
     }
-    return ALL_DIVISIONS_TAB_ID;
-  }, [baseTabs.length, searchParams, validIds, initialResolvedDivisionId]);
+    return defaultTab;
+  }, [baseTabs.length, searchParams, validIds, initialResolvedDivisionId, defaultTab]);
 
   const visibleBrackets = useMemo(
     () => filterBracketsForTab(brackets, effectiveDivisionId),

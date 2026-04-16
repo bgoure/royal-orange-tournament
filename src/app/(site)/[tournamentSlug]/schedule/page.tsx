@@ -3,10 +3,11 @@ import { GameList } from "@/components/schedule/GameList";
 import { SchedulePullToRefresh } from "@/components/schedule/SchedulePullToRefresh";
 import { ScheduleFilters } from "@/components/schedule/ScheduleFilters";
 import { formatFieldWithLocation } from "@/lib/field-display";
+import { getDivisionTabCookie } from "@/lib/division-tab-cookie";
 import { buildDivisionTabDescriptors } from "@/lib/division-tabs";
 import {
   defaultDivisionTabId,
-  divisionValidIdsWithAll,
+  divisionValidIds,
   resolveDivisionTabForFilters,
 } from "@/lib/division-tab-utils";
 import { listFieldsForTournament, listPoolsForDivisionTabs, listTeamsForTournament } from "@/lib/services/pools";
@@ -35,9 +36,11 @@ export default async function SchedulePage({
   ]);
 
   const divisionTabs = buildDivisionTabDescriptors(poolRows);
-  const validIds = divisionValidIdsWithAll(divisionTabs);
+  const cookieDivision = await getDivisionTabCookie();
+  const validIds = divisionValidIds(divisionTabs);
   const resolvedDivisionId = resolveDivisionTabForFilters(
     sp.division,
+    cookieDivision,
     validIds,
     defaultDivisionTabId(divisionTabs),
   );

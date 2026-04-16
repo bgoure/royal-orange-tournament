@@ -3,9 +3,11 @@
 import { useMemo } from "react";
 import { useSearchParams } from "next/navigation";
 import type { Division, Pool, PoolStanding, Team } from "@prisma/client";
-import { divisionValidIdsWithAll } from "@/lib/division-tab-utils";
 import {
-  ALL_DIVISIONS_TAB_ID,
+  defaultDivisionTabId,
+  divisionValidIds,
+} from "@/lib/division-tab-utils";
+import {
   buildDivisionTabDescriptors,
   gameMatchesDivisionTab,
   type PoolForDivisionTabs,
@@ -37,25 +39,35 @@ export function StandingsViewWithDivisionTabs({
     return buildDivisionTabDescriptors(minimal);
   }, [pools]);
 
+  const defaultTab = useMemo(
+    () => defaultDivisionTabId(divisionDescriptors),
+    [divisionDescriptors],
+  );
+
   const validIds = useMemo(
-    () => divisionValidIdsWithAll(divisionDescriptors),
+    () => divisionValidIds(divisionDescriptors),
     [divisionDescriptors],
   );
 
   const effectiveDivisionId = useMemo(() => {
-    if (divisionDescriptors.length <= 1) return ALL_DIVISIONS_TAB_ID;
+    if (divisionDescriptors.length <= 1) return defaultTab;
     const param = searchParams.get("division") ?? undefined;
     if (param && validIds.has(param)) return param;
     if (initialResolvedDivisionId && validIds.has(initialResolvedDivisionId)) {
       return initialResolvedDivisionId;
     }
-    return ALL_DIVISIONS_TAB_ID;
-  }, [divisionDescriptors.length, searchParams, validIds, initialResolvedDivisionId]);
+    return defaultTab;
+  }, [
+    divisionDescriptors.length,
+    searchParams,
+    validIds,
+    initialResolvedDivisionId,
+    defaultTab,
+  ]);
 
   const visible = useMemo(() => {
     if (divisionDescriptors.length === 0) return [];
     if (divisionDescriptors.length <= 1) return pools;
-    if (effectiveDivisionId === ALL_DIVISIONS_TAB_ID) return pools;
     return pools.filter((p) => gameMatchesDivisionTab({ pool: p }, effectiveDivisionId));
   }, [effectiveDivisionId, divisionDescriptors.length, pools]);
 
