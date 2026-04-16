@@ -9,6 +9,7 @@ import {
   type DivisionTabDescriptor,
 } from "@/lib/division-tabs";
 import {
+  defaultDivisionTabId,
   divisionValidIdsWithAll,
   resolveDivisionTabForFilters,
 } from "@/lib/division-tab-utils";
@@ -37,8 +38,8 @@ export function SiteHeaderDivisionTabs({
   );
 
   const defaultTabId = useMemo(
-    () => tabs[0]?.id ?? ALL_DIVISIONS_TAB_ID,
-    [tabs],
+    () => defaultDivisionTabId(divisionDescriptors),
+    [divisionDescriptors],
   );
 
   const effectiveId = useMemo(() => {

@@ -10,15 +10,15 @@ export function divisionValidIdsWithAll(descriptors: { id: string }[]): Set<stri
 }
 
 /**
- * First tab id in the division switcher (same order as `SiteHeaderDivisionTabs` / `DivisionSwitcher`).
- * When multiple divisions exist, the first option is always "all".
+ * Default selection when `?division=` is absent: first **real** division (by `buildDivisionTabDescriptors` order).
+ * "All" is not the default when multiple divisions exist.
  */
 export function defaultDivisionTabId(descriptors: DivisionTabDescriptor[]): string {
-  if (descriptors.length <= 1) return ALL_DIVISIONS_TAB_ID;
-  return ALL_DIVISIONS_TAB_ID;
+  if (descriptors.length === 0) return ALL_DIVISIONS_TAB_ID;
+  return descriptors[0]!.id;
 }
 
-/** Valid `?division=` wins; otherwise `defaultTabId` (first tab in the switcher list). */
+/** Valid `?division=` wins; otherwise `defaultTabId` (usually first real division). */
 export function resolveDivisionTabForFilters(
   urlDivision: string | undefined,
   valid: Set<string>,
