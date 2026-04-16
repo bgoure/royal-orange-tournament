@@ -26,7 +26,7 @@ export async function SiteHeader({
   return (
     <header className="sticky top-0 z-40 border-b border-royal-200/80 bg-royal-900/95 backdrop-blur-md">
       <div className="mx-auto flex max-w-5xl flex-col gap-2 px-4 py-3 sm:flex-row sm:items-center sm:justify-between sm:gap-3">
-        <div className="flex min-w-0 flex-1 flex-wrap items-center gap-2 sm:gap-3">
+        <div className="flex min-w-0 w-full flex-1 flex-wrap items-center gap-2 sm:gap-3">
           <Link
             href={tp()}
             className="flex shrink-0 flex-col gap-0 leading-none"
@@ -35,21 +35,23 @@ export async function SiteHeader({
             <span className="text-lg font-bold tracking-tight text-white">Royal &amp; Orange</span>
             <span className="text-lg font-bold tracking-tight text-accent">Classic 2026</span>
           </Link>
-          <Suspense
-            fallback={
-              <div className="flex min-h-11 flex-wrap gap-2" aria-hidden>
-                <span className="h-11 w-12 animate-pulse rounded-full bg-white/15" />
-                <span className="h-11 w-12 animate-pulse rounded-full bg-white/15" />
-                <span className="h-11 w-12 animate-pulse rounded-full bg-white/15" />
-              </div>
-            }
-          >
-            <SiteHeaderDivisionTabs
-              tournamentSlug={tournamentSlug}
-              divisionDescriptors={divisionTabDescriptors}
-              cookieDivision={cookieDivision}
-            />
-          </Suspense>
+          <div className="flex min-w-0 flex-1 justify-end">
+            <Suspense
+              fallback={
+                <div className="ml-auto flex min-h-11 w-fit flex-wrap justify-end gap-2" aria-hidden>
+                  <span className="h-11 w-12 animate-pulse rounded-full bg-white/15" />
+                  <span className="h-11 w-12 animate-pulse rounded-full bg-white/15" />
+                  <span className="h-11 w-12 animate-pulse rounded-full bg-white/15" />
+                </div>
+              }
+            >
+              <SiteHeaderDivisionTabs
+                tournamentSlug={tournamentSlug}
+                divisionDescriptors={divisionTabDescriptors}
+                cookieDivision={cookieDivision}
+              />
+            </Suspense>
+          </div>
         </div>
         <nav className="hidden gap-1 md:flex md:shrink-0">
           {nav.map((item) => (

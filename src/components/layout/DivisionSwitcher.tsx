@@ -25,13 +25,12 @@ const tapMin = "min-h-[44px] md:min-h-10";
 const selectClass = [
   tapMin,
   pillTransition,
-  "w-full cursor-pointer appearance-none rounded-lg border-2 border-gray-300 bg-white px-4 py-2 pr-10",
+  "w-full min-w-[12rem] max-w-[20rem] cursor-pointer appearance-none rounded-lg border-2 border-gray-300 bg-white px-4 py-2 pr-10",
   "text-sm font-medium text-gray-700 shadow-sm",
   "sm:text-base",
   "hover:border-gray-400 hover:bg-gray-50",
   "focus:border-accent focus:outline-none focus:ring-2 focus:ring-accent/35 focus:ring-offset-2",
   "disabled:cursor-not-allowed disabled:opacity-50",
-  "md:w-auto md:max-w-[20rem] md:min-w-[12rem]",
 ].join(" ");
 
 function SelectChevron() {
@@ -88,8 +87,8 @@ export function DivisionSwitcher({
     return (
       <div
         className={[
-          "flex w-full max-w-full flex-wrap gap-2",
-          "md:inline-flex md:w-auto md:max-w-none md:flex-nowrap",
+          "flex w-auto max-w-full flex-wrap justify-end gap-2",
+          "md:inline-flex md:max-w-none md:flex-nowrap md:justify-end",
           className,
         ]
           .filter(Boolean)
@@ -117,8 +116,8 @@ export function DivisionSwitcher({
                 tapMin,
                 pillTransition,
                 "disabled:pointer-events-none disabled:opacity-50",
-                "min-w-0 flex-1 rounded-full px-3 py-2 text-sm",
-                "sm:text-base md:w-auto md:flex-none md:min-w-[7.5rem] md:px-4",
+                "min-w-0 shrink-0 rounded-full px-3 py-2 text-sm",
+                "sm:text-base md:min-w-[7.5rem] md:px-4",
                 "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent focus-visible:ring-offset-2",
                 active ? pillActive : pillInactive,
               ].join(" ")}
@@ -133,7 +132,7 @@ export function DivisionSwitcher({
 
   return (
     <div
-      className={["relative w-full md:w-auto md:max-w-[20rem]", className].filter(Boolean).join(" ")}
+      className={["relative w-full max-w-[20rem] min-w-[12rem]", className].filter(Boolean).join(" ")}
     >
       <select
         id={selectId}
