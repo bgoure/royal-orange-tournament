@@ -14,9 +14,6 @@
     "user:role": "tsx scripts/promote-user-role.ts",
     "test": "tsx --test src/lib/services/standings/standings-engine.test.ts src/lib/services/bracket-engine.test.ts src/lib/services/announcement-email.test.ts"
   },
-  "prisma": {
-    "seed": "npx tsx prisma/seed.ts"
-  },
   "dependencies": {
     "@auth/prisma-adapter": "^2.11.1",
     "@prisma/client": "^6.19.3",
@@ -35,6 +32,7 @@
     "@types/react": "^19",
     "@types/react-dom": "^19",
     "cross-env": "^10.1.0",
+    "dotenv": "^17.4.2",
     "eslint": "^9",
     "eslint-config-next": "16.2.2",
     "prisma": "^6.19.3",

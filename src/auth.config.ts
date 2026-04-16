@@ -6,8 +6,8 @@ const googleConfigured =
   Boolean(process.env.GOOGLE_CLIENT_ID) && Boolean(process.env.GOOGLE_CLIENT_SECRET);
 
 /**
- * Edge-safe auth (no Prisma / adapter). Used by `middleware.ts`.
- * Never set `session.strategy: "database"` here — middleware has no adapter and that crashes `/admin` on Vercel.
+ * Edge-safe auth (no Prisma / adapter). Used by `proxy.ts` (Next.js request proxy).
+ * Never set `session.strategy: "database"` here — the edge layer has no adapter and that crashes `/admin` on Vercel.
  * Node routes use `auth.ts` with adapter + explicit `session: { strategy: "jwt" }`.
  */
 export default {
