@@ -67,8 +67,7 @@ export default async function TournamentHomePage({
         <div className="flex flex-col gap-3">
           <WeatherSection tournamentId={tournament.id} />
           <section>
-            <h2 className="text-sm font-semibold uppercase tracking-wide text-zinc-500">Upcoming games</h2>
-            <p className="mt-1 text-xs text-zinc-500">Next games on the schedule. Times shown in your local timezone.</p>
+            <h2 className="text-sm font-semibold uppercase tracking-wide text-accent">Upcoming games</h2>
             <div className="mt-3">
               <Suspense fallback={<div className="h-32 animate-pulse rounded-xl bg-zinc-100" aria-hidden />}>
                 <UpcomingGamesWithDivisionTabs
