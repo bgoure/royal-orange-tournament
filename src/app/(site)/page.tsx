@@ -71,7 +71,7 @@ export default async function HomePage({
       <div className="grid grid-cols-1 gap-3 md:grid-cols-2">
         <WeatherSection tournamentId={tournament.id} />
         <div className="grid grid-cols-2 gap-3">
-          <QuickLinkCard href="/schedule" label="Schedule" description="Game times & fields" icon={
+          <QuickLinkCard href="/schedule" label="Schedule & Results" description="Times, fields & scores" icon={
             <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={1.5} className="size-7 text-accent"><rect x="3" y="4" width="18" height="18" rx="2" /><path d="M16 2v4M8 2v4M3 10h18" /></svg>
           } />
           <QuickLinkCard href="/standings" label="Standings" description="Pool rankings" icon={

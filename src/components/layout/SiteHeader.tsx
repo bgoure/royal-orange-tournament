@@ -4,7 +4,7 @@ import { listPublishedTournaments } from "@/lib/tournament-context";
 
 const nav = [
   { href: "/", label: "Home" },
-  { href: "/schedule", label: "Schedule" },
+  { href: "/schedule", label: "Schedule & Results" },
   { href: "/standings", label: "Standings" },
   { href: "/brackets", label: "Brackets" },
   { href: "/locations", label: "Locations" },

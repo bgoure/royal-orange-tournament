@@ -64,7 +64,7 @@ export function FieldsAdmin({
             Games
           </Link>
           <Link href="/schedule" className={btnSecondary}>
-            View schedule ↗
+            View schedule &amp; results ↗
           </Link>
         </div>
       </header>
