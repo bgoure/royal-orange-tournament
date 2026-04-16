@@ -11,6 +11,7 @@ import {
   resolveDivisionTabForFilters,
 } from "@/lib/division-tab-utils";
 import { listAnnouncements } from "@/lib/services/announcements";
+import { getHeadquartersLocation } from "@/lib/services/content";
 import { listUpcomingGamesForHome } from "@/lib/services/games";
 import { listPoolsForDivisionTabs } from "@/lib/services/pools";
 import { getPublishedTournamentBySlug } from "@/lib/tournament-context";
@@ -43,10 +44,11 @@ export default async function TournamentHomePage({
     return null;
   }
 
-  const [announcements, upcomingGames, poolsForTabs] = await Promise.all([
+  const [announcements, upcomingGames, poolsForTabs, hq] = await Promise.all([
     listAnnouncements(tournament.id),
     listUpcomingGamesForHome(tournament.id),
     listPoolsForDivisionTabs(tournament.id),
+    getHeadquartersLocation(tournament.id),
   ]);
 
   const divisionDescriptors = buildDivisionTabDescriptors(poolsForTabs);
@@ -60,11 +62,17 @@ export default async function TournamentHomePage({
   );
 
   const tp = (s: string) => tournamentPath(tournamentSlug, s);
+  const hqDisplayName = hq?.name?.trim() || "Tournament headquarters";
 
   return (
     <div className="flex flex-col gap-4">
       <div className="grid grid-cols-1 gap-3 md:grid-cols-2">
         <div className="flex flex-col gap-3">
+          {hq ? (
+            <p className="text-sm font-semibold text-accent">
+              Main location: {hqDisplayName}
+            </p>
+          ) : null}
           <WeatherSection tournamentId={tournament.id} />
           <section>
             <h2 className="text-sm font-semibold uppercase tracking-wide text-accent">Upcoming games</h2>
