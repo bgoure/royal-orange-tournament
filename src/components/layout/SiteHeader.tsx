@@ -27,8 +27,13 @@ export async function SiteHeader({
     <header className="sticky top-0 z-40 border-b border-royal-200/80 bg-royal-900/95 backdrop-blur-md">
       <div className="mx-auto flex max-w-5xl flex-col gap-2 px-4 py-3 sm:flex-row sm:items-center sm:justify-between sm:gap-3">
         <div className="flex min-w-0 flex-1 flex-wrap items-center gap-2 sm:gap-3">
-          <Link href={tp()} className="shrink-0 text-lg font-bold tracking-tight text-white">
-            R&O <span className="text-accent-light">2026</span>
+          <Link
+            href={tp()}
+            className="flex shrink-0 flex-col gap-0 leading-none"
+            aria-label="Royal & Orange Classic 2026"
+          >
+            <span className="text-lg font-bold tracking-tight text-white">Royal &amp; Orange</span>
+            <span className="text-lg font-bold tracking-tight text-accent">Classic 2026</span>
           </Link>
           <Suspense
             fallback={
