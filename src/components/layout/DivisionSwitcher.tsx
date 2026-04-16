@@ -1,5 +1,7 @@
 "use client";
 
+import { useId } from "react";
+
 export type DivisionOption = { id: string; name: string };
 
 type DivisionSwitcherProps = {
@@ -19,12 +21,39 @@ const pillTransition = "transition-colors duration-200 ease-out";
 /** 44px min touch target on small screens; slightly shorter on md+ */
 const tapMin = "min-h-[44px] md:min-h-10";
 
+/** Native select styled to match inactive pill buttons + chevron affordance */
 const selectClass = [
   tapMin,
-  "w-full rounded-xl border border-zinc-200/90 bg-zinc-50 px-3 py-2 text-sm font-medium text-zinc-900 shadow-sm outline-none transition-colors",
-  "md:w-auto md:max-w-[20rem]",
-  "focus:border-accent focus:ring-2 focus:ring-accent/25 disabled:opacity-60",
+  pillTransition,
+  "w-full cursor-pointer appearance-none rounded-lg border-2 border-gray-300 bg-white px-4 py-2 pr-10",
+  "text-sm font-medium text-gray-700 shadow-sm",
+  "sm:text-base",
+  "hover:border-gray-400 hover:bg-gray-50",
+  "focus:border-accent focus:outline-none focus:ring-2 focus:ring-accent/35 focus:ring-offset-2",
+  "disabled:cursor-not-allowed disabled:opacity-50",
+  "md:w-auto md:max-w-[20rem] md:min-w-[12rem]",
 ].join(" ");
+
+function SelectChevron() {
+  return (
+    <span
+      className="pointer-events-none absolute inset-y-0 right-0 flex items-center pr-3 text-gray-500"
+      aria-hidden
+    >
+      <svg
+        className="size-5 shrink-0"
+        fill="none"
+        viewBox="0 0 24 24"
+        stroke="currentColor"
+        strokeWidth={2}
+        strokeLinecap="round"
+        strokeLinejoin="round"
+      >
+        <path d="M6 9l6 6 6-6" />
+      </svg>
+    </span>
+  );
+}
 
 export function DivisionSwitcher({
   divisions,
@@ -33,6 +62,8 @@ export function DivisionSwitcher({
   disabled,
   className,
 }: DivisionSwitcherProps) {
+  const selectId = useId();
+
   if (divisions.length < 2) return null;
 
   if (divisions.length === 2) {
@@ -76,11 +107,14 @@ export function DivisionSwitcher({
   }
 
   return (
-    <label
-      className={["block w-full md:w-auto md:max-w-[20rem]", className].filter(Boolean).join(" ")}
+    <div
+      className={["relative w-full md:w-auto md:max-w-[20rem]", className].filter(Boolean).join(" ")}
     >
-      <span className="sr-only">Division</span>
+      <label htmlFor={selectId} className="sr-only">
+        Division
+      </label>
       <select
+        id={selectId}
         className={selectClass}
         disabled={disabled}
         value={selectedDivision}
@@ -92,6 +126,7 @@ export function DivisionSwitcher({
           </option>
         ))}
       </select>
-    </label>
+      <SelectChevron />
+    </div>
   );
 }
