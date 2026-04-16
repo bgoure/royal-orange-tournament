@@ -1,6 +1,7 @@
 "use server";
 
 import { revalidatePath } from "next/cache";
+import { revalidatePublishedTournamentSites } from "@/lib/revalidate-public-tournament-site";
 import { auth } from "@/auth";
 import { prisma } from "@/lib/db";
 import { can } from "@/lib/rbac/permissions";
@@ -84,7 +85,7 @@ export async function enablePoolStandingsManualMode(
     await recomputePoolStandings(poolId);
 
     revalidatePath("/admin/standings");
-    revalidatePath("/standings");
+    await revalidatePublishedTournamentSites();
     return { ok: true };
   } catch (e) {
     const msg = e instanceof Error ? e.message : "Failed to enable manual mode";
@@ -118,7 +119,7 @@ export async function disablePoolStandingsManualMode(
     await recomputePoolStandings(poolId);
 
     revalidatePath("/admin/standings");
-    revalidatePath("/standings");
+    await revalidatePublishedTournamentSites();
     return { ok: true };
   } catch (e) {
     const msg = e instanceof Error ? e.message : "Failed to disable manual mode";
@@ -179,7 +180,7 @@ export async function savePoolAutoTiebreakRanks(
     await recomputePoolStandings(poolId);
 
     revalidatePath("/admin/standings");
-    revalidatePath("/standings");
+    await revalidatePublishedTournamentSites();
     return { ok: true };
   } catch (e) {
     const msg = e instanceof Error ? e.message : "Failed to save tiebreak ranks";
@@ -239,7 +240,7 @@ export async function savePoolManualStandingsRanks(
     await recomputePoolStandings(poolId);
 
     revalidatePath("/admin/standings");
-    revalidatePath("/standings");
+    await revalidatePublishedTournamentSites();
     return { ok: true };
   } catch (e) {
     const msg = e instanceof Error ? e.message : "Failed to save ranks";

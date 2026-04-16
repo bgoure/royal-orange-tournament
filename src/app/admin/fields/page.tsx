@@ -17,5 +17,12 @@ export default async function AdminFieldsPage() {
   const role = session?.user?.role;
   const canManage = role != null && can(role, "content:manage");
 
-  return <FieldsAdmin groups={groups} tournamentName={tournament.name} canManage={canManage} />;
+  return (
+    <FieldsAdmin
+      groups={groups}
+      tournamentName={tournament.name}
+      tournamentSlug={tournament.slug}
+      canManage={canManage}
+    />
+  );
 }

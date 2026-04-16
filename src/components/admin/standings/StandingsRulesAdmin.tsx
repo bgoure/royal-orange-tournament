@@ -11,6 +11,7 @@ import {
   type StandingsActionResult,
 } from "@/app/admin/_actions/standings";
 import { ActionMessage } from "@/components/admin/structure/ActionMessage";
+import { tournamentPath } from "@/lib/tournament-public-path";
 
 type StandingRow = PoolStanding & { team: Team };
 
@@ -32,10 +33,11 @@ const btnDanger =
 type Props = {
   pools: PoolWithStandings[];
   tournamentName: string;
+  tournamentSlug: string;
   canConfigure: boolean;
 };
 
-export function StandingsRulesAdmin({ pools, tournamentName, canConfigure }: Props) {
+export function StandingsRulesAdmin({ pools, tournamentName, tournamentSlug, canConfigure }: Props) {
   const [enableState, enableAction, enablePending] = useActionState(
     enablePoolStandingsManualMode,
     undefined as StandingsActionResult | undefined,
@@ -61,7 +63,7 @@ export function StandingsRulesAdmin({ pools, tournamentName, canConfigure }: Pro
           <h1 className="text-2xl font-semibold tracking-tight text-zinc-900">Standings overrides</h1>
           <p className="mt-1 text-sm text-zinc-600">{tournamentName}</p>
         </div>
-        <Link href="/standings" className={`${btnSecondary} inline-flex items-center`}>
+        <Link href={tournamentPath(tournamentSlug, "standings")} className={`${btnSecondary} inline-flex items-center`}>
           View public standings ↗
         </Link>
       </header>

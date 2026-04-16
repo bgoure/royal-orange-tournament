@@ -10,6 +10,7 @@ import {
   type BracketActionResult,
 } from "@/app/admin/_actions/brackets";
 import { ActionMessage } from "@/components/admin/structure/ActionMessage";
+import { tournamentPath } from "@/lib/tournament-public-path";
 
 type PoolRow = Pool & { division: { name: string } };
 
@@ -42,10 +43,11 @@ type Props = {
   fields: FieldSelectOption[];
   brackets: BracketRow[];
   tournamentName: string;
+  tournamentSlug: string;
   canConfigure: boolean;
 };
 
-export function BracketsAdmin({ pools, fields, brackets, tournamentName, canConfigure }: Props) {
+export function BracketsAdmin({ pools, fields, brackets, tournamentName, tournamentSlug, canConfigure }: Props) {
   const [advState, advAction, advPending] = useActionState(
     updatePoolTeamsAdvancing,
     undefined as BracketActionResult | undefined,
@@ -70,7 +72,7 @@ export function BracketsAdmin({ pools, fields, brackets, tournamentName, canConf
           <p className="mt-1 text-sm text-zinc-600">{tournamentName}</p>
         </div>
         <div className="flex gap-2">
-          <Link href="/brackets" className={`${btnSecondary}`}>
+          <Link href={tournamentPath(tournamentSlug, "brackets")} className={`${btnSecondary}`}>
             Public brackets ↗
           </Link>
           <Link href="/admin/games" className={`${btnSecondary}`}>

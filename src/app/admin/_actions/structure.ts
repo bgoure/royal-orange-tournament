@@ -1,6 +1,7 @@
 "use server";
 
 import { revalidatePath } from "next/cache";
+import { revalidatePublishedTournamentSites } from "@/lib/revalidate-public-tournament-site";
 import { auth } from "@/auth";
 import { prisma } from "@/lib/db";
 import { can } from "@/lib/rbac/permissions";
@@ -112,8 +113,7 @@ export async function deleteDivision(_prev: ActionResult | undefined, formData: 
   await prisma.division.delete({ where: { id } });
   revalidatePath("/admin/divisions");
   revalidatePath("/admin/teams");
-  revalidatePath("/standings");
-  revalidatePath("/schedule");
+  await revalidatePublishedTournamentSites();
   return { ok: true };
 }
 
@@ -183,8 +183,7 @@ export async function deletePool(_prev: ActionResult | undefined, formData: Form
   await prisma.pool.delete({ where: { id } });
   revalidatePath("/admin/divisions");
   revalidatePath("/admin/teams");
-  revalidatePath("/standings");
-  revalidatePath("/schedule");
+  await revalidatePublishedTournamentSites();
   return { ok: true };
 }
 
@@ -214,8 +213,7 @@ export async function createTeam(_prev: ActionResult | undefined, formData: Form
   await recomputePoolStandings(parsed.data.poolId);
   revalidatePath("/admin/divisions");
   revalidatePath("/admin/teams");
-  revalidatePath("/standings");
-  revalidatePath("/schedule");
+  await revalidatePublishedTournamentSites();
   return { ok: true };
 }
 
@@ -257,8 +255,7 @@ export async function updateTeam(_prev: ActionResult | undefined, formData: Form
   }
   revalidatePath("/admin/divisions");
   revalidatePath("/admin/teams");
-  revalidatePath("/standings");
-  revalidatePath("/schedule");
+  await revalidatePublishedTournamentSites();
   return { ok: true };
 }
 
@@ -280,8 +277,6 @@ export async function deleteTeam(_prev: ActionResult | undefined, formData: Form
   }
   revalidatePath("/admin/divisions");
   revalidatePath("/admin/teams");
-  revalidatePath("/standings");
-  revalidatePath("/schedule");
-  revalidatePath("/brackets");
+  await revalidatePublishedTournamentSites();
   return { ok: true };
 }

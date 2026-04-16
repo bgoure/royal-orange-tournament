@@ -2,28 +2,32 @@ import Link from "next/link";
 import { Suspense } from "react";
 import { SiteHeaderDivisionTabs } from "@/components/layout/SiteHeaderDivisionTabs";
 import type { DivisionTabDescriptor } from "@/lib/division-tabs";
-
-const nav = [
-  { href: "/", label: "Home" },
-  { href: "/schedule", label: "Schedule & Results" },
-  { href: "/standings", label: "Standings" },
-  { href: "/brackets", label: "Brackets" },
-  { href: "/locations", label: "Locations" },
-  { href: "/faq", label: "FAQ" },
-] as const;
+import { tournamentPath } from "@/lib/tournament-public-path";
 
 export async function SiteHeader({
+  tournamentSlug,
   divisionTabDescriptors,
   cookieDivision,
 }: {
+  tournamentSlug: string;
   divisionTabDescriptors: DivisionTabDescriptor[];
   cookieDivision: string | null;
 }) {
+  const tp = (...s: string[]) => tournamentPath(tournamentSlug, ...s);
+  const nav = [
+    { href: tp(), label: "Home" },
+    { href: tp("schedule"), label: "Schedule & Results" },
+    { href: tp("standings"), label: "Standings" },
+    { href: tp("brackets"), label: "Brackets" },
+    { href: tp("locations"), label: "Locations" },
+    { href: tp("faq"), label: "FAQ" },
+  ] as const;
+
   return (
     <header className="sticky top-0 z-40 border-b border-royal-200/80 bg-royal-900/95 backdrop-blur-md">
       <div className="mx-auto flex max-w-5xl flex-col gap-2 px-4 py-3 sm:flex-row sm:items-center sm:justify-between sm:gap-3">
         <div className="flex min-w-0 flex-1 flex-wrap items-center gap-2 sm:gap-3">
-          <Link href="/" className="shrink-0 text-lg font-bold tracking-tight text-white">
+          <Link href={tp()} className="shrink-0 text-lg font-bold tracking-tight text-white">
             R&O <span className="text-accent-light">2026</span>
           </Link>
           <Suspense
@@ -36,6 +40,7 @@ export async function SiteHeader({
             }
           >
             <SiteHeaderDivisionTabs
+              tournamentSlug={tournamentSlug}
               divisionDescriptors={divisionTabDescriptors}
               cookieDivision={cookieDivision}
             />

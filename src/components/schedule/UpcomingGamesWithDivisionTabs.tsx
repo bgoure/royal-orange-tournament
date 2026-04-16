@@ -11,13 +11,16 @@ import {
   type PoolForDivisionTabs,
 } from "@/lib/division-tabs";
 import { GameList, type GameWithTeams } from "@/components/schedule/GameList";
+import { tournamentPath } from "@/lib/tournament-public-path";
 
 export function UpcomingGamesWithDivisionTabs({
+  tournamentSlug,
   poolsForTabs,
   games,
   initialResolvedDivisionId,
   timezone,
 }: {
+  tournamentSlug: string;
   poolsForTabs: PoolForDivisionTabs[];
   games: GameWithTeams[];
   initialResolvedDivisionId: string;
@@ -48,8 +51,9 @@ export function UpcomingGamesWithDivisionTabs({
       p.set("division", effectiveDivisionId);
     }
     const qs = p.toString();
-    return qs ? `/schedule?${qs}` : "/schedule";
-  }, [effectiveDivisionId]);
+    const base = tournamentPath(tournamentSlug, "schedule");
+    return qs ? `${base}?${qs}` : base;
+  }, [effectiveDivisionId, tournamentSlug]);
 
   return (
     <div className="flex flex-col gap-3">

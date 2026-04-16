@@ -33,6 +33,7 @@ export default async function AdminBracketsPage() {
       fields={fieldOptions}
       brackets={brackets}
       tournamentName={tournament.name}
+      tournamentSlug={tournament.slug}
       canConfigure={canConfigure}
     />
   );

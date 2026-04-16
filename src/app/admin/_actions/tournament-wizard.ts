@@ -8,6 +8,7 @@ import { prisma } from "@/lib/db";
 import { can } from "@/lib/rbac/permissions";
 import { slugifyTournamentName } from "@/lib/slug";
 import { recomputeAllPoolsForTournament } from "@/lib/services/standings";
+import { revalidatePublishedTournamentSites } from "@/lib/revalidate-public-tournament-site";
 import { TOURNAMENT_SLUG_COOKIE } from "@/lib/tournament-context";
 import { tournamentWizardSchema, type TournamentWizardInput } from "@/lib/validations/tournament-wizard";
 
@@ -144,6 +145,7 @@ export async function createTournamentFromWizard(input: unknown): Promise<Tourna
     });
 
     revalidatePath("/", "layout");
+    await revalidatePublishedTournamentSites();
     revalidatePath("/admin", "layout");
     return { ok: true, slug };
   } catch (e) {

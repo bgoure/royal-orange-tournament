@@ -1,6 +1,7 @@
 "use server";
 
 import { revalidatePath } from "next/cache";
+import { revalidatePublishedTournamentSites } from "@/lib/revalidate-public-tournament-site";
 import { auth } from "@/auth";
 import { prisma } from "@/lib/db";
 import { can } from "@/lib/rbac/permissions";
@@ -103,9 +104,7 @@ export async function createGame(
 
     await recomputePools([parsed.data.poolId]);
     revalidatePath("/admin/games");
-    revalidatePath("/schedule");
-    revalidatePath("/standings");
-    revalidatePath("/");
+    await revalidatePublishedTournamentSites();
     return { ok: true };
   } catch (e) {
     const msg = e instanceof Error ? e.message : "Failed to create game";
@@ -163,10 +162,7 @@ export async function updateGameScoring(
       await advanceBracketWinnerFromGame(d.id);
     }
     revalidatePath("/admin/games");
-    revalidatePath("/schedule");
-    revalidatePath("/standings");
-    revalidatePath("/brackets");
-    revalidatePath("/");
+    await revalidatePublishedTournamentSites();
     return { ok: true };
   } catch (e) {
     const msg = e instanceof Error ? e.message : "Failed to update game";
@@ -221,9 +217,7 @@ export async function updateGameMeta(
 
     await recomputePools([existing.poolId, d.poolId]);
     revalidatePath("/admin/games");
-    revalidatePath("/schedule");
-    revalidatePath("/standings");
-    revalidatePath("/");
+    await revalidatePublishedTournamentSites();
     return { ok: true };
   } catch (e) {
     const msg = e instanceof Error ? e.message : "Failed to update game";
@@ -255,10 +249,7 @@ export async function updateGameNumber(
     });
 
     revalidatePath("/admin/games");
-    revalidatePath("/schedule");
-    revalidatePath("/standings");
-    revalidatePath("/brackets");
-    revalidatePath("/");
+    await revalidatePublishedTournamentSites();
     return { ok: true };
   } catch (e) {
     const msg = e instanceof Error ? e.message : "Failed to update game number";
@@ -283,10 +274,7 @@ export async function deleteGame(
     await prisma.game.delete({ where: { id } });
     await recomputePools([poolId]);
     revalidatePath("/admin/games");
-    revalidatePath("/schedule");
-    revalidatePath("/standings");
-    revalidatePath("/");
-    revalidatePath("/brackets");
+    await revalidatePublishedTournamentSites();
     return { ok: true };
   } catch (e) {
     const msg = e instanceof Error ? e.message : "Failed to delete game";

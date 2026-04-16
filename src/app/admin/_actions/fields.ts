@@ -1,6 +1,7 @@
 "use server";
 
 import { revalidatePath } from "next/cache";
+import { revalidatePublishedTournamentSites } from "@/lib/revalidate-public-tournament-site";
 import { prisma } from "@/lib/db";
 import { adminFieldCreateSchema, adminFieldUpdateSchema } from "@/lib/validations/content-admin";
 import { assertContentManage, contentCtx, contentDeny, type ContentActionResult } from "./content-shared";
@@ -59,7 +60,7 @@ export async function createField(
     revalidatePath("/admin/fields");
     revalidatePath("/admin/games");
     revalidatePath("/admin/brackets");
-    revalidatePath("/schedule");
+    await revalidatePublishedTournamentSites();
     return { ok: true };
   } catch (e) {
     return { ok: false, error: e instanceof Error ? e.message : "Failed to create field" };
@@ -110,7 +111,7 @@ export async function updateField(
     revalidatePath("/admin/fields");
     revalidatePath("/admin/games");
     revalidatePath("/admin/brackets");
-    revalidatePath("/schedule");
+    await revalidatePublishedTournamentSites();
     return { ok: true };
   } catch (e) {
     return { ok: false, error: e instanceof Error ? e.message : "Failed to update field" };
@@ -146,7 +147,7 @@ export async function deleteField(
     revalidatePath("/admin/fields");
     revalidatePath("/admin/games");
     revalidatePath("/admin/brackets");
-    revalidatePath("/schedule");
+    await revalidatePublishedTournamentSites();
     return { ok: true };
   } catch (e) {
     return { ok: false, error: e instanceof Error ? e.message : "Failed to delete field" };
@@ -191,7 +192,7 @@ export async function moveField(
       prisma.field.update({ where: { id: b.id }, data: { sortOrder: a.sortOrder } }),
     ]);
     revalidatePath("/admin/fields");
-    revalidatePath("/schedule");
+    await revalidatePublishedTournamentSites();
     return { ok: true };
   } catch (e) {
     return { ok: false, error: e instanceof Error ? e.message : "Failed to reorder" };

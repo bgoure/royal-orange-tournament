@@ -17,5 +17,12 @@ export default async function AdminFaqPage() {
   const role = session?.user?.role;
   const canManage = role != null && can(role, "content:manage");
 
-  return <FaqAdmin items={items} tournamentName={tournament.name} canManage={canManage} />;
+  return (
+    <FaqAdmin
+      items={items}
+      tournamentName={tournament.name}
+      tournamentSlug={tournament.slug}
+      canManage={canManage}
+    />
+  );
 }

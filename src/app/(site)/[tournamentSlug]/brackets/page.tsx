@@ -8,14 +8,17 @@ import {
 } from "@/lib/division-tab-utils";
 import { listBracketsForTournament } from "@/lib/services/brackets";
 import { listPoolsForDivisionTabs } from "@/lib/services/pools";
-import { getTournamentForRequest } from "@/lib/tournament-context";
+import { getPublishedTournamentBySlug } from "@/lib/tournament-context";
 
 export default async function BracketsPage({
+  params,
   searchParams,
 }: {
+  params: Promise<{ tournamentSlug: string }>;
   searchParams: Promise<{ division?: string }>;
 }) {
-  const tournament = await getTournamentForRequest();
+  const { tournamentSlug } = await params;
+  const tournament = await getPublishedTournamentBySlug(tournamentSlug);
   const sp = await searchParams;
 
   if (!tournament) {

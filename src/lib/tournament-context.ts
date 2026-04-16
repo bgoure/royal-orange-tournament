@@ -22,6 +22,28 @@ export async function getSelectedTournamentSlug(): Promise<string | null> {
   return c.get(TOURNAMENT_SLUG_COOKIE)?.value ?? null;
 }
 
+export async function getPublishedTournamentBySlug(slug: string) {
+  return prisma.tournament.findFirst({
+    where: { slug, isPublished: true },
+  });
+}
+
+/** First published tournament slug for redirecting `/` on the public site. */
+export async function getDefaultPublicTournamentSlug(): Promise<string | null> {
+  const withinSwitcherWindow = await prisma.tournament.findFirst({
+    where: switcherListWhere(),
+    orderBy: switcherListOrderBy,
+    select: { slug: true },
+  });
+  if (withinSwitcherWindow) return withinSwitcherWindow.slug;
+  const any = await prisma.tournament.findFirst({
+    where: { isPublished: true },
+    orderBy: switcherListOrderBy,
+    select: { slug: true },
+  });
+  return any?.slug ?? null;
+}
+
 export async function getTournamentForRequest() {
   const slug = await getSelectedTournamentSlug();
   if (slug) {

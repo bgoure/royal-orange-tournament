@@ -1,13 +1,17 @@
 import Link from "next/link";
+import { tournamentPath } from "@/lib/tournament-public-path";
 
-const links = [
-  { href: "/locations", label: "Locations", description: "Venues & maps" },
-  { href: "/faq", label: "FAQ", description: "Answers to common questions" },
-  { href: "/settings", label: "Settings", description: "App preferences" },
-  { href: "/social", label: "Social", description: "Follow Baseball Milton" },
-] as const;
+export default async function MorePage({ params }: { params: Promise<{ tournamentSlug: string }> }) {
+  const { tournamentSlug } = await params;
+  const tp = (s: string) => tournamentPath(tournamentSlug, s);
 
-export default function MorePage() {
+  const links = [
+    { href: tp("locations"), label: "Locations", description: "Venues & maps" },
+    { href: tp("faq"), label: "FAQ", description: "Answers to common questions" },
+    { href: tp("settings"), label: "Settings", description: "App preferences" },
+    { href: tp("social"), label: "Social", description: "Follow Baseball Milton" },
+  ] as const;
+
   return (
     <div className="flex flex-col gap-6">
       <div>

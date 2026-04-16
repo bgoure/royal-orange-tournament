@@ -1,6 +1,7 @@
 "use server";
 
 import { revalidatePath } from "next/cache";
+import { revalidatePublishedTournamentSites } from "@/lib/revalidate-public-tournament-site";
 import { auth } from "@/auth";
 import { prisma } from "@/lib/db";
 import { can } from "@/lib/rbac/permissions";
@@ -107,8 +108,7 @@ export async function createPlayoffBracket(
     });
     revalidatePath("/admin/brackets");
     revalidatePath("/admin/games");
-    revalidatePath("/brackets");
-    revalidatePath("/schedule");
+    await revalidatePublishedTournamentSites();
     return { ok: true };
   } catch (e) {
     const msg = e instanceof Error ? e.message : "Failed to create bracket";
@@ -159,8 +159,7 @@ export async function regeneratePlayoffBracket(
     });
     revalidatePath("/admin/brackets");
     revalidatePath("/admin/games");
-    revalidatePath("/brackets");
-    revalidatePath("/schedule");
+    await revalidatePublishedTournamentSites();
     return { ok: true };
   } catch (e) {
     const msg = e instanceof Error ? e.message : "Failed to regenerate bracket";

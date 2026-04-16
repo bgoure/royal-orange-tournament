@@ -2,6 +2,7 @@
 
 import { revalidatePath } from "next/cache";
 import { prisma } from "@/lib/db";
+import { revalidatePublishedTournamentSites } from "@/lib/revalidate-public-tournament-site";
 import { tournamentRenameSchema } from "@/lib/validations/content-admin";
 import { assertContentManage, contentCtx, contentDeny, type ContentActionResult } from "./content-shared";
 
@@ -26,6 +27,7 @@ export async function updateTournamentName(
       data: { name: parsed.data.name },
     });
     revalidatePath("/", "layout");
+    await revalidatePublishedTournamentSites();
     revalidatePath("/admin", "layout");
     revalidatePath("/admin/tournament-settings");
     return { ok: true, notice: "Tournament name updated." };

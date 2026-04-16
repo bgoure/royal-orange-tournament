@@ -1,5 +1,6 @@
 import Link from "next/link";
-import { getTournamentForRequest } from "@/lib/tournament-context";
+import type { Tournament } from "@prisma/client";
+import { getPublishedTournamentBySlug } from "@/lib/tournament-context";
 
 const FALLBACK = {
   website: "https://www.baseballontario.com/",
@@ -74,10 +75,7 @@ const SOCIAL_DEFS = [
   },
 ] as const;
 
-function hrefFor(
-  t: Awaited<ReturnType<typeof getTournamentForRequest>>,
-  key: (typeof SOCIAL_DEFS)[number]["key"],
-): string {
+function hrefFor(t: Tournament | null, key: (typeof SOCIAL_DEFS)[number]["key"]): string {
   if (!t) return FALLBACK[key === "email" ? "email" : key];
   const raw =
     key === "website"
@@ -100,8 +98,9 @@ function hrefFor(
   return s;
 }
 
-export default async function SocialPage() {
-  const tournament = await getTournamentForRequest();
+export default async function SocialPage({ params }: { params: Promise<{ tournamentSlug: string }> }) {
+  const { tournamentSlug } = await params;
+  const tournament = await getPublishedTournamentBySlug(tournamentSlug);
 
   return (
     <div className="flex flex-col gap-6">

@@ -1,9 +1,11 @@
 import Link from "next/link";
 import { listFaqItems } from "@/lib/services/content";
-import { getTournamentForRequest } from "@/lib/tournament-context";
+import { getPublishedTournamentBySlug } from "@/lib/tournament-context";
+import { tournamentPath } from "@/lib/tournament-public-path";
 
-export default async function FaqPage() {
-  const tournament = await getTournamentForRequest();
+export default async function FaqPage({ params }: { params: Promise<{ tournamentSlug: string }> }) {
+  const { tournamentSlug } = await params;
+  const tournament = await getPublishedTournamentBySlug(tournamentSlug);
   if (!tournament) {
     return <p className="text-sm text-zinc-500">No tournament selected.</p>;
   }
@@ -16,7 +18,7 @@ export default async function FaqPage() {
         <h1 className="text-2xl font-semibold text-zinc-900">FAQ</h1>
         <p className="text-sm text-zinc-600">Answers for {tournament.name}.</p>
         <p className="mt-2 text-sm">
-          <Link href="/locations" className="font-medium text-royal-light underline-offset-2 hover:underline">
+          <Link href={tournamentPath(tournamentSlug, "locations")} className="font-medium text-royal-light underline-offset-2 hover:underline">
             Venues &amp; tournament headquarters →
           </Link>
         </p>

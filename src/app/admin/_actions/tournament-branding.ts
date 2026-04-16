@@ -3,6 +3,7 @@
 import { copyFile, mkdir, writeFile } from "fs/promises";
 import path from "path";
 import { revalidatePath } from "next/cache";
+import { revalidatePublishedTournamentSites } from "@/lib/revalidate-public-tournament-site";
 import { prisma } from "@/lib/db";
 import { tournamentBrandingFormSchema } from "@/lib/validations/tournament-branding";
 import { assertContentManage, contentCtx, contentDeny, type ContentActionResult } from "./content-shared";
@@ -11,9 +12,9 @@ function brandingDir(slug: string) {
   return path.join(process.cwd(), "public", "branding", slug);
 }
 
-function revalidateBranding() {
+async function revalidateBranding() {
   revalidatePath("/", "layout");
-  revalidatePath("/social");
+  await revalidatePublishedTournamentSites();
   revalidatePath("/admin/tournament-settings");
 }
 
@@ -58,7 +59,7 @@ export async function updateTournamentBranding(
         socialEmail: d.socialEmail ?? null,
       },
     });
-    revalidateBranding();
+    await revalidateBranding();
     return { ok: true, notice: "Branding and links saved." };
   } catch (e) {
     return { ok: false, error: e instanceof Error ? e.message : "Save failed" };
@@ -160,7 +161,7 @@ export async function uploadPwaBrandingIcon(
       where: { id: c.tournament.id },
       data: sizeRaw === "512" ? { pwaIcon512Url: publicUrl } : { pwaIcon192Url: publicUrl },
     });
-    revalidateBranding();
+    await revalidateBranding();
     return { ok: true, notice: `Saved ${sizeRaw}×${sizeRaw} icon as ${publicUrl}` };
   } catch (e) {
     return { ok: false, error: e instanceof Error ? e.message : "Database update failed" };

@@ -1,6 +1,7 @@
 "use server";
 
 import { revalidatePath } from "next/cache";
+import { revalidatePublishedTournamentSites } from "@/lib/revalidate-public-tournament-site";
 import { AnnouncementEmailStatus } from "@prisma/client";
 import { auth } from "@/auth";
 import { prisma } from "@/lib/db";
@@ -77,7 +78,7 @@ export async function createAnnouncement(
     });
 
     revalidatePath("/admin/announcements");
-    revalidatePath("/");
+    await revalidatePublishedTournamentSites();
     let notice: string | undefined;
     if (sendEmail) {
       if (fresh?.emailDeliveryStatus === "SENT") notice = "Announcement published and email sent.";
@@ -149,7 +150,7 @@ export async function updateAnnouncement(
     });
 
     revalidatePath("/admin/announcements");
-    revalidatePath("/");
+    await revalidatePublishedTournamentSites();
     let notice: string | undefined;
     if (sendEmail) {
       if (fresh?.emailDeliveryStatus === "SENT")
@@ -189,7 +190,7 @@ export async function deleteAnnouncement(
 
     await prisma.announcement.delete({ where: { id } });
     revalidatePath("/admin/announcements");
-    revalidatePath("/");
+    await revalidatePublishedTournamentSites();
     return { ok: true };
   } catch (e) {
     const msg = e instanceof Error ? e.message : "Failed to delete";

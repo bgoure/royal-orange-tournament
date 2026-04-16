@@ -4,7 +4,8 @@ import { formatLocationAddress } from "@/lib/location-utils";
 import { appleMapsUrl, googleMapsUrl, wazeUrl } from "@/lib/maps-links";
 import { getHeadquartersLocation, listLocations } from "@/lib/services/content";
 import { resolveTournamentHeadquartersCoordinates } from "@/lib/services/weather-location";
-import { getTournamentForRequest } from "@/lib/tournament-context";
+import { getPublishedTournamentBySlug } from "@/lib/tournament-context";
+import { tournamentPath } from "@/lib/tournament-public-path";
 
 function MapLinks({
   lat,
@@ -60,8 +61,9 @@ function MapLinks({
   );
 }
 
-export default async function LocationsPage() {
-  const tournament = await getTournamentForRequest();
+export default async function LocationsPage({ params }: { params: Promise<{ tournamentSlug: string }> }) {
+  const { tournamentSlug } = await params;
+  const tournament = await getPublishedTournamentBySlug(tournamentSlug);
   if (!tournament) {
     return <p className="text-sm text-zinc-500">No tournament selected.</p>;
   }
@@ -84,7 +86,7 @@ export default async function LocationsPage() {
         <h1 className="text-2xl font-semibold text-zinc-900">Locations</h1>
         <p className="text-sm text-zinc-600">Headquarters and venues for {tournament.name}.</p>
         <p className="mt-2 text-sm">
-          <Link href="/faq" className="font-medium text-royal-light underline-offset-2 hover:underline">
+          <Link href={tournamentPath(tournamentSlug, "faq")} className="font-medium text-royal-light underline-offset-2 hover:underline">
             ← FAQ
           </Link>
         </p>

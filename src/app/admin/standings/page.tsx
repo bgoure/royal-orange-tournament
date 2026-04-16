@@ -26,6 +26,7 @@ export default async function AdminStandingsPage() {
     <StandingsRulesAdmin
       pools={pools}
       tournamentName={tournament.name}
+      tournamentSlug={tournament.slug}
       canConfigure={canConfigure}
     />
   );

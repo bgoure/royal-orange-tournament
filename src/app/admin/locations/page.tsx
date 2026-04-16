@@ -17,5 +17,12 @@ export default async function AdminLocationsPage() {
   const role = session?.user?.role;
   const canManage = role != null && can(role, "content:manage");
 
-  return <VenuesAdmin locations={locations} tournamentName={tournament.name} canManage={canManage} />;
+  return (
+    <VenuesAdmin
+      locations={locations}
+      tournamentName={tournament.name}
+      tournamentSlug={tournament.slug}
+      canManage={canManage}
+    />
+  );
 }

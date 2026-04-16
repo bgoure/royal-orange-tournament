@@ -1,6 +1,7 @@
 "use server";
 
 import { revalidatePath } from "next/cache";
+import { revalidatePublishedTournamentSites } from "@/lib/revalidate-public-tournament-site";
 import { prisma } from "@/lib/db";
 import {
   parsedOptionalCoordinates,
@@ -70,8 +71,7 @@ export async function updateTournamentHeadquarters(
       }),
     ]);
     revalidatePath("/admin/tournament-settings");
-    revalidatePath("/");
-    revalidatePath("/locations");
+    await revalidatePublishedTournamentSites();
     return { ok: true, notice: "Tournament headquarters saved." };
   } catch (e) {
     return { ok: false, error: e instanceof Error ? e.message : "Failed to save headquarters" };

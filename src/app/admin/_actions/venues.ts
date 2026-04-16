@@ -1,6 +1,7 @@
 "use server";
 
 import { revalidatePath } from "next/cache";
+import { revalidatePublishedTournamentSites } from "@/lib/revalidate-public-tournament-site";
 import { prisma } from "@/lib/db";
 import {
   locationCreateSchema,
@@ -74,8 +75,7 @@ export async function createVenue(
       },
     });
     revalidatePath("/admin/locations");
-    revalidatePath("/locations");
-    revalidatePath("/faq");
+    await revalidatePublishedTournamentSites();
     revalidatePath("/admin/tournament-settings");
     return { ok: true };
   } catch (e) {
@@ -135,10 +135,8 @@ export async function updateVenue(
       },
     });
     revalidatePath("/admin/locations");
-    revalidatePath("/locations");
-    revalidatePath("/faq");
+    await revalidatePublishedTournamentSites();
     revalidatePath("/admin/tournament-settings");
-    revalidatePath("/");
     return { ok: true };
   } catch (e) {
     return { ok: false, error: e instanceof Error ? e.message : "Failed to update location" };
@@ -193,10 +191,8 @@ export async function deleteVenue(
     }
 
     revalidatePath("/admin/locations");
-    revalidatePath("/locations");
-    revalidatePath("/faq");
+    await revalidatePublishedTournamentSites();
     revalidatePath("/admin/tournament-settings");
-    revalidatePath("/");
     return { ok: true };
   } catch (e) {
     return { ok: false, error: e instanceof Error ? e.message : "Failed to delete" };
@@ -235,7 +231,7 @@ export async function moveVenue(
       prisma.location.update({ where: { id: b.id }, data: { sortOrder: a.sortOrder } }),
     ]);
     revalidatePath("/admin/locations");
-    revalidatePath("/locations");
+    await revalidatePublishedTournamentSites();
     return { ok: true };
   } catch (e) {
     return { ok: false, error: e instanceof Error ? e.message : "Failed to reorder" };
@@ -272,9 +268,8 @@ export async function setLocationAsHeadquarters(
 
     revalidatePath("/admin/locations");
     revalidatePath("/admin/fields");
-    revalidatePath("/locations");
+    await revalidatePublishedTournamentSites();
     revalidatePath("/admin/tournament-settings");
-    revalidatePath("/");
     return { ok: true, notice: "Headquarters location updated." };
   } catch (e) {
     return { ok: false, error: e instanceof Error ? e.message : "Failed to set headquarters" };

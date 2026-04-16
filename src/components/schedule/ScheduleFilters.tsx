@@ -2,15 +2,18 @@
 
 import { useRouter, useSearchParams } from "next/navigation";
 import { useCallback, useMemo, useTransition } from "react";
+import { tournamentPath } from "@/lib/tournament-public-path";
 
 type TeamOpt = { id: string; name: string };
 type FieldOpt = { id: string; label: string };
 
 export function ScheduleFilters({
+  tournamentSlug,
   teams,
   fields,
   timezone,
 }: {
+  tournamentSlug: string;
   teams: TeamOpt[];
   fields: FieldOpt[];
   timezone: string;
@@ -55,10 +58,10 @@ export function ScheduleFilters({
         else params.set(k, v);
       }
       startTransition(() => {
-        router.push(`/schedule?${params.toString()}`);
+        router.push(`${tournamentPath(tournamentSlug, "schedule")}?${params.toString()}`);
       });
     },
-    [router, sp],
+    [router, sp, tournamentSlug],
   );
 
   return (

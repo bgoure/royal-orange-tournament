@@ -1,6 +1,7 @@
 "use server";
 
 import { revalidatePath } from "next/cache";
+import { revalidatePublishedTournamentSites } from "@/lib/revalidate-public-tournament-site";
 import { prisma } from "@/lib/db";
 import { faqCreateSchema, faqUpdateSchema } from "@/lib/validations/content-admin";
 import { assertContentManage, contentCtx, contentDeny, type ContentActionResult } from "./content-shared";
@@ -47,7 +48,7 @@ export async function createFaqItem(
       },
     });
     revalidatePath("/admin/faq");
-    revalidatePath("/faq");
+    await revalidatePublishedTournamentSites();
     return { ok: true };
   } catch (e) {
     return { ok: false, error: e instanceof Error ? e.message : "Failed to create FAQ" };
@@ -96,7 +97,7 @@ export async function updateFaqItem(
       },
     });
     revalidatePath("/admin/faq");
-    revalidatePath("/faq");
+    await revalidatePublishedTournamentSites();
     return { ok: true };
   } catch (e) {
     return { ok: false, error: e instanceof Error ? e.message : "Failed to update FAQ" };
@@ -122,7 +123,7 @@ export async function deleteFaqItem(
 
     await prisma.faqItem.delete({ where: { id } });
     revalidatePath("/admin/faq");
-    revalidatePath("/faq");
+    await revalidatePublishedTournamentSites();
     return { ok: true };
   } catch (e) {
     return { ok: false, error: e instanceof Error ? e.message : "Failed to delete" };
@@ -161,7 +162,7 @@ export async function moveFaqItem(
       prisma.faqItem.update({ where: { id: b.id }, data: { sortOrder: a.sortOrder } }),
     ]);
     revalidatePath("/admin/faq");
-    revalidatePath("/faq");
+    await revalidatePublishedTournamentSites();
     return { ok: true };
   } catch (e) {
     return { ok: false, error: e instanceof Error ? e.message : "Failed to reorder" };

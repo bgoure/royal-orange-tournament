@@ -11,14 +11,17 @@ import {
 } from "@/lib/division-tab-utils";
 import { listFieldsForTournament, listPoolsForDivisionTabs, listTeamsForTournament } from "@/lib/services/pools";
 import { listGamesForTournament } from "@/lib/services/games";
-import { getTournamentForRequest } from "@/lib/tournament-context";
+import { getPublishedTournamentBySlug } from "@/lib/tournament-context";
 
 export default async function SchedulePage({
+  params,
   searchParams,
 }: {
+  params: Promise<{ tournamentSlug: string }>;
   searchParams: Promise<{ day?: string; team?: string; field?: string; division?: string }>;
 }) {
-  const tournament = await getTournamentForRequest();
+  const { tournamentSlug } = await params;
+  const tournament = await getPublishedTournamentBySlug(tournamentSlug);
   const sp = await searchParams;
 
   if (!tournament) {
@@ -56,6 +59,7 @@ export default async function SchedulePage({
           fallback={<div className="h-24 animate-pulse rounded-xl bg-zinc-100" aria-hidden />}
         >
           <ScheduleFilters
+            tournamentSlug={tournamentSlug}
             teams={teams.map((t) => ({
               id: t.id,
               name: t.name,
