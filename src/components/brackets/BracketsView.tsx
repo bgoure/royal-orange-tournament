@@ -1,3 +1,6 @@
+"use client";
+
+import { useState } from "react";
 import type {
   Bracket,
   BracketMatch,
@@ -9,6 +12,7 @@ import type {
   Team,
 } from "@prisma/client";
 import { formatFieldWithLocation } from "@/lib/field-display";
+import { EmptyState } from "@/components/ui/EmptyState";
 
 type TeamWithPool = Team & {
   pool: (Pool & { division: Division }) | null;
@@ -156,9 +160,151 @@ function BracketMatchCard({
   );
 }
 
+function BracketGrid({
+  byRound,
+  roundsOrdered,
+}: {
+  byRound: Map<string, GameRow[]>;
+  roundsOrdered: BracketRound[];
+}) {
+  return (
+    <div className="mt-4 flex gap-6 overflow-x-auto pb-2 md:overflow-visible">
+      {roundsOrdered.map((r, ri) => {
+        const games = (byRound.get(r.id) ?? []).sort((x, y) => matchSortIndex(x) - matchSortIndex(y));
+        const prevRoundName = ri > 0 ? roundsOrdered[ri - 1]!.name : null;
+        return (
+          <div
+            key={r.id}
+            className={`flex min-h-[320px] w-[min(100%,260px)] shrink-0 flex-col ${ri > 0 ? "border-l border-dashed border-zinc-200 pl-6" : ""}`}
+          >
+            <div className="mb-3 shrink-0">
+              <h3 className="text-sm font-medium text-zinc-800">{r.name}</h3>
+              <p className="text-[11px] text-zinc-500">{r.roundType.replaceAll("_", " ")}</p>
+            </div>
+            <div className="flex flex-1 flex-col justify-around gap-4">
+              {games.length === 0 ? (
+                <p className="text-sm text-zinc-500">Matchups TBA.</p>
+              ) : (
+                games.map((g, mi) => (
+                  <BracketMatchCard
+                    key={g.id}
+                    game={g}
+                    roundIndex={ri}
+                    matchIndex={mi}
+                    prevRoundName={prevRoundName}
+                  />
+                ))
+              )}
+            </div>
+          </div>
+        );
+      })}
+    </div>
+  );
+}
+
+function MobileMatchRow({
+  game,
+  roundLabel,
+  prevRoundName,
+}: {
+  game: GameRow;
+  roundLabel: string;
+  prevRoundName: string | null;
+}) {
+  const bm = game.bracketMatch;
+  const mi = bm?.matchIndex ?? 0;
+  const ri = game.bracketRound?.roundIndex ?? 0;
+  const away = slotLines(
+    game.awayTeam,
+    bm?.awaySourcePool,
+    bm?.awaySourceRank,
+    ri,
+    mi,
+    "away",
+    prevRoundName,
+  );
+  const home = slotLines(
+    game.homeTeam,
+    bm?.homeSourcePool,
+    bm?.homeSourceRank,
+    ri,
+    mi,
+    "home",
+    prevRoundName,
+  );
+  const final = game.status === "FINAL" && game.homeRuns != null && game.awayRuns != null;
+  const awayW = final && game.awayRuns! > game.homeRuns!;
+  const homeW = final && game.homeRuns! > game.awayRuns!;
+
+  return (
+    <li className="rounded-xl border border-zinc-200 bg-white px-4 py-3 shadow-sm">
+      <p className="text-[10px] font-semibold uppercase tracking-wide text-zinc-500">{roundLabel}</p>
+      <p className="mt-2 text-sm font-semibold text-zinc-900">{away.primary}</p>
+      <p className="mt-2 text-center text-[10px] text-zinc-400">vs</p>
+      <p className="text-sm font-semibold text-zinc-900">{home.primary}</p>
+      {final ? (
+        <div className="mt-3 flex items-center justify-between border-t border-zinc-100 pt-3">
+          <span className={`text-lg font-bold tabular-nums ${awayW ? "text-royal" : "text-zinc-400"}`}>
+            {game.awayRuns}
+          </span>
+          <span className="text-xs text-zinc-500">Final</span>
+          <span className={`text-lg font-bold tabular-nums ${homeW ? "text-royal" : "text-zinc-400"}`}>
+            {game.homeRuns}
+          </span>
+        </div>
+      ) : (
+        <p className="mt-2 text-xs text-zinc-500">Upcoming · {fmtTime(game.scheduledAt)}</p>
+      )}
+    </li>
+  );
+}
+
+function BracketMobileList({ b }: { b: BracketWith }) {
+  const sorted = [...b.games].sort((a, c) => {
+    const ra = a.bracketRound?.roundIndex ?? 0;
+    const rb = c.bracketRound?.roundIndex ?? 0;
+    if (ra !== rb) return ra - rb;
+    return matchSortIndex(a) - matchSortIndex(c);
+  });
+  const roundById = new Map(b.rounds.map((r) => [r.id, r]));
+
+  return (
+    <ul className="flex flex-col gap-3 md:hidden">
+      {sorted.map((g) => {
+        const r = g.bracketRoundId ? roundById.get(g.bracketRoundId) : null;
+        const prev =
+          r && r.roundIndex > 0
+            ? b.rounds.find((x) => x.roundIndex === r.roundIndex - 1)?.name ?? null
+            : null;
+        return (
+          <MobileMatchRow
+            key={g.id}
+            game={g}
+            roundLabel={r?.name ?? "Round"}
+            prevRoundName={prev}
+          />
+        );
+      })}
+    </ul>
+  );
+}
+
 export function BracketsView({ brackets }: { brackets: BracketWith[] }) {
+  const [mobileView, setMobileView] = useState<"bracket" | "list">("list");
+
   if (brackets.length === 0) {
-    return <p className="text-sm text-zinc-500">Playoff brackets will appear here once published.</p>;
+    return (
+      <EmptyState
+        icon={
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={1.5} aria-hidden>
+            <path d="M4 4v6h4M4 7h4M20 4v6h-4M20 7h-4M4 20v-6h4M4 17h4M20 20v-6h-4M20 17h-4M8 7h2a2 2 0 012 2v6a2 2 0 01-2 2H8M16 7h-2a2 2 0 00-2 2v6a2 2 0 002 2h2" />
+          </svg>
+        }
+        title="No bracket matches yet"
+        description="Playoff brackets will appear here when published."
+      />
+    );
   }
 
   return (
@@ -180,39 +326,41 @@ export function BracketsView({ brackets }: { brackets: BracketWith[] }) {
               Schedule and field are set per game; open slots show pool finish or the previous round until teams
               advance.
             </p>
-            <div className="mt-4 flex gap-6 overflow-x-auto pb-2">
-              {roundsOrdered.map((r, ri) => {
-                const games = (byRound.get(r.id) ?? []).sort(
-                  (x, y) => matchSortIndex(x) - matchSortIndex(y),
-                );
-                const prevRoundName = ri > 0 ? roundsOrdered[ri - 1]!.name : null;
-                return (
-                  <div
-                    key={r.id}
-                    className={`flex min-h-[320px] w-[min(100%,260px)] shrink-0 flex-col ${ri > 0 ? "border-l border-dashed border-zinc-200 pl-6" : ""}`}
-                  >
-                    <div className="mb-3 shrink-0">
-                      <h3 className="text-sm font-medium text-zinc-800">{r.name}</h3>
-                      <p className="text-[11px] text-zinc-500">{r.roundType.replaceAll("_", " ")}</p>
-                    </div>
-                    <div className="flex flex-1 flex-col justify-around gap-4">
-                      {games.length === 0 ? (
-                        <p className="text-sm text-zinc-500">Matchups TBA.</p>
-                      ) : (
-                        games.map((g, mi) => (
-                          <BracketMatchCard
-                            key={g.id}
-                            game={g}
-                            roundIndex={ri}
-                            matchIndex={mi}
-                            prevRoundName={prevRoundName}
-                          />
-                        ))
-                      )}
-                    </div>
-                  </div>
-                );
-              })}
+
+            <div className="mt-4 flex md:hidden">
+              <div className="inline-flex rounded-full border border-zinc-200 bg-zinc-50 p-1">
+                <button
+                  type="button"
+                  onClick={() => setMobileView("list")}
+                  className={`min-h-11 min-w-[100px] rounded-full px-4 py-2 text-sm font-medium transition-colors active:opacity-90 ${
+                    mobileView === "list" ? "bg-white text-zinc-900 shadow-sm" : "text-zinc-600"
+                  }`}
+                >
+                  List
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setMobileView("bracket")}
+                  className={`min-h-11 min-w-[100px] rounded-full px-4 py-2 text-sm font-medium transition-colors active:opacity-90 ${
+                    mobileView === "bracket" ? "bg-white text-zinc-900 shadow-sm" : "text-zinc-600"
+                  }`}
+                >
+                  Bracket
+                </button>
+              </div>
+            </div>
+
+            <div className="mt-4 hidden md:block">
+              <BracketGrid byRound={byRound} roundsOrdered={roundsOrdered} />
+            </div>
+            <div className="mt-4 md:hidden">
+              {mobileView === "list" ? (
+                <BracketMobileList b={b} />
+              ) : (
+                <div className="overflow-x-auto pb-2">
+                  <BracketGrid byRound={byRound} roundsOrdered={roundsOrdered} />
+                </div>
+              )}
             </div>
           </section>
         );

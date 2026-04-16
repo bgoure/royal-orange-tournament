@@ -1,5 +1,6 @@
 import type { Division, Field, Game, Pool, Team } from "@prisma/client";
 import { formatFieldWithLocation } from "@/lib/field-display";
+import { EmptyState } from "@/components/ui/EmptyState";
 
 export type GameWithTeams = Game & {
   field: Field & { location: { name: string } };
@@ -10,16 +11,31 @@ export type GameWithTeams = Game & {
 
 const statusStyles: Record<string, string> = {
   SCHEDULED: "bg-zinc-100 text-zinc-700",
-  LIVE: "bg-red-100 text-red-800 animate-pulse",
+  LIVE: "bg-red-600 text-white shadow-sm",
   FINAL: "bg-royal-50 text-royal",
   POSTPONED: "bg-amber-100 text-amber-900",
   CANCELLED: "bg-zinc-200 text-zinc-600 line-through",
 };
 
 const cardBorder: Record<string, string> = {
-  LIVE: "border-red-200 bg-red-50/30",
+  LIVE: "border-red-300 bg-red-50",
   default: "border-zinc-200 bg-white",
 };
+
+function dayKeyInTz(d: Date, tz: string): string {
+  return new Intl.DateTimeFormat("en-CA", {
+    timeZone: tz,
+    year: "numeric",
+    month: "2-digit",
+    day: "2-digit",
+  }).format(d);
+}
+
+export function isLiveGameToday(g: GameWithTeams, timezone: string): boolean {
+  if (g.status !== "LIVE") return false;
+  const now = new Date();
+  return dayKeyInTz(g.scheduledAt, timezone) === dayKeyInTz(now, timezone);
+}
 
 function fmtTime(d: Date) {
   return new Intl.DateTimeFormat(undefined, {
@@ -31,37 +47,70 @@ function fmtTime(d: Date) {
   }).format(d);
 }
 
-function GameCard({ g, compact }: { g: GameWithTeams; compact?: boolean }) {
+function GameCard({
+  g,
+  compact,
+  liveProminent,
+}: {
+  g: GameWithTeams;
+  compact?: boolean;
+  liveProminent?: boolean;
+}) {
   const st = statusStyles[g.status] ?? statusStyles.SCHEDULED;
   const border = cardBorder[g.status] ?? cardBorder.default;
   const hasScore = g.homeRuns != null && g.awayRuns != null;
+  const pulse = g.status === "LIVE" && liveProminent;
 
   return (
     <li
-      className={`rounded-2xl border shadow-sm ${border} ${compact ? "w-[200px] shrink-0 px-3 py-2.5" : "px-4 py-3"}`}
+      className={`rounded-2xl border shadow-sm ${border} ${liveProminent ? "border-l-4 border-l-red-500" : ""} ${
+        pulse ? "animate-pulse" : ""
+      } ${compact ? "w-[200px] shrink-0 px-3 py-2.5" : "px-4 py-3"}`}
     >
       <div className="flex items-center justify-between gap-2">
         <p className="text-[11px] text-zinc-500">{compact ? fmtTimeShort(g.scheduledAt) : fmtTime(g.scheduledAt)}</p>
-        <span className={`rounded-full px-2 py-0.5 text-[10px] font-bold uppercase ${st}`}>{g.status}</span>
+        <span
+          className={`rounded-full px-2 py-0.5 text-[10px] font-bold uppercase ${st} ${
+            g.status === "LIVE" && liveProminent ? "ring-2 ring-red-200" : ""
+          }`}
+        >
+          {g.status === "LIVE" ? "LIVE" : g.status}
+        </span>
       </div>
 
       {hasScore ? (
-        <div className="mt-1.5 flex items-center justify-between gap-1">
+        <div className={`mt-1.5 flex items-center justify-between gap-1 ${liveProminent ? "text-lg" : ""}`}>
           <div className="min-w-0 flex-1 text-right">
-            <p className="truncate text-[13px] font-semibold text-zinc-900">{g.awayTeam?.name ?? "TBD"}</p>
+            <p
+              className={`truncate font-semibold text-zinc-900 ${liveProminent ? "text-base md:text-lg" : "text-[13px]"}`}
+            >
+              {g.awayTeam?.name ?? "TBD"}
+            </p>
           </div>
           <div className="flex items-center gap-0.5 px-1">
-            <span className={`${compact ? "text-base" : "text-lg"} font-bold tabular-nums text-zinc-900`}>{g.awayRuns}</span>
+            <span
+              className={`font-bold tabular-nums text-zinc-900 ${liveProminent ? "text-2xl" : compact ? "text-base" : "text-lg"}`}
+            >
+              {g.awayRuns}
+            </span>
             <span className="text-[10px] text-zinc-400">–</span>
-            <span className={`${compact ? "text-base" : "text-lg"} font-bold tabular-nums text-zinc-900`}>{g.homeRuns}</span>
+            <span
+              className={`font-bold tabular-nums text-zinc-900 ${liveProminent ? "text-2xl" : compact ? "text-base" : "text-lg"}`}
+            >
+              {g.homeRuns}
+            </span>
           </div>
           <div className="min-w-0 flex-1">
-            <p className="truncate text-[13px] font-semibold text-zinc-900">{g.homeTeam?.name ?? "TBD"}</p>
+            <p
+              className={`truncate font-semibold text-zinc-900 ${liveProminent ? "text-base md:text-lg" : "text-[13px]"}`}
+            >
+              {g.homeTeam?.name ?? "TBD"}
+            </p>
           </div>
         </div>
       ) : (
         <div className="mt-1.5">
-          <p className="text-[13px] font-semibold text-zinc-900">
+          <p className={`font-semibold text-zinc-900 ${liveProminent ? "text-base" : "text-[13px]"}`}>
             {g.awayTeam?.name ?? "TBD"}
             <span className="mx-1 text-[10px] font-normal text-zinc-400">vs</span>
             {g.homeTeam?.name ?? "TBD"}
@@ -85,34 +134,96 @@ function fmtTimeShort(d: Date) {
   }).format(d);
 }
 
+function HorizontalGameRow({ games, liveProminent }: { games: GameWithTeams[]; liveProminent?: boolean }) {
+  return (
+    <ul className="-mx-4 flex gap-2.5 overflow-x-auto px-4 pb-2 snap-x snap-mandatory">
+      {games.map((g) => (
+        <GameCard key={g.id} g={g} compact liveProminent={liveProminent} />
+      ))}
+    </ul>
+  );
+}
+
 export function GameList({
   games,
+  timezone,
   emptyMessage = "No games match your filters.",
+  emptyHint,
   horizontal,
 }: {
   games: GameWithTeams[];
+  timezone?: string;
   emptyMessage?: string;
+  emptyHint?: string;
   horizontal?: boolean;
 }) {
   if (games.length === 0) {
-    return <p className="text-sm text-zinc-500">{emptyMessage}</p>;
+    return (
+      <EmptyState
+        icon={
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={1.5} aria-hidden>
+            <rect x="3" y="4" width="18" height="18" rx="2" />
+            <path d="M16 2v4M8 2v4M3 10h18" />
+          </svg>
+        }
+        title={emptyMessage}
+        description={emptyHint ?? "Try another day, team, or division filter."}
+      />
+    );
   }
+
+  const liveToday =
+    timezone != null && timezone !== ""
+      ? games.filter((g) => isLiveGameToday(g, timezone))
+      : games.filter(
+          (g) =>
+            g.status === "LIVE" &&
+            new Date(g.scheduledAt).toDateString() === new Date().toDateString(),
+        );
+
+  const liveIds = new Set(liveToday.map((g) => g.id));
+  const rest = games.filter((g) => !liveIds.has(g.id));
+
+  const liveBlock =
+    liveToday.length > 0 ? (
+      <div className="sticky top-0 z-20 -mx-1 mb-4 border-b border-red-100 bg-red-50/95 px-1 pb-3 pt-1 backdrop-blur-sm md:static md:z-0 md:mb-4 md:border-0 md:bg-transparent md:p-0 md:backdrop-blur-none">
+        <div className="mb-2 flex items-center gap-2 px-1">
+          <span className="rounded bg-red-600 px-2 py-0.5 text-[10px] font-bold uppercase tracking-wide text-white">
+            Live today
+          </span>
+          <span className="text-xs text-red-800">Happening now</span>
+        </div>
+        {horizontal ? (
+          <HorizontalGameRow games={liveToday} liveProminent />
+        ) : (
+          <ul className="flex flex-col gap-2">
+            {liveToday.map((g) => (
+              <GameCard key={g.id} g={g} liveProminent />
+            ))}
+          </ul>
+        )}
+      </div>
+    ) : null;
 
   if (horizontal) {
     return (
-      <ul className="-mx-4 flex gap-2.5 overflow-x-auto px-4 pb-2 snap-x snap-mandatory">
-        {games.map((g) => (
-          <GameCard key={g.id} g={g} compact />
-        ))}
-      </ul>
+      <div className="flex flex-col gap-4">
+        {liveBlock}
+        {rest.length > 0 ? <HorizontalGameRow games={rest} /> : null}
+      </div>
     );
   }
 
   return (
-    <ul className="flex flex-col gap-2">
-      {games.map((g) => (
-        <GameCard key={g.id} g={g} />
-      ))}
-    </ul>
+    <div className="flex flex-col gap-4">
+      {liveBlock}
+      {rest.length > 0 ? (
+        <ul className="flex flex-col gap-2">
+          {rest.map((g) => (
+            <GameCard key={g.id} g={g} />
+          ))}
+        </ul>
+      ) : null}
+    </div>
   );
 }

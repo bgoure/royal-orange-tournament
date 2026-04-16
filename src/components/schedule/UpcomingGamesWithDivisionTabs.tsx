@@ -19,10 +19,12 @@ export function UpcomingGamesWithDivisionTabs({
   poolsForTabs,
   games,
   initialResolvedDivisionId,
+  timezone,
 }: {
   poolsForTabs: PoolForDivisionTabs[];
   games: GameWithTeams[];
   initialResolvedDivisionId: string;
+  timezone: string;
 }) {
   const router = useRouter();
   const pathname = usePathname();
@@ -100,7 +102,13 @@ export function UpcomingGamesWithDivisionTabs({
   return (
     <div className="flex flex-col gap-3">
       <DivisionTabs tabs={tabs} activeIndex={tab} onSelect={selectTab} disabled={pending} />
-      <GameList games={visible} emptyMessage="No upcoming games scheduled for this division." horizontal />
+      <GameList
+        games={visible}
+        timezone={timezone}
+        emptyMessage="No upcoming games scheduled for this division."
+        emptyHint="Check another division or see the full schedule."
+        horizontal
+      />
       <p className="text-sm">
         <Link href={scheduleHref} className="font-medium text-royal-light hover:text-royal hover:underline">
           See more

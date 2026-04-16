@@ -44,7 +44,7 @@ const tabs = [
   {
     href: "/more",
     label: "More",
-    matchPaths: ["/faq", "/locations"],
+    matchPaths: ["/faq", "/locations", "/more", "/settings", "/social"],
     icon: (
       <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round" className="size-5">
         <circle cx="12" cy="12" r="1" /><circle cx="12" cy="5" r="1" /><circle cx="12" cy="19" r="1" />
@@ -68,8 +68,8 @@ export function BottomNav() {
           return (
             <Link
               key={t.href}
-              href={t.href === "/more" ? "/faq" : t.href}
-              className={`flex flex-col items-center gap-0.5 px-3 py-2 text-[10px] font-medium transition-colors ${
+              href={t.href}
+              className={`flex min-h-[52px] min-w-[52px] flex-col items-center justify-center gap-0.5 rounded-xl px-2 py-1 text-[10px] font-medium transition-colors active:scale-[0.98] ${
                 active
                   ? "text-royal"
                   : "text-zinc-400 active:text-zinc-600"

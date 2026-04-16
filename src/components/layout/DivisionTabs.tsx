@@ -46,7 +46,7 @@ export function DivisionTabs({
           aria-selected={i === activeIndex}
           disabled={disabled}
           onClick={() => onSelect(i)}
-          className={`rounded-full px-4 py-2 text-sm font-medium transition-colors ${tabColor(t.name, i === activeIndex)}`}
+          className={`min-h-11 rounded-full px-4 py-2.5 text-sm font-medium transition-colors active:opacity-90 ${tabColor(t.name, i === activeIndex)}`}
         >
           {t.name}
         </button>

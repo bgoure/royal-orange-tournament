@@ -84,6 +84,18 @@ model Tournament {
   latitude      Float?
   longitude     Float?
   isPublished   Boolean  @default(true)
+  /// PWA install icons: absolute URL or site path (e.g. /branding/slug/icon-192.png).
+  pwaIcon192Url     String?
+  pwaIcon512Url     String?
+  /// Manifest / browser UI theme (hex, e.g. #1a1a2e).
+  pwaThemeColor     String?
+  socialWebsiteUrl  String? @db.Text
+  socialFacebookUrl String? @db.Text
+  socialInstagramUrl String? @db.Text
+  socialXUrl        String? @db.Text
+  socialYoutubeUrl  String? @db.Text
+  /// Plain email address for mailto (no mailto: prefix).
+  socialEmail       String?
   divisions     Division[]
   locations     Location[]
   fields        Field[]

@@ -6,6 +6,7 @@ import {
   type TournamentHeadquartersState,
 } from "@/components/admin/tournament/TournamentHeadquartersForm";
 import { TournamentRenameForm } from "@/components/admin/tournament/TournamentRenameForm";
+import { TournamentBrandingForm } from "@/components/admin/tournament/TournamentBrandingForm";
 import { can } from "@/lib/rbac/permissions";
 import { formatLocationAddress } from "@/lib/location-utils";
 import { getHeadquartersLocation, listLocations } from "@/lib/services/content";
@@ -46,10 +47,23 @@ export default async function AdminTournamentSettingsPage() {
   const role = session?.user?.role;
   const canManage = role != null && can(role, "content:manage");
 
+  const branding = {
+    pwaIcon192Url: tournament.pwaIcon192Url,
+    pwaIcon512Url: tournament.pwaIcon512Url,
+    pwaThemeColor: tournament.pwaThemeColor,
+    socialWebsiteUrl: tournament.socialWebsiteUrl,
+    socialFacebookUrl: tournament.socialFacebookUrl,
+    socialInstagramUrl: tournament.socialInstagramUrl,
+    socialXUrl: tournament.socialXUrl,
+    socialYoutubeUrl: tournament.socialYoutubeUrl,
+    socialEmail: tournament.socialEmail,
+  };
+
   if (!headquarters) {
     return (
       <div className="flex flex-col gap-8">
         <TournamentRenameForm tournamentName={tournament.name} canManage={canManage} />
+        <TournamentBrandingForm branding={branding} canManage={canManage} />
         <TournamentHeadquartersForm
           headquarters={{
             headquartersLocationId: "",
@@ -69,6 +83,7 @@ export default async function AdminTournamentSettingsPage() {
   return (
     <div className="flex flex-col gap-8">
       <TournamentRenameForm tournamentName={tournament.name} canManage={canManage} />
+      <TournamentBrandingForm branding={branding} canManage={canManage} />
       <TournamentHeadquartersForm
         headquarters={headquarters}
         locations={options}

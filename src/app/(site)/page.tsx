@@ -102,6 +102,7 @@ export default async function HomePage({
               poolsForTabs={poolsForTabs}
               games={upcomingGames}
               initialResolvedDivisionId={resolvedDivisionId}
+              timezone={tournament.timezone}
             />
           </Suspense>
         </div>

@@ -1,5 +1,6 @@
 import { Suspense } from "react";
 import { GameList } from "@/components/schedule/GameList";
+import { SchedulePullToRefresh } from "@/components/schedule/SchedulePullToRefresh";
 import { ScheduleFilters } from "@/components/schedule/ScheduleFilters";
 import { formatFieldWithLocation } from "@/lib/field-display";
 import { buildDivisionTabDescriptors } from "@/lib/division-tabs";
@@ -43,29 +44,31 @@ export default async function SchedulePage({
   });
 
   return (
-    <div className="flex flex-col gap-6">
-      <div>
-        <h1 className="text-2xl font-semibold text-zinc-900">Schedule</h1>
-        <p className="text-sm text-zinc-600">Filter by division, day, team, or field.</p>
+    <SchedulePullToRefresh>
+      <div className="flex flex-col gap-6">
+        <div>
+          <h1 className="text-2xl font-semibold text-zinc-900">Schedule</h1>
+          <p className="text-sm text-zinc-600">Filter by division, day, team, or field.</p>
+        </div>
+        <Suspense
+          fallback={<div className="h-24 animate-pulse rounded-xl bg-zinc-100" aria-hidden />}
+        >
+          <ScheduleFilters
+            teams={teams.map((t) => ({
+              id: t.id,
+              name: t.name,
+            }))}
+            fields={fields.map((f) => ({
+              id: f.id,
+              label: formatFieldWithLocation(f.name, f.location.name),
+            }))}
+            timezone={tournament.timezone}
+            divisionTabs={divisionTabs}
+            serverResolvedDivisionId={resolvedDivisionId}
+          />
+        </Suspense>
+        <GameList games={games} timezone={tournament.timezone} />
       </div>
-      <Suspense
-        fallback={<div className="h-24 animate-pulse rounded-xl bg-zinc-100" aria-hidden />}
-      >
-        <ScheduleFilters
-          teams={teams.map((t) => ({
-            id: t.id,
-            name: t.name,
-          }))}
-          fields={fields.map((f) => ({
-            id: f.id,
-            label: formatFieldWithLocation(f.name, f.location.name),
-          }))}
-          timezone={tournament.timezone}
-          divisionTabs={divisionTabs}
-          serverResolvedDivisionId={resolvedDivisionId}
-        />
-      </Suspense>
-      <GameList games={games} />
-    </div>
+    </SchedulePullToRefresh>
   );
 }

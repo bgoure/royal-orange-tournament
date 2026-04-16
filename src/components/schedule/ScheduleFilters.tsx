@@ -112,7 +112,7 @@ export function ScheduleFilters({
       <label className="flex flex-col gap-1 text-xs font-medium text-zinc-600">
         Day
         <select
-          className="rounded-lg border border-zinc-200 bg-white px-2 py-2 text-sm text-zinc-900"
+          className="min-h-11 rounded-lg border border-zinc-200 bg-white px-3 py-2 text-base text-zinc-900"
           disabled={pending}
           value={day}
           onChange={(e) => push({ day: e.target.value })}
@@ -128,7 +128,7 @@ export function ScheduleFilters({
       <label className="flex flex-col gap-1 text-xs font-medium text-zinc-600">
         Team
         <select
-          className="rounded-lg border border-zinc-200 bg-white px-2 py-2 text-sm text-zinc-900"
+          className="min-h-11 rounded-lg border border-zinc-200 bg-white px-3 py-2 text-base text-zinc-900"
           disabled={pending}
           value={teamId}
           onChange={(e) => push({ team: e.target.value })}
@@ -144,7 +144,7 @@ export function ScheduleFilters({
       <label className="flex flex-col gap-1 text-xs font-medium text-zinc-600">
         Field
         <select
-          className="rounded-lg border border-zinc-200 bg-white px-2 py-2 text-sm text-zinc-900"
+          className="min-h-11 rounded-lg border border-zinc-200 bg-white px-3 py-2 text-base text-zinc-900"
           disabled={pending}
           value={fieldId}
           onChange={(e) => push({ field: e.target.value })}

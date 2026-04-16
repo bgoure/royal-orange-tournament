@@ -1,4 +1,5 @@
 import Link from "next/link";
+import { EmptyState } from "@/components/ui/EmptyState";
 import { formatLocationAddress } from "@/lib/location-utils";
 import { appleMapsUrl, googleMapsUrl, wazeUrl } from "@/lib/maps-links";
 import { getHeadquartersLocation, listLocations } from "@/lib/services/content";
@@ -26,7 +27,7 @@ function MapLinks({
           href={mapLink.trim()}
           target="_blank"
           rel="noopener noreferrer"
-          className="rounded-full bg-sky-600 px-3 py-1.5 text-xs font-semibold text-white hover:bg-sky-700"
+          className="rounded-full bg-sky-600 px-4 py-2.5 text-xs font-semibold text-white hover:bg-sky-700 active:opacity-90"
         >
           Linked map
         </a>
@@ -35,7 +36,7 @@ function MapLinks({
         href={g}
         target="_blank"
         rel="noopener noreferrer"
-        className="rounded-full bg-royal-light px-3 py-1.5 text-xs font-semibold text-white hover:bg-royal"
+        className="rounded-full bg-royal-light px-4 py-2.5 text-xs font-semibold text-white hover:bg-royal active:opacity-90"
       >
         Google Maps
       </a>
@@ -43,7 +44,7 @@ function MapLinks({
         href={w}
         target="_blank"
         rel="noopener noreferrer"
-        className="rounded-full border border-zinc-200 bg-white px-3 py-1.5 text-xs font-semibold text-zinc-800 hover:bg-zinc-50"
+        className="rounded-full border border-zinc-200 bg-white px-4 py-2.5 text-xs font-semibold text-zinc-800 hover:bg-zinc-50 active:opacity-90"
       >
         Waze
       </a>
@@ -51,7 +52,7 @@ function MapLinks({
         href={a}
         target="_blank"
         rel="noopener noreferrer"
-        className="rounded-full border border-zinc-200 bg-white px-3 py-1.5 text-xs font-semibold text-zinc-800 hover:bg-zinc-50"
+        className="rounded-full border border-zinc-200 bg-white px-4 py-2.5 text-xs font-semibold text-zinc-800 hover:bg-zinc-50 active:opacity-90"
       >
         Apple Maps
       </a>
@@ -107,7 +108,18 @@ export default async function LocationsPage() {
         <h2 className="text-sm font-semibold uppercase tracking-wide text-zinc-500">All locations</h2>
         <ul className="mt-3 flex flex-col gap-3">
           {locations.length === 0 ? (
-            <li className="text-sm text-zinc-500">No locations listed.</li>
+            <li className="list-none">
+              <EmptyState
+                icon={
+                  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={1.5} aria-hidden>
+                    <path d="M12 2C8.13 2 5 5.13 5 9c0 5.25 7 13 7 13s7-7.75 7-13c0-3.87-3.13-7-7-7z" />
+                    <circle cx="12" cy="9" r="2.5" />
+                  </svg>
+                }
+                title="No venues listed yet"
+                description="Locations will appear here when added for this tournament."
+              />
+            </li>
           ) : (
             locations.map((loc) => {
               const address = formatLocationAddress(loc);

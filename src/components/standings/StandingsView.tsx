@@ -1,4 +1,5 @@
 import type { Division, Pool, PoolStanding, Team } from "@prisma/client";
+import { EmptyState } from "@/components/ui/EmptyState";
 
 type Row = PoolStanding & { team: Team };
 type PoolWith = Pool & {
@@ -13,7 +14,17 @@ function fmtRatio(num: number, den: number): string {
 
 export function StandingsView({ pools }: { pools: PoolWith[] }) {
   if (pools.length === 0) {
-    return <p className="text-sm text-zinc-500">No pools for this tournament.</p>;
+    return (
+      <EmptyState
+        icon={
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={1.5} aria-hidden>
+            <path d="M8 21V16M12 21V10M16 21V4" />
+          </svg>
+        }
+        title="No divisions or pools yet"
+        description="Standings will appear after teams and pools are set up in the tournament."
+      />
+    );
   }
 
   return (
@@ -29,6 +40,18 @@ export function StandingsView({ pools }: { pools: PoolWith[] }) {
             </p>
           ) : null}
 
+          {pool.standings.length === 0 ? (
+            <EmptyState
+              className="py-8"
+              icon={
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={1.5} aria-hidden>
+                  <path d="M17 21v-2a4 4 0 00-4-4H5a4 4 0 00-4 4v2M9 11a4 4 0 100-8 4 4 0 000 8z" />
+                </svg>
+              }
+              title="No teams in this pool yet"
+              description="Teams will show here once assigned to this division pool."
+            />
+          ) : (
           <div className="overflow-x-auto rounded-xl border border-zinc-200 bg-white shadow-sm">
             <table className="w-full text-left text-sm">
               <thead>
@@ -61,6 +84,7 @@ export function StandingsView({ pools }: { pools: PoolWith[] }) {
               </tbody>
             </table>
           </div>
+          )}
         </section>
       ))}
     </div>
