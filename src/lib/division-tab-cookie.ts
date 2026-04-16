@@ -1,3 +1,5 @@
+import "server-only";
+
 import { cookies } from "next/headers";
 import { DIVISION_TAB_COOKIE } from "@/lib/division-tab-utils";
 
