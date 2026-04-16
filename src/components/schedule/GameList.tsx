@@ -61,16 +61,19 @@ function GameCard({
   const hasScore = g.homeRuns != null && g.awayRuns != null;
   const pulse = g.status === "LIVE" && liveProminent;
 
+  const nameSize = liveProminent ? "text-base md:text-lg" : compact ? "text-[12px]" : "text-[13px]";
+  const scoreNum = liveProminent ? "text-2xl" : compact ? "text-base" : "text-lg";
+
   return (
     <li
-      className={`rounded-2xl border shadow-sm ${border} ${liveProminent ? "border-l-4 border-l-red-500" : ""} ${
+      className={`min-w-0 rounded-2xl border shadow-sm ${border} ${liveProminent ? "border-l-4 border-l-red-500" : ""} ${
         pulse ? "animate-pulse" : ""
       } ${compact ? "w-[200px] shrink-0 px-3 py-2.5" : "px-4 py-3"}`}
     >
       <div className="flex items-center justify-between gap-2">
         <p className="text-[11px] text-zinc-500">{compact ? fmtTimeShort(g.scheduledAt) : fmtTime(g.scheduledAt)}</p>
         <span
-          className={`rounded-full px-2 py-0.5 text-[10px] font-bold uppercase ${st} ${
+          className={`shrink-0 rounded-full px-2 py-0.5 text-[10px] font-bold uppercase ${st} ${
             g.status === "LIVE" && liveProminent ? "ring-2 ring-red-200" : ""
           }`}
         >
@@ -79,42 +82,23 @@ function GameCard({
       </div>
 
       {hasScore ? (
-        <div className={`mt-1.5 flex items-center justify-between gap-1 ${liveProminent ? "text-lg" : ""}`}>
-          <div className="min-w-0 flex-1 text-right">
-            <p
-              className={`truncate font-semibold text-zinc-900 ${liveProminent ? "text-base md:text-lg" : "text-[13px]"}`}
-            >
-              {g.awayTeam?.name ?? "TBD"}
-            </p>
+        <div className={`mt-1.5 space-y-1 ${liveProminent ? "text-lg" : ""}`}>
+          <div className="flex min-w-0 items-center justify-between gap-2">
+            <p className={`min-w-0 truncate font-semibold text-zinc-900 ${nameSize}`}>{g.awayTeam?.name ?? "TBD"}</p>
+            <span className={`shrink-0 font-bold tabular-nums text-zinc-900 ${scoreNum}`}>{g.awayRuns}</span>
           </div>
-          <div className="flex items-center gap-0.5 px-1">
-            <span
-              className={`font-bold tabular-nums text-zinc-900 ${liveProminent ? "text-2xl" : compact ? "text-base" : "text-lg"}`}
-            >
-              {g.awayRuns}
-            </span>
-            <span className="text-[10px] text-zinc-400">–</span>
-            <span
-              className={`font-bold tabular-nums text-zinc-900 ${liveProminent ? "text-2xl" : compact ? "text-base" : "text-lg"}`}
-            >
-              {g.homeRuns}
-            </span>
-          </div>
-          <div className="min-w-0 flex-1">
-            <p
-              className={`truncate font-semibold text-zinc-900 ${liveProminent ? "text-base md:text-lg" : "text-[13px]"}`}
-            >
-              {g.homeTeam?.name ?? "TBD"}
-            </p>
+          <div className="flex min-w-0 items-center justify-between gap-2">
+            <p className={`min-w-0 truncate font-semibold text-zinc-900 ${nameSize}`}>{g.homeTeam?.name ?? "TBD"}</p>
+            <span className={`shrink-0 font-bold tabular-nums text-zinc-900 ${scoreNum}`}>{g.homeRuns}</span>
           </div>
         </div>
       ) : (
-        <div className="mt-1.5">
-          <p className={`font-semibold text-zinc-900 ${liveProminent ? "text-base" : "text-[13px]"}`}>
-            {g.awayTeam?.name ?? "TBD"}
-            <span className="mx-1 text-[10px] font-normal text-zinc-400">vs</span>
-            {g.homeTeam?.name ?? "TBD"}
+        <div className="mt-1.5 min-w-0 space-y-0.5">
+          <p className={`flex min-w-0 items-baseline gap-1 font-semibold text-zinc-900 ${nameSize}`}>
+            <span className="min-w-0 truncate">{g.awayTeam?.name ?? "TBD"}</span>
+            <span className="shrink-0 font-normal text-zinc-400">vs</span>
           </p>
+          <p className={`truncate font-semibold text-zinc-900 ${nameSize}`}>{g.homeTeam?.name ?? "TBD"}</p>
         </div>
       )}
 
