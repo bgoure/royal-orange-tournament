@@ -4,8 +4,8 @@ import { SchedulePullToRefresh } from "@/components/schedule/SchedulePullToRefre
 import { ScheduleFilters } from "@/components/schedule/ScheduleFilters";
 import { formatFieldWithLocation } from "@/lib/field-display";
 import { buildDivisionTabDescriptors } from "@/lib/division-tabs";
-import { getDivisionTabCookie } from "@/lib/division-tab-cookie";
 import {
+  defaultDivisionTabId,
   divisionValidIdsWithAll,
   resolveDivisionTabForFilters,
 } from "@/lib/division-tab-utils";
@@ -28,16 +28,19 @@ export default async function SchedulePage({
     return <p className="text-sm text-zinc-500">No tournament selected.</p>;
   }
 
-  const [teams, fields, poolRows, cookieDivision] = await Promise.all([
+  const [teams, fields, poolRows] = await Promise.all([
     listTeamsForTournament(tournament.id),
     listFieldsForTournament(tournament.id),
     listPoolsForDivisionTabs(tournament.id),
-    getDivisionTabCookie(),
   ]);
 
   const divisionTabs = buildDivisionTabDescriptors(poolRows);
   const validIds = divisionValidIdsWithAll(divisionTabs);
-  const resolvedDivisionId = resolveDivisionTabForFilters(sp.division, cookieDivision, validIds);
+  const resolvedDivisionId = resolveDivisionTabForFilters(
+    sp.division,
+    validIds,
+    defaultDivisionTabId(divisionTabs),
+  );
 
   const { dayOptions, teamIds, fieldIds } = await listScheduleFilterFacets(
     tournament.id,

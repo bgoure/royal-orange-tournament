@@ -1,8 +1,8 @@
 import { Suspense } from "react";
 import { StandingsViewWithDivisionTabs } from "@/components/standings/StandingsViewWithDivisionTabs";
 import { buildDivisionTabDescriptors } from "@/lib/division-tabs";
-import { getDivisionTabCookie } from "@/lib/division-tab-cookie";
 import {
+  defaultDivisionTabId,
   divisionValidIdsWithAll,
   resolveDivisionTabForFilters,
 } from "@/lib/division-tab-utils";
@@ -24,10 +24,7 @@ export default async function StandingsPage({
     return <p className="text-sm text-zinc-500">No tournament selected.</p>;
   }
 
-  const [pools, cookieDivision] = await Promise.all([
-    listPoolsWithStandings(tournament.id),
-    getDivisionTabCookie(),
-  ]);
+  const pools = await listPoolsWithStandings(tournament.id);
 
   const minimal = pools.map((p) => ({
     id: p.id,
@@ -36,7 +33,11 @@ export default async function StandingsPage({
   }));
   const divisionDescriptors = buildDivisionTabDescriptors(minimal);
   const validDivisionIds = divisionValidIdsWithAll(divisionDescriptors);
-  const resolvedDivisionId = resolveDivisionTabForFilters(sp.division, cookieDivision, validDivisionIds);
+  const resolvedDivisionId = resolveDivisionTabForFilters(
+    sp.division,
+    validDivisionIds,
+    defaultDivisionTabId(divisionDescriptors),
+  );
 
   return (
     <div className="flex flex-col gap-6">

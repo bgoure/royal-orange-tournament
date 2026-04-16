@@ -1,8 +1,8 @@
 import { Suspense } from "react";
 import { BracketsViewWithDivisionTabs } from "@/components/brackets/BracketsViewWithDivisionTabs";
 import { buildDivisionTabDescriptors } from "@/lib/division-tabs";
-import { getDivisionTabCookie } from "@/lib/division-tab-cookie";
 import {
+  defaultDivisionTabId,
   divisionValidIdsWithAll,
   resolveDivisionTabForFilters,
 } from "@/lib/division-tab-utils";
@@ -25,15 +25,18 @@ export default async function BracketsPage({
     return <p className="text-sm text-zinc-500">No tournament selected.</p>;
   }
 
-  const [brackets, poolsForTabs, cookieDivision] = await Promise.all([
+  const [brackets, poolsForTabs] = await Promise.all([
     listBracketsForTournament(tournament.id),
     listPoolsForDivisionTabs(tournament.id),
-    getDivisionTabCookie(),
   ]);
 
   const divisionDescriptors = buildDivisionTabDescriptors(poolsForTabs);
   const validDivisionIds = divisionValidIdsWithAll(divisionDescriptors);
-  const resolvedDivisionId = resolveDivisionTabForFilters(sp.division, cookieDivision, validDivisionIds);
+  const resolvedDivisionId = resolveDivisionTabForFilters(
+    sp.division,
+    validDivisionIds,
+    defaultDivisionTabId(divisionDescriptors),
+  );
 
   return (
     <div className="flex flex-col gap-6">

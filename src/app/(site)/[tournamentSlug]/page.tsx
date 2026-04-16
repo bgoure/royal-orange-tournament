@@ -4,8 +4,8 @@ import { AnnouncementList } from "@/components/announcements/AnnouncementList";
 import { UpcomingGamesWithDivisionTabs } from "@/components/schedule/UpcomingGamesWithDivisionTabs";
 import { WeatherSection } from "@/components/weather/WeatherSection";
 import { buildDivisionTabDescriptors } from "@/lib/division-tabs";
-import { getDivisionTabCookie } from "@/lib/division-tab-cookie";
 import {
+  defaultDivisionTabId,
   divisionValidIdsWithAll,
   resolveDivisionTabForFilters,
 } from "@/lib/division-tab-utils";
@@ -42,16 +42,19 @@ export default async function TournamentHomePage({
     return null;
   }
 
-  const [announcements, upcomingGames, poolsForTabs, cookieDivision] = await Promise.all([
+  const [announcements, upcomingGames, poolsForTabs] = await Promise.all([
     listAnnouncements(tournament.id),
     listUpcomingGamesForHome(tournament.id),
     listPoolsForDivisionTabs(tournament.id),
-    getDivisionTabCookie(),
   ]);
 
   const divisionDescriptors = buildDivisionTabDescriptors(poolsForTabs);
   const validDivisionIds = divisionValidIdsWithAll(divisionDescriptors);
-  const resolvedDivisionId = resolveDivisionTabForFilters(sp.division, cookieDivision, validDivisionIds);
+  const resolvedDivisionId = resolveDivisionTabForFilters(
+    sp.division,
+    validDivisionIds,
+    defaultDivisionTabId(divisionDescriptors),
+  );
 
   const tp = (s: string) => tournamentPath(tournamentSlug, s);
 
