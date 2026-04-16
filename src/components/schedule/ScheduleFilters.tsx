@@ -2,28 +2,18 @@
 
 import { useRouter, useSearchParams } from "next/navigation";
 import { useCallback, useMemo, useTransition } from "react";
-import { setSelectedDivisionTabId } from "@/app/actions/tournament";
-import { ALL_DIVISIONS_TAB_ID } from "@/lib/division-tabs";
-import { DivisionTabs } from "@/components/layout/DivisionTabs";
 
 type TeamOpt = { id: string; name: string };
 type FieldOpt = { id: string; label: string };
-type DivisionTabOpt = { id: string; name: string };
 
 export function ScheduleFilters({
   teams,
   fields,
   timezone,
-  divisionTabs,
-  serverResolvedDivisionId,
 }: {
   teams: TeamOpt[];
   fields: FieldOpt[];
   timezone: string;
-  /** When length &gt; 1, shows division pills (All + divisions) like standings. */
-  divisionTabs: DivisionTabOpt[];
-  /** URL + cookie resolution from server (keeps pills in sync when query is empty). */
-  serverResolvedDivisionId: string;
 }) {
   const router = useRouter();
   const sp = useSearchParams();
@@ -32,22 +22,6 @@ export function ScheduleFilters({
   const day = sp.get("day") ?? "";
   const teamId = sp.get("team") ?? "";
   const fieldId = sp.get("field") ?? "";
-  const divisionIdRaw = sp.get("division") ?? "";
-
-  const tabsWithAll = useMemo(() => {
-    if (divisionTabs.length <= 1) return [];
-    return [{ id: ALL_DIVISIONS_TAB_ID, name: "All" }, ...divisionTabs];
-  }, [divisionTabs]);
-
-  const activeDivisionIndex = useMemo(() => {
-    if (tabsWithAll.length === 0) return 0;
-    const idForPill =
-      divisionIdRaw ||
-      (serverResolvedDivisionId === ALL_DIVISIONS_TAB_ID ? "" : serverResolvedDivisionId);
-    if (!idForPill || idForPill === ALL_DIVISIONS_TAB_ID) return 0;
-    const i = tabsWithAll.findIndex((t) => t.id === idForPill);
-    return i >= 0 ? i : 0;
-  }, [divisionIdRaw, serverResolvedDivisionId, tabsWithAll]);
 
   const dayOptions = useMemo(() => {
     const fmt = new Intl.DateTimeFormat("en-CA", {
@@ -87,76 +61,57 @@ export function ScheduleFilters({
     [router, sp],
   );
 
-  const selectDivision = useCallback(
-    (id: string) => {
-      startTransition(async () => {
-        await setSelectedDivisionTabId(id);
-        const params = new URLSearchParams(sp.toString());
-        if (id === ALL_DIVISIONS_TAB_ID) params.delete("division");
-        else params.set("division", id);
-        router.push(`/schedule?${params.toString()}`);
-      });
-    },
-    [router, sp],
-  );
-
   return (
     <div className="flex flex-col gap-4">
-      <DivisionTabs
-        tabs={tabsWithAll}
-        activeIndex={activeDivisionIndex}
-        onSelect={(i) => selectDivision(tabsWithAll[i]!.id)}
-        disabled={pending}
-      />
       <div className="flex flex-col gap-3 rounded-xl border border-zinc-200 bg-zinc-50/80 p-3 sm:flex-row sm:flex-wrap sm:items-end">
-      <label className="flex flex-col gap-1 text-xs font-medium text-zinc-600">
-        Day
-        <select
-          className="min-h-11 rounded-lg border border-zinc-200 bg-white px-3 py-2 text-base text-zinc-900"
-          disabled={pending}
-          value={day}
-          onChange={(e) => push({ day: e.target.value })}
-        >
-          <option value="">All days</option>
-          {dayOptions.map((o) => (
-            <option key={o.value} value={o.value}>
-              {o.label}
-            </option>
-          ))}
-        </select>
-      </label>
-      <label className="flex flex-col gap-1 text-xs font-medium text-zinc-600">
-        Team
-        <select
-          className="min-h-11 rounded-lg border border-zinc-200 bg-white px-3 py-2 text-base text-zinc-900"
-          disabled={pending}
-          value={teamId}
-          onChange={(e) => push({ team: e.target.value })}
-        >
-          <option value="">All teams</option>
-          {teams.map((t) => (
-            <option key={t.id} value={t.id}>
-              {t.name}
-            </option>
-          ))}
-        </select>
-      </label>
-      <label className="flex flex-col gap-1 text-xs font-medium text-zinc-600">
-        Field
-        <select
-          className="min-h-11 rounded-lg border border-zinc-200 bg-white px-3 py-2 text-base text-zinc-900"
-          disabled={pending}
-          value={fieldId}
-          onChange={(e) => push({ field: e.target.value })}
-        >
-          <option value="">All fields</option>
-          {fields.map((f) => (
-            <option key={f.id} value={f.id}>
-              {f.label}
-            </option>
-          ))}
-        </select>
-      </label>
+        <label className="flex flex-col gap-1 text-xs font-medium text-zinc-600">
+          Day
+          <select
+            className="min-h-11 rounded-lg border border-zinc-200 bg-white px-3 py-2 text-base text-zinc-900"
+            disabled={pending}
+            value={day}
+            onChange={(e) => push({ day: e.target.value })}
+          >
+            <option value="">All days</option>
+            {dayOptions.map((o) => (
+              <option key={o.value} value={o.value}>
+                {o.label}
+              </option>
+            ))}
+          </select>
+        </label>
+        <label className="flex flex-col gap-1 text-xs font-medium text-zinc-600">
+          Team
+          <select
+            className="min-h-11 rounded-lg border border-zinc-200 bg-white px-3 py-2 text-base text-zinc-900"
+            disabled={pending}
+            value={teamId}
+            onChange={(e) => push({ team: e.target.value })}
+          >
+            <option value="">All teams</option>
+            {teams.map((t) => (
+              <option key={t.id} value={t.id}>
+                {t.name}
+              </option>
+            ))}
+          </select>
+        </label>
+        <label className="flex flex-col gap-1 text-xs font-medium text-zinc-600">
+          Field
+          <select
+            className="min-h-11 rounded-lg border border-zinc-200 bg-white px-3 py-2 text-base text-zinc-900"
+            disabled={pending}
+            value={fieldId}
+            onChange={(e) => push({ field: e.target.value })}
+          >
+            <option value="">All fields</option>
+            {fields.map((f) => (
+              <option key={f.id} value={f.id}>
+                {f.label}
+              </option>
+            ))}
+          </select>
+        </label>
       </div>
     </div>
   );

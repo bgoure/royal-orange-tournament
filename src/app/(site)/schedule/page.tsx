@@ -65,8 +65,6 @@ export default async function SchedulePage({
               label: formatFieldWithLocation(f.name, f.location.name),
             }))}
             timezone={tournament.timezone}
-            divisionTabs={divisionTabs}
-            serverResolvedDivisionId={resolvedDivisionId}
           />
         </Suspense>
         <GameList games={games} timezone={tournament.timezone} />

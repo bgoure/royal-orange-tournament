@@ -1,6 +1,6 @@
 import Link from "next/link";
-import { TournamentSwitcher } from "@/components/layout/TournamentSwitcher";
-import { listPublishedTournaments } from "@/lib/tournament-context";
+import { SiteHeaderDivisionTabs } from "@/components/layout/SiteHeaderDivisionTabs";
+import type { DivisionTabDescriptor } from "@/lib/division-tabs";
 
 const nav = [
   { href: "/", label: "Home" },
@@ -11,22 +11,26 @@ const nav = [
   { href: "/faq", label: "FAQ" },
 ] as const;
 
-export async function SiteHeader({ currentSlug }: { currentSlug: string }) {
-  const tournaments = await listPublishedTournaments();
-  const effectiveSlug = currentSlug || tournaments[0]?.slug || "";
-
+export async function SiteHeader({
+  divisionTabDescriptors,
+  cookieDivision,
+}: {
+  divisionTabDescriptors: DivisionTabDescriptor[];
+  cookieDivision: string | null;
+}) {
   return (
     <header className="sticky top-0 z-40 border-b border-royal-200/80 bg-royal-900/95 backdrop-blur-md">
-      <div className="mx-auto flex max-w-5xl items-center justify-between gap-3 px-4 py-3">
-        <div className="flex min-w-0 flex-1 items-center gap-3">
+      <div className="mx-auto flex max-w-5xl flex-col gap-2 px-4 py-3 sm:flex-row sm:items-center sm:justify-between sm:gap-3">
+        <div className="flex min-w-0 flex-1 flex-wrap items-center gap-2 sm:gap-3">
           <Link href="/" className="shrink-0 text-lg font-bold tracking-tight text-white">
             R&O <span className="text-accent-light">2026</span>
           </Link>
-          {tournaments.length > 0 ? (
-            <TournamentSwitcher tournaments={tournaments} currentSlug={effectiveSlug} />
-          ) : null}
+          <SiteHeaderDivisionTabs
+            divisionDescriptors={divisionTabDescriptors}
+            cookieDivision={cookieDivision}
+          />
         </div>
-        <nav className="hidden gap-1 md:flex">
+        <nav className="hidden gap-1 md:flex md:shrink-0">
           {nav.map((item) => (
             <Link
               key={item.href}
