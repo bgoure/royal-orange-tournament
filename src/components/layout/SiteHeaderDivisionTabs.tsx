@@ -96,12 +96,15 @@ export function SiteHeaderDivisionTabs({
   };
 
   return (
-    <DivisionTabs
-      variant="dark"
-      tabs={tabs}
-      activeIndex={activeIndex}
-      onSelect={selectTab}
-      disabled={pending}
-    />
+    <div className="min-w-0 max-w-full rounded-xl bg-white/95 p-1.5 shadow-sm ring-1 ring-white/20">
+      <DivisionTabs
+        variant="light"
+        className="border-0 pb-0"
+        tabs={tabs}
+        activeIndex={activeIndex}
+        onSelect={selectTab}
+        disabled={pending}
+      />
+    </div>
   );
 }
