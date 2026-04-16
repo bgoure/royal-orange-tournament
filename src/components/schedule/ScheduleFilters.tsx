@@ -6,49 +6,44 @@ import { tournamentPath } from "@/lib/tournament-public-path";
 
 type TeamOpt = { id: string; name: string };
 type FieldOpt = { id: string; label: string };
+type DayOpt = { value: string; label: string };
 
 export function ScheduleFilters({
   tournamentSlug,
+  dayOptions,
   teams,
   fields,
-  timezone,
 }: {
   tournamentSlug: string;
+  /** Calendar days (tournament timezone) that have at least one game for the current division scope */
+  dayOptions: DayOpt[];
   teams: TeamOpt[];
   fields: FieldOpt[];
-  timezone: string;
 }) {
   const router = useRouter();
   const sp = useSearchParams();
   const [pending, startTransition] = useTransition();
 
-  const day = sp.get("day") ?? "";
-  const teamId = sp.get("team") ?? "";
-  const fieldId = sp.get("field") ?? "";
+  const dayKeySet = useMemo(() => new Set(dayOptions.map((d) => d.value)), [dayOptions]);
+  const teamIdSet = useMemo(() => new Set(teams.map((t) => t.id)), [teams]);
+  const fieldIdSet = useMemo(() => new Set(fields.map((f) => f.id)), [fields]);
 
-  const dayOptions = useMemo(() => {
-    const fmt = new Intl.DateTimeFormat("en-CA", {
-      timeZone: timezone,
-      year: "numeric",
-      month: "2-digit",
-      day: "2-digit",
-    });
-    const labels = new Intl.DateTimeFormat(undefined, {
-      timeZone: timezone,
-      weekday: "short",
-      month: "short",
-      day: "numeric",
-    });
-    const out: { value: string; label: string }[] = [];
-    const base = new Date();
-    for (let i = -1; i <= 5; i++) {
-      const d = new Date(base);
-      d.setDate(d.getDate() + i);
-      const value = fmt.format(d);
-      out.push({ value, label: labels.format(d) });
-    }
-    return out;
-  }, [timezone]);
+  const dayRaw = sp.get("day") ?? "";
+  const teamRaw = sp.get("team") ?? "";
+  const fieldRaw = sp.get("field") ?? "";
+
+  const day = useMemo(
+    () => (dayKeySet.has(dayRaw) ? dayRaw : ""),
+    [dayKeySet, dayRaw],
+  );
+  const teamId = useMemo(
+    () => (teamIdSet.has(teamRaw) ? teamRaw : ""),
+    [teamIdSet, teamRaw],
+  );
+  const fieldId = useMemo(
+    () => (fieldIdSet.has(fieldRaw) ? fieldRaw : ""),
+    [fieldIdSet, fieldRaw],
+  );
 
   const push = useCallback(
     (next: Record<string, string>) => {

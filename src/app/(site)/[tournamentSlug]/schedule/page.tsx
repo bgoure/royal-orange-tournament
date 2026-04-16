@@ -10,7 +10,7 @@ import {
   resolveDivisionTabForFilters,
 } from "@/lib/division-tab-utils";
 import { listFieldsForTournament, listPoolsForDivisionTabs, listTeamsForTournament } from "@/lib/services/pools";
-import { listGamesForTournament } from "@/lib/services/games";
+import { listGamesForTournament, listScheduleFilterFacets } from "@/lib/services/games";
 import { getPublishedTournamentBySlug } from "@/lib/tournament-context";
 
 export default async function SchedulePage({
@@ -39,12 +39,36 @@ export default async function SchedulePage({
   const validIds = divisionValidIdsWithAll(divisionTabs);
   const resolvedDivisionId = resolveDivisionTabForFilters(sp.division, cookieDivision, validIds);
 
+  const { dayOptions, teamIds, fieldIds } = await listScheduleFilterFacets(
+    tournament.id,
+    resolvedDivisionId,
+    tournament.timezone,
+  );
+
+  const dayFilter =
+    sp.day && dayOptions.some((d) => d.value === sp.day) ? sp.day : undefined;
+  const teamFilter = sp.team && teamIds.has(sp.team) ? sp.team : undefined;
+  const fieldFilter = sp.field && fieldIds.has(sp.field) ? sp.field : undefined;
+
   const games = await listGamesForTournament(tournament.id, {
-    day: sp.day,
-    teamId: sp.team,
-    fieldId: sp.field,
+    day: dayFilter,
+    teamId: teamFilter,
+    fieldId: fieldFilter,
     divisionId: resolvedDivisionId,
   });
+
+  const filterTeams = teams
+    .filter((t) => teamIds.has(t.id))
+    .map((t) => ({ id: t.id, name: t.name }))
+    .sort((a, b) => a.name.localeCompare(b.name));
+
+  const filterFields = fields
+    .filter((f) => fieldIds.has(f.id))
+    .map((f) => ({
+      id: f.id,
+      label: formatFieldWithLocation(f.name, f.location.name),
+    }))
+    .sort((a, b) => a.label.localeCompare(b.label));
 
   return (
     <SchedulePullToRefresh>
@@ -60,15 +84,9 @@ export default async function SchedulePage({
         >
           <ScheduleFilters
             tournamentSlug={tournamentSlug}
-            teams={teams.map((t) => ({
-              id: t.id,
-              name: t.name,
-            }))}
-            fields={fields.map((f) => ({
-              id: f.id,
-              label: formatFieldWithLocation(f.name, f.location.name),
-            }))}
-            timezone={tournament.timezone}
+            dayOptions={dayOptions}
+            teams={filterTeams}
+            fields={filterFields}
           />
         </Suspense>
         <GameList games={games} timezone={tournament.timezone} />

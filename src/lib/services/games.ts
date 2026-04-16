@@ -52,6 +52,65 @@ export async function listGamesForTournament(tournamentId: string, filters: Game
   });
 }
 
+/** Distinct days / teams / fields from games matching the division tab (same filter as listGames). */
+export async function listScheduleFilterFacets(
+  tournamentId: string,
+  divisionId: string | undefined,
+  timezone: string,
+): Promise<{
+  dayOptions: { value: string; label: string }[];
+  teamIds: Set<string>;
+  fieldIds: Set<string>;
+}> {
+  const conditions: Prisma.GameWhereInput[] = [{ tournamentId }];
+  const divW = divisionTabGameWhere(divisionId);
+  if (divW) conditions.push(divW);
+
+  const rows = await prisma.game.findMany({
+    where: { AND: conditions },
+    select: {
+      scheduledAt: true,
+      homeTeamId: true,
+      awayTeamId: true,
+      fieldId: true,
+    },
+  });
+
+  const dayKeyFmt = new Intl.DateTimeFormat("en-CA", {
+    timeZone: timezone,
+    year: "numeric",
+    month: "2-digit",
+    day: "2-digit",
+  });
+  const dayLabelFmt = new Intl.DateTimeFormat(undefined, {
+    timeZone: timezone,
+    weekday: "short",
+    month: "short",
+    day: "numeric",
+  });
+
+  const dayKeyToSample = new Map<string, Date>();
+  const teamIds = new Set<string>();
+  const fieldIds = new Set<string>();
+
+  for (const r of rows) {
+    const key = dayKeyFmt.format(r.scheduledAt);
+    if (!dayKeyToSample.has(key)) dayKeyToSample.set(key, r.scheduledAt);
+    if (r.homeTeamId) teamIds.add(r.homeTeamId);
+    if (r.awayTeamId) teamIds.add(r.awayTeamId);
+    fieldIds.add(r.fieldId);
+  }
+
+  const dayOptions = [...dayKeyToSample.entries()]
+    .sort(([a], [b]) => a.localeCompare(b))
+    .map(([value, sample]) => ({
+      value,
+      label: dayLabelFmt.format(sample),
+    }));
+
+  return { dayOptions, teamIds, fieldIds };
+}
+
 export async function listUpcomingGamesForHome(tournamentId: string) {
   const now = new Date();
   return prisma.game.findMany({
