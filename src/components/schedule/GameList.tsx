@@ -43,12 +43,15 @@ function GameCard({
   compact,
   liveProminent,
   displayTimeZone,
+  sequenceLabel,
 }: {
   g: GameWithTeams;
   compact?: boolean;
   liveProminent?: boolean;
   /** Tournament IANA zone — same wall-clock for SSR and browser. */
   displayTimeZone?: string | null;
+  /** 1-based index in the current list (G1, G2, …). */
+  sequenceLabel: number;
 }) {
   const st = statusStyles[g.status] ?? statusStyles.SCHEDULED;
   const border = cardBorder[g.status] ?? cardBorder.default;
@@ -101,6 +104,8 @@ function GameCard({
       )}
 
       <p className="mt-1 text-[10px] leading-tight text-zinc-500">
+        <span className="font-semibold tabular-nums text-zinc-600">G{sequenceLabel}</span>
+        <span className="text-zinc-400"> · </span>
         {formatFieldWithLocation(g.field.name, g.field.location.name)}
         {g.pool ? ` · ${g.pool.name}` : ""}
       </p>
@@ -109,18 +114,25 @@ function GameCard({
 }
 
 function HorizontalGameRow({
-  games,
+  rows,
   liveProminent,
   displayTimeZone,
 }: {
-  games: GameWithTeams[];
+  rows: { g: GameWithTeams; seq: number }[];
   liveProminent?: boolean;
   displayTimeZone?: string | null;
 }) {
   return (
     <ul className="-mx-4 flex gap-2.5 overflow-x-auto px-4 pb-2 snap-x snap-mandatory">
-      {games.map((g) => (
-        <GameCard key={g.id} g={g} compact liveProminent={liveProminent} displayTimeZone={displayTimeZone} />
+      {rows.map(({ g, seq }) => (
+        <GameCard
+          key={g.id}
+          g={g}
+          compact
+          liveProminent={liveProminent}
+          displayTimeZone={displayTimeZone}
+          sequenceLabel={seq}
+        />
       ))}
     </ul>
   );
@@ -154,17 +166,19 @@ export function GameList({
     );
   }
 
+  const indexedGames = games.map((g, i) => ({ g, seq: i + 1 }));
+
   const liveToday =
     timezone != null && timezone !== ""
-      ? games.filter((g) => isLiveGameToday(g, timezone))
-      : games.filter(
-          (g) =>
+      ? indexedGames.filter(({ g }) => isLiveGameToday(g, timezone))
+      : indexedGames.filter(
+          ({ g }) =>
             g.status === "LIVE" &&
             new Date(g.scheduledAt).toDateString() === new Date().toDateString(),
         );
 
-  const liveIds = new Set(liveToday.map((g) => g.id));
-  const rest = games.filter((g) => !liveIds.has(g.id));
+  const liveIds = new Set(liveToday.map(({ g }) => g.id));
+  const rest = indexedGames.filter(({ g }) => !liveIds.has(g.id));
 
   const liveBlock =
     liveToday.length > 0 ? (
@@ -176,11 +190,11 @@ export function GameList({
           <span className="text-xs text-red-800">Happening now</span>
         </div>
         {horizontal ? (
-          <HorizontalGameRow games={liveToday} liveProminent displayTimeZone={timezone} />
+          <HorizontalGameRow rows={liveToday} liveProminent displayTimeZone={timezone} />
         ) : (
           <ul className="flex flex-col gap-2">
-            {liveToday.map((g) => (
-              <GameCard key={g.id} g={g} liveProminent displayTimeZone={timezone} />
+            {liveToday.map(({ g, seq }) => (
+              <GameCard key={g.id} g={g} liveProminent displayTimeZone={timezone} sequenceLabel={seq} />
             ))}
           </ul>
         )}
@@ -191,7 +205,7 @@ export function GameList({
     return (
       <div className="flex flex-col gap-4">
         {liveBlock}
-        {rest.length > 0 ? <HorizontalGameRow games={rest} displayTimeZone={timezone} /> : null}
+        {rest.length > 0 ? <HorizontalGameRow rows={rest} displayTimeZone={timezone} /> : null}
       </div>
     );
   }
@@ -201,8 +215,8 @@ export function GameList({
       {liveBlock}
       {rest.length > 0 ? (
         <ul className="flex flex-col gap-2">
-          {rest.map((g) => (
-            <GameCard key={g.id} g={g} displayTimeZone={timezone} />
+          {rest.map(({ g, seq }) => (
+            <GameCard key={g.id} g={g} displayTimeZone={timezone} sequenceLabel={seq} />
           ))}
         </ul>
       ) : null}
