@@ -44,3 +44,7 @@ export const toggleBracketPublishedSchema = z.object({
 export const resolveBracketSchema = z.object({
   bracketId: z.string().min(1),
 });
+
+export const deleteBracketSchema = z.object({
+  bracketId: z.string().min(1),
+});

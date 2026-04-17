@@ -6,11 +6,13 @@ import type { BracketFormat } from "@prisma/client";
 import {
   applyBracketResolution,
   createDivisionPlayoffBracketAction,
+  deletePlayoffBracket,
   toggleBracketPublished,
   updatePoolTeamsAdvancing,
   type BracketActionResult,
 } from "@/app/admin/_actions/brackets";
 import { ActionMessage } from "@/components/admin/structure/ActionMessage";
+import { ConfirmForm } from "@/components/admin/structure/ConfirmForm";
 import { formatJsDateAsDatetimeLocalInZone } from "@/lib/datetime-tournament";
 import { tournamentPath } from "@/lib/tournament-public-path";
 import type { FirstRoundSlot } from "@/lib/services/bracket-division-build";
@@ -215,6 +217,10 @@ export function BracketsAdmin({
     applyBracketResolution,
     undefined as BracketActionResult | undefined,
   );
+  const [deleteState, deleteAction, deletePending] = useActionState(
+    deletePlayoffBracket,
+    undefined as BracketActionResult | undefined,
+  );
 
   const defaultStart = formatJsDateAsDatetimeLocalInZone(new Date(), tournamentTimezone);
 
@@ -269,6 +275,7 @@ export function BracketsAdmin({
       <ActionMessage state={createState} />
       <ActionMessage state={publishState} />
       <ActionMessage state={resolveState} />
+      <ActionMessage state={deleteState} />
 
       <section className="rounded-xl border border-zinc-200 bg-white p-6 shadow-sm">
         <h2 className="text-sm font-semibold text-zinc-900">Advancing teams per pool</h2>
@@ -428,10 +435,12 @@ export function BracketsAdmin({
 
       {canConfigure && brackets.length > 0 ? (
         <section className="rounded-xl border border-zinc-200 bg-white p-6 shadow-sm">
-          <h2 className="text-sm font-semibold text-zinc-900">Published brackets</h2>
+          <h2 className="text-sm font-semibold text-zinc-900">Playoff brackets</h2>
           <p className="mt-1 text-xs text-zinc-500">
             Unpublished brackets stay hidden on the public site. “Apply standings” only runs when every pool game
-            in that division is final or cancelled (round robin finished). Use it after pool play changes.
+            in that division is final or cancelled (round robin finished). Use it after pool play changes.{" "}
+            <strong className="font-medium text-zinc-700">Delete bracket</strong> removes the playoff tree and all
+            its games so you can run the create wizard again.
           </p>
           <ul className="mt-4 flex flex-col gap-4">
             {brackets.map((b) => (
@@ -467,6 +476,16 @@ export function BracketsAdmin({
                         {resolvePending ? "Applying…" : "Apply standings to seeds"}
                       </button>
                     </form>
+                    <ConfirmForm
+                      action={deleteAction}
+                      message={`Delete “${b.name}” for ${b.division.name}? All playoff games for this bracket will be removed.`}
+                      className="inline"
+                    >
+                      <input type="hidden" name="bracketId" value={b.id} />
+                      <button type="submit" disabled={deletePending} className={btnDanger}>
+                        {deletePending ? "Deleting…" : "Delete bracket"}
+                      </button>
+                    </ConfirmForm>
                   </div>
                 </div>
               </li>
