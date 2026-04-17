@@ -1,3 +1,4 @@
+import { ResultsPageHeading } from "@/components/results/ResultsPageHeading";
 import { GameList } from "@/components/schedule/GameList";
 import { StandingsViewWithDivisionTabs } from "@/components/standings/StandingsViewWithDivisionTabs";
 import { getDivisionTabCookie } from "@/lib/division-tab-cookie";
@@ -49,12 +50,7 @@ export default async function ResultsPage({
 
   return (
     <div className="flex flex-col gap-8">
-      <div>
-        <h1 className="text-2xl font-semibold text-zinc-900">Results</h1>
-        <p className="text-sm text-zinc-600">
-          Pool standings and completed games. Points: 2 win, 1 tie, 0 loss. Tiebreakers follow published pool rules.
-        </p>
-      </div>
+      <ResultsPageHeading />
       <StandingsViewWithDivisionTabs
         pools={pools}
         initialResolvedDivisionId={resolvedDivisionId}

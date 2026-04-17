@@ -1,0 +1,53 @@
+"use client";
+
+import { useRef } from "react";
+
+const RESULTS_INFO =
+  "Pool standings and completed games. Points: 2 win, 1 tie, 0 loss. Tiebreakers follow published pool rules.";
+
+export function ResultsPageHeading() {
+  const dialogRef = useRef<HTMLDialogElement>(null);
+
+  const open = () => dialogRef.current?.showModal();
+  const close = () => dialogRef.current?.close();
+
+  return (
+    <div className="flex flex-wrap items-center gap-2">
+      <h1 className="text-2xl font-semibold text-zinc-900">Results</h1>
+      <button
+        type="button"
+        onClick={open}
+        className="inline-flex size-7 shrink-0 items-center justify-center rounded-full border border-zinc-300 bg-zinc-50 text-xs font-semibold italic leading-none text-zinc-600 shadow-sm transition-colors hover:border-zinc-400 hover:bg-zinc-100 hover:text-zinc-800"
+        aria-label="About results and standings"
+        aria-haspopup="dialog"
+      >
+        i
+      </button>
+
+      <dialog
+        ref={dialogRef}
+        aria-labelledby="results-info-title"
+        onClick={(e) => {
+          if (e.target === e.currentTarget) close();
+        }}
+        className="w-[calc(100%-2rem)] max-w-md rounded-2xl border border-zinc-200 bg-white p-0 text-zinc-900 shadow-xl [&::backdrop]:bg-zinc-900/40"
+      >
+        <div className="p-5">
+          <h2 id="results-info-title" className="text-base font-semibold text-zinc-900">
+            About this page
+          </h2>
+          <p className="mt-3 text-sm leading-relaxed text-zinc-600">{RESULTS_INFO}</p>
+          <div className="mt-5 flex justify-end">
+            <button
+              type="button"
+              onClick={close}
+              className="rounded-lg border border-zinc-200 bg-white px-4 py-2 text-sm font-medium text-zinc-800 shadow-sm transition-colors hover:bg-zinc-50"
+            >
+              Close
+            </button>
+          </div>
+        </div>
+      </dialog>
+    </div>
+  );
+}
