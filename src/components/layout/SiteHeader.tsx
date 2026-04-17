@@ -1,3 +1,4 @@
+import Image from "next/image";
 import Link from "next/link";
 import { Suspense } from "react";
 import { SiteHeaderDivisionTabs } from "@/components/layout/SiteHeaderDivisionTabs";
@@ -29,11 +30,22 @@ export async function SiteHeader({
         <div className="flex min-w-0 w-full flex-1 flex-wrap items-center gap-2 sm:gap-3">
           <Link
             href={tp()}
-            className="flex shrink-0 flex-col gap-0 leading-none"
+            className="flex min-w-0 shrink-0 items-center gap-2 sm:gap-3 leading-none"
             aria-label="Royal & Orange Classic 2026"
           >
-            <span className="text-lg font-bold tracking-tight text-white">Royal &amp; Orange</span>
-            <span className="text-lg font-bold tracking-tight text-accent">Classic 2026</span>
+            <Image
+              src="/RO_Header_Logo.jpeg"
+              alt=""
+              width={200}
+              height={64}
+              className="h-9 w-auto max-h-10 object-contain object-left sm:h-10"
+              sizes="(max-width: 640px) 96px, 120px"
+              priority
+            />
+            <span className="flex min-w-0 flex-col gap-0">
+              <span className="text-lg font-bold tracking-tight text-white">Royal &amp; Orange</span>
+              <span className="text-lg font-bold tracking-tight text-accent">Classic 2026</span>
+            </span>
           </Link>
           <div className="flex min-w-0 flex-1 justify-end">
             <Suspense
