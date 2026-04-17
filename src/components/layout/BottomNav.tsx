@@ -88,12 +88,10 @@ export function BottomNav({ tournamentSlug }: { tournamentSlug: string }) {
               key={t.href}
               href={t.href}
               className={`flex min-h-[62px] min-w-[62px] flex-col items-center justify-center gap-0.5 rounded-xl px-2 py-1 text-[11px] font-medium leading-tight transition-colors active:scale-[0.98] ${
-                active
-                  ? "text-royal"
-                  : "text-zinc-400 active:text-zinc-600"
+                active ? "text-royal" : "text-accent active:text-accent-700"
               }`}
             >
-              <span className={active ? "text-royal" : "text-zinc-400"}>{t.icon}</span>
+              {t.icon}
               {t.label}
             </Link>
           );
