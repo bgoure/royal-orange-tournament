@@ -11,7 +11,7 @@ const gameListInclude = {
   bracketRound: true,
 } as const;
 
-/** Next N not-yet-finished games for the home page (chronological, excludes final/cancelled). */
+/** Next N not-yet-finished games for the home page (by game number like schedule, excludes final/cancelled). */
 const UPCOMING_HOME_MAX = 7;
 
 export type GameListFilters = {
@@ -137,16 +137,17 @@ export async function listScheduleFilterFacets(
 
 export async function listUpcomingGamesForHome(tournamentId: string) {
   const now = new Date();
-  return prisma.game.findMany({
+  const rows = await prisma.game.findMany({
     where: {
       tournamentId,
       status: { notIn: [GameStatus.FINAL, GameStatus.CANCELLED] },
       OR: [{ scheduledAt: { gte: now } }, { status: GameStatus.LIVE }],
     },
     orderBy: { scheduledAt: "asc" },
-    take: UPCOMING_HOME_MAX,
     include: gameListInclude,
   });
+  const sorted = sortGamesForScheduleList(rows);
+  return sorted.slice(0, UPCOMING_HOME_MAX);
 }
 
 export async function listTodaysGames(tournamentId: string, timezone: string) {
