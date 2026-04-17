@@ -49,14 +49,20 @@ export const updateGameMetaSchema = z
   })
   .refine((d) => d.homeTeamId !== d.awayTeamId, { message: "Home and away must be different teams" });
 
-export const updateBracketGameMetaSchema = z
+/** Field, wall-clock time, and label for any bracket game (automated or manual). */
+export const updateBracketGameScheduleSchema = z.object({
+  id: z.string().min(1),
+  fieldId: z.string().min(1, "Select a field"),
+  scheduledAt: z.string().min(1),
+  gameNumber: gameNumberMeta,
+});
+
+/** Home/away for manual bracket games only. */
+export const updateBracketGameTeamsSchema = z
   .object({
     id: z.string().min(1),
-    fieldId: z.string().min(1, "Select a field"),
     homeTeamId: z.string().min(1),
     awayTeamId: z.string().min(1),
-    scheduledAt: z.string().min(1),
-    gameNumber: gameNumberMeta,
   })
   .refine((d) => d.homeTeamId !== d.awayTeamId, { message: "Home and away must be different teams" });
 

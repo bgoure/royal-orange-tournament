@@ -182,8 +182,12 @@ export function BracketsAdmin({
           <section className="rounded-xl border border-zinc-200 bg-white p-6 shadow-sm">
             <h2 className="text-sm font-semibold text-zinc-900">Create single-elimination bracket</h2>
             <p className="mt-1 text-xs text-zinc-500">
-              Uses current standings for the first N advancers by order (N = entry field size). Creates a new bracket
-              row and generates rounds and games.
+              Seeds matchups from standings and creates the right number of games (N = entry field size). Field, start
+              time, and game labels are placeholders only — set each bracket game under{" "}
+              <Link href="/admin/games" className="font-medium text-royal underline">
+                Games
+              </Link>
+              .
             </p>
             <form action={createAction} className="mt-4 flex flex-col gap-4 sm:max-w-xl">
               <div>
@@ -302,8 +306,12 @@ export function BracketsAdmin({
           <section className="rounded-xl border border-zinc-200 bg-zinc-50/80 p-6">
             <h2 className="text-sm font-semibold text-zinc-900">Regenerate existing bracket</h2>
             <p className="mt-1 text-xs text-zinc-600">
-              Deletes all games and rounds under the selected bracket and rebuilds from standings. Recorded playoff
-              scores will be lost. Not available in Manual setup.
+              Rebuilds the bracket skeleton from standings (placeholder times on one field). Re-enter field, time, and
+              labels per game on{" "}
+              <Link href="/admin/games" className="font-medium text-royal underline">
+                Games
+              </Link>{" "}
+              afterward. Recorded playoff scores will be lost. Not available in Manual setup.
             </p>
             {brackets.length === 0 ? (
               <p className="mt-3 text-sm text-zinc-500">No brackets yet.</p>

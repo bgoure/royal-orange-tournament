@@ -19,7 +19,8 @@ import {
 import { recomputePoolStandings } from "@/lib/services/standings";
 import {
   createGameSchema,
-  updateBracketGameMetaSchema,
+  updateBracketGameScheduleSchema,
+  updateBracketGameTeamsSchema,
   updateGameMetaSchema,
   updateGameNumberSchema,
   updateGameScoringSchema,
@@ -179,7 +180,7 @@ export async function updateGameScoring(
   }
 }
 
-export async function updateBracketGameMeta(
+export async function updateBracketGameSchedule(
   _prev: GameActionResult | undefined,
   formData: FormData,
 ): Promise<GameActionResult> {
@@ -187,16 +188,14 @@ export async function updateBracketGameMeta(
   if ("error" in ctx) return { ok: false, error: ctx.error };
   if (!can(ctx.session.user.role, "game:update")) return deny();
 
-  const parsed = updateBracketGameMetaSchema.safeParse({
+  const parsed = updateBracketGameScheduleSchema.safeParse({
     id: formData.get("id"),
     fieldId: formData.get("fieldId"),
-    homeTeamId: formData.get("homeTeamId"),
-    awayTeamId: formData.get("awayTeamId"),
     scheduledAt: formData.get("scheduledAt"),
     gameNumber: formData.get("gameNumber"),
   });
   if (!parsed.success) {
-    return { ok: false, error: "Invalid schedule or matchup input" };
+    return { ok: false, error: "Invalid field, time, or game number" };
   }
 
   try {
@@ -204,17 +203,9 @@ export async function updateBracketGameMeta(
     if (!existing.bracketId) {
       return { ok: false, error: "Not a bracket game" };
     }
-    const bracket = await prisma.bracket.findFirst({
-      where: { id: existing.bracketId, tournamentId: ctx.tournament.id },
-      select: { setupMode: true },
-    });
-    if (!bracket || bracket.setupMode !== BracketSetupMode.MANUAL) {
-      return { ok: false, error: "Bracket must be in manual setup mode to edit matchup." };
-    }
 
     const d = parsed.data;
     await assertFieldInTournament(d.fieldId, ctx.tournament.id);
-    await assertTeamsInBracketTournament(ctx.tournament.id, d.homeTeamId, d.awayTeamId);
 
     let scheduledAt: Date;
     try {
@@ -227,10 +218,59 @@ export async function updateBracketGameMeta(
       where: { id: d.id },
       data: {
         fieldId: d.fieldId,
-        homeTeamId: d.homeTeamId,
-        awayTeamId: d.awayTeamId,
         scheduledAt,
         gameNumber: d.gameNumber,
+      },
+    });
+
+    await recomputePools([existing.poolId].filter((id): id is string => id != null));
+    revalidatePath("/admin/games");
+    await revalidatePublishedTournamentSites();
+    return { ok: true };
+  } catch (e) {
+    const msg = e instanceof Error ? e.message : "Failed to update game";
+    return { ok: false, error: msg };
+  }
+}
+
+export async function updateBracketGameTeams(
+  _prev: GameActionResult | undefined,
+  formData: FormData,
+): Promise<GameActionResult> {
+  const ctx = await tournamentContext();
+  if ("error" in ctx) return { ok: false, error: ctx.error };
+  if (!can(ctx.session.user.role, "game:update")) return deny();
+
+  const parsed = updateBracketGameTeamsSchema.safeParse({
+    id: formData.get("id"),
+    homeTeamId: formData.get("homeTeamId"),
+    awayTeamId: formData.get("awayTeamId"),
+  });
+  if (!parsed.success) {
+    return { ok: false, error: "Invalid teams" };
+  }
+
+  try {
+    const existing = await assertGameInTournament(parsed.data.id, ctx.tournament.id);
+    if (!existing.bracketId) {
+      return { ok: false, error: "Not a bracket game" };
+    }
+    const bracket = await prisma.bracket.findFirst({
+      where: { id: existing.bracketId, tournamentId: ctx.tournament.id },
+      select: { setupMode: true },
+    });
+    if (!bracket || bracket.setupMode !== BracketSetupMode.MANUAL) {
+      return { ok: false, error: "Teams can only be edited when the bracket is in manual setup mode." };
+    }
+
+    const d = parsed.data;
+    await assertTeamsInBracketTournament(ctx.tournament.id, d.homeTeamId, d.awayTeamId);
+
+    await prisma.game.update({
+      where: { id: d.id },
+      data: {
+        homeTeamId: d.homeTeamId,
+        awayTeamId: d.awayTeamId,
       },
     });
 
