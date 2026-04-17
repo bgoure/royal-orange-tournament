@@ -415,7 +415,7 @@ function BracketSection({
   );
 }
 
-function FriendlyConsolationSection({
+function ConsolationGamesSection({
   games,
   tournamentTimezone,
 }: {
@@ -426,13 +426,10 @@ function FriendlyConsolationSection({
   const sorted = [...games].sort((a, b) => a.scheduledAt.getTime() - b.scheduledAt.getTime());
 
   return (
-    <section className="mt-8 min-w-0 border-t border-zinc-200 pt-8" aria-labelledby="friendly-consolation-heading">
-      <h3 id="friendly-consolation-heading" className="text-base font-semibold text-zinc-900">
-        Friendly consolation
+    <section className="mt-8 min-w-0 border-t border-zinc-200 pt-8" aria-labelledby="consolation-games-heading">
+      <h3 id="consolation-games-heading" className="text-base font-semibold text-zinc-900">
+        Consolation Games
       </h3>
-      <p className="mt-1 text-xs text-zinc-500">
-        Extra games seeded from pool finishing order. Not part of the main elimination bracket.
-      </p>
       <div className="mt-4 hidden md:flex md:flex-col md:gap-4">
         {sorted.map((g, mi) => (
           <BracketGameCard
@@ -451,7 +448,7 @@ function FriendlyConsolationSection({
             <MobileMatchRow
               key={g.id}
               game={g}
-              roundLabel="Friendly consolation"
+              roundLabel="Consolation Games"
               prevRoundName={null}
               timeZone={tournamentTimezone}
             />
@@ -468,7 +465,7 @@ export function BracketsView({
   tournamentTimezone,
 }: {
   brackets: BracketWith[];
-  /** Friendly consolation rows for this tournament (parent filters by division tab). */
+  /** Consolation games for this tournament (parent filters by division tab). */
   consolationGames?: GameRow[];
   /** IANA zone from `tournament.timezone` — venue wall-clock for game times. */
   tournamentTimezone?: string | null;
@@ -510,7 +507,7 @@ export function BracketsView({
             mobileView={mobileView}
             setMobileView={setMobileView}
           />
-          <FriendlyConsolationSection
+          <ConsolationGamesSection
             games={consolationByDivision.get(b.divisionId) ?? []}
             tournamentTimezone={tournamentTimezone}
           />
