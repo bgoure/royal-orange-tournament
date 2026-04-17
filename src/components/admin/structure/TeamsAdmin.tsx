@@ -226,7 +226,7 @@ function TeamRow({
           <div className="mt-4 rounded-lg border border-zinc-200 bg-white p-4">
             <p className={labelClass}>Team logo</p>
             <p className="mt-1 text-xs text-zinc-500">
-              PNG, JPEG, or WebP (max 150KB). Shown on the public schedule, results, and standings.
+              PNG, JPEG, or WebP (max 200KB). Shown on the public schedule, results, and standings.
             </p>
             <ActionMessage state={logoUpState} />
             <ActionMessage state={logoClearState} />

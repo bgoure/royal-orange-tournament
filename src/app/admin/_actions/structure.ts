@@ -281,7 +281,7 @@ export async function deleteTeam(_prev: ActionResult | undefined, formData: Form
   return { ok: true };
 }
 
-const MAX_TEAM_LOGO_BYTES = 150_000;
+const MAX_TEAM_LOGO_BYTES = 200_000;
 const ALLOWED_TEAM_LOGO_MIME = new Set(["image/png", "image/jpeg", "image/webp"]);
 
 export async function uploadTeamLogo(_prev: ActionResult | undefined, formData: FormData): Promise<ActionResult> {
@@ -299,7 +299,7 @@ export async function uploadTeamLogo(_prev: ActionResult | undefined, formData: 
   await assertTeamInTournament(teamId, ctx.tournament.id);
 
   if (file.size > MAX_TEAM_LOGO_BYTES) {
-    return { ok: false, error: "Logo must be 150KB or smaller." };
+    return { ok: false, error: "Logo must be 200KB or smaller." };
   }
   const mimeType = file.type;
   if (!ALLOWED_TEAM_LOGO_MIME.has(mimeType)) {
