@@ -36,7 +36,7 @@ export async function SiteShell({
         divisionTabDescriptors={divisionTabDescriptors}
         cookieDivision={cookieDivision}
       />
-      <main className="mx-auto flex w-full max-w-5xl flex-1 flex-col gap-6 px-4 py-6 pb-24 md:pb-6">{children}</main>
+      <main className="mx-auto flex w-full max-w-5xl flex-1 flex-col gap-6 px-4 py-6 pb-[7.2rem] md:pb-6">{children}</main>
       <footer className="hidden border-t border-zinc-200 py-6 text-center text-xs text-zinc-500 md:block">
         Royal &amp; Orange 2026 — schedules, scores, and brackets
         <span className="mt-2 block font-mono text-[10px] text-zinc-400">Deploy {sha}</span>
