@@ -1,6 +1,6 @@
 {
   "name": "Royal & Orange Classic",
-  "short_name": "Royal & Orange Classic",
+  "short_name": "R&O Classic",
   "description": "Track schedules, results, standings, and brackets for Royal & Orange tournaments",
   "start_url": "/",
   "display": "standalone",

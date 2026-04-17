@@ -35,7 +35,7 @@ export const metadata: Metadata = {
   appleWebApp: {
     capable: true,
     statusBarStyle: "black-translucent",
-    title: "Royal & Orange Classic",
+    title: "R&O Classic",
   },
 };
 
