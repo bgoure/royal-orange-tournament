@@ -430,7 +430,8 @@ export function BracketsAdmin({
         <section className="rounded-xl border border-zinc-200 bg-white p-6 shadow-sm">
           <h2 className="text-sm font-semibold text-zinc-900">Published brackets</h2>
           <p className="mt-1 text-xs text-zinc-500">
-            Unpublished brackets stay hidden on the public site. Use “Apply standings” after pool play changes.
+            Unpublished brackets stay hidden on the public site. “Apply standings” only runs when every pool game
+            in that division is final or cancelled (round robin finished). Use it after pool play changes.
           </p>
           <ul className="mt-4 flex flex-col gap-4">
             {brackets.map((b) => (

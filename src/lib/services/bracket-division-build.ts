@@ -2,6 +2,7 @@ import { BracketFormat, BracketRoundType, GameStatus } from "@prisma/client";
 import { prisma } from "@/lib/db";
 import { isValidEntryTeamCount, singleElimRoundName } from "./bracket-engine";
 import { resolveBracketTeamsFromStandings } from "./bracket-resolution";
+import { isDivisionRoundRobinCompleteForSeeding } from "./round-robin-division";
 
 export type FirstRoundSlot = {
   home: { poolId: string; rank: number };
@@ -171,6 +172,14 @@ export async function createDivisionPlayoffBracket(opts: CreateDivisionPlayoffOp
     return bracket.id;
   });
 
-  await resolveBracketTeamsFromStandings(bracketId);
+  const rrDone = await isDivisionRoundRobinCompleteForSeeding(tournamentId, divisionId);
+  if (rrDone) {
+    await resolveBracketTeamsFromStandings(bracketId);
+  } else {
+    await prisma.bracket.update({
+      where: { id: bracketId },
+      data: { needsResolutionRefresh: true },
+    });
+  }
   return bracketId;
 }

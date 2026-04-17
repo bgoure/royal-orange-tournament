@@ -1,4 +1,5 @@
 import { prisma } from "@/lib/db";
+import { assertDivisionRoundRobinCompleteForSeeding } from "@/lib/services/round-robin-division";
 
 /** After pool standings change, flag the division playoff bracket so admins re-apply seeds intentionally. */
 export async function markBracketsStaleForDivision(divisionId: string): Promise<void> {
@@ -10,6 +11,13 @@ export async function markBracketsStaleForDivision(divisionId: string): Promise<
 
 /** Fill round-0 teams from current pool standings (sources on BracketMatch). Clears needsResolutionRefresh. */
 export async function resolveBracketTeamsFromStandings(bracketId: string): Promise<void> {
+  const meta = await prisma.bracket.findFirst({
+    where: { id: bracketId },
+    select: { tournamentId: true, divisionId: true },
+  });
+  if (!meta) throw new Error("Bracket not found");
+  await assertDivisionRoundRobinCompleteForSeeding(meta.tournamentId, meta.divisionId);
+
   await prisma.$transaction(async (tx) => {
     async function teamAtPoolRank(poolId: string, rank: number): Promise<string | null> {
       const rows = await tx.poolStanding.findMany({
