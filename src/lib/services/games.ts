@@ -22,6 +22,29 @@ export type GameListFilters = {
   divisionId?: string;
 };
 
+function compareGameNumberStrings(a: string, b: string): number {
+  const aAllDigits = /^\d+$/.test(a);
+  const bAllDigits = /^\d+$/.test(b);
+  if (aAllDigits && bAllDigits) return Number(a) - Number(b);
+  return a.localeCompare(b, undefined, { numeric: true, sensitivity: "base" });
+}
+
+/** Schedule default order: by admin game number, then time. Unnumbered games follow numbered ones. */
+function sortGamesForScheduleList<T extends { gameNumber: string | null; scheduledAt: Date }>(games: T[]): T[] {
+  return [...games].sort((a, b) => {
+    const na = a.gameNumber?.trim() ?? "";
+    const nb = b.gameNumber?.trim() ?? "";
+    const aHas = na.length > 0;
+    const bHas = nb.length > 0;
+    if (aHas && bHas) {
+      const c = compareGameNumberStrings(na, nb);
+      if (c !== 0) return c;
+    } else if (aHas && !bHas) return -1;
+    else if (!aHas && bHas) return 1;
+    return a.scheduledAt.getTime() - b.scheduledAt.getTime();
+  });
+}
+
 export async function listGamesForTournament(tournamentId: string, filters: GameListFilters = {}) {
   const conditions: Prisma.GameWhereInput[] = [{ tournamentId }];
 
@@ -45,11 +68,12 @@ export async function listGamesForTournament(tournamentId: string, filters: Game
   const divW = divisionTabGameWhere(filters.divisionId);
   if (divW) conditions.push(divW);
 
-  return prisma.game.findMany({
+  const rows = await prisma.game.findMany({
     where: { AND: conditions },
     orderBy: { scheduledAt: "asc" },
     include: gameListInclude,
   });
+  return sortGamesForScheduleList(rows);
 }
 
 /** Distinct days / teams / fields from games matching the division tab (same filter as listGames). */
