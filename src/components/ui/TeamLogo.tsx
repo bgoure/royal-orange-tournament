@@ -20,7 +20,7 @@ export function TeamLogoMark({
       key={src}
       src={src}
       alt=""
-      className={`${sizeClass} shrink-0 rounded object-contain ring-1 ring-zinc-200/80`}
+      className={`${sizeClass} block shrink-0 rounded object-contain ring-1 ring-zinc-200/80`}
       loading="lazy"
     />
   );
