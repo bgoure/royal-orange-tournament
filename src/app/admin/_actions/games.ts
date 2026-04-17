@@ -24,8 +24,8 @@ import {
 } from "@/lib/validations/games-admin";
 import { parseDatetimeLocalInTimeZone } from "@/lib/datetime-tournament";
 import { getTournamentForRequest } from "@/lib/tournament-context";
+import { GameKind, type Tournament } from "@prisma/client";
 import type { Session } from "next-auth";
-import type { Tournament } from "@prisma/client";
 
 export type GameActionResult = { ok: true } | { ok: false; error: string };
 
@@ -196,8 +196,8 @@ export async function updateBracketGameSchedule(
 
   try {
     const existing = await assertGameInTournament(parsed.data.id, ctx.tournament.id);
-    if (!existing.bracketId) {
-      return { ok: false, error: "Not a bracket game" };
+    if (!existing.bracketId && existing.gameKind !== GameKind.CONSOLATION) {
+      return { ok: false, error: "Not a bracket or friendly consolation game" };
     }
 
     const d = parsed.data;
@@ -249,8 +249,8 @@ export async function updateBracketGameTeams(
 
   try {
     const existing = await assertGameInTournament(parsed.data.id, ctx.tournament.id);
-    if (!existing.bracketId) {
-      return { ok: false, error: "Not a bracket game" };
+    if (!existing.bracketId && existing.gameKind !== GameKind.CONSOLATION) {
+      return { ok: false, error: "Not a bracket or friendly consolation game" };
     }
     const d = parsed.data;
     await assertTeamsInBracketTournament(ctx.tournament.id, d.homeTeamId, d.awayTeamId);

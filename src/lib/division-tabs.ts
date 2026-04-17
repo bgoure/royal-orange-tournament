@@ -1,5 +1,6 @@
 import type { Prisma } from "@prisma/client";
 import type { Division, Pool } from "@prisma/client";
+import { GameKind } from "@prisma/client";
 
 export const ALL_DIVISIONS_TAB_ID = "all";
 
@@ -90,6 +91,8 @@ export function divisionTabGameWhere(
         { awayTeam: { pool: poolNameMatch } },
         { bracketMatch: { homeSourcePool: poolNameMatch } },
         { bracketMatch: { awaySourcePool: poolNameMatch } },
+        { gameKind: GameKind.CONSOLATION, consolationHomePool: poolNameMatch },
+        { gameKind: GameKind.CONSOLATION, consolationAwayPool: poolNameMatch },
       ],
     };
   }
@@ -100,6 +103,7 @@ export function divisionTabGameWhere(
       { awayTeam: { pool: { divisionId: divisionId } } },
       { bracketMatch: { homeSourcePool: { divisionId: divisionId } } },
       { bracketMatch: { awaySourcePool: { divisionId: divisionId } } },
+      { gameKind: GameKind.CONSOLATION, divisionId: divisionId },
     ],
   };
 }
@@ -147,4 +151,31 @@ export function bracketGameMatchesDivisionTab(
   }
   if (!game.homeTeam && !game.awayTeam) return true;
   return false;
+}
+
+/** Division tab (real or synthetic age) matches a division id used on games/brackets. */
+export function entityDivisionMatchesTab(
+  divisionId: string,
+  tabId: string,
+  poolsForTabs: PoolForDivisionTabs[],
+): boolean {
+  if (tabId.startsWith("synthetic-age-")) {
+    const label = tabId.slice("synthetic-age-".length);
+    return poolsForTabs.some(
+      (p) =>
+        p.division.id === divisionId &&
+        p.name.toLowerCase().startsWith(label.toLowerCase()),
+    );
+  }
+  return divisionId === tabId;
+}
+
+/** Friendly consolation games: same division scoping as brackets (including synthetic age tabs). */
+export function consolationGameMatchesDivisionTab(
+  game: { divisionId: string | null },
+  tabId: string,
+  poolsForTabs: PoolForDivisionTabs[],
+): boolean {
+  if (!game.divisionId) return false;
+  return entityDivisionMatchesTab(game.divisionId, tabId, poolsForTabs);
 }

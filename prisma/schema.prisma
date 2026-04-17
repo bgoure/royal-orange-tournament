@@ -136,6 +136,7 @@ model Division {
   sortOrder    Int        @default(0)
   pools        Pool[]
   brackets     Bracket[]
+  consolationGames Game[]
 
   @@index([tournamentId])
 }
@@ -155,6 +156,8 @@ model Pool {
   standings  PoolStanding[]
   homeSourceBracketMatches BracketMatch[] @relation("BracketMatchHomeSource")
   awaySourceBracketMatches BracketMatch[] @relation("BracketMatchAwaySource")
+  consolationHomeGames     Game[]         @relation("ConsolationHomePool")
+  consolationAwayGames     Game[]         @relation("ConsolationAwayPool")
 
   @@index([divisionId])
 }
@@ -216,6 +219,12 @@ enum GameResultType {
   FORFEIT_AWAY_WINS
 }
 
+enum GameKind {
+  POOL
+  PLAYOFF
+  CONSOLATION
+}
+
 model Game {
   id                    String         @id @default(cuid())
   tournamentId          String
@@ -224,6 +233,17 @@ model Game {
   gameNumber            String?
   poolId                String?
   pool                  Pool?          @relation(fields: [poolId], references: [id], onDelete: SetNull)
+  gameKind              GameKind       @default(POOL)
+  /// Set for CONSOLATION games (friendly / non-bracket); ties the row to a division for tabs and publishing rules.
+  divisionId            String?
+  division                Division?      @relation(fields: [divisionId], references: [id], onDelete: Cascade)
+  /// Seeding labels for consolation games (k-th in pool); teams filled when standings are applied.
+  consolationHomePoolId String?
+  consolationHomeRank     Int?
+  consolationAwayPoolId String?
+  consolationAwayRank     Int?
+  consolationHomePool   Pool?          @relation("ConsolationHomePool", fields: [consolationHomePoolId], references: [id], onDelete: SetNull)
+  consolationAwayPool   Pool?          @relation("ConsolationAwayPool", fields: [consolationAwayPoolId], references: [id], onDelete: SetNull)
   fieldId               String
   field                 Field          @relation(fields: [fieldId], references: [id], onDelete: Cascade)
   homeTeamId            String?
@@ -255,6 +275,7 @@ model Game {
   @@index([tournamentId, fieldId])
   @@index([poolId])
   @@index([bracketId, bracketRoundId])
+  @@index([divisionId])
 }
 
 // --- Brackets ---

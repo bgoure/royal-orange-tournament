@@ -7,7 +7,7 @@ import {
   divisionValidIds,
   resolveDivisionTabForFilters,
 } from "@/lib/division-tab-utils";
-import { listBracketsForTournament } from "@/lib/services/brackets";
+import { listBracketsForTournament, listConsolationGamesForTournament } from "@/lib/services/brackets";
 import { listPoolsForDivisionTabs } from "@/lib/services/pools";
 import { getPublishedTournamentBySlug } from "@/lib/tournament-context";
 
@@ -26,9 +26,10 @@ export default async function BracketsPage({
     return <p className="text-sm text-zinc-500">No tournament selected.</p>;
   }
 
-  const [brackets, poolsForTabs] = await Promise.all([
+  const [brackets, poolsForTabs, consolationGames] = await Promise.all([
     listBracketsForTournament(tournament.id, { publishedOnly: true }),
     listPoolsForDivisionTabs(tournament.id),
+    listConsolationGamesForTournament(tournament.id, { publishedOnly: true }),
   ]);
 
   const divisionDescriptors = buildDivisionTabDescriptors(poolsForTabs);
@@ -55,6 +56,7 @@ export default async function BracketsPage({
         <BracketsViewWithDivisionTabs
           poolsForTabs={poolsForTabs}
           brackets={brackets}
+          consolationGames={consolationGames}
           initialResolvedDivisionId={resolvedDivisionId}
           tournamentTimezone={tournament.timezone}
         />

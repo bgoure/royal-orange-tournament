@@ -48,3 +48,22 @@ export const resolveBracketSchema = z.object({
 export const deleteBracketSchema = z.object({
   bracketId: z.string().min(1),
 });
+
+export const createConsolationGameSchema = z.object({
+  divisionId: z.string().min(1),
+  fieldId: z.string().min(1, "Select a field"),
+  scheduledAt: z.string().min(1),
+  homePoolId: z.string().min(1),
+  homeRank: z.coerce.number().int().min(1).max(64),
+  awayPoolId: z.string().min(1),
+  awayRank: z.coerce.number().int().min(1).max(64),
+  schedulePlaceholder: z.enum(["0", "1"]).optional().transform((v) => v === "1"),
+  gameNumber: z.preprocess(
+    (v) => (v == null || String(v).trim() === "" ? undefined : String(v).trim()),
+    z.string().max(64).optional(),
+  ),
+});
+
+export const deleteConsolationGameSchema = z.object({
+  gameId: z.string().min(1),
+});

@@ -5,7 +5,9 @@ import Link from "next/link";
 import type { BracketFormat } from "@prisma/client";
 import {
   applyBracketResolution,
+  createConsolationGameAction,
   createDivisionPlayoffBracketAction,
+  deleteConsolationGameAction,
   deletePlayoffBracket,
   toggleBracketPublished,
   updatePoolTeamsAdvancing,
@@ -14,6 +16,7 @@ import {
 import { ActionMessage } from "@/components/admin/structure/ActionMessage";
 import { ConfirmForm } from "@/components/admin/structure/ConfirmForm";
 import { formatJsDateAsDatetimeLocalInZone } from "@/lib/datetime-tournament";
+import { formatFieldWithLocation } from "@/lib/field-display";
 import { tournamentPath } from "@/lib/tournament-public-path";
 import type { FirstRoundSlot } from "@/lib/services/bracket-division-build";
 import type { Pool } from "@prisma/client";
@@ -37,6 +40,19 @@ type BracketRow = {
   _count: { rounds: number; games: number };
 };
 
+type ConsolationAdminRow = {
+  id: string;
+  scheduledAt: Date;
+  schedulePlaceholder: boolean;
+  gameNumber: string | null;
+  division: { id: string; name: string } | null;
+  field: { name: string; location: { name: string } };
+  consolationHomePool: { id: string; name: string } | null;
+  consolationAwayPool: { id: string; name: string } | null;
+  consolationHomeRank: number | null;
+  consolationAwayRank: number | null;
+};
+
 const ENTRY_OPTIONS = [2, 4, 8, 16, 32, 64] as const;
 
 const formClass =
@@ -56,6 +72,7 @@ type Props = {
   divisions: DivisionWizardRow[];
   fields: FieldSelectOption[];
   brackets: BracketRow[];
+  consolationGames: ConsolationAdminRow[];
   tournamentName: string;
   tournamentSlug: string;
   tournamentTimezone: string;
@@ -198,6 +215,7 @@ export function BracketsAdmin({
   divisions,
   fields,
   brackets,
+  consolationGames,
   tournamentName,
   tournamentSlug,
   tournamentTimezone,
@@ -223,6 +241,14 @@ export function BracketsAdmin({
     deletePlayoffBracket,
     undefined as BracketActionResult | undefined,
   );
+  const [consolationCreateState, consolationCreateAction, consolationCreatePending] = useActionState(
+    createConsolationGameAction,
+    undefined as BracketActionResult | undefined,
+  );
+  const [consolationDeleteState, consolationDeleteAction, consolationDeletePending] = useActionState(
+    deleteConsolationGameAction,
+    undefined as BracketActionResult | undefined,
+  );
 
   const defaultStart = formatJsDateAsDatetimeLocalInZone(new Date(), tournamentTimezone);
 
@@ -241,6 +267,24 @@ export function BracketsAdmin({
   );
 
   const [entrySize, setEntrySize] = useState<number>(8);
+
+  const divisionsWithPools = useMemo(() => divisions.filter((d) => d.pools.length > 0), [divisions]);
+  const [consolationDivisionId, setConsolationDivisionId] = useState(
+    divisionsWithPools[0]?.id ?? "",
+  );
+  const consolationPools = useMemo(() => {
+    const d = divisionsWithPools.find((x) => x.id === consolationDivisionId);
+    return d?.pools ?? [];
+  }, [divisionsWithPools, consolationDivisionId]);
+  const [consolationHomePoolId, setConsolationHomePoolId] = useState(consolationPools[0]?.id ?? "");
+  const [consolationAwayPoolId, setConsolationAwayPoolId] = useState(
+    consolationPools[1]?.id ?? consolationPools[0]?.id ?? "",
+  );
+
+  const rankOptionsForPool = (poolId: string) => {
+    const tc = consolationPools.find((p) => p.id === poolId)?.teamCount ?? 0;
+    return Array.from({ length: Math.max(tc, 1) }, (_, i) => i + 1);
+  };
 
   return (
     <div className="flex flex-col gap-10">
@@ -278,6 +322,171 @@ export function BracketsAdmin({
       <ActionMessage state={publishState} />
       <ActionMessage state={resolveState} />
       <ActionMessage state={deleteState} />
+      <ActionMessage state={consolationCreateState} />
+      <ActionMessage state={consolationDeleteState} />
+
+      {canConfigure && divisionsWithPools.length > 0 && fields.length > 0 ? (
+        <section className="rounded-xl border border-zinc-200 bg-white p-6 shadow-sm">
+          <h2 className="text-sm font-semibold text-zinc-900">Friendly consolation (one game at a time)</h2>
+          <p className="mt-1 text-xs text-zinc-500">
+            Non-bracket games seeded from pool finishing order. Teams fill when you apply standings on the playoff
+            bracket for this division. Each pool finishing slot can only appear once per division (duplicate ranks
+            blocked).
+          </p>
+          <form action={consolationCreateAction} className="mt-4 flex flex-col gap-4">
+            <div className="grid gap-3 sm:max-w-xl">
+              <div>
+                <label className={labelClass}>Division</label>
+                <select
+                  name="divisionId"
+                  required
+                  value={consolationDivisionId}
+                  onChange={(e) => {
+                    const id = e.target.value;
+                    setConsolationDivisionId(id);
+                    const nextPools = divisionsWithPools.find((d) => d.id === id)?.pools ?? [];
+                    setConsolationHomePoolId(nextPools[0]?.id ?? "");
+                    setConsolationAwayPoolId(nextPools[1]?.id ?? nextPools[0]?.id ?? "");
+                  }}
+                  className={`${formClass} mt-1 w-full`}
+                >
+                  {divisionsWithPools.map((d) => (
+                    <option key={d.id} value={d.id}>
+                      {d.name}
+                    </option>
+                  ))}
+                </select>
+              </div>
+              <div>
+                <label className={labelClass}>Field</label>
+                <select name="fieldId" required className={`${formClass} mt-1 w-full`}>
+                  <option value="">Select a field…</option>
+                  {fields.map((f) => (
+                    <option key={f.id} value={f.id}>
+                      {f.label}
+                    </option>
+                  ))}
+                </select>
+              </div>
+              <div>
+                <label className={labelClass}>Start ({tournamentTimezone})</label>
+                <input
+                  name="scheduledAt"
+                  type="datetime-local"
+                  required
+                  defaultValue={defaultStart}
+                  className={`${formClass} mt-1 w-full`}
+                />
+              </div>
+              <div className="flex items-center gap-2">
+                <input
+                  type="checkbox"
+                  name="schedulePlaceholder"
+                  value="1"
+                  id="consolation-ph"
+                  className="rounded border-zinc-300"
+                />
+                <label htmlFor="consolation-ph" className="text-sm text-zinc-700">
+                  Show time as TBD on public site until confirmed
+                </label>
+              </div>
+              <div className="grid gap-3 sm:grid-cols-2">
+                <div>
+                  <p className={labelClass}>Away slot</p>
+                  <div className="mt-1 flex flex-wrap gap-2">
+                    <select
+                      name="awayPoolId"
+                      required
+                      value={consolationAwayPoolId}
+                      onChange={(e) => setConsolationAwayPoolId(e.target.value)}
+                      className={`${formClass} min-w-[140px]`}
+                    >
+                      {consolationPools.map((p) => (
+                        <option key={p.id} value={p.id}>
+                          {p.name}
+                        </option>
+                      ))}
+                    </select>
+                    <select name="awayRank" required className={`${formClass} w-24`}>
+                      {rankOptionsForPool(consolationAwayPoolId).map((r) => (
+                        <option key={r} value={r}>
+                          {r}
+                        </option>
+                      ))}
+                    </select>
+                  </div>
+                </div>
+                <div>
+                  <p className={labelClass}>Home slot</p>
+                  <div className="mt-1 flex flex-wrap gap-2">
+                    <select
+                      name="homePoolId"
+                      required
+                      value={consolationHomePoolId}
+                      onChange={(e) => setConsolationHomePoolId(e.target.value)}
+                      className={`${formClass} min-w-[140px]`}
+                    >
+                      {consolationPools.map((p) => (
+                        <option key={p.id} value={p.id}>
+                          {p.name}
+                        </option>
+                      ))}
+                    </select>
+                    <select name="homeRank" required className={`${formClass} w-24`}>
+                      {rankOptionsForPool(consolationHomePoolId).map((r) => (
+                        <option key={r} value={r}>
+                          {r}
+                        </option>
+                      ))}
+                    </select>
+                  </div>
+                </div>
+              </div>
+              <div>
+                <label className={labelClass}>Game ID / # (optional)</label>
+                <input name="gameNumber" type="text" maxLength={64} className={`${formClass} mt-1 w-full`} />
+              </div>
+            </div>
+            <button type="submit" disabled={consolationCreatePending} className={btnPrimary}>
+              {consolationCreatePending ? "Adding…" : "Add consolation game"}
+            </button>
+          </form>
+
+          {consolationGames.length > 0 ? (
+            <ul className="mt-6 flex flex-col gap-3 border-t border-zinc-100 pt-6">
+              {consolationGames.map((g) => (
+                <li
+                  key={g.id}
+                  className="flex flex-wrap items-start justify-between gap-3 rounded-lg border border-zinc-100 bg-zinc-50/50 p-3 text-sm"
+                >
+                  <div>
+                    <p className="font-medium text-zinc-900">{g.division?.name ?? "Division"}</p>
+                    <p className="mt-1 text-xs text-zinc-600">
+                      Away: {g.consolationAwayPool?.name ?? "?"} #{g.consolationAwayRank ?? "?"} · Home:{" "}
+                      {g.consolationHomePool?.name ?? "?"} #{g.consolationHomeRank ?? "?"}
+                    </p>
+                    <p className="mt-1 text-xs text-zinc-500">
+                      {formatFieldWithLocation(g.field.name, g.field.location.name)}
+                      {g.schedulePlaceholder ? " · TBD time" : ""}
+                      {g.gameNumber ? ` · #${g.gameNumber}` : ""}
+                    </p>
+                  </div>
+                  {canConfigure ? (
+                    <form action={consolationDeleteAction}>
+                      <input type="hidden" name="gameId" value={g.id} />
+                      <button type="submit" disabled={consolationDeletePending} className={btnDanger}>
+                        {consolationDeletePending ? "…" : "Remove"}
+                      </button>
+                    </form>
+                  ) : null}
+                </li>
+              ))}
+            </ul>
+          ) : (
+            <p className="mt-4 text-sm text-zinc-500">No friendly consolation games yet.</p>
+          )}
+        </section>
+      ) : null}
 
       <section className="rounded-xl border border-zinc-200 bg-white p-6 shadow-sm">
         <h2 className="text-sm font-semibold text-zinc-900">Advancing teams per pool</h2>

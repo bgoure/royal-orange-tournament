@@ -2,6 +2,7 @@ import { formatBracketGameScheduledAt } from "@/lib/datetime-tournament";
 import { formatFieldWithLocation } from "@/lib/field-display";
 import { TeamLogoMark } from "@/components/ui/TeamLogo";
 import type { GameRow } from "@/components/brackets/bracket-types";
+import { getBracketSlotSources } from "@/lib/brackets/game-slot-sources";
 import { slotLines, slotLineTextClass } from "@/components/brackets/bracket-slot-lines";
 
 export function BracketGameCard({
@@ -20,10 +21,11 @@ export function BracketGameCard({
 }) {
   const bm = game.bracketMatch;
   const bracketMatchIndex = bm?.matchIndex ?? matchIndex;
+  const src = getBracketSlotSources(game);
   const away = slotLines(
     game.awayTeam,
-    bm?.awaySourcePool,
-    bm?.awaySourceRank,
+    src.awayPool,
+    src.awayRank,
     roundIndexDb,
     bracketMatchIndex,
     "away",
@@ -31,8 +33,8 @@ export function BracketGameCard({
   );
   const home = slotLines(
     game.homeTeam,
-    bm?.homeSourcePool,
-    bm?.homeSourceRank,
+    src.homePool,
+    src.homeRank,
     roundIndexDb,
     bracketMatchIndex,
     "home",

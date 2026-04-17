@@ -1,14 +1,28 @@
 import type { Prisma } from "@prisma/client";
-import { GameStatus } from "@prisma/client";
+import { GameKind, GameStatus } from "@prisma/client";
 import { divisionTabGameWhere } from "@/lib/division-tabs";
 import { prisma } from "@/lib/db";
 import { teamWithPublicLogoInclude } from "@/lib/team-logo";
+
+/** On the public site, hide friendly consolation until that division’s playoff bracket is published. */
+function publicConsolationVisibilityClause(): Prisma.GameWhereInput {
+  return {
+    OR: [
+      { gameKind: { not: GameKind.CONSOLATION } },
+      {
+        gameKind: GameKind.CONSOLATION,
+        division: { brackets: { some: { published: true } } },
+      },
+    ],
+  };
+}
 
 const gameListInclude = {
   field: { include: { location: { select: { name: true } } } },
   homeTeam: teamWithPublicLogoInclude,
   awayTeam: teamWithPublicLogoInclude,
   pool: { include: { division: true } },
+  division: { select: { id: true, name: true } },
   bracketRound: true,
 } as const;
 
@@ -47,7 +61,7 @@ function sortGamesForScheduleList<T extends { gameNumber: string | null; schedul
 }
 
 export async function listGamesForTournament(tournamentId: string, filters: GameListFilters = {}) {
-  const conditions: Prisma.GameWhereInput[] = [{ tournamentId }];
+  const conditions: Prisma.GameWhereInput[] = [{ tournamentId }, publicConsolationVisibilityClause()];
 
   if (filters.teamId) {
     conditions.push({
@@ -79,7 +93,11 @@ export async function listGamesForTournament(tournamentId: string, filters: Game
 
 /** Finished pool/bracket games for the public Results page (same filters as schedule, FINAL only). */
 export async function listFinalGamesForTournament(tournamentId: string, filters: GameListFilters = {}) {
-  const conditions: Prisma.GameWhereInput[] = [{ tournamentId }, { status: GameStatus.FINAL }];
+  const conditions: Prisma.GameWhereInput[] = [
+    { tournamentId },
+    publicConsolationVisibilityClause(),
+    { status: GameStatus.FINAL },
+  ];
 
   if (filters.teamId) {
     conditions.push({
@@ -119,7 +137,7 @@ export async function listScheduleFilterFacets(
   teamIds: Set<string>;
   fieldIds: Set<string>;
 }> {
-  const conditions: Prisma.GameWhereInput[] = [{ tournamentId }];
+  const conditions: Prisma.GameWhereInput[] = [{ tournamentId }, publicConsolationVisibilityClause()];
   const divW = divisionTabGameWhere(divisionId);
   if (divW) conditions.push(divW);
 
@@ -172,9 +190,14 @@ export async function listUpcomingGamesForHome(tournamentId: string) {
   const now = new Date();
   const rows = await prisma.game.findMany({
     where: {
-      tournamentId,
-      status: { notIn: [GameStatus.FINAL, GameStatus.CANCELLED] },
-      OR: [{ scheduledAt: { gte: now } }, { status: GameStatus.LIVE }],
+      AND: [
+        {
+          tournamentId,
+          status: { notIn: [GameStatus.FINAL, GameStatus.CANCELLED] },
+          OR: [{ scheduledAt: { gte: now } }, { status: GameStatus.LIVE }],
+        },
+        publicConsolationVisibilityClause(),
+      ],
     },
     orderBy: { scheduledAt: "asc" },
     include: gameListInclude,

@@ -1,6 +1,6 @@
 "use client";
 
-import { useMemo, useState, type Dispatch, type SetStateAction } from "react";
+import { Fragment, useMemo, useState, type Dispatch, type SetStateAction } from "react";
 import type { BracketRound } from "@prisma/client";
 import { formatBracketGameScheduledAt } from "@/lib/datetime-tournament";
 import { EmptyState } from "@/components/ui/EmptyState";
@@ -13,6 +13,7 @@ import {
   slotLines,
   slotLineTextClass,
 } from "@/components/brackets/bracket-slot-lines";
+import { getBracketSlotSources } from "@/lib/brackets/game-slot-sources";
 import {
   filterRoundsForScope,
   hasConsolationRounds,
@@ -153,10 +154,11 @@ function MobileMatchRow({
   const bm = game.bracketMatch;
   const mi = bm?.matchIndex ?? 0;
   const ri = game.bracketRound?.roundIndex ?? 0;
+  const src = getBracketSlotSources(game);
   const away = slotLines(
     game.awayTeam,
-    bm?.awaySourcePool,
-    bm?.awaySourceRank,
+    src.awayPool,
+    src.awayRank,
     ri,
     mi,
     "away",
@@ -164,8 +166,8 @@ function MobileMatchRow({
   );
   const home = slotLines(
     game.homeTeam,
-    bm?.homeSourcePool,
-    bm?.homeSourceRank,
+    src.homePool,
+    src.homeRank,
     ri,
     mi,
     "home",
@@ -413,15 +415,76 @@ function BracketSection({
   );
 }
 
+function FriendlyConsolationSection({
+  games,
+  tournamentTimezone,
+}: {
+  games: GameRow[];
+  tournamentTimezone?: string | null;
+}) {
+  if (games.length === 0) return null;
+  const sorted = [...games].sort((a, b) => a.scheduledAt.getTime() - b.scheduledAt.getTime());
+
+  return (
+    <section className="mt-8 min-w-0 border-t border-zinc-200 pt-8" aria-labelledby="friendly-consolation-heading">
+      <h3 id="friendly-consolation-heading" className="text-base font-semibold text-zinc-900">
+        Friendly consolation
+      </h3>
+      <p className="mt-1 text-xs text-zinc-500">
+        Extra games seeded from pool finishing order. Not part of the main elimination bracket.
+      </p>
+      <div className="mt-4 hidden md:flex md:flex-col md:gap-4">
+        {sorted.map((g, mi) => (
+          <BracketGameCard
+            key={g.id}
+            game={g}
+            roundIndexDb={0}
+            matchIndex={mi}
+            prevRoundName={null}
+            timeZone={tournamentTimezone}
+          />
+        ))}
+      </div>
+      <div className="mt-4 md:hidden">
+        <ul className="flex flex-col gap-3">
+          {sorted.map((g) => (
+            <MobileMatchRow
+              key={g.id}
+              game={g}
+              roundLabel="Friendly consolation"
+              prevRoundName={null}
+              timeZone={tournamentTimezone}
+            />
+          ))}
+        </ul>
+      </div>
+    </section>
+  );
+}
+
 export function BracketsView({
   brackets,
+  consolationGames = [],
   tournamentTimezone,
 }: {
   brackets: BracketWith[];
+  /** Friendly consolation rows for this tournament (parent filters by division tab). */
+  consolationGames?: GameRow[];
   /** IANA zone from `tournament.timezone` — venue wall-clock for game times. */
   tournamentTimezone?: string | null;
 }) {
   const [mobileView, setMobileView] = useState<"bracket" | "list">("list");
+
+  const consolationByDivision = useMemo(() => {
+    const m = new Map<string, GameRow[]>();
+    for (const g of consolationGames) {
+      if (!g.divisionId) continue;
+      const list = m.get(g.divisionId) ?? [];
+      list.push(g);
+      m.set(g.divisionId, list);
+    }
+    return m;
+  }, [consolationGames]);
 
   if (brackets.length === 0) {
     return (
@@ -440,13 +503,18 @@ export function BracketsView({
   return (
     <div className="flex flex-col gap-12">
       {brackets.map((b) => (
-        <BracketSection
-          key={b.id}
-          b={b}
-          tournamentTimezone={tournamentTimezone}
-          mobileView={mobileView}
-          setMobileView={setMobileView}
-        />
+        <Fragment key={b.id}>
+          <BracketSection
+            b={b}
+            tournamentTimezone={tournamentTimezone}
+            mobileView={mobileView}
+            setMobileView={setMobileView}
+          />
+          <FriendlyConsolationSection
+            games={consolationByDivision.get(b.divisionId) ?? []}
+            tournamentTimezone={tournamentTimezone}
+          />
+        </Fragment>
       ))}
     </div>
   );

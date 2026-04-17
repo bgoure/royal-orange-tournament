@@ -10,6 +10,9 @@ export function listGamesAdmin(tournamentId: string) {
       field: { include: { location: { select: { name: true } } } },
       pool: { include: { division: true } },
       bracket: { select: { id: true } },
+      division: { select: { id: true, name: true } },
+      consolationHomePool: { select: { id: true, name: true } },
+      consolationAwayPool: { select: { id: true, name: true } },
     },
     orderBy: { scheduledAt: "asc" },
   });
@@ -18,7 +21,7 @@ export function listGamesAdmin(tournamentId: string) {
 export async function assertGameInTournament(gameId: string, tournamentId: string) {
   const g = await prisma.game.findFirst({
     where: { id: gameId, tournamentId },
-    select: { id: true, poolId: true, bracketId: true },
+    select: { id: true, poolId: true, bracketId: true, gameKind: true },
   });
   if (!g) throw new Error("Game not found in this tournament");
   return g;

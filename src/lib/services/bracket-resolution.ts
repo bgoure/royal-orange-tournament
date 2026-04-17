@@ -1,3 +1,4 @@
+import { GameKind } from "@prisma/client";
 import { prisma } from "@/lib/db";
 import { assertDivisionRoundRobinCompleteForSeeding } from "@/lib/services/round-robin-division";
 
@@ -50,6 +51,33 @@ export async function resolveBracketTeamsFromStandings(bracketId: string): Promi
       if (!m.homeSourcePoolId || !m.homeSourceRank || !m.awaySourcePoolId || !m.awaySourceRank) continue;
       const homeId = await teamAtPoolRank(m.homeSourcePoolId, m.homeSourceRank);
       const awayId = await teamAtPoolRank(m.awaySourcePoolId, m.awaySourceRank);
+      await tx.game.update({
+        where: { id: g.id },
+        data: {
+          homeTeamId: homeId,
+          awayTeamId: awayId,
+        },
+      });
+    }
+
+    const consolationGames = await tx.game.findMany({
+      where: {
+        tournamentId: meta.tournamentId,
+        divisionId: meta.divisionId,
+        gameKind: GameKind.CONSOLATION,
+      },
+    });
+    for (const g of consolationGames) {
+      if (
+        !g.consolationHomePoolId ||
+        g.consolationHomeRank == null ||
+        !g.consolationAwayPoolId ||
+        g.consolationAwayRank == null
+      ) {
+        continue;
+      }
+      const homeId = await teamAtPoolRank(g.consolationHomePoolId, g.consolationHomeRank);
+      const awayId = await teamAtPoolRank(g.consolationAwayPoolId, g.consolationAwayRank);
       await tx.game.update({
         where: { id: g.id },
         data: {

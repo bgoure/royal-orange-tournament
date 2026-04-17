@@ -3,16 +3,21 @@
 import { revalidatePath } from "next/cache";
 import { revalidatePublishedTournamentSites } from "@/lib/revalidate-public-tournament-site";
 import { auth } from "@/auth";
+import { GameKind } from "@prisma/client";
 import { prisma } from "@/lib/db";
 import { can } from "@/lib/rbac/permissions";
+import { assertFieldInTournament } from "@/lib/services/admin-games";
 import { assertPoolInTournament } from "@/lib/services/admin-structure";
+import { assertConsolationSlotsAvailable } from "@/lib/services/consolation-slots";
 import { createDivisionPlayoffBracket } from "@/lib/services/bracket-division-build";
 import { resolveBracketTeamsFromStandings } from "@/lib/services/bracket-resolution";
 import { parseDatetimeLocalInTimeZone } from "@/lib/datetime-tournament";
 import { getTournamentForRequest } from "@/lib/tournament-context";
 import {
+  createConsolationGameSchema,
   createDivisionBracketSchema,
   deleteBracketSchema,
+  deleteConsolationGameSchema,
   resolveBracketSchema,
   toggleBracketPublishedSchema,
   updatePoolAdvancingSchema,
@@ -39,6 +44,22 @@ async function bracketContext(): Promise<
 
 function deny(): BracketActionResult {
   return { ok: false, error: "You don’t have permission for this action." };
+}
+
+async function assertDivisionInTournament(divisionId: string, tournamentId: string) {
+  const d = await prisma.division.findFirst({
+    where: { id: divisionId, tournamentId },
+    select: { id: true },
+  });
+  if (!d) throw new Error("Division not found in this tournament");
+}
+
+async function assertPoolInDivision(poolId: string, divisionId: string) {
+  const p = await prisma.pool.findFirst({
+    where: { id: poolId, divisionId },
+    select: { id: true },
+  });
+  if (!p) throw new Error("Pool must belong to the selected division");
 }
 
 export async function updatePoolTeamsAdvancing(
@@ -192,6 +213,116 @@ export async function applyBracketResolution(
     return { ok: true };
   } catch (e) {
     const msg = e instanceof Error ? e.message : "Failed to apply standings";
+    return { ok: false, error: msg };
+  }
+}
+
+export async function createConsolationGameAction(
+  _prev: BracketActionResult | undefined,
+  formData: FormData,
+): Promise<BracketActionResult> {
+  const ctx = await bracketContext();
+  if ("error" in ctx) return { ok: false, error: ctx.error };
+  if (!can(ctx.session.user.role, "bracket:configure")) return deny();
+
+  const parsed = createConsolationGameSchema.safeParse({
+    divisionId: formData.get("divisionId"),
+    fieldId: formData.get("fieldId"),
+    scheduledAt: formData.get("scheduledAt"),
+    homePoolId: formData.get("homePoolId"),
+    homeRank: formData.get("homeRank"),
+    awayPoolId: formData.get("awayPoolId"),
+    awayRank: formData.get("awayRank"),
+    schedulePlaceholder: formData.get("schedulePlaceholder") ?? "0",
+    gameNumber: formData.get("gameNumber"),
+  });
+  if (!parsed.success) {
+    return { ok: false, error: parsed.error.flatten().formErrors.join(", ") || "Invalid input" };
+  }
+
+  try {
+    await assertDivisionInTournament(parsed.data.divisionId, ctx.tournament.id);
+    await assertPoolInDivision(parsed.data.homePoolId, parsed.data.divisionId);
+    await assertPoolInDivision(parsed.data.awayPoolId, parsed.data.divisionId);
+    await assertFieldInTournament(parsed.data.fieldId, ctx.tournament.id);
+    await assertConsolationSlotsAvailable(
+      parsed.data.divisionId,
+      { poolId: parsed.data.homePoolId, rank: parsed.data.homeRank },
+      { poolId: parsed.data.awayPoolId, rank: parsed.data.awayRank },
+    );
+
+    let scheduledAt: Date;
+    try {
+      scheduledAt = parseDatetimeLocalInTimeZone(parsed.data.scheduledAt, ctx.tournament.timezone);
+    } catch {
+      return { ok: false, error: "Invalid start time for this tournament's timezone" };
+    }
+
+    await prisma.game.create({
+      data: {
+        tournamentId: ctx.tournament.id,
+        gameKind: GameKind.CONSOLATION,
+        divisionId: parsed.data.divisionId,
+        poolId: null,
+        bracketId: null,
+        bracketRoundId: null,
+        bracketPosition: null,
+        fieldId: parsed.data.fieldId,
+        scheduledAt,
+        schedulePlaceholder: parsed.data.schedulePlaceholder ?? false,
+        consolationHomePoolId: parsed.data.homePoolId,
+        consolationHomeRank: parsed.data.homeRank,
+        consolationAwayPoolId: parsed.data.awayPoolId,
+        consolationAwayRank: parsed.data.awayRank,
+        gameNumber: parsed.data.gameNumber ?? null,
+        status: "SCHEDULED",
+        resultType: "REGULAR",
+      },
+    });
+
+    revalidatePath("/admin/brackets");
+    revalidatePath("/admin/games");
+    await revalidatePublishedTournamentSites();
+    return { ok: true };
+  } catch (e) {
+    const msg = e instanceof Error ? e.message : "Failed to create consolation game";
+    return { ok: false, error: msg };
+  }
+}
+
+export async function deleteConsolationGameAction(
+  _prev: BracketActionResult | undefined,
+  formData: FormData,
+): Promise<BracketActionResult> {
+  const ctx = await bracketContext();
+  if ("error" in ctx) return { ok: false, error: ctx.error };
+  if (!can(ctx.session.user.role, "bracket:configure")) return deny();
+
+  const parsed = deleteConsolationGameSchema.safeParse({
+    gameId: formData.get("gameId"),
+  });
+  if (!parsed.success) {
+    return { ok: false, error: parsed.error.flatten().formErrors.join(", ") || "Invalid input" };
+  }
+
+  try {
+    const existing = await prisma.game.findFirst({
+      where: {
+        id: parsed.data.gameId,
+        tournamentId: ctx.tournament.id,
+        gameKind: GameKind.CONSOLATION,
+      },
+      select: { id: true },
+    });
+    if (!existing) return { ok: false, error: "Consolation game not found" };
+
+    await prisma.game.delete({ where: { id: existing.id } });
+    revalidatePath("/admin/brackets");
+    revalidatePath("/admin/games");
+    await revalidatePublishedTournamentSites();
+    return { ok: true };
+  } catch (e) {
+    const msg = e instanceof Error ? e.message : "Failed to delete game";
     return { ok: false, error: msg };
   }
 }

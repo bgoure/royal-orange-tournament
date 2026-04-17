@@ -25,6 +25,10 @@ export type GameRow = Game & {
   field: Field & { location: { name: string } };
   bracketRound: BracketRound | null;
   bracketMatch: BracketMatchWithPools | null;
+  division?: Pick<Division, "id" | "name"> | null;
+  /** Present when `gameKind === CONSOLATION` (loaded on public consolation lists). */
+  consolationHomePool?: (Pool & { division: Division }) | null;
+  consolationAwayPool?: (Pool & { division: Division }) | null;
 };
 
 export type BracketWith = Bracket & {

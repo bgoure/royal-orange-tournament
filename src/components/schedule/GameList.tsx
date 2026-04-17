@@ -1,4 +1,5 @@
 import type { Division, Field, Game, Pool } from "@prisma/client";
+import { GameKind } from "@prisma/client";
 import { formatGameScheduledAt, formatGameScheduledAtShort } from "@/lib/datetime-tournament";
 import { formatFieldWithLocation } from "@/lib/field-display";
 import { EmptyState } from "@/components/ui/EmptyState";
@@ -10,6 +11,7 @@ export type GameWithTeams = Game & {
   homeTeam: TeamWithPublicLogo | null;
   awayTeam: TeamWithPublicLogo | null;
   pool: (Pool & { division: Division }) | null;
+  division?: { id: string; name: string } | null;
 };
 
 const statusStyles: Record<string, string> = {
@@ -134,7 +136,11 @@ function GameCard({
         <span className="font-semibold tabular-nums text-zinc-600">{gameIdDisplayLabel(g, fallbackSeq)}</span>
         <span className="text-zinc-400"> · </span>
         {formatFieldWithLocation(g.field.name, g.field.location.name)}
-        {g.pool ? ` · ${g.pool.name}` : ""}
+        {g.pool
+          ? ` · ${g.pool.name}`
+          : g.gameKind === GameKind.CONSOLATION && g.division
+            ? ` · ${g.division.name} · Friendly consolation`
+            : ""}
       </p>
     </li>
   );

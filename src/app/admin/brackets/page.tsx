@@ -4,6 +4,7 @@ import { BracketsAdmin } from "@/components/admin/brackets/BracketsAdmin";
 import { formatFieldWithLocation } from "@/lib/field-display";
 import {
   listBracketsSummary,
+  listConsolationGamesForAdmin,
   listDivisionsForPlayoffWizard,
   listFieldsForBrackets,
   listPoolsAdvancingConfig,
@@ -19,11 +20,12 @@ export default async function AdminBracketsPage() {
     return <AdminNoTournamentPlaceholder />;
   }
 
-  const [pools, fields, brackets, divisionsRaw] = await Promise.all([
+  const [pools, fields, brackets, divisionsRaw, consolationGames] = await Promise.all([
     listPoolsAdvancingConfig(tournament.id),
     listFieldsForBrackets(tournament.id),
     listBracketsSummary(tournament.id),
     listDivisionsForPlayoffWizard(tournament.id),
+    listConsolationGamesForAdmin(tournament.id),
   ]);
 
   const divisions = divisionsRaw.map((d) => ({
@@ -50,6 +52,7 @@ export default async function AdminBracketsPage() {
       divisions={divisions}
       fields={fieldOptions}
       brackets={brackets}
+      consolationGames={consolationGames}
       tournamentName={tournament.name}
       tournamentSlug={tournament.slug}
       tournamentTimezone={tournament.timezone}

@@ -2,7 +2,7 @@
 
 import { useActionState, useMemo, useState } from "react";
 import Link from "next/link";
-import { GameResultType, GameStatus } from "@prisma/client";
+import { GameKind, GameResultType, GameStatus } from "@prisma/client";
 import type { Division, Field, Game, Pool, Team } from "@prisma/client";
 import { formatFieldWithLocation } from "@/lib/field-display";
 import {
@@ -24,6 +24,9 @@ export type AdminGameRow = Game & {
   field: Field & { location: { name: string } };
   pool: (Pool & { division: Division }) | null;
   bracket: { id: string } | null;
+  division: { id: string; name: string } | null;
+  consolationHomePool: { id: string; name: string } | null;
+  consolationAwayPool: { id: string; name: string } | null;
 };
 
 export type PoolWithTeams = {
@@ -329,7 +332,9 @@ function GameCard({
             {formatFieldWithLocation(game.field.name, game.field.location.name)}
             {game.pool
               ? ` · ${game.pool.division.name} — ${game.pool.name}`
-              : " · Bracket (no pool)"}
+              : game.gameKind === GameKind.CONSOLATION && game.division
+                ? ` · ${game.division.name} · Friendly consolation`
+                : " · Bracket (no pool)"}
           </p>
         </div>
         <div className="flex flex-wrap items-center gap-2">
@@ -349,7 +354,9 @@ function GameCard({
               message={
                 game.poolId
                   ? "Delete this game? Standings will be recalculated for the pool."
-                  : "Delete this bracket game? This cannot be undone."
+                  : game.gameKind === GameKind.CONSOLATION
+                    ? "Delete this friendly consolation game? This cannot be undone."
+                    : "Delete this bracket game? This cannot be undone."
               }
               action={delAction}
               className="inline"
