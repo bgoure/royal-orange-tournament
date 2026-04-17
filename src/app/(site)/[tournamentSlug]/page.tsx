@@ -79,7 +79,6 @@ export default async function TournamentHomePage({
             <div className="mt-3">
               <Suspense fallback={<div className="h-32 animate-pulse rounded-xl bg-zinc-100" aria-hidden />}>
                 <UpcomingGamesWithDivisionTabs
-                  tournamentSlug={tournamentSlug}
                   poolsForTabs={poolsForTabs}
                   games={upcomingGames}
                   initialResolvedDivisionId={resolvedDivisionId}

@@ -1,6 +1,5 @@
 "use client";
 
-import Link from "next/link";
 import { useMemo } from "react";
 import { useSearchParams } from "next/navigation";
 import {
@@ -13,16 +12,13 @@ import {
   type PoolForDivisionTabs,
 } from "@/lib/division-tabs";
 import { GameList, type GameWithTeams } from "@/components/schedule/GameList";
-import { tournamentPath } from "@/lib/tournament-public-path";
 
 export function UpcomingGamesWithDivisionTabs({
-  tournamentSlug,
   poolsForTabs,
   games,
   initialResolvedDivisionId,
   timezone,
 }: {
-  tournamentSlug: string;
   poolsForTabs: PoolForDivisionTabs[];
   games: GameWithTeams[];
   initialResolvedDivisionId: string;
@@ -49,16 +45,6 @@ export function UpcomingGamesWithDivisionTabs({
   const visible =
     baseTabs.length <= 1 ? games : games.filter((g) => gameMatchesDivisionTab(g, effectiveDivisionId));
 
-  const scheduleHref = useMemo(() => {
-    const p = new URLSearchParams();
-    if (baseTabs.length > 1 && effectiveDivisionId) {
-      p.set("division", effectiveDivisionId);
-    }
-    const qs = p.toString();
-    const base = tournamentPath(tournamentSlug, "schedule");
-    return qs ? `${base}?${qs}` : base;
-  }, [effectiveDivisionId, baseTabs.length, tournamentSlug]);
-
   return (
     <div className="flex flex-col gap-3">
       <GameList
@@ -68,11 +54,6 @@ export function UpcomingGamesWithDivisionTabs({
         emptyHint="Check another division or open the full schedule."
         horizontal
       />
-      <p className="text-sm">
-        <Link href={scheduleHref} className="font-medium text-royal-light hover:text-royal hover:underline">
-          See schedule
-        </Link>
-      </p>
     </div>
   );
 }
