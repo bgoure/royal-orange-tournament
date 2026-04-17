@@ -90,10 +90,10 @@ export default async function TournamentHomePage({
           </section>
         </div>
         <div className="grid grid-cols-2 gap-3">
-          <QuickLinkCard href={tp("schedule")} label="Schedule & Results" description="Times, fields & scores" icon={
+          <QuickLinkCard href={tp("schedule")} label="Schedule" description="Times, fields & matchups" icon={
             <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={1.5} className="size-7 text-accent"><rect x="3" y="4" width="18" height="18" rx="2" /><path d="M16 2v4M8 2v4M3 10h18" /></svg>
           } />
-          <QuickLinkCard href={tp("standings")} label="Standings" description="Pool rankings" icon={
+          <QuickLinkCard href={tp("results")} label="Results" description="Standings & completed games" icon={
             <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={1.5} className="size-7 text-royal-light"><path d="M8 21V16M12 21V10M16 21V4" /></svg>
           } />
           <QuickLinkCard href={tp("brackets")} label="Brackets" description="Playoff rounds" icon={

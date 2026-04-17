@@ -31,9 +31,9 @@ export function BottomNav({ tournamentSlug }: { tournamentSlug: string }) {
       ),
     },
     {
-      key: "standings" as const,
-      href: tp("standings"),
-      label: "Standings",
+      key: "results" as const,
+      href: tp("results"),
+      label: "Results",
       icon: (
         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round" className="size-5">
           <path d="M8 21V16M12 21V10M16 21V4" />

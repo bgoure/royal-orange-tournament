@@ -63,8 +63,8 @@ export function StandingsRulesAdmin({ pools, tournamentName, tournamentSlug, can
           <h1 className="text-2xl font-semibold tracking-tight text-zinc-900">Standings overrides</h1>
           <p className="mt-1 text-sm text-zinc-600">{tournamentName}</p>
         </div>
-        <Link href={tournamentPath(tournamentSlug, "standings")} className={`${btnSecondary} inline-flex items-center`}>
-          View public standings ↗
+        <Link href={tournamentPath(tournamentSlug, "results")} className={`${btnSecondary} inline-flex items-center`}>
+          View public results ↗
         </Link>
       </header>
 

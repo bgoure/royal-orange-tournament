@@ -1,4 +1,4 @@
-import { Suspense } from "react";
+import { GameList } from "@/components/schedule/GameList";
 import { StandingsViewWithDivisionTabs } from "@/components/standings/StandingsViewWithDivisionTabs";
 import { getDivisionTabCookie } from "@/lib/division-tab-cookie";
 import { buildDivisionTabDescriptors } from "@/lib/division-tabs";
@@ -7,10 +7,11 @@ import {
   divisionValidIds,
   resolveDivisionTabForFilters,
 } from "@/lib/division-tab-utils";
+import { listFinalGamesForTournament } from "@/lib/services/games";
 import { listPoolsWithStandings } from "@/lib/services/pools";
 import { getPublishedTournamentBySlug } from "@/lib/tournament-context";
 
-export default async function StandingsPage({
+export default async function ResultsPage({
   params,
   searchParams,
 }: {
@@ -42,24 +43,34 @@ export default async function StandingsPage({
     defaultDivisionTabId(divisionDescriptors),
   );
 
+  const completedGames = await listFinalGamesForTournament(tournament.id, {
+    divisionId: resolvedDivisionId,
+  });
+
   return (
-    <div className="flex flex-col gap-6">
+    <div className="flex flex-col gap-8">
       <div>
-        <h1 className="text-2xl font-semibold text-zinc-900">Standings</h1>
+        <h1 className="text-2xl font-semibold text-zinc-900">Results</h1>
         <p className="text-sm text-zinc-600">
-          Points: 2 win, 1 tie, 0 loss. Tiebreakers follow published pool rules.
+          Pool standings and completed games. Points: 2 win, 1 tie, 0 loss. Tiebreakers follow published pool rules.
         </p>
       </div>
-      <Suspense
-        fallback={
-          <div className="h-40 animate-pulse rounded-xl bg-zinc-100/80" aria-hidden="true" />
-        }
-      >
-        <StandingsViewWithDivisionTabs
-          pools={pools}
-          initialResolvedDivisionId={resolvedDivisionId}
+      <StandingsViewWithDivisionTabs
+        pools={pools}
+        initialResolvedDivisionId={resolvedDivisionId}
+      />
+
+      <section className="flex flex-col gap-3" aria-labelledby="completed-games-heading">
+        <h2 id="completed-games-heading" className="text-lg font-semibold text-zinc-900">
+          Completed games
+        </h2>
+        <GameList
+          games={completedGames}
+          timezone={tournament.timezone}
+          emptyMessage="No completed games for this division yet."
+          emptyHint="Finished games and scores appear here."
         />
-      </Suspense>
+      </section>
     </div>
   );
 }

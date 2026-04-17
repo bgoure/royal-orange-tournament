@@ -51,6 +51,7 @@ function GameCard({
   liveProminent,
   displayTimeZone,
   fallbackSeq,
+  showScores = true,
 }: {
   g: GameWithTeams;
   compact?: boolean;
@@ -59,10 +60,12 @@ function GameCard({
   displayTimeZone?: string | null;
   /** Used only when `g.gameNumber` is empty (matches list order in this view). */
   fallbackSeq: number;
+  /** When false (schedule-only view), never show runs even if recorded. */
+  showScores?: boolean;
 }) {
   const st = statusStyles[g.status] ?? statusStyles.SCHEDULED;
   const border = cardBorder[g.status] ?? cardBorder.default;
-  const hasScore = g.homeRuns != null && g.awayRuns != null;
+  const hasScore = showScores && g.homeRuns != null && g.awayRuns != null;
   const pulse = g.status === "LIVE" && liveProminent;
 
   const nameSize = liveProminent ? "text-base md:text-lg" : compact ? "text-[12px]" : "text-[13px]";
@@ -124,10 +127,12 @@ function HorizontalGameRow({
   rows,
   liveProminent,
   displayTimeZone,
+  showScores = true,
 }: {
   rows: { g: GameWithTeams; fallbackSeq: number }[];
   liveProminent?: boolean;
   displayTimeZone?: string | null;
+  showScores?: boolean;
 }) {
   return (
     <ul className="-mx-4 flex gap-2.5 overflow-x-auto px-4 pb-2 snap-x snap-mandatory">
@@ -139,6 +144,7 @@ function HorizontalGameRow({
           liveProminent={liveProminent}
           displayTimeZone={displayTimeZone}
           fallbackSeq={fallbackSeq}
+          showScores={showScores}
         />
       ))}
     </ul>
@@ -151,12 +157,15 @@ export function GameList({
   emptyMessage = "No games match your filters.",
   emptyHint,
   horizontal,
+  showScores = true,
 }: {
   games: GameWithTeams[];
   timezone?: string;
   emptyMessage?: string;
   emptyHint?: string;
   horizontal?: boolean;
+  /** When false, schedule-style matchup lines only (no runs), regardless of game state. */
+  showScores?: boolean;
 }) {
   if (games.length === 0) {
     return (
@@ -197,11 +206,18 @@ export function GameList({
           <span className="text-xs text-red-800">Happening now</span>
         </div>
         {horizontal ? (
-          <HorizontalGameRow rows={liveToday} liveProminent displayTimeZone={timezone} />
+          <HorizontalGameRow rows={liveToday} liveProminent displayTimeZone={timezone} showScores={showScores} />
         ) : (
           <ul className="flex flex-col gap-2">
             {liveToday.map(({ g, fallbackSeq }) => (
-              <GameCard key={g.id} g={g} liveProminent displayTimeZone={timezone} fallbackSeq={fallbackSeq} />
+              <GameCard
+                key={g.id}
+                g={g}
+                liveProminent
+                displayTimeZone={timezone}
+                fallbackSeq={fallbackSeq}
+                showScores={showScores}
+              />
             ))}
           </ul>
         )}
@@ -212,7 +228,9 @@ export function GameList({
     return (
       <div className="flex flex-col gap-4">
         {liveBlock}
-        {rest.length > 0 ? <HorizontalGameRow rows={rest} displayTimeZone={timezone} /> : null}
+        {rest.length > 0 ? (
+          <HorizontalGameRow rows={rest} displayTimeZone={timezone} showScores={showScores} />
+        ) : null}
       </div>
     );
   }
@@ -223,7 +241,13 @@ export function GameList({
       {rest.length > 0 ? (
         <ul className="flex flex-col gap-2">
           {rest.map(({ g, fallbackSeq }) => (
-            <GameCard key={g.id} g={g} displayTimeZone={timezone} fallbackSeq={fallbackSeq} />
+            <GameCard
+              key={g.id}
+              g={g}
+              displayTimeZone={timezone}
+              fallbackSeq={fallbackSeq}
+              showScores={showScores}
+            />
           ))}
         </ul>
       ) : null}

@@ -80,9 +80,9 @@ export default async function SchedulePage({
     <SchedulePullToRefresh>
       <div className="flex flex-col gap-6">
         <div>
-          <h1 className="text-2xl font-semibold text-zinc-900">Schedule &amp; Results</h1>
+          <h1 className="text-2xl font-semibold text-zinc-900">Schedule</h1>
           <p className="text-sm text-zinc-600">
-            Filter by division, day, team, or field. Final scores show when games are complete.
+            Filter by division, day, team, or field. Times and matchups only—see Results for scores.
           </p>
         </div>
         <Suspense
@@ -95,7 +95,7 @@ export default async function SchedulePage({
             fields={filterFields}
           />
         </Suspense>
-        <GameList games={games} timezone={tournament.timezone} />
+        <GameList games={games} timezone={tournament.timezone} showScores={false} />
       </div>
     </SchedulePullToRefresh>
   );

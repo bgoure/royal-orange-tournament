@@ -17,8 +17,8 @@ export async function SiteHeader({
   const tp = (...s: string[]) => tournamentPath(tournamentSlug, ...s);
   const nav = [
     { href: tp(), label: "Home" },
-    { href: tp("schedule"), label: "Schedule & Results" },
-    { href: tp("standings"), label: "Standings" },
+    { href: tp("schedule"), label: "Schedule" },
+    { href: tp("results"), label: "Results" },
     { href: tp("brackets"), label: "Brackets" },
     { href: tp("locations"), label: "Locations" },
     { href: tp("faq"), label: "FAQ" },

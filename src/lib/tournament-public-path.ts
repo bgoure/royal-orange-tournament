@@ -9,9 +9,9 @@ export function tournamentPath(slug: string, ...segments: string[]): string {
   return rest ? `${tournamentBasePath(slug)}/${rest}` : tournamentBasePath(slug);
 }
 
-const DIVISION_TAB_SEGMENTS = new Set(["", "schedule", "standings", "brackets"]);
+const DIVISION_TAB_SEGMENTS = new Set(["", "schedule", "results", "standings", "brackets"]);
 
-/** Whether division pills apply (home + schedule + standings + brackets under this slug). */
+/** Whether division pills apply (home + schedule + results + brackets under this slug). `/standings` redirects to `/results`. */
 export function isDivisionTabBasePath(pathname: string, slug: string): boolean {
   const parts = pathname.split("/").filter(Boolean);
   if (parts[0] !== slug) return false;

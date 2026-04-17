@@ -76,6 +76,38 @@ export async function listGamesForTournament(tournamentId: string, filters: Game
   return sortGamesForScheduleList(rows);
 }
 
+/** Finished pool/bracket games for the public Results page (same filters as schedule, FINAL only). */
+export async function listFinalGamesForTournament(tournamentId: string, filters: GameListFilters = {}) {
+  const conditions: Prisma.GameWhereInput[] = [{ tournamentId }, { status: GameStatus.FINAL }];
+
+  if (filters.teamId) {
+    conditions.push({
+      OR: [{ homeTeamId: filters.teamId }, { awayTeamId: filters.teamId }],
+    });
+  }
+  if (filters.fieldId) {
+    conditions.push({ fieldId: filters.fieldId });
+  }
+  if (filters.day) {
+    const start = new Date(filters.day);
+    if (!Number.isNaN(start.getTime())) {
+      start.setHours(0, 0, 0, 0);
+      const end = new Date(start);
+      end.setDate(end.getDate() + 1);
+      conditions.push({ scheduledAt: { gte: start, lt: end } });
+    }
+  }
+  const divW = divisionTabGameWhere(filters.divisionId);
+  if (divW) conditions.push(divW);
+
+  const rows = await prisma.game.findMany({
+    where: { AND: conditions },
+    orderBy: { scheduledAt: "asc" },
+    include: gameListInclude,
+  });
+  return sortGamesForScheduleList(rows);
+}
+
 /** Distinct days / teams / fields from games matching the division tab (same filter as listGames). */
 export async function listScheduleFilterFacets(
   tournamentId: string,

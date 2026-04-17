@@ -65,12 +65,12 @@ export function UpcomingGamesWithDivisionTabs({
         games={visible}
         timezone={timezone}
         emptyMessage="No upcoming games scheduled for this division."
-        emptyHint="Check another division or open the full schedule & results."
+        emptyHint="Check another division or open the full schedule."
         horizontal
       />
       <p className="text-sm">
         <Link href={scheduleHref} className="font-medium text-royal-light hover:text-royal hover:underline">
-          See schedule &amp; results
+          See schedule
         </Link>
       </p>
     </div>
