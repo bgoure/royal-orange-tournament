@@ -30,7 +30,7 @@ export function ResultsPageHeading() {
         onClick={(e) => {
           if (e.target === e.currentTarget) close();
         }}
-        className="w-[calc(100%-2rem)] max-w-md rounded-2xl border border-zinc-200 bg-white p-0 text-zinc-900 shadow-xl [&::backdrop]:bg-zinc-900/40"
+        className="fixed left-1/2 top-1/2 z-[100] m-0 max-h-[min(90dvh,100%)] w-[min(calc(100vw-2rem),28rem)] -translate-x-1/2 -translate-y-1/2 rounded-2xl border border-zinc-200 bg-white p-0 text-zinc-900 shadow-xl [&::backdrop]:bg-zinc-900/40"
       >
         <div className="p-5">
           <h2 id="results-info-title" className="text-base font-semibold text-zinc-900">
