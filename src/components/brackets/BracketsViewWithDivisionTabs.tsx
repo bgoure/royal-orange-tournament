@@ -2,17 +2,8 @@
 
 import { useMemo } from "react";
 import { useSearchParams } from "next/navigation";
-import type {
-  Bracket,
-  BracketMatch,
-  BracketRound,
-  Division,
-  Field,
-  Game,
-  Pool,
-  Team,
-} from "@prisma/client";
 import { BracketsView } from "@/components/brackets/BracketsView";
+import type { BracketWith } from "@/components/brackets/bracket-types";
 import {
   defaultDivisionTabId,
   divisionValidIds,
@@ -22,29 +13,6 @@ import {
   buildDivisionTabDescriptors,
   type PoolForDivisionTabs,
 } from "@/lib/division-tabs";
-
-type TeamWithPool = Team & {
-  pool: (Pool & { division: Division }) | null;
-  logo: { mimeType: string; updatedAt: Date } | null;
-};
-
-type BracketMatchWithPools = BracketMatch & {
-  homeSourcePool: (Pool & { division: Division }) | null;
-  awaySourcePool: (Pool & { division: Division }) | null;
-};
-
-type GameRow = Game & {
-  homeTeam: TeamWithPool | null;
-  awayTeam: TeamWithPool | null;
-  field: Field & { location: { name: string } };
-  bracketRound: BracketRound | null;
-  bracketMatch: BracketMatchWithPools | null;
-};
-
-type BracketWith = Bracket & {
-  rounds: BracketRound[];
-  games: GameRow[];
-};
 
 function filterBracketsForTab(brackets: BracketWith[], tabId: string): BracketWith[] {
   return brackets
