@@ -38,20 +38,27 @@ export function isLiveGameToday(g: GameWithTeams, timezone: string): boolean {
   return dayKeyInTz(g.scheduledAt, timezone) === dayKeyInTz(now, timezone);
 }
 
+/** Uses admin `gameNumber` when set; otherwise falls back to list position. */
+function gameIdDisplayLabel(g: GameWithTeams, fallbackSeq: number): string {
+  const n = g.gameNumber?.trim();
+  if (n) return `G${n}`;
+  return `G${fallbackSeq}`;
+}
+
 function GameCard({
   g,
   compact,
   liveProminent,
   displayTimeZone,
-  sequenceLabel,
+  fallbackSeq,
 }: {
   g: GameWithTeams;
   compact?: boolean;
   liveProminent?: boolean;
   /** Tournament IANA zone — same wall-clock for SSR and browser. */
   displayTimeZone?: string | null;
-  /** 1-based index in the current list (G1, G2, …). */
-  sequenceLabel: number;
+  /** Used only when `g.gameNumber` is empty (matches list order in this view). */
+  fallbackSeq: number;
 }) {
   const st = statusStyles[g.status] ?? statusStyles.SCHEDULED;
   const border = cardBorder[g.status] ?? cardBorder.default;
@@ -104,7 +111,7 @@ function GameCard({
       )}
 
       <p className="mt-1 text-[10px] leading-tight text-zinc-500">
-        <span className="font-semibold tabular-nums text-zinc-600">G{sequenceLabel}</span>
+        <span className="font-semibold tabular-nums text-zinc-600">{gameIdDisplayLabel(g, fallbackSeq)}</span>
         <span className="text-zinc-400"> · </span>
         {formatFieldWithLocation(g.field.name, g.field.location.name)}
         {g.pool ? ` · ${g.pool.name}` : ""}
@@ -118,20 +125,20 @@ function HorizontalGameRow({
   liveProminent,
   displayTimeZone,
 }: {
-  rows: { g: GameWithTeams; seq: number }[];
+  rows: { g: GameWithTeams; fallbackSeq: number }[];
   liveProminent?: boolean;
   displayTimeZone?: string | null;
 }) {
   return (
     <ul className="-mx-4 flex gap-2.5 overflow-x-auto px-4 pb-2 snap-x snap-mandatory">
-      {rows.map(({ g, seq }) => (
+      {rows.map(({ g, fallbackSeq }) => (
         <GameCard
           key={g.id}
           g={g}
           compact
           liveProminent={liveProminent}
           displayTimeZone={displayTimeZone}
-          sequenceLabel={seq}
+          fallbackSeq={fallbackSeq}
         />
       ))}
     </ul>
@@ -166,7 +173,7 @@ export function GameList({
     );
   }
 
-  const indexedGames = games.map((g, i) => ({ g, seq: i + 1 }));
+  const indexedGames = games.map((g, i) => ({ g, fallbackSeq: i + 1 }));
 
   const liveToday =
     timezone != null && timezone !== ""
@@ -193,8 +200,8 @@ export function GameList({
           <HorizontalGameRow rows={liveToday} liveProminent displayTimeZone={timezone} />
         ) : (
           <ul className="flex flex-col gap-2">
-            {liveToday.map(({ g, seq }) => (
-              <GameCard key={g.id} g={g} liveProminent displayTimeZone={timezone} sequenceLabel={seq} />
+            {liveToday.map(({ g, fallbackSeq }) => (
+              <GameCard key={g.id} g={g} liveProminent displayTimeZone={timezone} fallbackSeq={fallbackSeq} />
             ))}
           </ul>
         )}
@@ -215,8 +222,8 @@ export function GameList({
       {liveBlock}
       {rest.length > 0 ? (
         <ul className="flex flex-col gap-2">
-          {rest.map(({ g, seq }) => (
-            <GameCard key={g.id} g={g} displayTimeZone={timezone} sequenceLabel={seq} />
+          {rest.map(({ g, fallbackSeq }) => (
+            <GameCard key={g.id} g={g} displayTimeZone={timezone} fallbackSeq={fallbackSeq} />
           ))}
         </ul>
       ) : null}
