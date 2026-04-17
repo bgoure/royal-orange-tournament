@@ -1,7 +1,6 @@
 "use client";
 
 import { useActionState } from "react";
-import Image from "next/image";
 import Link from "next/link";
 import type { Division, Pool, Team } from "@prisma/client";
 import {
@@ -158,12 +157,10 @@ function TeamRow({
         <td className="px-4 py-3">
           <div className="flex flex-wrap items-center gap-2">
             {team.logo ? (
-              <Image
+              // eslint-disable-next-line @next/next/no-img-element -- same as TeamLogoMark (dynamic API URL)
+              <img
                 src={teamLogoUrl(team.id, team.logo.updatedAt)}
                 alt=""
-                width={32}
-                height={32}
-                unoptimized
                 className="h-8 w-8 shrink-0 rounded object-contain ring-1 ring-zinc-200/80"
               />
             ) : null}

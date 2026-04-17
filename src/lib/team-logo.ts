@@ -10,6 +10,7 @@ export type TeamWithPublicLogo = Team & {
   logo: TeamPublicLogo | null;
 };
 
+/** Cache-busting query keeps browsers from showing a stale image after replace. */
 export function teamLogoUrl(teamId: string, updatedAt: Date | string): string {
   const v = typeof updatedAt === "string" ? new Date(updatedAt).getTime() : updatedAt.getTime();
   return `/api/team-logo/${teamId}?v=${v}`;
