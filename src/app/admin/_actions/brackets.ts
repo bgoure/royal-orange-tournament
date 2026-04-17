@@ -15,10 +15,11 @@ import { getTournamentForRequest } from "@/lib/tournament-context";
 import {
   createBracketSchema,
   regenerateBracketSchema,
+  updateBracketSettingsSchema,
   updatePoolAdvancingSchema,
 } from "@/lib/validations/bracket-admin";
+import { BracketSetupMode, type Tournament } from "@prisma/client";
 import type { Session } from "next-auth";
-import type { Tournament } from "@prisma/client";
 
 export type BracketActionResult = { ok: true } | { ok: false; error: string };
 
@@ -84,6 +85,8 @@ export async function createPlayoffBracket(
     fieldId: formData.get("fieldId"),
     scheduledAt: formData.get("scheduledAt"),
     hoursBetweenRounds: formData.get("hoursBetweenRounds") || undefined,
+    entryTeamCount: formData.get("entryTeamCount"),
+    consolationEnabled: formData.get("consolationEnabled") ?? "0",
   });
   if (!parsed.success) {
     return { ok: false, error: parsed.error.flatten().formErrors.join(", ") || "Invalid input" };
@@ -108,6 +111,8 @@ export async function createPlayoffBracket(
       fieldId: parsed.data.fieldId,
       startsAt: started,
       hoursBetweenRounds: parsed.data.hoursBetweenRounds,
+      entryTeamCount: parsed.data.entryTeamCount,
+      consolationEnabled: parsed.data.consolationEnabled,
     });
     revalidatePath("/admin/brackets");
     revalidatePath("/admin/games");
@@ -148,6 +153,12 @@ export async function regeneratePlayoffBracket(
     where: { id: parsed.data.bracketId, tournamentId: ctx.tournament.id },
   });
   if (!bracket) return { ok: false, error: "Bracket not found" };
+  if (bracket.setupMode === BracketSetupMode.MANUAL) {
+    return {
+      ok: false,
+      error: "Cannot regenerate a manual bracket. Switch setup to Automated in bracket settings first.",
+    };
+  }
 
   const field = await prisma.field.findFirst({
     where: { id: parsed.data.fieldId, tournamentId: ctx.tournament.id },
@@ -168,6 +179,49 @@ export async function regeneratePlayoffBracket(
     return { ok: true };
   } catch (e) {
     const msg = e instanceof Error ? e.message : "Failed to regenerate bracket";
+    return { ok: false, error: msg };
+  }
+}
+
+export async function updateBracketSettings(
+  _prev: BracketActionResult | undefined,
+  formData: FormData,
+): Promise<BracketActionResult> {
+  const ctx = await bracketContext();
+  if ("error" in ctx) return { ok: false, error: ctx.error };
+  if (!can(ctx.session.user.role, "bracket:configure")) return deny();
+
+  const parsed = updateBracketSettingsSchema.safeParse({
+    bracketId: formData.get("bracketId"),
+    setupMode: formData.get("setupMode"),
+    entryTeamCount: formData.get("entryTeamCount"),
+    consolationEnabled: formData.get("consolationEnabled") ?? "0",
+  });
+  if (!parsed.success) {
+    return {
+      ok: false,
+      error: parsed.error.flatten().formErrors.join(", ") || "Invalid input",
+    };
+  }
+
+  try {
+    const existing = await prisma.bracket.findFirst({
+      where: { id: parsed.data.bracketId, tournamentId: ctx.tournament.id },
+    });
+    if (!existing) return { ok: false, error: "Bracket not found" };
+
+    await prisma.bracket.update({
+      where: { id: parsed.data.bracketId },
+      data: {
+        setupMode: parsed.data.setupMode,
+        entryTeamCount: parsed.data.entryTeamCount,
+        consolationEnabled: parsed.data.consolationEnabled,
+      },
+    });
+    revalidatePath("/admin/brackets");
+    return { ok: true };
+  } catch (e) {
+    const msg = e instanceof Error ? e.message : "Failed to update bracket settings";
     return { ok: false, error: msg };
   }
 }

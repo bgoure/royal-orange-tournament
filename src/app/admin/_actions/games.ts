@@ -9,12 +9,17 @@ import {
   assertFieldInTournament,
   assertGameInTournament,
   assertPoolInTournament,
+  assertTeamsInBracketTournament,
   assertTeamsInPool,
 } from "@/lib/services/admin-games";
-import { advanceBracketWinnerFromGame } from "@/lib/services/bracket-advance";
+import {
+  advanceBracketLoserFromWinnersRound0,
+  advanceBracketWinnerFromGame,
+} from "@/lib/services/bracket-advance";
 import { recomputePoolStandings } from "@/lib/services/standings";
 import {
   createGameSchema,
+  updateBracketGameMetaSchema,
   updateGameMetaSchema,
   updateGameNumberSchema,
   updateGameScoringSchema,
@@ -22,7 +27,7 @@ import {
 import { parseDatetimeLocalInTimeZone } from "@/lib/datetime-tournament";
 import { getTournamentForRequest } from "@/lib/tournament-context";
 import type { Session } from "next-auth";
-import type { Tournament } from "@prisma/client";
+import { BracketSetupMode, type Tournament } from "@prisma/client";
 
 export type GameActionResult = { ok: true } | { ok: false; error: string };
 
@@ -160,10 +165,76 @@ export async function updateGameScoring(
       },
     });
 
-    await recomputePools([existing.poolId]);
+    await recomputePools([existing.poolId].filter((id): id is string => id != null));
     if (d.status === "FINAL") {
       await advanceBracketWinnerFromGame(d.id);
+      await advanceBracketLoserFromWinnersRound0(d.id);
     }
+    revalidatePath("/admin/games");
+    await revalidatePublishedTournamentSites();
+    return { ok: true };
+  } catch (e) {
+    const msg = e instanceof Error ? e.message : "Failed to update game";
+    return { ok: false, error: msg };
+  }
+}
+
+export async function updateBracketGameMeta(
+  _prev: GameActionResult | undefined,
+  formData: FormData,
+): Promise<GameActionResult> {
+  const ctx = await tournamentContext();
+  if ("error" in ctx) return { ok: false, error: ctx.error };
+  if (!can(ctx.session.user.role, "game:update")) return deny();
+
+  const parsed = updateBracketGameMetaSchema.safeParse({
+    id: formData.get("id"),
+    fieldId: formData.get("fieldId"),
+    homeTeamId: formData.get("homeTeamId"),
+    awayTeamId: formData.get("awayTeamId"),
+    scheduledAt: formData.get("scheduledAt"),
+    gameNumber: formData.get("gameNumber"),
+  });
+  if (!parsed.success) {
+    return { ok: false, error: "Invalid schedule or matchup input" };
+  }
+
+  try {
+    const existing = await assertGameInTournament(parsed.data.id, ctx.tournament.id);
+    if (!existing.bracketId) {
+      return { ok: false, error: "Not a bracket game" };
+    }
+    const bracket = await prisma.bracket.findFirst({
+      where: { id: existing.bracketId, tournamentId: ctx.tournament.id },
+      select: { setupMode: true },
+    });
+    if (!bracket || bracket.setupMode !== BracketSetupMode.MANUAL) {
+      return { ok: false, error: "Bracket must be in manual setup mode to edit matchup." };
+    }
+
+    const d = parsed.data;
+    await assertFieldInTournament(d.fieldId, ctx.tournament.id);
+    await assertTeamsInBracketTournament(ctx.tournament.id, d.homeTeamId, d.awayTeamId);
+
+    let scheduledAt: Date;
+    try {
+      scheduledAt = parseDatetimeLocalInTimeZone(d.scheduledAt, ctx.tournament.timezone);
+    } catch {
+      return { ok: false, error: "Invalid date/time for this tournament's timezone" };
+    }
+
+    await prisma.game.update({
+      where: { id: d.id },
+      data: {
+        fieldId: d.fieldId,
+        homeTeamId: d.homeTeamId,
+        awayTeamId: d.awayTeamId,
+        scheduledAt,
+        gameNumber: d.gameNumber,
+      },
+    });
+
+    await recomputePools([existing.poolId].filter((id): id is string => id != null));
     revalidatePath("/admin/games");
     await revalidatePublishedTournamentSites();
     return { ok: true };
@@ -277,7 +348,7 @@ export async function deleteGame(
     const existing = await assertGameInTournament(id, ctx.tournament.id);
     const poolId = existing.poolId;
     await prisma.game.delete({ where: { id } });
-    await recomputePools([poolId]);
+    await recomputePools([poolId].filter((x): x is string => x != null));
     revalidatePath("/admin/games");
     await revalidatePublishedTournamentSites();
     return { ok: true };

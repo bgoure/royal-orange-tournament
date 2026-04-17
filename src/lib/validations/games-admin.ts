@@ -49,6 +49,17 @@ export const updateGameMetaSchema = z
   })
   .refine((d) => d.homeTeamId !== d.awayTeamId, { message: "Home and away must be different teams" });
 
+export const updateBracketGameMetaSchema = z
+  .object({
+    id: z.string().min(1),
+    fieldId: z.string().min(1, "Select a field"),
+    homeTeamId: z.string().min(1),
+    awayTeamId: z.string().min(1),
+    scheduledAt: z.string().min(1),
+    gameNumber: gameNumberMeta,
+  })
+  .refine((d) => d.homeTeamId !== d.awayTeamId, { message: "Home and away must be different teams" });
+
 export const updateGameNumberSchema = z.object({
   id: z.string().min(1),
   gameNumber: gameNumberMeta,

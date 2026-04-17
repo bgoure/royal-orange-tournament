@@ -2,12 +2,13 @@
 
 import { useActionState, useMemo, useState } from "react";
 import Link from "next/link";
-import { GameResultType, GameStatus } from "@prisma/client";
+import { BracketSetupMode, GameResultType, GameStatus } from "@prisma/client";
 import type { Division, Field, Game, Pool, Team } from "@prisma/client";
 import { formatFieldWithLocation } from "@/lib/field-display";
 import {
   createGame,
   deleteGame,
+  updateBracketGameMeta,
   updateGameMeta,
   updateGameNumber,
   updateGameScoring,
@@ -22,6 +23,7 @@ export type AdminGameRow = Game & {
   awayTeam: Team | null;
   field: Field & { location: { name: string } };
   pool: (Pool & { division: Division }) | null;
+  bracket: { id: string; setupMode: BracketSetupMode } | null;
 };
 
 export type PoolWithTeams = {
@@ -289,6 +291,10 @@ function GameCard({
     updateGameNumber,
     undefined as GameActionResult | undefined,
   );
+  const [bracketMetaState, bracketMetaAction, bracketMetaPending] = useActionState(
+    updateBracketGameMeta,
+    undefined as GameActionResult | undefined,
+  );
   const [delState, delAction, delPending] = useActionState(deleteGame, undefined as GameActionResult | undefined);
 
   const [metaPoolId, setMetaPoolId] = useState(game.poolId ?? poolsWithTeams[0]?.poolId ?? "");
@@ -296,6 +302,16 @@ function GameCard({
     const p = poolsWithTeams.find((x) => x.poolId === metaPoolId);
     return p?.teams ?? [];
   }, [poolsWithTeams, metaPoolId]);
+
+  const allTeamsFlat = useMemo(() => {
+    const out: { id: string; label: string }[] = [];
+    for (const p of poolsWithTeams) {
+      for (const t of p.teams) {
+        out.push({ id: t.id, label: `${p.label} · ${t.name}` });
+      }
+    }
+    return out.sort((a, b) => a.label.localeCompare(b.label));
+  }, [poolsWithTeams]);
 
   const awayLabel = game.awayTeam ? game.awayTeam.name : "TBD";
   const homeLabel = game.homeTeam ? game.homeTeam.name : "TBD";
@@ -330,7 +346,11 @@ function GameCard({
           </span>
           {isAdmin ? (
             <ConfirmForm
-              message="Delete this game? Standings will be recalculated for the pool."
+              message={
+                game.poolId
+                  ? "Delete this game? Standings will be recalculated for the pool."
+                  : "Delete this bracket game? This cannot be undone."
+              }
               action={delAction}
               className="inline"
             >
@@ -541,12 +561,96 @@ function GameCard({
             </button>
           </form>
         </div>
+      ) : game.bracket?.setupMode === BracketSetupMode.MANUAL ? (
+        <div className="border-t border-zinc-100 p-4">
+          <h3 className="text-xs font-semibold uppercase tracking-wide text-zinc-500">Bracket matchup (manual)</h3>
+          <p className="mt-1 text-xs text-zinc-600">
+            Pick teams from any pool in this tournament. Automatic winner advancement is off for this bracket.
+          </p>
+          <ActionMessage state={bracketMetaState} />
+          <form action={bracketMetaAction} className="mt-3 flex flex-col gap-3">
+            <input type="hidden" name="id" value={game.id} />
+            <div className="grid gap-3 lg:grid-cols-2 xl:grid-cols-3">
+              <div>
+                <label className={labelClass}>Field</label>
+                <select name="fieldId" required defaultValue={game.fieldId} className={`${formClass} mt-1 w-full`}>
+                  {fields.map((f) => (
+                    <option key={f.id} value={f.id}>
+                      {f.label}
+                    </option>
+                  ))}
+                </select>
+              </div>
+              <div>
+                <label className={labelClass}>Start ({tournamentTimezone})</label>
+                <input
+                  name="scheduledAt"
+                  type="datetime-local"
+                  required
+                  defaultValue={formatJsDateAsDatetimeLocalInZone(new Date(iso), tournamentTimezone)}
+                  className={`${formClass} mt-1 w-full`}
+                />
+              </div>
+              <div>
+                <label className={labelClass}>Away</label>
+                <select
+                  name="awayTeamId"
+                  required
+                  defaultValue={game.awayTeamId ?? ""}
+                  className={`${formClass} mt-1 w-full`}
+                >
+                  <option value="">Select…</option>
+                  {allTeamsFlat.map((t) => (
+                    <option key={t.id} value={t.id}>
+                      {t.label}
+                    </option>
+                  ))}
+                </select>
+              </div>
+              <div>
+                <label className={labelClass}>Home</label>
+                <select
+                  name="homeTeamId"
+                  required
+                  defaultValue={game.homeTeamId ?? ""}
+                  className={`${formClass} mt-1 w-full`}
+                >
+                  <option value="">Select…</option>
+                  {allTeamsFlat.map((t) => (
+                    <option key={t.id} value={t.id}>
+                      {t.label}
+                    </option>
+                  ))}
+                </select>
+              </div>
+              <div>
+                <label className={labelClass}>Game ID / #</label>
+                <input
+                  name="gameNumber"
+                  type="text"
+                  maxLength={64}
+                  defaultValue={game.gameNumber ?? ""}
+                  placeholder="Director label or bracket game #"
+                  className={`${formClass} mt-1 w-full`}
+                />
+                <p className="mt-1 text-[10px] text-zinc-500">Clear the field and save to remove.</p>
+              </div>
+            </div>
+            <button
+              type="submit"
+              disabled={bracketMetaPending}
+              className={`${btnSecondary} w-fit px-3 py-2 text-sm`}
+            >
+              {bracketMetaPending ? "Saving…" : "Save bracket matchup"}
+            </button>
+          </form>
+        </div>
       ) : (
         <div className="border-t border-zinc-100 p-4">
           <h3 className="text-xs font-semibold uppercase tracking-wide text-zinc-500">Game ID / number</h3>
           <p className="mt-1 text-xs text-zinc-600">
-            Bracket games: set a director-facing game label or number. Teams still fill when prior-round games go
-            FINAL.
+            Automated bracket: set a director-facing game label or number. Teams fill when prior-round games go FINAL
+            (and consolation losers when enabled).
           </p>
           <ActionMessage state={numState} />
           <form action={numAction} className="mt-3 flex flex-wrap items-end gap-3">

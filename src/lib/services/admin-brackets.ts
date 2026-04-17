@@ -24,6 +24,9 @@ export function listBracketsSummary(tournamentId: string) {
       id: true,
       name: true,
       format: true,
+      setupMode: true,
+      consolationEnabled: true,
+      entryTeamCount: true,
       _count: { select: { rounds: true, games: true } },
     },
   });

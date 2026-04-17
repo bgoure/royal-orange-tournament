@@ -57,6 +57,37 @@ export function singleElimRoundName(roundIndex: number, totalRounds: number): st
   return `Round ${roundIndex + 1}`;
 }
 
+/** Labels for the consolation mini-bracket (first-round losers). */
+export function consolationRoundName(roundIndex: number, totalRounds: number): string {
+  const roundsFromFinal = totalRounds - 1 - roundIndex;
+  if (roundsFromFinal <= 0) return "Consolation final";
+  if (roundsFromFinal === 1) return "Consolation semifinals";
+  if (roundsFromFinal === 2) return "Consolation quarterfinals";
+  return `Consolation round ${roundIndex + 1}`;
+}
+
+/** Valid playoff field sizes for this app (powers of 2, no byes). */
+export function isValidEntryTeamCount(n: number): boolean {
+  return n >= 2 && n <= 64 && isPowerOfTwo(n);
+}
+
+export function bracketLoserTeamId(input: {
+  status: string;
+  resultType: string;
+  homeTeamId: string | null;
+  awayTeamId: string | null;
+  homeRuns: number | null;
+  awayRuns: number | null;
+}): string | null {
+  if (input.status !== "FINAL") return null;
+  if (input.resultType === "FORFEIT_HOME_WINS") return input.awayTeamId;
+  if (input.resultType === "FORFEIT_AWAY_WINS") return input.homeTeamId;
+  if (input.homeRuns == null || input.awayRuns == null) return null;
+  if (input.homeRuns > input.awayRuns) return input.awayTeamId;
+  if (input.awayRuns > input.homeRuns) return input.homeTeamId;
+  return null;
+}
+
 export function bracketWinnerTeamId(input: {
   status: string;
   resultType: string;

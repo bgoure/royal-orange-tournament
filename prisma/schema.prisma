@@ -266,6 +266,11 @@ enum BracketFormat {
   SINGLE_ELIMINATION
 }
 
+enum BracketSetupMode {
+  AUTOMATED
+  MANUAL
+}
+
 model Bracket {
   id           String         @id @default(cuid())
   tournamentId String
@@ -273,6 +278,12 @@ model Bracket {
   name         String
   sortOrder    Int            @default(0)
   format       BracketFormat  @default(SINGLE_ELIMINATION)
+  /// Automated: seed from standings + regeneration; winner/loser advancement applies. Manual: directors assign teams; no auto-advancement.
+  setupMode    BracketSetupMode @default(AUTOMATED)
+  /// When true, regeneration also builds a consolation (first-round losers) mini bracket.
+  consolationEnabled Boolean @default(false)
+  /// Power-of-2 playoff field size (2, 4, 8…). First N advancers by standings order are used; extras ignored.
+  entryTeamCount Int @default(8)
   rounds       BracketRound[]
   games        Game[]
 

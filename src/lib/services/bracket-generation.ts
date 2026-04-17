@@ -1,8 +1,14 @@
-import { BracketFormat, BracketRoundType, GameStatus } from "@prisma/client";
+import {
+  BracketFormat,
+  BracketRoundType,
+  BracketSetupMode,
+  GameStatus,
+} from "@prisma/client";
 import { prisma } from "@/lib/db";
 import {
   collectAdvancingSlotDescriptors,
-  isPowerOfTwo,
+  consolationRoundName,
+  isValidEntryTeamCount,
   singleElimRoundName,
   type PoolAdvancerInput,
 } from "./bracket-engine";
@@ -54,6 +60,11 @@ export async function regenerateSingleEliminationBracket(opts: RegenerateBracket
   if (bracket.format !== BracketFormat.SINGLE_ELIMINATION) {
     throw new Error("Only single elimination is supported");
   }
+  if (bracket.setupMode === BracketSetupMode.MANUAL) {
+    throw new Error(
+      "Cannot regenerate a manual bracket. Switch setup to Automated in bracket settings, or edit bracket games manually.",
+    );
+  }
 
   const field = await prisma.field.findFirst({
     where: { id: fieldId, tournamentId },
@@ -61,32 +72,41 @@ export async function regenerateSingleEliminationBracket(opts: RegenerateBracket
   });
   if (!field) throw new Error("Field not found");
 
-  const poolInputs = await loadPoolAdvancerInputs(tournamentId);
-  const slots = collectAdvancingSlotDescriptors(poolInputs);
-  const advancers = slots.map((s) => s.teamId);
+  const entryTeamCount = bracket.entryTeamCount;
+  if (!isValidEntryTeamCount(entryTeamCount)) {
+    throw new Error("Bracket entry team count must be a power of 2 between 2 and 64.");
+  }
 
-  if (advancers.length < 2) {
+  const poolInputs = await loadPoolAdvancerInputs(tournamentId);
+  const allSlots = collectAdvancingSlotDescriptors(poolInputs);
+
+  if (allSlots.length < 2) {
     throw new Error(
       "Need at least 2 advancing teams across pools (set each pool's teams advancing and recompute standings).",
     );
   }
-  if (!isPowerOfTwo(advancers.length)) {
+  if (allSlots.length < entryTeamCount) {
     throw new Error(
-      `Total advancing teams must be a power of 2 (got ${advancers.length}). Adjust teams advancing per pool.`,
+      `Need at least ${entryTeamCount} advancing teams (have ${allSlots.length}). Increase pool advancing counts or lower entry team count.`,
     );
   }
+
+  const slots = allSlots.slice(0, entryTeamCount);
+  const n = entryTeamCount;
+  const totalWinnerRounds = Math.log2(n) | 0;
+  const numSide = n / 2;
+  const totalLRounds =
+    bracket.consolationEnabled && n >= 4 ? (Math.log2(numSide) | 0) : 0;
 
   await prisma.$transaction(async (tx) => {
     await tx.game.deleteMany({ where: { bracketId } });
     await tx.bracketRound.deleteMany({ where: { bracketId } });
 
-    const n = advancers.length;
-    const totalRounds = Math.log2(n);
-
     const roundRows: { id: string; roundIndex: number; name: string; roundType: BracketRoundType }[] = [];
-    for (let r = 0; r < totalRounds; r++) {
-      const name = singleElimRoundName(r, totalRounds);
-      const roundType = r === totalRounds - 1 ? BracketRoundType.FINAL : BracketRoundType.WINNERS;
+
+    for (let r = 0; r < totalWinnerRounds; r++) {
+      const name = singleElimRoundName(r, totalWinnerRounds);
+      const roundType = r === totalWinnerRounds - 1 ? BracketRoundType.FINAL : BracketRoundType.WINNERS;
       const created = await tx.bracketRound.create({
         data: { bracketId, name, roundIndex: r, roundType },
       });
@@ -98,10 +118,25 @@ export async function regenerateSingleEliminationBracket(opts: RegenerateBracket
       });
     }
 
+    for (let lr = 0; lr < totalLRounds; lr++) {
+      const roundIndex = totalWinnerRounds + lr;
+      const name = consolationRoundName(lr, totalLRounds);
+      const roundType = lr === totalLRounds - 1 ? BracketRoundType.FINAL : BracketRoundType.LOSERS;
+      const created = await tx.bracketRound.create({
+        data: { bracketId, name, roundIndex, roundType },
+      });
+      roundRows.push({
+        id: created.id,
+        roundIndex,
+        name,
+        roundType,
+      });
+    }
+
     const baseMs = startsAt.getTime();
     const stepMs = hoursBetweenRounds * 60 * 60 * 1000;
 
-    for (let r = 0; r < totalRounds; r++) {
+    for (let r = 0; r < totalWinnerRounds; r++) {
       const matchesInRound = n / 2 ** (r + 1);
       const roundRecord = roundRows[r]!;
       const scheduledAt = new Date(baseMs + r * stepMs);
@@ -146,9 +181,45 @@ export async function regenerateSingleEliminationBracket(opts: RegenerateBracket
         });
       }
     }
+
+    for (let lr = 0; lr < totalLRounds; lr++) {
+      const matchesInRound = numSide / 2 ** (lr + 1);
+      const roundRecord = roundRows[totalWinnerRounds + lr]!;
+      const scheduledAt = new Date(baseMs + (totalWinnerRounds + lr) * stepMs);
+
+      for (let m = 0; m < matchesInRound; m++) {
+        const game = await tx.game.create({
+          data: {
+            tournamentId,
+            poolId: null,
+            fieldId,
+            homeTeamId: null,
+            awayTeamId: null,
+            scheduledAt,
+            status: GameStatus.SCHEDULED,
+            resultType: "REGULAR",
+            bracketId,
+            bracketRoundId: roundRecord.id,
+            bracketPosition: m,
+          },
+        });
+
+        await tx.bracketMatch.create({
+          data: {
+            bracketRoundId: roundRecord.id,
+            matchIndex: m,
+            gameId: game.id,
+            homeSourcePoolId: null,
+            homeSourceRank: null,
+            awaySourcePoolId: null,
+            awaySourceRank: null,
+          },
+        });
+      }
+    }
   });
 
-  return { teamCount: advancers.length, rounds: Math.log2(advancers.length) };
+  return { teamCount: n, rounds: totalWinnerRounds + totalLRounds };
 }
 
 export type CreateBracketOptions = {
@@ -157,6 +228,8 @@ export type CreateBracketOptions = {
   fieldId: string;
   startsAt: Date;
   hoursBetweenRounds?: number;
+  entryTeamCount?: number;
+  consolationEnabled?: boolean;
 };
 
 export async function createSingleEliminationBracket(opts: CreateBracketOptions): Promise<string> {
@@ -166,12 +239,20 @@ export async function createSingleEliminationBracket(opts: CreateBracketOptions)
   });
   const sortOrder = (maxOrder._max.sortOrder ?? -1) + 1;
 
+  const entryTeamCount = opts.entryTeamCount ?? 8;
+  if (!isValidEntryTeamCount(entryTeamCount)) {
+    throw new Error("Entry team count must be a power of 2 between 2 and 64.");
+  }
+
   const bracket = await prisma.bracket.create({
     data: {
       tournamentId: opts.tournamentId,
       name: opts.name,
       sortOrder,
       format: BracketFormat.SINGLE_ELIMINATION,
+      setupMode: BracketSetupMode.AUTOMATED,
+      entryTeamCount,
+      consolationEnabled: opts.consolationEnabled ?? false,
     },
   });
 
