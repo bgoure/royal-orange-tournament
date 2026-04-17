@@ -38,7 +38,7 @@ export function BracketGameCard({
     "home",
     prevRoundName,
   );
-  const t = formatBracketGameScheduledAt(game.scheduledAt, timeZone);
+  const t = formatBracketGameScheduledAt(game.scheduledAt, timeZone, game.schedulePlaceholder);
   const scheduled =
     game.gameNumber != null && game.gameNumber !== ""
       ? `Game #${game.gameNumber} · ${t}`

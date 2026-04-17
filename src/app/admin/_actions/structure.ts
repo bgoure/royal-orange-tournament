@@ -180,6 +180,27 @@ export async function deletePool(_prev: ActionResult | undefined, formData: Form
   const id = formData.get("id")?.toString();
   if (!id) return { ok: false, error: "Missing id" };
   await assertPoolInTournament(id, ctx.tournament.id);
+  const poolRow = await prisma.pool.findFirst({
+    where: { id, division: { tournamentId: ctx.tournament.id } },
+    select: { divisionId: true, _count: { select: { teams: true } } },
+  });
+  if (!poolRow) return { ok: false, error: "Pool not found" };
+  const bracket = await prisma.bracket.findFirst({
+    where: { divisionId: poolRow.divisionId },
+    select: { id: true },
+  });
+  if (bracket) {
+    return {
+      ok: false,
+      error: "Remove the playoff bracket for this division before deleting a pool.",
+    };
+  }
+  if (poolRow._count.teams > 0) {
+    return {
+      ok: false,
+      error: "Remove teams from this pool before deleting it.",
+    };
+  }
   await prisma.pool.delete({ where: { id } });
   revalidatePath("/admin/divisions");
   revalidatePath("/admin/teams");
@@ -267,6 +288,20 @@ export async function deleteTeam(_prev: ActionResult | undefined, formData: Form
   const id = formData.get("id")?.toString();
   if (!id) return { ok: false, error: "Missing id" };
   await assertTeamInTournament(id, ctx.tournament.id);
+  const inPlayoffGame = await prisma.game.findFirst({
+    where: {
+      tournamentId: ctx.tournament.id,
+      bracketId: { not: null },
+      OR: [{ homeTeamId: id }, { awayTeamId: id }],
+    },
+    select: { id: true },
+  });
+  if (inPlayoffGame) {
+    return {
+      ok: false,
+      error: "This team is listed in a playoff game. Remove or reassign it before deleting the team.",
+    };
+  }
   const doomed = await prisma.team.findFirst({
     where: { id, pool: { division: { tournamentId: ctx.tournament.id } } },
     select: { poolId: true },

@@ -27,7 +27,7 @@ export default async function BracketsPage({
   }
 
   const [brackets, poolsForTabs] = await Promise.all([
-    listBracketsForTournament(tournament.id),
+    listBracketsForTournament(tournament.id, { publishedOnly: true }),
     listPoolsForDivisionTabs(tournament.id),
   ]);
 

@@ -24,10 +24,27 @@ export function listBracketsSummary(tournamentId: string) {
       id: true,
       name: true,
       format: true,
-      setupMode: true,
-      consolationEnabled: true,
-      entryTeamCount: true,
+      published: true,
+      needsResolutionRefresh: true,
+      division: { select: { id: true, name: true } },
       _count: { select: { rounds: true, games: true } },
+    },
+  });
+}
+
+/** Divisions with pools (team counts) for the playoff wizard; includes whether a bracket already exists. */
+export function listDivisionsForPlayoffWizard(tournamentId: string) {
+  return prisma.division.findMany({
+    where: { tournamentId },
+    orderBy: { sortOrder: "asc" },
+    include: {
+      pools: {
+        orderBy: { sortOrder: "asc" },
+        include: {
+          _count: { select: { teams: true } },
+        },
+      },
+      _count: { select: { brackets: true } },
     },
   });
 }

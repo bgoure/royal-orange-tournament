@@ -225,7 +225,7 @@ function MobileMatchRow({
         <p className="mt-2 border-t border-zinc-100 pt-2 text-center text-xs text-zinc-500">Final</p>
       ) : (
         <p className="mt-2 text-xs text-zinc-500">
-          Upcoming · {formatBracketGameScheduledAt(game.scheduledAt, timeZone)}
+          Upcoming · {formatBracketGameScheduledAt(game.scheduledAt, timeZone, game.schedulePlaceholder)}
         </p>
       )}
     </li>

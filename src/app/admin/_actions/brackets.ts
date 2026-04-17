@@ -6,19 +6,17 @@ import { auth } from "@/auth";
 import { prisma } from "@/lib/db";
 import { can } from "@/lib/rbac/permissions";
 import { assertPoolInTournament } from "@/lib/services/admin-structure";
-import {
-  createSingleEliminationBracket,
-  regenerateSingleEliminationBracket,
-} from "@/lib/services/bracket-generation";
+import { createDivisionPlayoffBracket } from "@/lib/services/bracket-division-build";
+import { resolveBracketTeamsFromStandings } from "@/lib/services/bracket-resolution";
 import { parseDatetimeLocalInTimeZone } from "@/lib/datetime-tournament";
 import { getTournamentForRequest } from "@/lib/tournament-context";
 import {
-  createBracketSchema,
-  regenerateBracketSchema,
-  updateBracketSettingsSchema,
+  createDivisionBracketSchema,
+  resolveBracketSchema,
+  toggleBracketPublishedSchema,
   updatePoolAdvancingSchema,
 } from "@/lib/validations/bracket-admin";
-import { BracketSetupMode, type Tournament } from "@prisma/client";
+import type { Tournament } from "@prisma/client";
 import type { Session } from "next-auth";
 
 export type BracketActionResult = { ok: true } | { ok: false; error: string };
@@ -72,7 +70,7 @@ export async function updatePoolTeamsAdvancing(
   }
 }
 
-export async function createPlayoffBracket(
+export async function createDivisionPlayoffBracketAction(
   _prev: BracketActionResult | undefined,
   formData: FormData,
 ): Promise<BracketActionResult> {
@@ -80,13 +78,23 @@ export async function createPlayoffBracket(
   if ("error" in ctx) return { ok: false, error: ctx.error };
   if (!can(ctx.session.user.role, "bracket:configure")) return deny();
 
-  const parsed = createBracketSchema.safeParse({
+  let firstRound: { home: { poolId: string; rank: number }; away: { poolId: string; rank: number } }[];
+  try {
+    const raw = formData.get("firstRound")?.toString() ?? "";
+    firstRound = JSON.parse(raw) as typeof firstRound;
+    if (!Array.isArray(firstRound)) throw new Error("Invalid first round");
+  } catch {
+    return { ok: false, error: "Invalid first-round configuration" };
+  }
+
+  const parsed = createDivisionBracketSchema.safeParse({
     name: formData.get("name"),
+    divisionId: formData.get("divisionId"),
     fieldId: formData.get("fieldId"),
     scheduledAt: formData.get("scheduledAt"),
     hoursBetweenRounds: formData.get("hoursBetweenRounds") || undefined,
-    entryTeamCount: formData.get("entryTeamCount"),
-    consolationEnabled: formData.get("consolationEnabled") ?? "0",
+    published: formData.get("published") === "1" ? "1" : "0",
+    firstRound,
   });
   if (!parsed.success) {
     return { ok: false, error: parsed.error.flatten().formErrors.join(", ") || "Invalid input" };
@@ -105,14 +113,15 @@ export async function createPlayoffBracket(
   if (!field) return { ok: false, error: "Field not found" };
 
   try {
-    await createSingleEliminationBracket({
+    await createDivisionPlayoffBracket({
       tournamentId: ctx.tournament.id,
+      divisionId: parsed.data.divisionId,
       name: parsed.data.name,
       fieldId: parsed.data.fieldId,
       startsAt: started,
       hoursBetweenRounds: parsed.data.hoursBetweenRounds,
-      entryTeamCount: parsed.data.entryTeamCount,
-      consolationEnabled: parsed.data.consolationEnabled,
+      firstRound: parsed.data.firstRound,
+      published: parsed.data.published ?? false,
     });
     revalidatePath("/admin/brackets");
     revalidatePath("/admin/games");
@@ -124,7 +133,7 @@ export async function createPlayoffBracket(
   }
 }
 
-export async function regeneratePlayoffBracket(
+export async function toggleBracketPublished(
   _prev: BracketActionResult | undefined,
   formData: FormData,
 ): Promise<BracketActionResult> {
@@ -132,58 +141,30 @@ export async function regeneratePlayoffBracket(
   if ("error" in ctx) return { ok: false, error: ctx.error };
   if (!can(ctx.session.user.role, "bracket:configure")) return deny();
 
-  const parsed = regenerateBracketSchema.safeParse({
+  const parsed = toggleBracketPublishedSchema.safeParse({
     bracketId: formData.get("bracketId"),
-    fieldId: formData.get("fieldId"),
-    scheduledAt: formData.get("scheduledAt"),
-    hoursBetweenRounds: formData.get("hoursBetweenRounds") || undefined,
+    published: formData.get("published") ?? "0",
   });
   if (!parsed.success) {
     return { ok: false, error: parsed.error.flatten().formErrors.join(", ") || "Invalid input" };
   }
 
-  let started: Date;
   try {
-    started = parseDatetimeLocalInTimeZone(parsed.data.scheduledAt, ctx.tournament.timezone);
-  } catch {
-    return { ok: false, error: "Invalid start time for this tournament's timezone" };
-  }
-
-  const bracket = await prisma.bracket.findFirst({
-    where: { id: parsed.data.bracketId, tournamentId: ctx.tournament.id },
-  });
-  if (!bracket) return { ok: false, error: "Bracket not found" };
-  if (bracket.setupMode === BracketSetupMode.MANUAL) {
-    return {
-      ok: false,
-      error: "Cannot regenerate a manual bracket. Switch setup to Automated in bracket settings first.",
-    };
-  }
-
-  const field = await prisma.field.findFirst({
-    where: { id: parsed.data.fieldId, tournamentId: ctx.tournament.id },
-  });
-  if (!field) return { ok: false, error: "Field not found" };
-
-  try {
-    await regenerateSingleEliminationBracket({
-      tournamentId: ctx.tournament.id,
-      bracketId: parsed.data.bracketId,
-      fieldId: parsed.data.fieldId,
-      startsAt: started,
-      hoursBetweenRounds: parsed.data.hoursBetweenRounds,
+    const ok = await prisma.bracket.updateMany({
+      where: { id: parsed.data.bracketId, tournamentId: ctx.tournament.id },
+      data: { published: parsed.data.published },
     });
+    if (ok.count === 0) return { ok: false, error: "Bracket not found" };
     revalidatePath("/admin/brackets");
-    revalidatePath("/admin/games");
     await revalidatePublishedTournamentSites();
     return { ok: true };
   } catch (e) {
-    const msg = e instanceof Error ? e.message : "Failed to regenerate bracket";
+    const msg = e instanceof Error ? e.message : "Failed to update visibility";
     return { ok: false, error: msg };
   }
 }
 
-export async function updateBracketSettings(
+export async function applyBracketResolution(
   _prev: BracketActionResult | undefined,
   formData: FormData,
 ): Promise<BracketActionResult> {
@@ -191,37 +172,25 @@ export async function updateBracketSettings(
   if ("error" in ctx) return { ok: false, error: ctx.error };
   if (!can(ctx.session.user.role, "bracket:configure")) return deny();
 
-  const parsed = updateBracketSettingsSchema.safeParse({
+  const parsed = resolveBracketSchema.safeParse({
     bracketId: formData.get("bracketId"),
-    setupMode: formData.get("setupMode"),
-    entryTeamCount: formData.get("entryTeamCount"),
-    consolationEnabled: formData.get("consolationEnabled") ?? "0",
   });
   if (!parsed.success) {
-    return {
-      ok: false,
-      error: parsed.error.flatten().formErrors.join(", ") || "Invalid input",
-    };
+    return { ok: false, error: parsed.error.flatten().formErrors.join(", ") || "Invalid input" };
   }
 
   try {
-    const existing = await prisma.bracket.findFirst({
+    const b = await prisma.bracket.findFirst({
       where: { id: parsed.data.bracketId, tournamentId: ctx.tournament.id },
     });
-    if (!existing) return { ok: false, error: "Bracket not found" };
-
-    await prisma.bracket.update({
-      where: { id: parsed.data.bracketId },
-      data: {
-        setupMode: parsed.data.setupMode,
-        entryTeamCount: parsed.data.entryTeamCount,
-        consolationEnabled: parsed.data.consolationEnabled,
-      },
-    });
+    if (!b) return { ok: false, error: "Bracket not found" };
+    await resolveBracketTeamsFromStandings(parsed.data.bracketId);
     revalidatePath("/admin/brackets");
+    revalidatePath("/admin/games");
+    await revalidatePublishedTournamentSites();
     return { ok: true };
   } catch (e) {
-    const msg = e instanceof Error ? e.message : "Failed to update bracket settings";
+    const msg = e instanceof Error ? e.message : "Failed to apply standings";
     return { ok: false, error: msg };
   }
 }

@@ -135,6 +135,7 @@ model Division {
   name         String
   sortOrder    Int        @default(0)
   pools        Pool[]
+  brackets     Bracket[]
 
   @@index([tournamentId])
 }
@@ -230,6 +231,8 @@ model Game {
   awayTeamId            String?
   awayTeam              Team?          @relation("AwayTeam", fields: [awayTeamId], references: [id], onDelete: Cascade)
   scheduledAt           DateTime
+  /// When true, public schedules show the time as TBD until the director sets a real slot.
+  schedulePlaceholder   Boolean        @default(false)
   status                GameStatus     @default(SCHEDULED)
   resultType            GameResultType @default(REGULAR)
   homeRuns              Int?
@@ -266,27 +269,23 @@ enum BracketFormat {
   SINGLE_ELIMINATION
 }
 
-enum BracketSetupMode {
-  AUTOMATED
-  MANUAL
-}
-
 model Bracket {
   id           String         @id @default(cuid())
   tournamentId String
   tournament   Tournament     @relation(fields: [tournamentId], references: [id], onDelete: Cascade)
+  divisionId   String
+  division     Division       @relation(fields: [divisionId], references: [id], onDelete: Cascade)
   name         String
   sortOrder    Int            @default(0)
   format       BracketFormat  @default(SINGLE_ELIMINATION)
-  /// Automated: seed from standings + regeneration; winner/loser advancement applies. Manual: directors assign teams; no auto-advancement.
-  setupMode    BracketSetupMode @default(AUTOMATED)
-  /// When true, regeneration also builds a consolation (first-round losers) mini bracket.
-  consolationEnabled Boolean @default(false)
-  /// Power-of-2 playoff field size (2, 4, 8…). First N advancers by standings order are used; extras ignored.
-  entryTeamCount Int @default(8)
+  /// Hidden on the public site until turned on; admins may publish with placeholder schedule/teams.
+  published    Boolean        @default(false)
+  /// Set when pool play changes; cleared after directors re-apply standings to seeded slots.
+  needsResolutionRefresh Boolean @default(false)
   rounds       BracketRound[]
   games        Game[]
 
+  @@unique([divisionId])
   @@index([tournamentId])
 }
 

@@ -2,7 +2,7 @@
 
 import { useActionState, useMemo, useState } from "react";
 import Link from "next/link";
-import { BracketSetupMode, GameResultType, GameStatus } from "@prisma/client";
+import { GameResultType, GameStatus } from "@prisma/client";
 import type { Division, Field, Game, Pool, Team } from "@prisma/client";
 import { formatFieldWithLocation } from "@/lib/field-display";
 import {
@@ -23,7 +23,7 @@ export type AdminGameRow = Game & {
   awayTeam: Team | null;
   field: Field & { location: { name: string } };
   pool: (Pool & { division: Division }) | null;
-  bracket: { id: string; setupMode: BracketSetupMode } | null;
+  bracket: { id: string } | null;
 };
 
 export type PoolWithTeams = {
@@ -566,8 +566,7 @@ function GameCard({
           <div className="border-t border-zinc-100 p-4">
             <h3 className="text-xs font-semibold uppercase tracking-wide text-zinc-500">Schedule &amp; location</h3>
             <p className="mt-1 text-xs text-zinc-600">
-              Bracket create/regenerate only sets placeholder times on one field. Set each game&apos;s field, start
-              time, and label here.
+              The wizard stores a placeholder time until you save a real slot here (clears the public “TBD”).
             </p>
             <ActionMessage state={bracketScheduleState} />
             <form action={bracketScheduleAction} className="mt-3 flex flex-col gap-3">
@@ -615,59 +614,55 @@ function GameCard({
               </button>
             </form>
           </div>
-          {game.bracket?.setupMode === BracketSetupMode.MANUAL ? (
-            <div className="border-t border-zinc-100 p-4">
-              <h3 className="text-xs font-semibold uppercase tracking-wide text-zinc-500">Teams (manual bracket)</h3>
-              <p className="mt-1 text-xs text-zinc-600">
-                Pick teams from any pool. Automatic winner advancement is off for this bracket.
-              </p>
-              <ActionMessage state={bracketTeamsState} />
-              <form action={bracketTeamsAction} className="mt-3 flex flex-col gap-3">
-                <input type="hidden" name="id" value={game.id} />
-                <div className="grid gap-3 sm:grid-cols-2">
-                  <div>
-                    <label className={labelClass}>Away</label>
-                    <select
-                      name="awayTeamId"
-                      required
-                      defaultValue={game.awayTeamId ?? ""}
-                      className={`${formClass} mt-1 w-full`}
-                    >
-                      <option value="">Select…</option>
-                      {allTeamsFlat.map((t) => (
-                        <option key={t.id} value={t.id}>
-                          {t.label}
-                        </option>
-                      ))}
-                    </select>
-                  </div>
-                  <div>
-                    <label className={labelClass}>Home</label>
-                    <select
-                      name="homeTeamId"
-                      required
-                      defaultValue={game.homeTeamId ?? ""}
-                      className={`${formClass} mt-1 w-full`}
-                    >
-                      <option value="">Select…</option>
-                      {allTeamsFlat.map((t) => (
-                        <option key={t.id} value={t.id}>
-                          {t.label}
-                        </option>
-                      ))}
-                    </select>
-                  </div>
+          <div className="border-t border-zinc-100 p-4">
+            <h3 className="text-xs font-semibold uppercase tracking-wide text-zinc-500">Teams (override)</h3>
+            <p className="mt-1 text-xs text-zinc-600">Adjust matchups after standings seeding, or fix one-off swaps.</p>
+            <ActionMessage state={bracketTeamsState} />
+            <form action={bracketTeamsAction} className="mt-3 flex flex-col gap-3">
+              <input type="hidden" name="id" value={game.id} />
+              <div className="grid gap-3 sm:grid-cols-2">
+                <div>
+                  <label className={labelClass}>Away</label>
+                  <select
+                    name="awayTeamId"
+                    required
+                    defaultValue={game.awayTeamId ?? ""}
+                    className={`${formClass} mt-1 w-full`}
+                  >
+                    <option value="">Select…</option>
+                    {allTeamsFlat.map((t) => (
+                      <option key={t.id} value={t.id}>
+                        {t.label}
+                      </option>
+                    ))}
+                  </select>
                 </div>
-                <button
-                  type="submit"
-                  disabled={bracketTeamsPending}
-                  className={`${btnSecondary} w-fit px-3 py-2 text-sm`}
-                >
-                  {bracketTeamsPending ? "Saving…" : "Save teams"}
-                </button>
-              </form>
-            </div>
-          ) : null}
+                <div>
+                  <label className={labelClass}>Home</label>
+                  <select
+                    name="homeTeamId"
+                    required
+                    defaultValue={game.homeTeamId ?? ""}
+                    className={`${formClass} mt-1 w-full`}
+                  >
+                    <option value="">Select…</option>
+                    {allTeamsFlat.map((t) => (
+                      <option key={t.id} value={t.id}>
+                        {t.label}
+                      </option>
+                    ))}
+                  </select>
+                </div>
+              </div>
+              <button
+                type="submit"
+                disabled={bracketTeamsPending}
+                className={`${btnSecondary} w-fit px-3 py-2 text-sm`}
+              >
+                {bracketTeamsPending ? "Saving…" : "Save teams"}
+              </button>
+            </form>
+          </div>
         </>
       )}
     </article>

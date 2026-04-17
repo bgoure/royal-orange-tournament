@@ -66,8 +66,13 @@ export function formatGameScheduledAtShort(d: Date, timeZone?: string | null): s
   return new Intl.DateTimeFormat(undefined, opts).format(d);
 }
 
-/** Bracket match cards (month/day, no weekday). */
-export function formatBracketGameScheduledAt(d: Date, timeZone?: string | null): string {
+/** Bracket match cards (month/day, no weekday). Use `schedulePlaceholder` to show TBD instead of a concrete time. */
+export function formatBracketGameScheduledAt(
+  d: Date,
+  timeZone?: string | null,
+  schedulePlaceholder?: boolean,
+): string {
+  if (schedulePlaceholder) return "TBD";
   const opts: Intl.DateTimeFormatOptions = {
     month: "short",
     day: "numeric",

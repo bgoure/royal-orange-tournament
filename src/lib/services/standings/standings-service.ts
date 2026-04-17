@@ -1,5 +1,6 @@
 import { prisma } from "@/lib/db";
 import type { Game } from "@prisma/client";
+import { markBracketsStaleForDivision } from "@/lib/services/bracket-resolution";
 import {
   buildAggregates,
   orderTeamsForPool,
@@ -100,6 +101,8 @@ export async function recomputePoolStandings(poolId: string): Promise<void> {
       },
     });
   }
+
+  await markBracketsStaleForDivision(pool.divisionId);
 }
 
 export async function recomputeAllPoolsForTournament(tournamentId: string): Promise<void> {

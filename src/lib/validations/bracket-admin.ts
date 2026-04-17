@@ -1,4 +1,3 @@
-import { BracketSetupMode } from "@prisma/client";
 import { z } from "zod";
 import { isValidEntryTeamCount } from "@/lib/services/bracket-engine";
 
@@ -7,35 +6,41 @@ export const updatePoolAdvancingSchema = z.object({
   teamsAdvancing: z.coerce.number().int().min(0).max(64),
 });
 
-export const createBracketSchema = z.object({
+const firstRoundSlotSchema = z.object({
+  home: z.object({
+    poolId: z.string().min(1),
+    rank: z.coerce.number().int().min(1).max(64),
+  }),
+  away: z.object({
+    poolId: z.string().min(1),
+    rank: z.coerce.number().int().min(1).max(64),
+  }),
+});
+
+export const createDivisionBracketSchema = z.object({
   name: z.string().trim().min(1).max(120),
+  divisionId: z.string().min(1),
   fieldId: z.string().min(1, "Select a field"),
   scheduledAt: z.string().min(1),
   hoursBetweenRounds: z.coerce.number().min(0).max(168).optional().default(2),
-  entryTeamCount: z.preprocess(
-    (v) => (v === "" || v === null || v === undefined ? 8 : Number(v)),
-    z.number().int().refine(isValidEntryTeamCount, {
-      message: "Entry team count must be a power of 2 between 2 and 64",
-    }),
-  ),
-  consolationEnabled: z.enum(["0", "1"]).transform((v) => v === "1"),
+  published: z.enum(["0", "1"]).transform((v) => v === "1"),
+  firstRound: z.array(firstRoundSlotSchema).min(1),
+}).superRefine((data, ctx) => {
+  const n = data.firstRound.length * 2;
+  if (!isValidEntryTeamCount(n)) {
+    ctx.addIssue({
+      code: z.ZodIssueCode.custom,
+      message: "First round must describe a power-of-2 field (2, 4, 8, … teams).",
+      path: ["firstRound"],
+    });
+  }
 });
 
-export const updateBracketSettingsSchema = z.object({
+export const toggleBracketPublishedSchema = z.object({
   bracketId: z.string().min(1),
-  setupMode: z.nativeEnum(BracketSetupMode),
-  entryTeamCount: z.preprocess(
-    (v) => (v === "" || v === null || v === undefined ? 8 : Number(v)),
-    z.number().int().refine(isValidEntryTeamCount, {
-      message: "Entry team count must be a power of 2 between 2 and 64",
-    }),
-  ),
-  consolationEnabled: z.enum(["0", "1"]).transform((v) => v === "1"),
+  published: z.enum(["0", "1"]).transform((v) => v === "1"),
 });
 
-export const regenerateBracketSchema = z.object({
+export const resolveBracketSchema = z.object({
   bracketId: z.string().min(1),
-  fieldId: z.string().min(1, "Select a field"),
-  scheduledAt: z.string().min(1),
-  hoursBetweenRounds: z.coerce.number().min(0).max(168).optional().default(2),
 });

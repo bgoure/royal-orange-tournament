@@ -1,10 +1,17 @@
 import { prisma } from "@/lib/db";
 
-export function listBracketsForTournament(tournamentId: string) {
+export function listBracketsForTournament(
+  tournamentId: string,
+  opts?: { publishedOnly?: boolean },
+) {
   return prisma.bracket.findMany({
-    where: { tournamentId },
+    where: {
+      tournamentId,
+      ...(opts?.publishedOnly ? { published: true } : {}),
+    },
     orderBy: { sortOrder: "asc" },
     include: {
+      division: { select: { id: true, name: true } },
       rounds: { orderBy: { roundIndex: "asc" } },
       games: {
         orderBy: [{ bracketRound: { roundIndex: "asc" } }, { bracketPosition: "asc" }],

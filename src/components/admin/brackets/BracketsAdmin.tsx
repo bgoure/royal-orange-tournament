@@ -2,28 +2,36 @@
 
 import { useActionState, useMemo, useState } from "react";
 import Link from "next/link";
-import type { BracketFormat, Pool } from "@prisma/client";
-import { BracketSetupMode } from "@prisma/client";
+import type { BracketFormat } from "@prisma/client";
 import {
-  createPlayoffBracket,
-  regeneratePlayoffBracket,
-  updateBracketSettings,
+  applyBracketResolution,
+  createDivisionPlayoffBracketAction,
+  toggleBracketPublished,
   updatePoolTeamsAdvancing,
   type BracketActionResult,
 } from "@/app/admin/_actions/brackets";
 import { ActionMessage } from "@/components/admin/structure/ActionMessage";
 import { formatJsDateAsDatetimeLocalInZone } from "@/lib/datetime-tournament";
 import { tournamentPath } from "@/lib/tournament-public-path";
+import type { FirstRoundSlot } from "@/lib/services/bracket-division-build";
+import type { Pool } from "@prisma/client";
 
 type PoolRow = Pool & { division: { name: string } };
+
+type DivisionWizardRow = {
+  id: string;
+  name: string;
+  pools: { id: string; name: string; teamCount: number }[];
+  hasBracket: boolean;
+};
 
 type BracketRow = {
   id: string;
   name: string;
   format: BracketFormat;
-  setupMode: BracketSetupMode;
-  consolationEnabled: boolean;
-  entryTeamCount: number;
+  published: boolean;
+  needsResolutionRefresh: boolean;
+  division: { id: string; name: string };
   _count: { rounds: number; games: number };
 };
 
@@ -41,17 +49,149 @@ type FieldSelectOption = { id: string; label: string };
 
 type Props = {
   pools: PoolRow[];
+  divisions: DivisionWizardRow[];
   fields: FieldSelectOption[];
   brackets: BracketRow[];
   tournamentName: string;
   tournamentSlug: string;
-  /** IANA zone for first-round start (`datetime-local` matches tournament settings). */
   tournamentTimezone: string;
   canConfigure: boolean;
 };
 
+function defaultFirstRound(pools: { id: string; teamCount: number }[], entrySize: number): FirstRoundSlot[] {
+  const pairs = entrySize / 2;
+  const out: FirstRoundSlot[] = [];
+  if (pools.length === 0) return out;
+  if (pools.length >= 2) {
+    const a = pools[0]!;
+    const b = pools[1]!;
+    for (let m = 0; m < pairs; m++) {
+      const rank = m + 1;
+      out.push({
+        home: { poolId: a.id, rank: Math.min(rank, Math.max(1, a.teamCount)) },
+        away: { poolId: b.id, rank: Math.min(rank, Math.max(1, b.teamCount)) },
+      });
+    }
+    return out;
+  }
+  const p = pools[0]!;
+  for (let m = 0; m < pairs; m++) {
+    const r1 = m * 2 + 1;
+    const r2 = m * 2 + 2;
+    out.push({
+      home: { poolId: p.id, rank: Math.min(r1, p.teamCount) },
+      away: { poolId: p.id, rank: Math.min(r2, p.teamCount) },
+    });
+  }
+  return out;
+}
+
+function PlayoffFirstRoundRows({
+  poolRows,
+  entrySize,
+}: {
+  poolRows: DivisionWizardRow["pools"];
+  entrySize: number;
+}) {
+  const [firstRound, setFirstRound] = useState(() => defaultFirstRound(poolRows, entrySize));
+
+  const rankOptionsForPool = (poolId: string) => {
+    const tc = poolRows.find((p) => p.id === poolId)?.teamCount ?? 0;
+    return Array.from({ length: Math.max(tc, 1) }, (_, i) => i + 1);
+  };
+
+  const updateSlot = (index: number, side: "home" | "away", key: "poolId" | "rank", value: string | number) => {
+    setFirstRound((prev) => {
+      const next = [...prev];
+      const row = { ...next[index]! };
+      const sideObj = { ...row[side] };
+      if (key === "poolId") sideObj.poolId = value as string;
+      else sideObj.rank = value as number;
+      row[side] = sideObj;
+      next[index] = row;
+      return next;
+    });
+  };
+
+  return (
+    <>
+      <input type="hidden" name="firstRound" value={JSON.stringify(firstRound)} />
+      <div>
+        <h3 className="text-xs font-semibold uppercase tracking-wide text-zinc-500">Round 1 pairings</h3>
+        <div className="mt-3 flex flex-col gap-4">
+          {firstRound.map((row, idx) => (
+            <div
+              key={idx}
+              className="rounded-lg border border-zinc-200 bg-zinc-50/50 p-3 text-sm text-zinc-800"
+            >
+              <p className="text-[10px] font-semibold uppercase tracking-wide text-zinc-500">Game {idx + 1}</p>
+              <div className="mt-2 grid gap-3 sm:grid-cols-2">
+                <div>
+                  <p className={labelClass}>Away</p>
+                  <div className="mt-1 flex flex-wrap gap-2">
+                    <select
+                      value={row.away.poolId}
+                      onChange={(e) => updateSlot(idx, "away", "poolId", e.target.value)}
+                      className={`${formClass} min-w-[140px]`}
+                    >
+                      {poolRows.map((p) => (
+                        <option key={p.id} value={p.id}>
+                          {p.name}
+                        </option>
+                      ))}
+                    </select>
+                    <select
+                      value={row.away.rank}
+                      onChange={(e) => updateSlot(idx, "away", "rank", Number(e.target.value))}
+                      className={`${formClass} w-24`}
+                    >
+                      {rankOptionsForPool(row.away.poolId).map((r) => (
+                        <option key={r} value={r}>
+                          {r}
+                        </option>
+                      ))}
+                    </select>
+                  </div>
+                </div>
+                <div>
+                  <p className={labelClass}>Home</p>
+                  <div className="mt-1 flex flex-wrap gap-2">
+                    <select
+                      value={row.home.poolId}
+                      onChange={(e) => updateSlot(idx, "home", "poolId", e.target.value)}
+                      className={`${formClass} min-w-[140px]`}
+                    >
+                      {poolRows.map((p) => (
+                        <option key={p.id} value={p.id}>
+                          {p.name}
+                        </option>
+                      ))}
+                    </select>
+                    <select
+                      value={row.home.rank}
+                      onChange={(e) => updateSlot(idx, "home", "rank", Number(e.target.value))}
+                      className={`${formClass} w-24`}
+                    >
+                      {rankOptionsForPool(row.home.poolId).map((r) => (
+                        <option key={r} value={r}>
+                          {r}
+                        </option>
+                      ))}
+                    </select>
+                  </div>
+                </div>
+              </div>
+            </div>
+          ))}
+        </div>
+      </div>
+    </>
+  );
+}
+
 export function BracketsAdmin({
   pools,
+  divisions,
   fields,
   brackets,
   tournamentName,
@@ -64,26 +204,35 @@ export function BracketsAdmin({
     undefined as BracketActionResult | undefined,
   );
   const [createState, createAction, createPending] = useActionState(
-    createPlayoffBracket,
+    createDivisionPlayoffBracketAction,
     undefined as BracketActionResult | undefined,
   );
-  const [regenState, regenAction, regenPending] = useActionState(
-    regeneratePlayoffBracket,
+  const [publishState, publishAction, publishPending] = useActionState(
+    toggleBracketPublished,
     undefined as BracketActionResult | undefined,
   );
-  const [settingsState, settingsAction, settingsPending] = useActionState(
-    updateBracketSettings,
+  const [resolveState, resolveAction, resolvePending] = useActionState(
+    applyBracketResolution,
     undefined as BracketActionResult | undefined,
   );
 
   const defaultStart = formatJsDateAsDatetimeLocalInZone(new Date(), tournamentTimezone);
 
-  const [regenBracketId, setRegenBracketId] = useState(brackets[0]?.id ?? "");
-  const regenBracket = useMemo(
-    () => brackets.find((b) => b.id === regenBracketId),
-    [brackets, regenBracketId],
+  const creatableDivisions = useMemo(() => divisions.filter((d) => !d.hasBracket), [divisions]);
+
+  const [wizardDivisionId, setWizardDivisionId] = useState(creatableDivisions[0]?.id ?? "");
+
+  const effectiveDivisionId = useMemo(() => {
+    if (creatableDivisions.some((d) => d.id === wizardDivisionId)) return wizardDivisionId;
+    return creatableDivisions[0]?.id ?? "";
+  }, [creatableDivisions, wizardDivisionId]);
+
+  const selectedDivision = useMemo(
+    () => divisions.find((d) => d.id === effectiveDivisionId),
+    [divisions, effectiveDivisionId],
   );
-  const regenDisabled = regenBracket?.setupMode === BracketSetupMode.MANUAL;
+
+  const [entrySize, setEntrySize] = useState<number>(8);
 
   return (
     <div className="flex flex-col gap-10">
@@ -105,25 +254,25 @@ export function BracketsAdmin({
 
       {!canConfigure ? (
         <p className="text-sm text-zinc-600">
-          Only administrators can configure playoffs (<code className="rounded bg-zinc-100 px-1 text-xs">bracket:configure</code>
-          ).
+          Only administrators can configure playoffs (
+          <code className="rounded bg-zinc-100 px-1 text-xs">bracket:configure</code>).
         </p>
       ) : (
         <p className="text-sm text-zinc-600">
-          Set how many teams advance from each pool (by current standings order). Total advancers must be at least your
-          bracket entry size (2, 4, 8…). Extra advancers are ignored when seeding. Create a bracket as Automated,
-          then switch to Manual in bracket settings if you want to assign every matchup by hand.
+          Playoffs are scoped to one division at a time. Choose first-round pairings as &quot;kᵗʰ in pool&quot;
+          slots, then publish when you are ready for the public site. Pool standings can change the seed list;
+          re-apply standings after round-robin updates.
         </p>
       )}
 
       <ActionMessage state={advState} />
       <ActionMessage state={createState} />
-      <ActionMessage state={regenState} />
-      <ActionMessage state={settingsState} />
+      <ActionMessage state={publishState} />
+      <ActionMessage state={resolveState} />
 
       <section className="rounded-xl border border-zinc-200 bg-white p-6 shadow-sm">
         <h2 className="text-sm font-semibold text-zinc-900">Advancing teams per pool</h2>
-        <p className="mt-1 text-xs text-zinc-500">0 = this pool does not feed the playoff bracket.</p>
+        <p className="mt-1 text-xs text-zinc-500">0 = this pool does not feed pool standings ranks for seed labels.</p>
         <div className="mt-4 flex flex-col gap-3">
           {pools.length === 0 ? (
             <p className="text-sm text-zinc-500">No pools yet.</p>
@@ -177,173 +326,57 @@ export function BracketsAdmin({
         </div>
       </section>
 
-      {canConfigure ? (
-        <>
-          <section className="rounded-xl border border-zinc-200 bg-white p-6 shadow-sm">
-            <h2 className="text-sm font-semibold text-zinc-900">Create single-elimination bracket</h2>
-            <p className="mt-1 text-xs text-zinc-500">
-              Seeds matchups from standings and creates the right number of games (N = entry field size). Field, start
-              time, and game labels are placeholders only — set each bracket game under{" "}
-              <Link href="/admin/games" className="font-medium text-royal underline">
-                Games
-              </Link>
-              .
-            </p>
-            <form action={createAction} className="mt-4 flex flex-col gap-4 sm:max-w-xl">
-              <div>
-                <label className={labelClass}>Name</label>
-                <input name="name" required placeholder="Championship" className={`${formClass} mt-1 w-full`} />
-              </div>
-              <div>
-                <label className={labelClass}>Field</label>
-                <select name="fieldId" required className={`${formClass} mt-1 w-full`}>
-                  <option value="">Select a field…</option>
-                  {fields.map((f) => (
-                    <option key={f.id} value={f.id}>
-                      {f.label}
-                    </option>
-                  ))}
-                </select>
-              </div>
-              <div>
-                <label className={labelClass}>Bracket field size (entry)</label>
-                <select name="entryTeamCount" defaultValue={8} className={`${formClass} mt-1 w-full`}>
-                  {ENTRY_OPTIONS.map((n) => (
-                    <option key={n} value={n}>
-                      {n} teams — {firstRoundLabel(n)}
-                    </option>
-                  ))}
-                </select>
-                <p className="mt-1 text-[10px] text-zinc-500">
-                  First-round label depends on size (e.g. 8 → quarterfinals, 4 → semifinals, 2 → final only).
-                </p>
-              </div>
-              <div>
-                <label className={labelClass}>Consolation (first-round losers)</label>
-                <select name="consolationEnabled" defaultValue="0" className={`${formClass} mt-1 w-full`}>
-                  <option value="0">No</option>
-                  <option value="1">Yes — add a mini bracket for teams that lose in round 1</option>
-                </select>
-              </div>
-              <div>
-                <label className={labelClass}>First-round start ({tournamentTimezone})</label>
-                <input
-                  name="scheduledAt"
-                  type="datetime-local"
-                  required
-                  defaultValue={defaultStart}
-                  className={`${formClass} mt-1 w-full`}
-                />
-              </div>
-              <div>
-                <label className={labelClass}>Hours between rounds</label>
-                <input
-                  name="hoursBetweenRounds"
-                  type="number"
-                  min={0}
-                  max={168}
-                  defaultValue={2}
-                  className={`${formClass} mt-1 w-24`}
-                />
-              </div>
-              <button type="submit" disabled={createPending} className={btnPrimary}>
-                {createPending ? "Generating…" : "Create bracket"}
-              </button>
-            </form>
-          </section>
-
-          {brackets.length > 0 ? (
-            <section className="rounded-xl border border-zinc-200 bg-white p-6 shadow-sm">
-              <h2 className="text-sm font-semibold text-zinc-900">Bracket settings</h2>
-              <p className="mt-1 text-xs text-zinc-500">
-                Automated: seed from standings on regenerate and advance winners/losers when games go FINAL. Manual: no
-                automatic advancement — assign teams on each game under Games.
-              </p>
-              <div className="mt-4 flex flex-col gap-6">
-                {brackets.map((b) => (
-                  <form key={b.id} action={settingsAction} className="flex flex-col gap-3 border-b border-zinc-100 pb-3 last:border-0">
-                    <input type="hidden" name="bracketId" value={b.id} />
-                    <p className="text-sm font-medium text-zinc-900">{b.name}</p>
-                    <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
-                      <div>
-                        <label className={labelClass}>Setup</label>
-                        <select name="setupMode" defaultValue={b.setupMode} className={`${formClass} mt-1 w-full`}>
-                          <option value={BracketSetupMode.AUTOMATED}>Automated</option>
-                          <option value={BracketSetupMode.MANUAL}>Manual</option>
-                        </select>
-                      </div>
-                      <div>
-                        <label className={labelClass}>Entry field size</label>
-                        <select name="entryTeamCount" defaultValue={String(b.entryTeamCount)} className={`${formClass} mt-1 w-full`}>
-                          {ENTRY_OPTIONS.map((n) => (
-                            <option key={n} value={n}>
-                              {n} teams — {firstRoundLabel(n)}
-                            </option>
-                          ))}
-                        </select>
-                      </div>
-                      <div>
-                        <label className={labelClass}>Consolation</label>
-                        <select
-                          name="consolationEnabled"
-                          defaultValue={b.consolationEnabled ? "1" : "0"}
-                          className={`${formClass} mt-1 w-full`}
-                        >
-                          <option value="0">No</option>
-                          <option value="1">Yes</option>
-                        </select>
-                      </div>
-                    </div>
-                    <button type="submit" disabled={settingsPending} className={`${btnSecondary} w-fit px-3 py-2 text-sm`}>
-                      {settingsPending ? "Saving…" : "Save settings"}
-                    </button>
-                  </form>
-                ))}
-              </div>
-            </section>
-          ) : null}
-
-          <section className="rounded-xl border border-zinc-200 bg-zinc-50/80 p-6">
-            <h2 className="text-sm font-semibold text-zinc-900">Regenerate existing bracket</h2>
-            <p className="mt-1 text-xs text-zinc-600">
-              Rebuilds the bracket skeleton from standings (placeholder times on one field). Re-enter field, time, and
-              labels per game on{" "}
-              <Link href="/admin/games" className="font-medium text-royal underline">
-                Games
-              </Link>{" "}
-              afterward. Recorded playoff scores will be lost. Not available in Manual setup.
-            </p>
-            {brackets.length === 0 ? (
-              <p className="mt-3 text-sm text-zinc-500">No brackets yet.</p>
-            ) : (
-              <form action={regenAction} className="mt-4 flex flex-col gap-4 sm:max-w-xl">
+      {canConfigure && creatableDivisions.length > 0 ? (
+        <section className="rounded-xl border border-zinc-200 bg-white p-6 shadow-sm">
+          <h2 className="text-sm font-semibold text-zinc-900">Create division playoff (wizard)</h2>
+          <p className="mt-1 text-xs text-zinc-500">
+            One single-elimination bracket per division. First round uses pool finishing order (1 = top of
+            standings). You can publish even while times still show as TBD.
+          </p>
+          {selectedDivision ? (
+            <form action={createAction} className="mt-4 flex flex-col gap-5">
+              <div className="grid gap-4 sm:max-w-xl">
                 <div>
-                  <label className={labelClass}>Bracket</label>
+                  <label className={labelClass}>Division</label>
                   <select
-                    name="bracketId"
+                    name="divisionId"
                     required
+                    value={effectiveDivisionId}
+                    onChange={(e) => setWizardDivisionId(e.target.value)}
                     className={`${formClass} mt-1 w-full`}
-                    value={regenBracketId}
-                    onChange={(e) => setRegenBracketId(e.target.value)}
                   >
-                    {brackets.map((b) => (
-                      <option key={b.id} value={b.id}>
-                        {b.name} ({b.format}) — {b._count.games} games
-                        {b.setupMode === BracketSetupMode.MANUAL ? " · manual" : ""}
+                    {creatableDivisions.map((d) => (
+                      <option key={d.id} value={d.id}>
+                        {d.name}
                       </option>
                     ))}
                   </select>
-                  {regenDisabled ? (
-                    <p className="mt-1 text-xs text-amber-800">Switch this bracket to Automated in settings to regenerate.</p>
-                  ) : null}
                 </div>
                 <div>
-                  <label className={labelClass}>Field</label>
+                  <label className={labelClass}>Bracket name</label>
+                  <input name="name" required placeholder="Championship" className={`${formClass} mt-1 w-full`} />
+                </div>
+                <div>
+                  <label className={labelClass}>Placeholder field (first round)</label>
                   <select name="fieldId" required className={`${formClass} mt-1 w-full`}>
                     <option value="">Select a field…</option>
                     {fields.map((f) => (
                       <option key={f.id} value={f.id}>
                         {f.label}
+                      </option>
+                    ))}
+                  </select>
+                </div>
+                <div>
+                  <label className={labelClass}>Field size (teams)</label>
+                  <select
+                    value={entrySize}
+                    onChange={(e) => setEntrySize(Number(e.target.value))}
+                    className={`${formClass} mt-1 w-full`}
+                  >
+                    {ENTRY_OPTIONS.map((n) => (
+                      <option key={n} value={n}>
+                        {n} teams
                       </option>
                     ))}
                   </select>
@@ -369,23 +402,85 @@ export function BracketsAdmin({
                     className={`${formClass} mt-1 w-24`}
                   />
                 </div>
-                <button type="submit" disabled={regenPending || regenDisabled} className={btnSecondary}>
-                  {regenPending ? "Regenerating…" : "Regenerate bracket"}
-                </button>
-              </form>
-            )}
-          </section>
-        </>
+                <div className="flex items-center gap-2">
+                  <input type="checkbox" name="published" value="1" id="pub-new" className="rounded border-zinc-300" />
+                  <label htmlFor="pub-new" className="text-sm text-zinc-700">
+                    Publish to public site immediately
+                  </label>
+                </div>
+              </div>
+
+              <PlayoffFirstRoundRows
+                key={`${effectiveDivisionId}-${entrySize}`}
+                poolRows={selectedDivision.pools}
+                entrySize={entrySize}
+              />
+
+              <button type="submit" disabled={createPending || !selectedDivision} className={btnPrimary}>
+                {createPending ? "Creating…" : "Create bracket"}
+              </button>
+            </form>
+          ) : (
+            <p className="mt-3 text-sm text-zinc-500">All divisions already have a playoff bracket.</p>
+          )}
+        </section>
+      ) : null}
+
+      {canConfigure && brackets.length > 0 ? (
+        <section className="rounded-xl border border-zinc-200 bg-white p-6 shadow-sm">
+          <h2 className="text-sm font-semibold text-zinc-900">Published brackets</h2>
+          <p className="mt-1 text-xs text-zinc-500">
+            Unpublished brackets stay hidden on the public site. Use “Apply standings” after pool play changes.
+          </p>
+          <ul className="mt-4 flex flex-col gap-4">
+            {brackets.map((b) => (
+              <li key={b.id} className="rounded-lg border border-zinc-100 bg-zinc-50/50 p-4">
+                <div className="flex flex-wrap items-start justify-between gap-3">
+                  <div>
+                    <p className="text-sm font-medium text-zinc-900">
+                      {b.name} · {b.division.name}
+                    </p>
+                    <p className="mt-1 text-xs text-zinc-600">
+                      {b._count.rounds} rounds · {b._count.games} games ·{" "}
+                      {b.published ? (
+                        <span className="font-medium text-emerald-700">Published</span>
+                      ) : (
+                        <span className="font-medium text-zinc-600">Hidden</span>
+                      )}
+                      {b.needsResolutionRefresh ? (
+                        <span className="ml-2 text-amber-800">· Standings changed — re-apply</span>
+                      ) : null}
+                    </p>
+                  </div>
+                  <div className="flex flex-wrap gap-2">
+                    <form action={publishAction}>
+                      <input type="hidden" name="bracketId" value={b.id} />
+                      <input type="hidden" name="published" value={b.published ? "0" : "1"} />
+                      <button type="submit" disabled={publishPending} className={btnSecondary}>
+                        {b.published ? "Unpublish" : "Publish"}
+                      </button>
+                    </form>
+                    <form action={resolveAction}>
+                      <input type="hidden" name="bracketId" value={b.id} />
+                      <button type="submit" disabled={resolvePending} className={btnSecondary}>
+                        {resolvePending ? "Applying…" : "Apply standings to seeds"}
+                      </button>
+                    </form>
+                  </div>
+                </div>
+              </li>
+            ))}
+          </ul>
+        </section>
       ) : null}
 
       {brackets.length > 0 ? (
         <section>
-          <h2 className="text-sm font-semibold text-zinc-900">Current brackets</h2>
+          <h2 className="text-sm font-semibold text-zinc-900">All playoff brackets</h2>
           <ul className="mt-2 list-inside list-disc text-sm text-zinc-700">
             {brackets.map((b) => (
               <li key={b.id}>
-                {b.name} — {b._count.rounds} rounds, {b._count.games} games · {b.entryTeamCount} entry ·{" "}
-                {b.consolationEnabled ? "consolation on" : "no consolation"} · {b.setupMode.toLowerCase()}
+                {b.division.name} — {b.name} · {b._count.rounds} rounds, {b._count.games} games
               </li>
             ))}
           </ul>
@@ -393,12 +488,4 @@ export function BracketsAdmin({
       ) : null}
     </div>
   );
-}
-
-function firstRoundLabel(n: number): string {
-  const rounds = Math.log2(n) | 0;
-  if (rounds <= 1) return "starts at final";
-  if (rounds === 2) return "starts at semifinals";
-  if (rounds === 3) return "starts at quarterfinals";
-  return `starts at round 1 (${rounds} rounds total)`;
 }

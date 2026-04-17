@@ -9,23 +9,13 @@ import {
   divisionValidIds,
 } from "@/lib/division-tab-utils";
 import {
-  bracketGameMatchesDivisionTab,
   buildDivisionTabDescriptors,
   type PoolForDivisionTabs,
 } from "@/lib/division-tabs";
 
+/** Each bracket belongs to one division; games inherit that scope. */
 function filterBracketsForTab(brackets: BracketWith[], tabId: string): BracketWith[] {
-  return brackets
-    .map((b) => {
-      const games = b.games.filter((g) => bracketGameMatchesDivisionTab(g, tabId));
-      if (games.length === 0) return null;
-      const roundIds = new Set(
-        games.map((g) => g.bracketRoundId).filter((id): id is string => id != null),
-      );
-      const rounds = b.rounds.filter((r) => roundIds.has(r.id));
-      return { ...b, games, rounds };
-    })
-    .filter((b): b is BracketWith => b != null);
+  return brackets.filter((b) => b.divisionId === tabId);
 }
 
 /** Division filter is controlled from the site header; this view only applies it. */
@@ -66,7 +56,7 @@ export function BracketsViewWithDivisionTabs({
   return (
     <>
       {brackets.length > 0 && visibleBrackets.length === 0 ? (
-        <p className="text-sm text-zinc-500">No bracket games for this division.</p>
+        <p className="text-sm text-zinc-500">No published playoff bracket for this division.</p>
       ) : (
         <BracketsView brackets={visibleBrackets} tournamentTimezone={tournamentTimezone} />
       )}

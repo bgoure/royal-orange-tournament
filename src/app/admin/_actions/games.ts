@@ -12,10 +12,7 @@ import {
   assertTeamsInBracketTournament,
   assertTeamsInPool,
 } from "@/lib/services/admin-games";
-import {
-  advanceBracketLoserFromWinnersRound0,
-  advanceBracketWinnerFromGame,
-} from "@/lib/services/bracket-advance";
+import { advanceBracketWinnerFromGame } from "@/lib/services/bracket-advance";
 import { recomputePoolStandings } from "@/lib/services/standings";
 import {
   createGameSchema,
@@ -28,7 +25,7 @@ import {
 import { parseDatetimeLocalInTimeZone } from "@/lib/datetime-tournament";
 import { getTournamentForRequest } from "@/lib/tournament-context";
 import type { Session } from "next-auth";
-import { BracketSetupMode, type Tournament } from "@prisma/client";
+import type { Tournament } from "@prisma/client";
 
 export type GameActionResult = { ok: true } | { ok: false; error: string };
 
@@ -169,7 +166,6 @@ export async function updateGameScoring(
     await recomputePools([existing.poolId].filter((id): id is string => id != null));
     if (d.status === "FINAL") {
       await advanceBracketWinnerFromGame(d.id);
-      await advanceBracketLoserFromWinnersRound0(d.id);
     }
     revalidatePath("/admin/games");
     await revalidatePublishedTournamentSites();
@@ -220,6 +216,7 @@ export async function updateBracketGameSchedule(
         fieldId: d.fieldId,
         scheduledAt,
         gameNumber: d.gameNumber,
+        schedulePlaceholder: false,
       },
     });
 
@@ -255,14 +252,6 @@ export async function updateBracketGameTeams(
     if (!existing.bracketId) {
       return { ok: false, error: "Not a bracket game" };
     }
-    const bracket = await prisma.bracket.findFirst({
-      where: { id: existing.bracketId, tournamentId: ctx.tournament.id },
-      select: { setupMode: true },
-    });
-    if (!bracket || bracket.setupMode !== BracketSetupMode.MANUAL) {
-      return { ok: false, error: "Teams can only be edited when the bracket is in manual setup mode." };
-    }
-
     const d = parsed.data;
     await assertTeamsInBracketTournament(ctx.tournament.id, d.homeTeamId, d.awayTeamId);
 
@@ -387,6 +376,24 @@ export async function deleteGame(
   try {
     const existing = await assertGameInTournament(id, ctx.tournament.id);
     const poolId = existing.poolId;
+    if (poolId) {
+      const pool = await prisma.pool.findFirst({
+        where: { id: poolId, division: { tournamentId: ctx.tournament.id } },
+        select: { divisionId: true },
+      });
+      if (pool) {
+        const bracket = await prisma.bracket.findFirst({
+          where: { divisionId: pool.divisionId },
+        });
+        if (bracket) {
+          return {
+            ok: false,
+            error:
+              "Cannot delete pool play while a playoff bracket exists for this division. Remove or adjust the bracket first.",
+          };
+        }
+      }
+    }
     await prisma.game.delete({ where: { id } });
     await recomputePools([poolId].filter((x): x is string => x != null));
     revalidatePath("/admin/games");

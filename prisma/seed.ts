@@ -1,5 +1,5 @@
 import { GameResultType, GameStatus, PrismaClient } from "@prisma/client";
-import { createSingleEliminationBracket } from "../src/lib/services/bracket-generation";
+import { createDivisionPlayoffBracket } from "../src/lib/services/bracket-division-build";
 import { recomputeAllPoolsForTournament } from "../src/lib/services/standings";
 
 const prisma = new PrismaClient();
@@ -318,12 +318,18 @@ async function main() {
   await recomputeAllPoolsForTournament(t10.id);
   await recomputeAllPoolsForTournament(t11.id);
 
-  await createSingleEliminationBracket({
+  await createDivisionPlayoffBracket({
     tournamentId: t10.id,
+    divisionId: div10.id,
     name: "Championship",
     fieldId: fields10[2]!.id,
     startsAt: dayAt(18, 0, 2),
     hoursBetweenRounds: 2,
+    published: true,
+    firstRound: [
+      { home: { poolId: pool10a.id, rank: 1 }, away: { poolId: pool10b.id, rank: 1 } },
+      { home: { poolId: pool10a.id, rank: 2 }, away: { poolId: pool10b.id, rank: 2 } },
+    ],
   });
 
   /* demo admin user — sign-in when OAuth is configured; password auth not seeded */
