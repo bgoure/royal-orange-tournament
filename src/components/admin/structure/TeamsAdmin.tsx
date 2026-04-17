@@ -1,19 +1,24 @@
 "use client";
 
 import { useActionState } from "react";
+import Image from "next/image";
 import Link from "next/link";
 import type { Division, Pool, Team } from "@prisma/client";
 import {
+  clearTeamLogo,
   createTeam,
   deleteTeam,
   updateTeam,
+  uploadTeamLogo,
   type ActionResult,
 } from "@/app/admin/_actions/structure";
+import { teamLogoUrl } from "@/lib/team-logo";
 import { ActionMessage } from "@/components/admin/structure/ActionMessage";
 import { ConfirmForm } from "@/components/admin/structure/ConfirmForm";
 
 export type TeamWithRelations = Team & {
   pool: Pool & { division: Division };
+  logo: { mimeType: string; updatedAt: Date } | null;
 };
 
 export type PoolOption = {
@@ -137,12 +142,34 @@ function TeamRow({
 }) {
   const [updState, updAction, updPending] = useActionState(updateTeam, undefined as ActionResult | undefined);
   const [delState, delAction, delPending] = useActionState(deleteTeam, undefined as ActionResult | undefined);
+  const [logoUpState, logoUpAction, logoUpPending] = useActionState(
+    uploadTeamLogo,
+    undefined as ActionResult | undefined,
+  );
+  const [logoClearState, logoClearAction, logoClearPending] = useActionState(
+    clearTeamLogo,
+    undefined as ActionResult | undefined,
+  );
   const division = team.pool.division;
 
   return (
     <>
       <tr className="align-top">
-        <td className="px-4 py-3 font-medium text-zinc-900">{team.name}</td>
+        <td className="px-4 py-3">
+          <div className="flex flex-wrap items-center gap-2">
+            {team.logo ? (
+              <Image
+                src={teamLogoUrl(team.id, team.logo.updatedAt)}
+                alt=""
+                width={32}
+                height={32}
+                unoptimized
+                className="h-8 w-8 shrink-0 rounded object-contain ring-1 ring-zinc-200/80"
+              />
+            ) : null}
+            <span className="font-medium text-zinc-900">{team.name}</span>
+          </div>
+        </td>
         <td className="px-4 py-3 tabular-nums text-zinc-600">{team.seed ?? "—"}</td>
         <td className="px-4 py-3 text-zinc-600">{division.name}</td>
         <td className="px-4 py-3 text-zinc-600">{team.pool.name}</td>
@@ -199,6 +226,36 @@ function TeamRow({
               </button>
             </div>
           </form>
+          <div className="mt-4 rounded-lg border border-zinc-200 bg-white p-4">
+            <p className={labelClass}>Team logo</p>
+            <p className="mt-1 text-xs text-zinc-500">
+              PNG, JPEG, or WebP (max 150KB). Shown on the public schedule, results, and standings.
+            </p>
+            <ActionMessage state={logoUpState} />
+            <ActionMessage state={logoClearState} />
+            <div className="mt-2 flex flex-wrap items-end gap-3">
+              <form action={logoUpAction} encType="multipart/form-data" className="flex flex-wrap items-end gap-2">
+                <input type="hidden" name="teamId" value={team.id} />
+                <input
+                  type="file"
+                  name="logo"
+                  accept="image/png,image/jpeg,image/webp"
+                  className="mt-1 block w-full min-w-[200px] max-w-sm text-sm text-zinc-700 file:mr-3 file:rounded-md file:border file:border-zinc-300 file:bg-white file:px-3 file:py-1.5 file:text-sm file:font-medium file:text-zinc-800"
+                />
+                <button type="submit" disabled={logoUpPending} className={btnSecondary}>
+                  {logoUpPending ? "Uploading…" : "Upload / replace"}
+                </button>
+              </form>
+              {team.logo ? (
+                <form action={logoClearAction} className="inline">
+                  <input type="hidden" name="teamId" value={team.id} />
+                  <button type="submit" disabled={logoClearPending} className={btnDanger}>
+                    {logoClearPending ? "…" : "Remove logo"}
+                  </button>
+                </form>
+              ) : null}
+            </div>
+          </div>
         </td>
       </tr>
     </>

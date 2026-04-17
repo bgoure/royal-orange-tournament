@@ -1,11 +1,12 @@
 import { prisma } from "@/lib/db";
+import { teamWithPublicLogoInclude } from "@/lib/team-logo";
 
 export function listGamesAdmin(tournamentId: string) {
   return prisma.game.findMany({
     where: { tournamentId },
     include: {
-      homeTeam: true,
-      awayTeam: true,
+      homeTeam: teamWithPublicLogoInclude,
+      awayTeam: teamWithPublicLogoInclude,
       field: { include: { location: { select: { name: true } } } },
       pool: { include: { division: true } },
     },

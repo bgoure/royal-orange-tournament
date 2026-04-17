@@ -25,6 +25,7 @@ import {
 
 type TeamWithPool = Team & {
   pool: (Pool & { division: Division }) | null;
+  logo: { mimeType: string; updatedAt: Date } | null;
 };
 
 type BracketMatchWithPools = BracketMatch & {

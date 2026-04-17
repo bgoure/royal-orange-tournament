@@ -1,12 +1,14 @@
-import type { Division, Field, Game, Pool, Team } from "@prisma/client";
+import type { Division, Field, Game, Pool } from "@prisma/client";
 import { formatGameScheduledAt, formatGameScheduledAtShort } from "@/lib/datetime-tournament";
 import { formatFieldWithLocation } from "@/lib/field-display";
 import { EmptyState } from "@/components/ui/EmptyState";
+import { TeamLogoMark } from "@/components/ui/TeamLogo";
+import type { TeamWithPublicLogo } from "@/lib/team-logo";
 
 export type GameWithTeams = Game & {
   field: Field & { location: { name: string } };
-  homeTeam: Team | null;
-  awayTeam: Team | null;
+  homeTeam: TeamWithPublicLogo | null;
+  awayTeam: TeamWithPublicLogo | null;
   pool: (Pool & { division: Division }) | null;
 };
 
@@ -70,6 +72,7 @@ function GameCard({
 
   const nameSize = liveProminent ? "text-base md:text-lg" : compact ? "text-[12px]" : "text-[13px]";
   const scoreNum = liveProminent ? "text-2xl" : compact ? "text-base" : "text-lg";
+  const logoSize = compact ? "h-6 w-6" : "h-8 w-8";
 
   return (
     <li
@@ -95,21 +98,31 @@ function GameCard({
       {hasScore ? (
         <div className={`mt-1.5 space-y-1 ${liveProminent ? "text-lg" : ""}`}>
           <div className="flex min-w-0 items-center justify-between gap-2">
-            <p className={`min-w-0 truncate font-semibold text-zinc-900 ${nameSize}`}>{g.awayTeam?.name ?? "TBD"}</p>
+            <div className="flex min-w-0 items-center gap-2">
+              <TeamLogoMark team={g.awayTeam} sizeClass={logoSize} />
+              <p className={`min-w-0 truncate font-semibold text-zinc-900 ${nameSize}`}>{g.awayTeam?.name ?? "TBD"}</p>
+            </div>
             <span className={`shrink-0 font-bold tabular-nums text-zinc-900 ${scoreNum}`}>{g.awayRuns}</span>
           </div>
           <div className="flex min-w-0 items-center justify-between gap-2">
-            <p className={`min-w-0 truncate font-semibold text-zinc-900 ${nameSize}`}>{g.homeTeam?.name ?? "TBD"}</p>
+            <div className="flex min-w-0 items-center gap-2">
+              <TeamLogoMark team={g.homeTeam} sizeClass={logoSize} />
+              <p className={`min-w-0 truncate font-semibold text-zinc-900 ${nameSize}`}>{g.homeTeam?.name ?? "TBD"}</p>
+            </div>
             <span className={`shrink-0 font-bold tabular-nums text-zinc-900 ${scoreNum}`}>{g.homeRuns}</span>
           </div>
         </div>
       ) : (
         <div className="mt-1.5 min-w-0 space-y-0.5">
-          <p className={`flex min-w-0 items-baseline gap-1 font-semibold text-zinc-900 ${nameSize}`}>
+          <p className={`flex min-w-0 items-baseline gap-2 font-semibold text-zinc-900 ${nameSize}`}>
+            <TeamLogoMark team={g.awayTeam} sizeClass={logoSize} />
             <span className="min-w-0 truncate">{g.awayTeam?.name ?? "TBD"}</span>
             <span className="shrink-0 font-normal text-zinc-400">vs</span>
           </p>
-          <p className={`truncate font-semibold text-zinc-900 ${nameSize}`}>{g.homeTeam?.name ?? "TBD"}</p>
+          <p className={`flex min-w-0 items-center gap-2 truncate font-semibold text-zinc-900 ${nameSize}`}>
+            <TeamLogoMark team={g.homeTeam} sizeClass={logoSize} />
+            <span className="truncate">{g.homeTeam?.name ?? "TBD"}</span>
+          </p>
         </div>
       )}
 

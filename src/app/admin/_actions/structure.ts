@@ -280,3 +280,58 @@ export async function deleteTeam(_prev: ActionResult | undefined, formData: Form
   await revalidatePublishedTournamentSites();
   return { ok: true };
 }
+
+const MAX_TEAM_LOGO_BYTES = 150_000;
+const ALLOWED_TEAM_LOGO_MIME = new Set(["image/png", "image/jpeg", "image/webp"]);
+
+export async function uploadTeamLogo(_prev: ActionResult | undefined, formData: FormData): Promise<ActionResult> {
+  const ctx = await tournamentContext();
+  if ("error" in ctx) return { ok: false, error: ctx.error };
+  if (!can(ctx.session.user.role, "team:update")) return denyPermission();
+
+  const teamId = formData.get("teamId")?.toString();
+  const file = formData.get("logo");
+  if (!teamId) return { ok: false, error: "Missing team" };
+  if (!(file instanceof File) || file.size === 0) {
+    return { ok: false, error: "Choose an image file (PNG, JPEG, or WebP)." };
+  }
+
+  await assertTeamInTournament(teamId, ctx.tournament.id);
+
+  if (file.size > MAX_TEAM_LOGO_BYTES) {
+    return { ok: false, error: "Logo must be 150KB or smaller." };
+  }
+  const mimeType = file.type;
+  if (!ALLOWED_TEAM_LOGO_MIME.has(mimeType)) {
+    return { ok: false, error: "Use PNG, JPEG, or WebP." };
+  }
+
+  const buf = Buffer.from(await file.arrayBuffer());
+
+  await prisma.teamLogo.upsert({
+    where: { teamId },
+    create: { teamId, mimeType, data: buf },
+    update: { mimeType, data: buf },
+  });
+
+  revalidatePath("/admin/teams");
+  await revalidatePublishedTournamentSites();
+  return { ok: true };
+}
+
+export async function clearTeamLogo(_prev: ActionResult | undefined, formData: FormData): Promise<ActionResult> {
+  const ctx = await tournamentContext();
+  if ("error" in ctx) return { ok: false, error: ctx.error };
+  if (!can(ctx.session.user.role, "team:update")) return denyPermission();
+
+  const teamId = formData.get("teamId")?.toString();
+  if (!teamId) return { ok: false, error: "Missing team" };
+
+  await assertTeamInTournament(teamId, ctx.tournament.id);
+
+  await prisma.teamLogo.deleteMany({ where: { teamId } });
+
+  revalidatePath("/admin/teams");
+  await revalidatePublishedTournamentSites();
+  return { ok: true };
+}

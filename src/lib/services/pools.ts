@@ -8,7 +8,13 @@ export function listPoolsWithStandings(tournamentId: string) {
       division: true,
       standings: {
         orderBy: { displayOrder: "asc" },
-        include: { team: true },
+        include: {
+          team: {
+            include: {
+              logo: { select: { mimeType: true, updatedAt: true } },
+            },
+          },
+        },
       },
     },
   });

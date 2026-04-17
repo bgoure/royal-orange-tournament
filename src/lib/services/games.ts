@@ -2,11 +2,12 @@ import type { Prisma } from "@prisma/client";
 import { GameStatus } from "@prisma/client";
 import { divisionTabGameWhere } from "@/lib/division-tabs";
 import { prisma } from "@/lib/db";
+import { teamWithPublicLogoInclude } from "@/lib/team-logo";
 
 const gameListInclude = {
   field: { include: { location: { select: { name: true } } } },
-  homeTeam: true,
-  awayTeam: true,
+  homeTeam: teamWithPublicLogoInclude,
+  awayTeam: teamWithPublicLogoInclude,
   pool: { include: { division: true } },
   bracketRound: true,
 } as const;

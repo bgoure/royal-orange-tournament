@@ -168,10 +168,20 @@ model Team {
   awayGames    Game[]   @relation("AwayTeam")
   standings    PoolStanding[]
   mediaAssets  MediaAsset[]
+  logo         TeamLogo?
   createdAt    DateTime @default(now())
   updatedAt    DateTime @updatedAt
 
   @@index([poolId])
+}
+
+/// Optional team logo (stored in DB for portable hosting).
+model TeamLogo {
+  teamId    String   @id
+  team      Team     @relation(fields: [teamId], references: [id], onDelete: Cascade)
+  mimeType  String
+  data      Bytes
+  updatedAt DateTime @updatedAt
 }
 
 /// Baseball diamond / playable field; always tied to a parent Location.

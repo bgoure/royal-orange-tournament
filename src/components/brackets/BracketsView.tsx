@@ -14,9 +14,11 @@ import type {
 import { formatBracketGameScheduledAt } from "@/lib/datetime-tournament";
 import { formatFieldWithLocation } from "@/lib/field-display";
 import { EmptyState } from "@/components/ui/EmptyState";
+import { TeamLogoMark } from "@/components/ui/TeamLogo";
 
 type TeamWithPool = Team & {
   pool: (Pool & { division: Division }) | null;
+  logo: { mimeType: string; updatedAt: Date } | null;
 };
 
 type BracketMatchWithPools = BracketMatch & {
@@ -58,17 +60,18 @@ function slotLines(
   bracketMatchIndex: number,
   slot: "home" | "away",
   prevRoundName: string | null,
-): { primary: string; secondary: string | null } {
+): { primary: string; secondary: string | null; team: TeamWithPool | null } {
   if (team) {
     const secondary = team.pool
       ? `${team.pool.division.name} · ${team.pool.name}`
       : null;
-    return { primary: team.name, secondary };
+    return { primary: team.name, secondary, team };
   }
   if (sourcePool && rank != null) {
     return {
       primary: `${ordinal(rank)} place · ${sourcePool.division.name}`,
       secondary: sourcePool.name,
+      team: null,
     };
   }
   if (roundIndex > 0 && prevRoundName) {
@@ -77,9 +80,10 @@ function slotLines(
     return {
       primary: "TBD",
       secondary: `Winner of ${prevRoundName} · Match ${matchNo}`,
+      team: null,
     };
   }
-  return { primary: "TBD", secondary: null };
+  return { primary: "TBD", secondary: null, team: null };
 }
 
 function BracketMatchCard({
@@ -135,12 +139,18 @@ function BracketMatchCard({
       </div>
       <div className="divide-y divide-zinc-100 px-3 py-0 text-sm">
         <div className="py-2.5">
-          <p className="font-medium text-zinc-900">{away.primary}</p>
+          <div className="flex items-center gap-2">
+            <TeamLogoMark team={away.team} />
+            <p className="font-medium text-zinc-900">{away.primary}</p>
+          </div>
           {away.secondary ? <p className="mt-0.5 text-xs text-zinc-500">{away.secondary}</p> : null}
         </div>
         <div className="py-2.5">
           <p className="text-[10px] font-medium uppercase tracking-wide text-zinc-400">vs</p>
-          <p className="font-medium text-zinc-900">{home.primary}</p>
+          <div className="mt-0.5 flex items-center gap-2">
+            <TeamLogoMark team={home.team} />
+            <p className="font-medium text-zinc-900">{home.primary}</p>
+          </div>
           {home.secondary ? <p className="mt-0.5 text-xs text-zinc-500">{home.secondary}</p> : null}
         </div>
       </div>
@@ -240,9 +250,15 @@ function MobileMatchRow({
   return (
     <li className="rounded-xl border border-zinc-200 bg-white px-4 py-3 shadow-sm">
       <p className="text-[10px] font-semibold uppercase tracking-wide text-zinc-500">{roundLabel}</p>
-      <p className="mt-2 text-sm font-semibold text-zinc-900">{away.primary}</p>
+      <div className="mt-2 flex items-center gap-2 text-sm font-semibold text-zinc-900">
+        <TeamLogoMark team={away.team} />
+        <span>{away.primary}</span>
+      </div>
       <p className="mt-2 text-center text-[10px] text-zinc-400">vs</p>
-      <p className="text-sm font-semibold text-zinc-900">{home.primary}</p>
+      <div className="flex items-center gap-2 text-sm font-semibold text-zinc-900">
+        <TeamLogoMark team={home.team} />
+        <span>{home.primary}</span>
+      </div>
       {final ? (
         <div className="mt-3 flex items-center justify-between border-t border-zinc-100 pt-3">
           <span className={`text-lg font-bold tabular-nums ${awayW ? "text-royal" : "text-zinc-400"}`}>

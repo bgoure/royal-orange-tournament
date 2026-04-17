@@ -1,7 +1,9 @@
-import type { Division, Pool, PoolStanding, Team } from "@prisma/client";
+import type { Division, Pool, PoolStanding } from "@prisma/client";
 import { EmptyState } from "@/components/ui/EmptyState";
+import { TeamLogoMark } from "@/components/ui/TeamLogo";
+import type { TeamWithPublicLogo } from "@/lib/team-logo";
 
-type Row = PoolStanding & { team: Team };
+type Row = PoolStanding & { team: TeamWithPublicLogo };
 type PoolWith = Pool & {
   division: Division;
   standings: Row[];
@@ -69,7 +71,12 @@ export function StandingsView({ pools }: { pools: PoolWith[] }) {
               <tbody className="divide-y divide-zinc-100">
                 {pool.standings.map((s) => (
                   <tr key={s.id} className="text-zinc-700">
-                    <td className="py-2.5 pl-3 pr-1 font-medium text-zinc-900">{s.team.name}</td>
+                    <td className="py-2.5 pl-3 pr-1">
+                      <span className="inline-flex min-w-0 items-center gap-2 font-medium text-zinc-900">
+                        <TeamLogoMark team={s.team} />
+                        <span className="min-w-0">{s.team.name}</span>
+                      </span>
+                    </td>
                     <td className="px-1.5 py-2.5 text-center tabular-nums font-semibold">{s.wins}</td>
                     <td className="px-1.5 py-2.5 text-center tabular-nums">{s.losses}</td>
                     <td className="px-1.5 py-2.5 text-center tabular-nums">{s.ties}</td>

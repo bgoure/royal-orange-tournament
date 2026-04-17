@@ -28,6 +28,7 @@ export function getTeamsAdminList(tournamentId: string) {
     where: { pool: { division: { tournamentId } } },
     include: {
       pool: { include: { division: true } },
+      logo: { select: { mimeType: true, updatedAt: true } },
     },
     orderBy: { name: "asc" },
   });

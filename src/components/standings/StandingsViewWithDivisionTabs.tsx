@@ -2,7 +2,7 @@
 
 import { useMemo } from "react";
 import { useSearchParams } from "next/navigation";
-import type { Division, Pool, PoolStanding, Team } from "@prisma/client";
+import type { Division, Pool, PoolStanding } from "@prisma/client";
 import {
   defaultDivisionTabId,
   divisionValidIds,
@@ -13,8 +13,9 @@ import {
   type PoolForDivisionTabs,
 } from "@/lib/division-tabs";
 import { StandingsView } from "@/components/standings/StandingsView";
+import type { TeamWithPublicLogo } from "@/lib/team-logo";
 
-type Row = PoolStanding & { team: Team };
+type Row = PoolStanding & { team: TeamWithPublicLogo };
 type PoolWith = Pool & {
   division: Division;
   standings: Row[];

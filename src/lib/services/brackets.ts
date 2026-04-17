@@ -9,8 +9,18 @@ export function listBracketsForTournament(tournamentId: string) {
       games: {
         orderBy: [{ bracketRound: { roundIndex: "asc" } }, { bracketPosition: "asc" }],
         include: {
-          homeTeam: { include: { pool: { include: { division: true } } } },
-          awayTeam: { include: { pool: { include: { division: true } } } },
+          homeTeam: {
+            include: {
+              pool: { include: { division: true } },
+              logo: { select: { mimeType: true, updatedAt: true } },
+            },
+          },
+          awayTeam: {
+            include: {
+              pool: { include: { division: true } },
+              logo: { select: { mimeType: true, updatedAt: true } },
+            },
+          },
           field: { include: { location: { select: { name: true } } } },
           bracketRound: true,
           bracketMatch: {
