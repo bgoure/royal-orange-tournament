@@ -24,6 +24,14 @@ export const metadata: Metadata = {
   description: "Royal & Orange 2026 — schedules, scores, standings, and brackets.",
   manifest: "/manifest.json",
   themeColor: "#1a1a2e",
+  icons: {
+    icon: [
+      { url: "/ro_favicon_16.ico", sizes: "16x16", type: "image/x-icon" },
+      { url: "/ro_favicon_32.ico", sizes: "32x32", type: "image/x-icon" },
+      { url: "/ro_favicon_48.ico", sizes: "48x48", type: "image/x-icon" },
+    ],
+    apple: { url: "/icon-192.png", sizes: "192x192", type: "image/png" },
+  },
   appleWebApp: {
     capable: true,
     statusBarStyle: "black-translucent",
