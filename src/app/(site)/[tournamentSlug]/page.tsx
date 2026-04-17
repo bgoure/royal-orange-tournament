@@ -11,6 +11,7 @@ import {
   resolveDivisionTabForFilters,
 } from "@/lib/division-tab-utils";
 import { listAnnouncements } from "@/lib/services/announcements";
+import { formatHeadquartersHomeLabel } from "@/lib/headquarters-display";
 import { getHeadquartersLocation } from "@/lib/services/content";
 import { listUpcomingGamesForHome } from "@/lib/services/games";
 import { listPoolsForDivisionTabs } from "@/lib/services/pools";
@@ -62,16 +63,13 @@ export default async function TournamentHomePage({
   );
 
   const tp = (s: string) => tournamentPath(tournamentSlug, s);
-  const hqDisplayName = hq?.name?.trim() || "Tournament headquarters";
 
   return (
     <div className="flex flex-col gap-4">
       <div className="grid grid-cols-1 gap-3 md:grid-cols-2">
         <div className="flex flex-col gap-3">
           {hq ? (
-            <p className="text-sm font-semibold text-accent">
-              Main location: {hqDisplayName}
-            </p>
+            <p className="text-sm font-semibold text-accent">{formatHeadquartersHomeLabel(hq)}</p>
           ) : null}
           <WeatherSection tournamentId={tournament.id} />
           <section>
