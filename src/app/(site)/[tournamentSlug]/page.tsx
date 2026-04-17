@@ -69,7 +69,9 @@ export default async function TournamentHomePage({
       <div className="grid grid-cols-1 gap-3 md:grid-cols-2">
         <div className="flex flex-col gap-3">
           {hq ? (
-            <p className="text-sm font-semibold text-accent">{formatHeadquartersHomeLabel(hq)}</p>
+            <p className="text-sm font-semibold text-accent">
+              {formatHeadquartersHomeLabel(hq, tournament.locationLabel)}
+            </p>
           ) : null}
           <WeatherSection tournamentId={tournament.id} />
           <section>

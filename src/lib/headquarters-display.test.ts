@@ -15,6 +15,12 @@ describe("parseCityProvinceFromAddress", () => {
       provinceAbbr: "ON",
     });
   });
+  it("parses full province name Ontario", () => {
+    assert.deepEqual(parseCityProvinceFromAddress("100 King St, Milton, Ontario L9T 1X1"), {
+      city: "Milton",
+      provinceAbbr: "ON",
+    });
+  });
   it("returns null without comma address", () => {
     assert.equal(parseCityProvinceFromAddress("Milton ON"), null);
   });
@@ -30,9 +36,15 @@ describe("formatHeadquartersHomeLabel", () => {
       "Lions Sports Park - Milton, ON",
     );
   });
-  it("falls back to name only when address does not parse", () => {
+  it("uses tournament locationLabel when HQ address is empty", () => {
     assert.equal(
-      formatHeadquartersHomeLabel({ name: "HQ Park", address: null }),
+      formatHeadquartersHomeLabel({ name: "Lions Sports Park", address: null }, "Milton, ON"),
+      "Lions Sports Park - Milton, ON",
+    );
+  });
+  it("falls back to name only when nothing parses", () => {
+    assert.equal(
+      formatHeadquartersHomeLabel({ name: "HQ Park", address: null }, null),
       "HQ Park",
     );
   });
