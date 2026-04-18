@@ -66,9 +66,7 @@ function GameCard({
   const hasScore = showScores && g.homeRuns != null && g.awayRuns != null;
   const isLive = g.status === "LIVE";
 
-  const leftBorder = isLive
-    ? "border-l-2 border-l-accent"
-    : "border-l-2 border-l-royal";
+  const leftBorder = isLive ? "border-l-accent" : "border-l-royal";
 
   const nameSize = liveProminent ? "text-base font-bold md:text-lg" : compact ? "text-xs font-bold" : "text-sm font-bold";
   const scoreNum = liveProminent ? "text-2xl" : compact ? "text-base" : "text-lg";
