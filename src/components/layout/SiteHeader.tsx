@@ -38,7 +38,7 @@ export async function SiteHeader({
               alt=""
               width={200}
               height={64}
-              className="h-9 w-auto max-h-10 shrink-0 object-contain object-left sm:h-10"
+              className="h-8 w-auto max-h-9 shrink-0 object-contain object-left sm:h-10"
               sizes="(max-width: 640px) 96px, 120px"
               priority
             />

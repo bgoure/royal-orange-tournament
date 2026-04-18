@@ -87,8 +87,10 @@ export function BottomNav({ tournamentSlug }: { tournamentSlug: string }) {
             <Link
               key={t.href}
               href={t.href}
-              className={`flex min-h-[62px] min-w-[62px] flex-col items-center justify-center gap-0.5 rounded-xl px-2 py-1 text-[11px] font-medium leading-tight transition-colors active:scale-[0.98] ${
-                active ? "text-royal" : "text-accent active:text-accent-700"
+              className={`flex min-h-[62px] min-w-[62px] flex-col items-center justify-center gap-0.5 rounded-xl px-2 py-1 text-[11px] font-semibold leading-tight transition-colors active:scale-[0.98] ${
+                active
+                  ? "bg-royal-50 text-royal ring-2 ring-royal/25"
+                  : "text-accent active:text-accent-700"
               }`}
             >
               {t.icon}

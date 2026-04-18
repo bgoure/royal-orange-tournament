@@ -26,7 +26,7 @@ export async function WeatherSection({ tournamentId }: { tournamentId: string })
   const out = await getHeadquartersWeatherOutcomeForTournament(tournamentId);
   if (!out.ok) {
     return (
-      <section className="flex items-center rounded-2xl border border-zinc-200 bg-gradient-to-r from-royal-50 to-accent-50 px-4 py-3 shadow-sm">
+      <section className="flex items-center rounded-2xl border border-royal-200 bg-gradient-to-r from-royal-50 to-accent-50 px-4 py-3 shadow-sm">
         <p className="text-xs text-zinc-500">
           {out.reason === "no_headquarters"
             ? "Set tournament headquarters to show weather."
@@ -39,14 +39,16 @@ export async function WeatherSection({ tournamentId }: { tournamentId: string })
   const { label: locationLabel, weather: wx } = out;
 
   return (
-    <section className="rounded-2xl border border-zinc-200 bg-gradient-to-r from-royal-50 via-white to-accent-50 px-4 py-3 shadow-sm" title={locationLabel}>
+    <section className="rounded-2xl border border-royal-200 bg-gradient-to-r from-royal-50 via-white to-accent-50 px-4 py-3 shadow-sm" title={locationLabel}>
       <div className="flex items-center gap-3">
         {/* Current weather — left side */}
         <div className="flex shrink-0 items-center gap-1.5">
-          <span className="text-2xl" aria-hidden>{emojiForCode(wx.current.code)}</span>
+          <span className="text-2xl text-royal drop-shadow-sm" aria-hidden>
+            {emojiForCode(wx.current.code)}
+          </span>
           <div>
-            <p className="text-xl font-bold tabular-nums leading-tight text-zinc-900">{wx.current.tempC}°C</p>
-            <p className="text-[10px] text-zinc-500">{labelForCode(wx.current.code)}{wx.current.windKmh != null ? ` · ${wx.current.windKmh} km/h` : ""}</p>
+            <p className="text-xl font-bold tabular-nums leading-tight text-royal">{wx.current.tempC}°C</p>
+            <p className="text-[10px] text-zinc-600">{labelForCode(wx.current.code)}{wx.current.windKmh != null ? ` · ${wx.current.windKmh} km/h` : ""}</p>
           </div>
         </div>
 

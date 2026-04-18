@@ -1,4 +1,5 @@
 import Link from "next/link";
+import { PageTitle } from "@/components/ui/PublicHeading";
 import { tournamentPath } from "@/lib/tournament-public-path";
 
 export default async function MorePage({ params }: { params: Promise<{ tournamentSlug: string }> }) {
@@ -13,19 +14,19 @@ export default async function MorePage({ params }: { params: Promise<{ tournamen
   ] as const;
 
   return (
-    <div className="flex flex-col gap-6">
+    <div className="flex flex-col gap-4">
       <div>
-        <h1 className="text-2xl font-semibold text-zinc-900">More</h1>
-        <p className="text-sm text-zinc-600">Quick links and resources.</p>
+        <PageTitle>More</PageTitle>
+        <p className="mt-2 text-sm text-zinc-600">Quick links and resources.</p>
       </div>
       <ul className="grid gap-3 sm:grid-cols-2">
         {links.map((item) => (
           <li key={item.href}>
             <Link
               href={item.href}
-              className="flex min-h-[52px] flex-col justify-center rounded-2xl border border-zinc-200 bg-white px-4 py-3 shadow-sm transition-colors active:scale-[0.99] hover:border-royal-200"
+              className="group flex min-h-[48px] flex-col justify-center rounded-2xl border border-zinc-200 border-l-4 border-l-royal bg-white px-4 py-3 shadow-sm transition-all active:scale-[0.99] hover:border-royal-200 hover:shadow-md"
             >
-              <span className="font-semibold text-zinc-900">{item.label}</span>
+              <span className="font-semibold text-zinc-900 group-hover:text-accent">{item.label}</span>
               <span className="text-xs text-zinc-500">{item.description}</span>
             </Link>
           </li>

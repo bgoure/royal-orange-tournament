@@ -30,11 +30,13 @@ export function StandingsView({ pools }: { pools: PoolWith[] }) {
   }
 
   return (
-    <div className="flex flex-col gap-6">
+    <div className="flex flex-col gap-4">
       {pools.map((pool) => (
         <section key={pool.id}>
-          <h2 className="mb-1 text-sm font-bold text-zinc-900">
-            {pool.division.name} · {pool.name}
+          <h2 className="mb-3 border-b-2 border-royal pb-2 text-base font-bold text-royal md:text-lg">
+            <span className="normal-case tracking-normal">
+              {pool.division.name} · {pool.name}
+            </span>
           </h2>
           {pool.standingsManualMode ? (
             <p className="mb-2 text-[11px] text-amber-700">
@@ -54,43 +56,60 @@ export function StandingsView({ pools }: { pools: PoolWith[] }) {
               description="Teams will show here once assigned to this division pool."
             />
           ) : (
-          <div className="overflow-x-auto rounded-xl border border-zinc-200 bg-white shadow-sm">
-            <table className="w-full text-left text-sm">
-              <thead>
-                <tr className="border-b border-zinc-200 bg-zinc-50 text-[11px] font-semibold uppercase tracking-wide text-zinc-500">
-                  <th className="py-2 pl-3 pr-1">Team</th>
-                  <th className="px-1.5 py-2 text-center">W</th>
-                  <th className="px-1.5 py-2 text-center">L</th>
-                  <th className="px-1.5 py-2 text-center">T</th>
-                  <th className="px-1.5 py-2 text-center">Pts</th>
-                  <th className="px-1.5 py-2 text-center">RA</th>
-                  <th className="px-1.5 py-2 text-center">RS</th>
-                  <th className="hidden px-1.5 py-2 text-center sm:table-cell">RA/I</th>
-                </tr>
-              </thead>
-              <tbody className="divide-y divide-zinc-100">
-                {pool.standings.map((s) => (
-                  <tr key={s.id} className="text-zinc-700">
-                    <td className="py-2.5 pl-3 pr-1">
-                      <span className="inline-flex min-w-0 items-center gap-2 font-medium text-zinc-900">
-                        <TeamLogoMark team={s.team} />
-                        <span className="min-w-0">{s.team.name}</span>
-                      </span>
-                    </td>
-                    <td className="px-1.5 py-2.5 text-center tabular-nums font-semibold">{s.wins}</td>
-                    <td className="px-1.5 py-2.5 text-center tabular-nums">{s.losses}</td>
-                    <td className="px-1.5 py-2.5 text-center tabular-nums">{s.ties}</td>
-                    <td className="px-1.5 py-2.5 text-center tabular-nums font-bold text-royal">{s.points}</td>
-                    <td className="px-1.5 py-2.5 text-center tabular-nums">{s.runsAgainst}</td>
-                    <td className="px-1.5 py-2.5 text-center tabular-nums">{s.runsFor}</td>
-                    <td className="hidden px-1.5 py-2.5 text-center tabular-nums text-zinc-500 sm:table-cell">
-                      {fmtRatio(s.runsAgainst, s.defensiveInnings)}
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
+            <div className="relative">
+              <div
+                className="pointer-events-none absolute right-0 top-0 z-10 h-full w-8 bg-gradient-to-l from-white to-transparent sm:hidden"
+                aria-hidden
+              />
+              <div className="overflow-x-auto rounded-xl border border-zinc-200 bg-white shadow-sm">
+                <table className="w-full min-w-[320px] text-left text-sm">
+                  <thead>
+                    <tr className="bg-royal text-[11px] font-bold uppercase tracking-wide text-white">
+                      <th className="py-3 pl-3 pr-1">Team</th>
+                      <th className="px-2 py-3 text-right font-mono">W</th>
+                      <th className="px-2 py-3 text-right font-mono">L</th>
+                      <th className="px-2 py-3 text-right font-mono">T</th>
+                      <th className="px-2 py-3 text-right font-mono">Pts</th>
+                      <th className="hidden min-[421px]:table-cell px-2 py-3 text-right font-mono">RA</th>
+                      <th className="hidden min-[421px]:table-cell px-2 py-3 text-right font-mono">RS</th>
+                      <th className="hidden px-2 py-3 text-right font-mono sm:table-cell">RA/I</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {pool.standings.map((s, rowIdx) => (
+                      <tr
+                        key={s.id}
+                        className={`border-b border-zinc-200 text-zinc-700 md:hover:bg-zinc-100/80 ${
+                          rowIdx % 2 === 1 ? "bg-[#f9f9f9]" : "bg-white"
+                        }`}
+                      >
+                        <td className="py-2.5 pl-3 pr-1">
+                          <span className="inline-flex min-w-0 items-center gap-2 text-sm font-bold text-zinc-900">
+                            <TeamLogoMark team={s.team} sizeClass="h-6 w-6 min-h-6 min-w-6 shrink-0" />
+                            <span className="min-w-0">{s.team.name}</span>
+                          </span>
+                        </td>
+                        <td className="px-2 py-2.5 text-right font-mono tabular-nums font-semibold">{s.wins}</td>
+                        <td className="px-2 py-2.5 text-right font-mono tabular-nums">{s.losses}</td>
+                        <td className="px-2 py-2.5 text-right font-mono tabular-nums">{s.ties}</td>
+                        <td className="bg-accent/10 px-2 py-2.5 text-right font-mono tabular-nums font-bold text-accent">
+                          {s.points}
+                        </td>
+                        <td className="hidden min-[421px]:table-cell px-2 py-2.5 text-right font-mono tabular-nums">
+                          {s.runsAgainst}
+                        </td>
+                        <td className="hidden min-[421px]:table-cell px-2 py-2.5 text-right font-mono tabular-nums">
+                          {s.runsFor}
+                        </td>
+                        <td className="hidden px-2 py-2.5 text-right font-mono tabular-nums text-zinc-500 sm:table-cell">
+                          {fmtRatio(s.runsAgainst, s.defensiveInnings)}
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            </div>
           )}
         </section>
       ))}

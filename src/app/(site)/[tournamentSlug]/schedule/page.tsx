@@ -12,6 +12,7 @@ import {
 } from "@/lib/division-tab-utils";
 import { listFieldsForTournament, listPoolsForDivisionTabs, listTeamsForTournament } from "@/lib/services/pools";
 import { listGamesForTournament, listScheduleFilterFacets } from "@/lib/services/games";
+import { PageTitle } from "@/components/ui/PublicHeading";
 import { getPublishedTournamentBySlug } from "@/lib/tournament-context";
 
 export default async function SchedulePage({
@@ -78,8 +79,8 @@ export default async function SchedulePage({
 
   return (
     <SchedulePullToRefresh>
-      <div className="flex flex-col gap-6">
-        <h1 className="text-2xl font-semibold text-zinc-900">Schedule</h1>
+      <div className="flex flex-col gap-4">
+        <PageTitle>Schedule</PageTitle>
         <Suspense
           fallback={<div className="h-24 animate-pulse rounded-xl bg-zinc-100" aria-hidden />}
         >

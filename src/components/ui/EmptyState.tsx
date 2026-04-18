@@ -20,9 +20,9 @@ export function EmptyState({
       role="status"
       aria-live="polite"
     >
-      <div className="mb-3 text-zinc-400 [&>svg]:size-10">{icon}</div>
-      <p className="text-base font-medium text-zinc-900">{title}</p>
-      {description ? <p className="mt-1 max-w-sm text-sm text-zinc-600">{description}</p> : null}
+      <div className="mb-3 text-royal [&>svg]:size-10 md:[&>svg]:size-11">{icon}</div>
+      <p className="text-sm font-bold text-zinc-900">{title}</p>
+      {description ? <p className="mt-1 max-w-sm text-xs text-zinc-600">{description}</p> : null}
       {action ? <div className="mt-4">{action}</div> : null}
     </div>
   );

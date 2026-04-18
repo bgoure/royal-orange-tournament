@@ -13,10 +13,10 @@ type DivisionSwitcherProps = {
 };
 
 const pillActive =
-  "border-2 border-transparent bg-accent font-semibold text-white shadow-sm";
+  "border-2 border-royal bg-royal font-semibold text-white shadow-sm";
 const pillInactive =
-  "border-2 border-gray-300 bg-white font-medium text-gray-700 hover:border-gray-400 hover:bg-gray-50";
-const pillTransition = "transition-colors duration-200 ease-out";
+  "border-2 border-zinc-200 bg-zinc-100 font-medium text-zinc-800 hover:border-zinc-300 hover:bg-zinc-200";
+const pillTransition = "transition-colors duration-200 ease-in-out";
 
 /** 44px min touch target on small screens; slightly shorter on md+ */
 const tapMin = "min-h-[44px] md:min-h-10";
@@ -25,18 +25,18 @@ const tapMin = "min-h-[44px] md:min-h-10";
 const selectClass = [
   tapMin,
   pillTransition,
-  "w-full min-w-[12rem] max-w-[20rem] cursor-pointer appearance-none rounded-lg border-2 border-gray-300 bg-white px-4 py-2 pr-10",
-  "text-sm font-medium text-gray-700 shadow-sm",
+  "w-full min-w-[12rem] max-w-[20rem] cursor-pointer appearance-none rounded-lg border border-zinc-200 bg-white px-3 py-2 pr-10",
+  "text-sm font-medium text-zinc-900 shadow-sm",
   "sm:text-base",
-  "hover:border-gray-400 hover:bg-gray-50",
-  "focus:border-accent focus:outline-none focus:ring-2 focus:ring-accent/35 focus:ring-offset-2",
+  "hover:bg-zinc-50",
+  "focus:border-royal focus:outline-none focus:ring-2 focus:ring-royal/30 focus:ring-offset-2",
   "disabled:cursor-not-allowed disabled:opacity-50",
 ].join(" ");
 
 function SelectChevron() {
   return (
     <span
-      className="pointer-events-none absolute inset-y-0 right-0 flex items-center pr-3 text-gray-500"
+      className="pointer-events-none absolute inset-y-0 right-0 flex items-center pr-3 text-royal"
       aria-hidden
     >
       <svg
@@ -116,9 +116,9 @@ export function DivisionSwitcher({
                 tapMin,
                 pillTransition,
                 "disabled:pointer-events-none disabled:opacity-50",
-                "min-w-0 shrink-0 rounded-full px-3 py-2 text-sm",
-                "sm:text-base md:min-w-[7.5rem] md:px-4",
-                "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent focus-visible:ring-offset-2",
+                "min-w-0 shrink-0 rounded-lg px-[14px] py-2.5 text-sm",
+                "sm:text-base md:min-w-[7.5rem]",
+                "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-royal focus-visible:ring-offset-2",
                 active ? pillActive : pillInactive,
               ].join(" ")}
             >

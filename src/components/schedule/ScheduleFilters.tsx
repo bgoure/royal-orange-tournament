@@ -8,6 +8,11 @@ type TeamOpt = { id: string; name: string };
 type FieldOpt = { id: string; label: string };
 type DayOpt = { value: string; label: string };
 
+const selectClass =
+  "min-h-10 w-full rounded-lg border border-zinc-200 bg-white px-3 py-2 text-base text-zinc-900 shadow-sm transition-colors hover:bg-zinc-50 focus:border-royal focus:outline-none focus:ring-2 focus:ring-royal/25";
+
+const labelClass = "text-xs font-semibold uppercase tracking-wide text-royal";
+
 export function ScheduleFilters({
   tournamentSlug,
   dayOptions,
@@ -62,10 +67,10 @@ export function ScheduleFilters({
   return (
     <div className="flex flex-col gap-4">
       <div className="flex flex-col gap-3 rounded-xl border border-zinc-200 bg-zinc-50/80 p-3 sm:flex-row sm:flex-wrap sm:items-end">
-        <label className="flex flex-col gap-1 text-xs font-medium text-zinc-600">
+        <label className={`flex flex-col gap-1 ${labelClass}`}>
           Day
           <select
-            className="min-h-11 rounded-lg border border-zinc-200 bg-white px-3 py-2 text-base text-zinc-900"
+            className={selectClass}
             disabled={pending}
             value={day}
             onChange={(e) => push({ day: e.target.value })}
@@ -78,10 +83,10 @@ export function ScheduleFilters({
             ))}
           </select>
         </label>
-        <label className="flex flex-col gap-1 text-xs font-medium text-zinc-600">
+        <label className={`flex flex-col gap-1 ${labelClass}`}>
           Team
           <select
-            className="min-h-11 rounded-lg border border-zinc-200 bg-white px-3 py-2 text-base text-zinc-900"
+            className={selectClass}
             disabled={pending}
             value={teamId}
             onChange={(e) => push({ team: e.target.value })}
@@ -94,10 +99,10 @@ export function ScheduleFilters({
             ))}
           </select>
         </label>
-        <label className="flex flex-col gap-1 text-xs font-medium text-zinc-600">
+        <label className={`flex flex-col gap-1 ${labelClass}`}>
           Field
           <select
-            className="min-h-11 rounded-lg border border-zinc-200 bg-white px-3 py-2 text-base text-zinc-900"
+            className={selectClass}
             disabled={pending}
             value={fieldId}
             onChange={(e) => push({ field: e.target.value })}

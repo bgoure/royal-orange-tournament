@@ -1,6 +1,7 @@
 "use client";
 
 import { useRef } from "react";
+import { PageTitle } from "@/components/ui/PublicHeading";
 
 const RESULTS_INFO =
   "Pool standings and completed games. Points: 2 win, 1 tie, 0 loss. Tiebreakers follow published pool rules.";
@@ -12,8 +13,8 @@ export function ResultsPageHeading() {
   const close = () => dialogRef.current?.close();
 
   return (
-    <div className="flex flex-wrap items-center gap-2">
-      <h1 className="text-2xl font-semibold text-zinc-900">Results</h1>
+    <div className="flex flex-wrap items-end gap-2">
+      <PageTitle className="flex-1 min-w-0">Results</PageTitle>
       <button
         type="button"
         onClick={open}

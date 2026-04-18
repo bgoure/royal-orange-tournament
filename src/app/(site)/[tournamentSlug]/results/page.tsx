@@ -1,6 +1,7 @@
 import { ResultsPageHeading } from "@/components/results/ResultsPageHeading";
 import { GameList } from "@/components/schedule/GameList";
 import { StandingsViewWithDivisionTabs } from "@/components/standings/StandingsViewWithDivisionTabs";
+import { SectionTitle } from "@/components/ui/PublicHeading";
 import { getDivisionTabCookie } from "@/lib/division-tab-cookie";
 import { buildDivisionTabDescriptors } from "@/lib/division-tabs";
 import {
@@ -49,7 +50,7 @@ export default async function ResultsPage({
   });
 
   return (
-    <div className="flex flex-col gap-8">
+    <div className="flex flex-col gap-4">
       <ResultsPageHeading />
       <StandingsViewWithDivisionTabs
         pools={pools}
@@ -57,9 +58,7 @@ export default async function ResultsPage({
       />
 
       <section className="flex flex-col gap-3" aria-labelledby="completed-games-heading">
-        <h2 id="completed-games-heading" className="text-lg font-semibold text-zinc-900">
-          Completed games
-        </h2>
+        <SectionTitle id="completed-games-heading">Completed games</SectionTitle>
         <GameList
           games={completedGames}
           timezone={tournament.timezone}

@@ -15,16 +15,11 @@ export type GameWithTeams = Game & {
 };
 
 const statusStyles: Record<string, string> = {
-  SCHEDULED: "bg-zinc-100 text-zinc-700",
-  LIVE: "bg-red-600 text-white shadow-sm",
+  SCHEDULED: "bg-royal text-white",
+  LIVE: "bg-accent text-white shadow-sm motion-safe:animate-pulse motion-reduce:animate-none",
   FINAL: "bg-royal-50 text-royal",
-  POSTPONED: "bg-amber-100 text-amber-900",
+  POSTPONED: "bg-zinc-200 text-zinc-700",
   CANCELLED: "bg-zinc-200 text-zinc-600 line-through",
-};
-
-const cardBorder: Record<string, string> = {
-  LIVE: "border-red-300 bg-red-50",
-  default: "border-zinc-200 bg-white",
 };
 
 function dayKeyInTz(d: Date, tz: string): string {
@@ -68,29 +63,36 @@ function GameCard({
   showScores?: boolean;
 }) {
   const st = statusStyles[g.status] ?? statusStyles.SCHEDULED;
-  const border = cardBorder[g.status] ?? cardBorder.default;
   const hasScore = showScores && g.homeRuns != null && g.awayRuns != null;
-  const pulse = g.status === "LIVE" && liveProminent;
+  const isLive = g.status === "LIVE";
 
-  const nameSize = liveProminent ? "text-base md:text-lg" : compact ? "text-[12px]" : "text-[13px]";
+  const leftBorder = isLive
+    ? "border-l-8 border-l-accent"
+    : "border-l-4 border-l-royal";
+
+  const nameSize = liveProminent ? "text-base font-bold md:text-lg" : compact ? "text-xs font-bold" : "text-sm font-bold";
   const scoreNum = liveProminent ? "text-2xl" : compact ? "text-base" : "text-lg";
-  const logoSize = compact ? "h-6 w-6" : "h-8 w-8";
+  const logoSize = compact ? "h-7 w-7 min-h-[28px] min-w-[28px]" : "h-8 w-8 min-h-8 min-w-8";
+
+  const cardPadding = compact ? "min-h-[48px] px-3 py-3" : "p-3";
+  const compactWidth =
+    "w-[min(200px,calc(100vw-2rem))] max-[374px]:w-[min(180px,calc(100vw-2.5rem))] shrink-0";
 
   return (
     <li
-      className={`min-w-0 rounded-2xl border shadow-sm ${border} ${liveProminent ? "border-l-4 border-l-red-500" : ""} ${
-        pulse ? "animate-pulse" : ""
-      } ${compact ? "w-[200px] shrink-0 px-3 py-2.5" : "px-4 py-3"}`}
+      className={`min-w-0 rounded-2xl border border-zinc-200 bg-white shadow-[0_1px_3px_rgba(0,0,0,0.1)] ${leftBorder} ${
+        compact ? `${compactWidth} ${cardPadding}` : cardPadding
+      }`}
     >
       <div className="flex items-center justify-between gap-2">
-        <p className="text-[11px] text-zinc-500">
+        <p className="text-[13px] font-bold leading-snug text-zinc-900">
           {compact
             ? formatGameScheduledAtShort(g.scheduledAt, displayTimeZone)
             : formatGameScheduledAt(g.scheduledAt, displayTimeZone)}
         </p>
         <span
           className={`shrink-0 rounded-full px-2 py-0.5 text-[10px] font-bold uppercase ${st} ${
-            g.status === "LIVE" && liveProminent ? "ring-2 ring-red-200" : ""
+            isLive && liveProminent ? "ring-2 ring-accent/40" : ""
           }`}
         >
           {g.status === "LIVE" ? "LIVE" : g.status}
@@ -102,7 +104,7 @@ function GameCard({
           <div className="flex min-w-0 items-center justify-between gap-2">
             <div className="flex min-w-0 items-center gap-2">
               <TeamLogoMark team={g.awayTeam} sizeClass={logoSize} />
-              <p className={`min-w-0 truncate font-semibold leading-snug text-zinc-900 ${nameSize}`}>
+              <p className={`min-w-0 truncate leading-snug text-zinc-900 ${nameSize}`}>
                 {g.awayTeam?.name ?? "TBD"}
               </p>
             </div>
@@ -111,7 +113,7 @@ function GameCard({
           <div className="flex min-w-0 items-center justify-between gap-2">
             <div className="flex min-w-0 items-center gap-2">
               <TeamLogoMark team={g.homeTeam} sizeClass={logoSize} />
-              <p className={`min-w-0 truncate font-semibold leading-snug text-zinc-900 ${nameSize}`}>
+              <p className={`min-w-0 truncate leading-snug text-zinc-900 ${nameSize}`}>
                 {g.homeTeam?.name ?? "TBD"}
               </p>
             </div>
@@ -120,21 +122,23 @@ function GameCard({
         </div>
       ) : (
         <div className="mt-1.5 min-w-0 space-y-0.5">
-          <p className={`flex min-w-0 items-center gap-2 font-semibold leading-snug text-zinc-900 ${nameSize}`}>
+          <p className={`flex min-w-0 items-center gap-2 leading-snug text-zinc-900 ${nameSize}`}>
             <TeamLogoMark team={g.awayTeam} sizeClass={logoSize} />
             <span className="min-w-0 truncate">{g.awayTeam?.name ?? "TBD"}</span>
-            <span className="shrink-0 font-normal text-zinc-400">vs</span>
+            <span className="shrink-0 font-normal text-accent">vs</span>
           </p>
-          <p className={`flex min-w-0 items-center gap-2 truncate font-semibold leading-snug text-zinc-900 ${nameSize}`}>
+          <p className={`flex min-w-0 items-center gap-2 truncate leading-snug text-zinc-900 ${nameSize}`}>
             <TeamLogoMark team={g.homeTeam} sizeClass={logoSize} />
             <span className="truncate">{g.homeTeam?.name ?? "TBD"}</span>
           </p>
         </div>
       )}
 
-      <p className="mt-1 text-[10px] leading-tight text-zinc-500">
-        <span className="font-semibold tabular-nums text-zinc-600">{gameIdDisplayLabel(g, fallbackSeq)}</span>
-        <span className="text-zinc-400"> · </span>
+      <p className="mt-2 text-[10px] leading-tight text-zinc-500">
+        <span className="inline-block rounded-md bg-accent px-2 py-0.5 text-[11px] font-bold tabular-nums text-white">
+          {gameIdDisplayLabel(g, fallbackSeq)}
+        </span>
+        <span className="mx-1.5 text-zinc-400">·</span>
         {formatFieldWithLocation(g.field.name, g.field.location.name)}
         {g.pool
           ? ` · ${g.pool.name}`
@@ -158,7 +162,7 @@ function HorizontalGameRow({
   showScores?: boolean;
 }) {
   return (
-    <ul className="-mx-4 flex gap-2.5 overflow-x-auto px-4 pb-2 snap-x snap-mandatory">
+    <ul className="-mx-4 flex snap-x snap-mandatory gap-3 overflow-x-auto scroll-smooth px-4 pb-2 [scrollbar-width:thin]">
       {rows.map(({ g, fallbackSeq }) => (
         <GameCard
           key={g.id}
@@ -221,17 +225,17 @@ export function GameList({
 
   const liveBlock =
     liveToday.length > 0 ? (
-      <div className="sticky top-0 z-20 -mx-1 mb-4 border-b border-red-100 bg-red-50/95 px-1 pb-3 pt-1 backdrop-blur-sm md:static md:z-0 md:mb-4 md:border-0 md:bg-transparent md:p-0 md:backdrop-blur-none">
+      <div className="sticky top-0 z-20 -mx-1 mb-4 border-b border-accent-200 bg-accent-50/95 px-1 pb-3 pt-1 backdrop-blur-sm md:static md:z-0 md:mb-4 md:border-0 md:bg-transparent md:p-0 md:backdrop-blur-none">
         <div className="mb-2 flex items-center gap-2 px-1">
-          <span className="rounded bg-red-600 px-2 py-0.5 text-[10px] font-bold uppercase tracking-wide text-white">
+          <span className="rounded bg-accent px-2 py-0.5 text-[10px] font-bold uppercase tracking-wide text-white motion-safe:animate-pulse motion-reduce:animate-none">
             Live today
           </span>
-          <span className="text-xs text-red-800">Happening now</span>
+          <span className="text-xs font-medium text-accent-800">Happening now</span>
         </div>
         {horizontal ? (
           <HorizontalGameRow rows={liveToday} liveProminent displayTimeZone={timezone} showScores={showScores} />
         ) : (
-          <ul className="flex flex-col gap-2">
+          <ul className="flex flex-col gap-3">
             {liveToday.map(({ g, fallbackSeq }) => (
               <GameCard
                 key={g.id}
@@ -262,7 +266,7 @@ export function GameList({
     <div className="flex flex-col gap-4">
       {liveBlock}
       {rest.length > 0 ? (
-        <ul className="flex flex-col gap-2">
+        <ul className="flex flex-col gap-3">
           {rest.map(({ g, fallbackSeq }) => (
             <GameCard
               key={g.id}

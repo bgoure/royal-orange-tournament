@@ -2,21 +2,11 @@
 
 type TabOption = { id: string; name: string };
 
-function tabColorLight(name: string, active: boolean): string {
-  const lower = name.toLowerCase();
-  if (lower.includes("10u") || lower === "all") {
-    return active
-      ? "bg-accent text-white shadow-sm"
-      : "bg-accent-50 text-accent-700 hover:bg-accent-100";
-  }
-  if (lower.includes("11u")) {
-    return active
-      ? "bg-royal text-white shadow-sm"
-      : "bg-royal-50 text-royal-700 hover:bg-royal-100";
-  }
+/** Matches `DivisionSwitcher` pill styling for public royal/orange brand. */
+function tabColorLight(_name: string, active: boolean): string {
   return active
-    ? "bg-royal text-white shadow-sm"
-    : "bg-zinc-100 text-zinc-700 hover:bg-zinc-200";
+    ? "border-2 border-royal bg-royal font-semibold text-white shadow-sm"
+    : "border-2 border-zinc-200 bg-zinc-100 font-medium text-zinc-800 hover:border-zinc-300 hover:bg-zinc-200";
 }
 
 function tabColorDark(name: string, active: boolean): string {
@@ -57,7 +47,7 @@ export function DivisionTabs({
   const wrap =
     variant === "dark"
       ? "flex flex-wrap gap-2"
-      : "flex flex-wrap gap-2 border-b border-zinc-200 pb-3";
+      : "flex flex-wrap gap-2 border-b border-royal/15 pb-3";
 
   return (
     <div
@@ -73,7 +63,7 @@ export function DivisionTabs({
           aria-selected={i === activeIndex}
           disabled={disabled}
           onClick={() => onSelect(i)}
-          className={`min-h-11 rounded-full px-4 py-2.5 text-sm font-medium transition-colors active:opacity-90 ${tabColor(t.name, i === activeIndex)}`}
+          className={`min-h-[44px] rounded-lg px-[14px] py-2.5 text-sm font-medium transition-colors duration-200 ease-in-out focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-royal focus-visible:ring-offset-2 active:opacity-90 disabled:cursor-not-allowed disabled:opacity-50 md:min-h-10 sm:text-base ${tabColor(t.name, i === activeIndex)}`}
         >
           {t.name}
         </button>

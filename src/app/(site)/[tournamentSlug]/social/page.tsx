@@ -1,5 +1,6 @@
 import Link from "next/link";
 import type { Tournament } from "@prisma/client";
+import { PageTitle } from "@/components/ui/PublicHeading";
 import { getPublishedTournamentBySlug } from "@/lib/tournament-context";
 
 const FALLBACK = {
@@ -103,10 +104,10 @@ export default async function SocialPage({ params }: { params: Promise<{ tournam
   const tournament = await getPublishedTournamentBySlug(tournamentSlug);
 
   return (
-    <div className="flex flex-col gap-6">
+    <div className="flex flex-col gap-4">
       <div>
-        <h1 className="text-2xl font-semibold text-zinc-900">Social</h1>
-        <p className="text-sm text-zinc-600">
+        <PageTitle>Social</PageTitle>
+        <p className="mt-2 text-sm text-zinc-600">
           Links for {tournament?.name ?? "this tournament"}. Directors can edit them under{" "}
           <span className="font-medium text-zinc-800">Admin → Tournament HQ</span>.
         </p>
@@ -121,11 +122,11 @@ export default async function SocialPage({ params }: { params: Promise<{ tournam
                 href={href}
                 target={external ? "_blank" : undefined}
                 rel={external ? "noopener noreferrer" : undefined}
-                className="flex min-h-[52px] items-start gap-3 rounded-2xl border border-zinc-200 bg-white p-4 shadow-sm transition-colors hover:border-royal-200 active:scale-[0.99]"
+                className="group flex min-h-[48px] items-start gap-3 rounded-2xl border border-zinc-200 border-l-4 border-l-royal bg-white p-4 shadow-sm transition-all hover:border-royal-200 hover:shadow-md active:scale-[0.99]"
               >
                 <span className="mt-0.5 text-royal">{s.icon}</span>
                 <span className="min-w-0">
-                  <span className="block font-semibold text-zinc-900">{s.label}</span>
+                  <span className="block font-semibold text-zinc-900 group-hover:text-accent">{s.label}</span>
                   <span className="block text-xs text-zinc-500">{s.hint}</span>
                 </span>
               </Link>

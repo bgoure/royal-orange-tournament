@@ -1,4 +1,5 @@
 import Link from "next/link";
+import { PageTitle, SectionTitle } from "@/components/ui/PublicHeading";
 import { listFaqItems } from "@/lib/services/content";
 import { getPublishedTournamentBySlug } from "@/lib/tournament-context";
 import { tournamentPath } from "@/lib/tournament-public-path";
@@ -13,10 +14,10 @@ export default async function FaqPage({ params }: { params: Promise<{ tournament
   const faqs = await listFaqItems(tournament.id);
 
   return (
-    <div className="flex flex-col gap-10">
+    <div className="flex flex-col gap-4">
       <div>
-        <h1 className="text-2xl font-semibold text-zinc-900">FAQ</h1>
-        <p className="text-sm text-zinc-600">Answers for {tournament.name}.</p>
+        <PageTitle>FAQ</PageTitle>
+        <p className="mt-2 text-sm text-zinc-600">Answers for {tournament.name}.</p>
         <p className="mt-2 text-sm">
           <Link href={tournamentPath(tournamentSlug, "locations")} className="font-medium text-royal-light underline-offset-2 hover:underline">
             Venues &amp; tournament headquarters →
@@ -25,7 +26,7 @@ export default async function FaqPage({ params }: { params: Promise<{ tournament
       </div>
 
       <section>
-        <h2 className="text-sm font-semibold uppercase tracking-wide text-zinc-500">Questions</h2>
+        <SectionTitle className="mb-3">Questions</SectionTitle>
         <ul className="mt-3 flex flex-col gap-3">
           {faqs.length === 0 ? (
             <li className="text-sm text-zinc-500">No FAQ entries yet.</li>

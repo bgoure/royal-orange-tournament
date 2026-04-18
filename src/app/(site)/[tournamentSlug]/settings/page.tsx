@@ -1,4 +1,5 @@
 import Link from "next/link";
+import { PageTitle } from "@/components/ui/PublicHeading";
 
 const CogIcon = () => (
   <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={1.5} className="size-5" aria-hidden>
@@ -9,22 +10,26 @@ const CogIcon = () => (
 
 export default function SettingsPage() {
   return (
-    <div className="flex flex-col gap-8">
+    <div className="flex flex-col gap-4">
       <div>
-        <h1 className="text-2xl font-semibold text-zinc-900">Settings</h1>
-        <p className="text-sm text-zinc-600">Preferences for the tournament tracker app.</p>
+        <PageTitle>Settings</PageTitle>
+        <p className="mt-2 text-sm text-zinc-600">Preferences for the tournament tracker app.</p>
       </div>
 
       <section className="rounded-2xl border border-zinc-200 bg-white p-4 shadow-sm">
-        <h2 className="text-sm font-semibold text-zinc-900">Display</h2>
-        <p className="mt-1 text-sm text-zinc-600">
+        <h2 className="mb-3 border-b-2 border-royal pb-2 text-base font-bold uppercase tracking-[0.05em] text-royal">
+          Display
+        </h2>
+        <p className="text-sm text-zinc-600">
           Times follow your device timezone. Tournament dates use the schedule published by the organizer.
         </p>
       </section>
 
       <section className="rounded-2xl border border-zinc-200 bg-white p-4 shadow-sm">
-        <h2 className="text-sm font-semibold text-zinc-900">Notifications</h2>
-        <p className="mt-1 text-sm text-zinc-600">Email notifications are not configured in this public build.</p>
+        <h2 className="mb-3 border-b-2 border-royal pb-2 text-base font-bold uppercase tracking-[0.05em] text-royal">
+          Notifications
+        </h2>
+        <p className="text-sm text-zinc-600">Email notifications are not configured in this public build.</p>
       </section>
 
       <section

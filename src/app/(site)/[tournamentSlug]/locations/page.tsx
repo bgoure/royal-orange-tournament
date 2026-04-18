@@ -1,5 +1,6 @@
 import Link from "next/link";
 import { EmptyState } from "@/components/ui/EmptyState";
+import { PageTitle, SectionTitle } from "@/components/ui/PublicHeading";
 import { formatLocationAddress } from "@/lib/location-utils";
 import { appleMapsUrl, googleMapsUrl, wazeUrl } from "@/lib/maps-links";
 import { getHeadquartersLocation, listLocations } from "@/lib/services/content";
@@ -81,10 +82,10 @@ export default async function LocationsPage({ params }: { params: Promise<{ tour
   const useLon = resolved?.longitude ?? null;
 
   return (
-    <div className="flex flex-col gap-10">
+    <div className="flex flex-col gap-4">
       <div>
-        <h1 className="text-2xl font-semibold text-zinc-900">Locations</h1>
-        <p className="text-sm text-zinc-600">Headquarters and venues for {tournament.name}.</p>
+        <PageTitle>Locations</PageTitle>
+        <p className="mt-2 text-sm text-zinc-600">Headquarters and venues for {tournament.name}.</p>
         <p className="mt-2 text-sm">
           <Link href={tournamentPath(tournamentSlug, "faq")} className="font-medium text-royal-light underline-offset-2 hover:underline">
             ← FAQ
@@ -93,7 +94,7 @@ export default async function LocationsPage({ params }: { params: Promise<{ tour
       </div>
 
       <section>
-        <h2 className="text-sm font-semibold uppercase tracking-wide text-zinc-500">Tournament headquarters</h2>
+        <SectionTitle className="mb-3">Tournament headquarters</SectionTitle>
         <ul className="mt-3 flex flex-col gap-3">
           <li className="rounded-xl border border-zinc-200 bg-white px-4 py-3 shadow-sm">
             <p className="font-medium text-zinc-900">{hqName}</p>
@@ -107,7 +108,7 @@ export default async function LocationsPage({ params }: { params: Promise<{ tour
       </section>
 
       <section>
-        <h2 className="text-sm font-semibold uppercase tracking-wide text-zinc-500">All locations</h2>
+        <SectionTitle className="mb-3">All locations</SectionTitle>
         <ul className="mt-3 flex flex-col gap-3">
           {locations.length === 0 ? (
             <li className="list-none">
