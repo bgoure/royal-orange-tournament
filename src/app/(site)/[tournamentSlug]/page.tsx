@@ -23,7 +23,7 @@ function QuickLinkCard({ href, label, description, icon }: { href: string; label
   return (
     <Link
       href={href}
-      className="group flex min-h-[48px] flex-col items-center justify-center gap-1.5 rounded-2xl border border-zinc-200 border-l-2 border-l-royal/70 bg-white p-4 text-center shadow-sm transition-all hover:border-royal-200 hover:shadow-md active:scale-[0.98]"
+      className="group flex min-h-[48px] flex-col items-center justify-center gap-1.5 rounded-2xl border border-zinc-200 border-l-2 border-l-royal/90 bg-white p-4 text-center shadow-sm transition-all hover:border-royal-200 hover:shadow-md active:scale-[0.98]"
     >
       <span className="text-royal [&_svg]:text-royal">{icon}</span>
       <span className="text-sm font-semibold text-zinc-900 group-hover:text-accent">{label}</span>
