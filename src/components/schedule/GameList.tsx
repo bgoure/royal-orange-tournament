@@ -67,8 +67,8 @@ function GameCard({
   const isLive = g.status === "LIVE";
 
   const leftBorder = isLive
-    ? "border-l-8 border-l-accent"
-    : "border-l-4 border-l-royal";
+    ? "border-l-2 border-l-accent"
+    : "border-l-2 border-l-royal";
 
   const nameSize = liveProminent ? "text-base font-bold md:text-lg" : compact ? "text-xs font-bold" : "text-sm font-bold";
   const scoreNum = liveProminent ? "text-2xl" : compact ? "text-base" : "text-lg";

@@ -24,7 +24,7 @@ export default async function MorePage({ params }: { params: Promise<{ tournamen
           <li key={item.href}>
             <Link
               href={item.href}
-              className="group flex min-h-[48px] flex-col justify-center rounded-2xl border border-zinc-200 border-l-4 border-l-royal bg-white px-4 py-3 shadow-sm transition-all active:scale-[0.99] hover:border-royal-200 hover:shadow-md"
+              className="group flex min-h-[48px] flex-col justify-center rounded-2xl border border-zinc-200 border-l-2 border-l-royal bg-white px-4 py-3 shadow-sm transition-all active:scale-[0.99] hover:border-royal-200 hover:shadow-md"
             >
               <span className="font-semibold text-zinc-900 group-hover:text-accent">{item.label}</span>
               <span className="text-xs text-zinc-500">{item.description}</span>
