@@ -141,12 +141,28 @@ model Division {
   @@index([tournamentId])
 }
 
+/// Accent for pool name on public schedule/results/upcoming cards (optional; default grey).
+enum PoolCardLabelColor {
+  ROYAL
+  ORANGE
+  EMERALD
+  SKY
+  VIOLET
+  ROSE
+  AMBER
+  TEAL
+  INDIGO
+  SLATE
+}
+
 model Pool {
   id         String      @id @default(cuid())
   divisionId String
   division   Division    @relation(fields: [divisionId], references: [id], onDelete: Cascade)
   name       String
   sortOrder  Int         @default(0)
+  /// When set, public game cards tint the pool name with this preset; unset keeps default grey.
+  cardLabelColor PoolCardLabelColor?
   /// Top N from pool standings (display order) advance into single-elim playoff generation.
   teamsAdvancing Int     @default(0)
   /// When true, PoolStanding.tiebreakOverrideRank is the display rank (1 = top). Stats still come from games.

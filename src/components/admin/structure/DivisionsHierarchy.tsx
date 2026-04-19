@@ -15,6 +15,7 @@ import {
 } from "@/app/admin/_actions/structure";
 import { ActionMessage } from "@/components/admin/structure/ActionMessage";
 import { ConfirmForm } from "@/components/admin/structure/ConfirmForm";
+import { POOL_CARD_LABEL_OPTIONS } from "@/lib/pool-card-label";
 
 type DivisionWithPools = Division & {
   pools: (Pool & { teams: Team[] })[];
@@ -125,6 +126,22 @@ export function DivisionsHierarchy({ tournament, isAdmin }: Props) {
               Sort
             </label>
             <input id="pool-sort" name="sortOrder" type="number" className={formClass} placeholder="auto" />
+          </div>
+          <div className="min-w-[220px]">
+            <label htmlFor="pool-card-color-new" className={labelClass}>
+              Pool name on public cards
+            </label>
+            <select id="pool-card-color-new" name="cardLabelColor" className={formClass} defaultValue="">
+              <option value="">Default (grey)</option>
+              {POOL_CARD_LABEL_OPTIONS.map((o) => (
+                <option key={o.value} value={o.value}>
+                  {o.label}
+                </option>
+              ))}
+            </select>
+            <p className="mt-1 max-w-md text-[11px] text-zinc-500">
+              Optional tint for the pool name on schedule, results, and home upcoming game cards.
+            </p>
           </div>
           <button type="submit" disabled={poolPending} className={btnPrimary}>
             {poolPending ? "Saving…" : "Create pool"}
@@ -267,6 +284,24 @@ function PoolRow({
             <div className="w-24">
               <label className={labelClass}>Sort</label>
               <input name="sortOrder" type="number" required defaultValue={pool.sortOrder} className={formClass} />
+            </div>
+            <div className="min-w-[200px]">
+              <label htmlFor={`pool-card-color-${pool.id}`} className={labelClass}>
+                Name on public cards
+              </label>
+              <select
+                id={`pool-card-color-${pool.id}`}
+                name="cardLabelColor"
+                className={formClass}
+                defaultValue={pool.cardLabelColor ?? ""}
+              >
+                <option value="">Default (grey)</option>
+                {POOL_CARD_LABEL_OPTIONS.map((o) => (
+                  <option key={o.value} value={o.value}>
+                    {o.label}
+                  </option>
+                ))}
+              </select>
             </div>
             <button type="submit" disabled={updPending} className={btnSecondary}>
               {updPending ? "…" : "Save pool"}

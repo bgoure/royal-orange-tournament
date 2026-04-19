@@ -126,6 +126,7 @@ export async function createPool(_prev: ActionResult | undefined, formData: Form
     divisionId: formData.get("divisionId"),
     name: formData.get("name"),
     sortOrder: formData.get("sortOrder") || undefined,
+    cardLabelColor: formData.get("cardLabelColor"),
   });
   if (!parsed.success) {
     return { ok: false, error: parsed.error.flatten().formErrors.join(", ") || "Invalid input" };
@@ -143,10 +144,12 @@ export async function createPool(_prev: ActionResult | undefined, formData: Form
       divisionId: parsed.data.divisionId,
       name: parsed.data.name,
       sortOrder,
+      cardLabelColor: parsed.data.cardLabelColor ?? null,
     },
   });
   revalidatePath("/admin/divisions");
   revalidatePath("/admin/teams");
+  await revalidatePublishedTournamentSites();
   return { ok: true };
 }
 
@@ -159,16 +162,22 @@ export async function updatePool(_prev: ActionResult | undefined, formData: Form
     id: formData.get("id"),
     name: formData.get("name"),
     sortOrder: formData.get("sortOrder"),
+    cardLabelColor: formData.get("cardLabelColor"),
   });
   if (!parsed.success) return { ok: false, error: "Invalid input" };
 
   await assertPoolInTournament(parsed.data.id, ctx.tournament.id);
   await prisma.pool.update({
     where: { id: parsed.data.id },
-    data: { name: parsed.data.name, sortOrder: parsed.data.sortOrder },
+    data: {
+      name: parsed.data.name,
+      sortOrder: parsed.data.sortOrder,
+      cardLabelColor: parsed.data.cardLabelColor,
+    },
   });
   revalidatePath("/admin/divisions");
   revalidatePath("/admin/teams");
+  await revalidatePublishedTournamentSites();
   return { ok: true };
 }
 

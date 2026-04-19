@@ -1,6 +1,7 @@
 import type { Division, Field, Game, Pool } from "@prisma/client";
 import { GameKind } from "@prisma/client";
 import { formatGameScheduledAt, formatGameScheduledAtShort } from "@/lib/datetime-tournament";
+import { poolCardLabelTextClass } from "@/lib/pool-card-label";
 import { EmptyState } from "@/components/ui/EmptyState";
 import { TeamLogoMark } from "@/components/ui/TeamLogo";
 import type { TeamWithPublicLogo } from "@/lib/team-logo";
@@ -137,13 +138,21 @@ function GameCard({
         <span className="inline-block rounded-md bg-accent px-2 py-0.5 text-[11px] font-bold tabular-nums text-white">
           {gameIdDisplayLabel(g, fallbackSeq)}
         </span>
+        {g.pool ? (
+          <>
+            <span className="mx-1.5 text-zinc-400">·</span>
+            <span className={`font-medium ${poolCardLabelTextClass(g.pool.cardLabelColor)}`}>{g.pool.name}</span>
+          </>
+        ) : g.gameKind === GameKind.CONSOLATION && g.division ? (
+          <>
+            <span className="mx-1.5 text-zinc-400">·</span>
+            <span className="font-medium">
+              {g.division.name} · Friendly consolation
+            </span>
+          </>
+        ) : null}
         <span className="mx-1.5 text-zinc-400">·</span>
         {g.field.name}
-        {g.pool
-          ? ` · ${g.pool.name}`
-          : g.gameKind === GameKind.CONSOLATION && g.division
-            ? ` · ${g.division.name} · Friendly consolation`
-            : ""}
       </p>
     </li>
   );

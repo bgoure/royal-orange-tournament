@@ -1,4 +1,10 @@
+import { PoolCardLabelColor } from "@prisma/client";
 import { z } from "zod";
+
+const poolCardLabelColorField = z.preprocess((v) => {
+  if (v === "" || v === null || v === undefined) return null;
+  return v;
+}, z.nativeEnum(PoolCardLabelColor).nullable());
 
 export const divisionCreateSchema = z.object({
   name: z.string().trim().min(1, "Name is required").max(120),
@@ -15,12 +21,14 @@ export const poolCreateSchema = z.object({
   divisionId: z.string().min(1),
   name: z.string().trim().min(1, "Name is required").max(120),
   sortOrder: z.coerce.number().int().optional(),
+  cardLabelColor: poolCardLabelColorField.optional(),
 });
 
 export const poolUpdateSchema = z.object({
   id: z.string().min(1),
   name: z.string().trim().min(1).max(120),
   sortOrder: z.coerce.number().int(),
+  cardLabelColor: poolCardLabelColorField,
 });
 
 const optionalSeed = z.preprocess((v) => {
