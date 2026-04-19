@@ -1,6 +1,11 @@
 import type { Division, Pool, PoolStanding } from "@prisma/client";
 import { EmptyState } from "@/components/ui/EmptyState";
 import { TeamLogoMark } from "@/components/ui/TeamLogo";
+import {
+  poolStandingsPtsCellClass,
+  poolStandingsSectionTitleClass,
+  poolStandingsTableHeaderClass,
+} from "@/lib/pool-card-label";
 import type { TeamWithPublicLogo } from "@/lib/team-logo";
 
 type Row = PoolStanding & { team: TeamWithPublicLogo };
@@ -33,7 +38,9 @@ export function StandingsView({ pools }: { pools: PoolWith[] }) {
     <div className="flex flex-col gap-4">
       {pools.map((pool) => (
         <section key={pool.id}>
-          <h2 className="mb-3 border-b-2 border-royal pb-2 text-base font-bold text-royal md:text-lg">
+          <h2
+            className={`mb-3 border-b-2 pb-2 text-base font-bold md:text-lg ${poolStandingsSectionTitleClass(pool.cardLabelColor)}`}
+          >
             <span className="normal-case tracking-normal">
               {pool.division.name} · {pool.name}
             </span>
@@ -64,7 +71,9 @@ export function StandingsView({ pools }: { pools: PoolWith[] }) {
               <div className="overflow-x-auto rounded-xl border border-zinc-200 bg-white shadow-sm">
                 <table className="w-full min-w-[320px] text-left text-sm">
                   <thead>
-                    <tr className="bg-royal text-[11px] font-bold uppercase tracking-wide text-white">
+                    <tr
+                      className={`text-[11px] font-bold uppercase tracking-wide ${poolStandingsTableHeaderClass(pool.cardLabelColor)}`}
+                    >
                       <th className="py-3 pl-3 pr-1">Team</th>
                       <th className="px-2 py-3 text-right font-mono">W</th>
                       <th className="px-2 py-3 text-right font-mono">L</th>
@@ -92,7 +101,9 @@ export function StandingsView({ pools }: { pools: PoolWith[] }) {
                         <td className="px-2 py-2.5 text-right font-mono tabular-nums font-semibold">{s.wins}</td>
                         <td className="px-2 py-2.5 text-right font-mono tabular-nums">{s.losses}</td>
                         <td className="px-2 py-2.5 text-right font-mono tabular-nums">{s.ties}</td>
-                        <td className="bg-accent/10 px-2 py-2.5 text-right font-mono tabular-nums font-bold text-accent">
+                        <td
+                          className={`px-2 py-2.5 text-right font-mono tabular-nums font-bold ${poolStandingsPtsCellClass(pool.cardLabelColor)}`}
+                        >
                           {s.points}
                         </td>
                         <td className="hidden min-[421px]:table-cell px-2 py-2.5 text-right font-mono tabular-nums">
