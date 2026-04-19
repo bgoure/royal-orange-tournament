@@ -1,5 +1,4 @@
 import { formatBracketGameScheduledAt } from "@/lib/datetime-tournament";
-import { formatFieldWithLocation } from "@/lib/field-display";
 import { TeamLogoMark } from "@/components/ui/TeamLogo";
 import type { GameRow } from "@/components/brackets/bracket-types";
 import { getBracketSlotSources } from "@/lib/brackets/game-slot-sources";
@@ -59,7 +58,7 @@ export function BracketGameCard({
         <p className="text-[11px] leading-snug text-zinc-600">
           {scheduled}
           <span className="mx-1 text-zinc-300">·</span>
-          {formatFieldWithLocation(game.field.name, game.field.location.name)}
+          {game.field.name}
         </p>
       </div>
       <div className="divide-y divide-zinc-100 px-3 py-0 text-sm">

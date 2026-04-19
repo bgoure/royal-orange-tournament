@@ -1,7 +1,6 @@
 import type { Division, Field, Game, Pool } from "@prisma/client";
 import { GameKind } from "@prisma/client";
 import { formatGameScheduledAt, formatGameScheduledAtShort } from "@/lib/datetime-tournament";
-import { formatFieldWithLocation } from "@/lib/field-display";
 import { EmptyState } from "@/components/ui/EmptyState";
 import { TeamLogoMark } from "@/components/ui/TeamLogo";
 import type { TeamWithPublicLogo } from "@/lib/team-logo";
@@ -139,7 +138,7 @@ function GameCard({
           {gameIdDisplayLabel(g, fallbackSeq)}
         </span>
         <span className="mx-1.5 text-zinc-400">·</span>
-        {formatFieldWithLocation(g.field.name, g.field.location.name)}
+        {g.field.name}
         {g.pool
           ? ` · ${g.pool.name}`
           : g.gameKind === GameKind.CONSOLATION && g.division
