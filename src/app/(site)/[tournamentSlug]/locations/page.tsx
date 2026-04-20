@@ -107,7 +107,9 @@ export default async function LocationsPage({ params }: { params: Promise<{ tour
                   <p className="font-medium text-zinc-900">
                     {loc.name}
                     {loc.isHeadquarters ? (
-                      <span className="ml-2 text-sm font-bold text-zinc-900">(headquarters)</span>
+                      <span className="ml-2 inline-block align-middle rounded-md bg-accent px-2 py-0.5 text-[11px] font-bold tracking-[0.06em] text-white [font-variant:small-caps]">
+                        Headquarters
+                      </span>
                     ) : null}
                   </p>
                   {address ? <p className="mt-1 text-sm text-zinc-600">{address}</p> : null}
