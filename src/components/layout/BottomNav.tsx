@@ -54,7 +54,7 @@ export function BottomNav({ tournamentSlug }: { tournamentSlug: string }) {
       key: "more" as const,
       href: tp("more"),
       label: "More",
-      matchPrefixes: [tp("faq"), tp("locations"), tp("more"), tp("settings"), tp("social")],
+      matchPrefixes: [tp("rules"), tp("faq"), tp("locations"), tp("more"), tp("settings"), tp("social")],
       icon: (
         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round" className="size-6">
           <circle cx="12" cy="12" r="1" /><circle cx="12" cy="5" r="1" /><circle cx="12" cy="19" r="1" />

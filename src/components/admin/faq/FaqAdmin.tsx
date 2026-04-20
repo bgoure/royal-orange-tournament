@@ -59,8 +59,8 @@ export function FaqAdmin({
           <Link href="/admin/tournament-settings" className={btnSecondary}>
             Tournament HQ
           </Link>
-          <Link href={tournamentPath(tournamentSlug, "faq")} className={btnSecondary}>
-            View public FAQ ↗
+          <Link href={tournamentPath(tournamentSlug, "rules")} className={btnSecondary}>
+            View public rules ↗
           </Link>
         </div>
       </header>

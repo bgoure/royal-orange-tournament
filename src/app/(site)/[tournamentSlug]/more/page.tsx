@@ -8,7 +8,11 @@ export default async function MorePage({ params }: { params: Promise<{ tournamen
 
   const links = [
     { href: tp("locations"), label: "Locations", description: "Venues & maps" },
-    { href: tp("faq"), label: "FAQ", description: "Answers to common questions" },
+    {
+      href: tp("rules"),
+      label: "Rules and Resources",
+      description: "Tournament rules & O.B.A. links",
+    },
     { href: tp("settings"), label: "Settings", description: "App preferences" },
     { href: tp("social"), label: "Social", description: "Follow Baseball Milton" },
   ] as const;

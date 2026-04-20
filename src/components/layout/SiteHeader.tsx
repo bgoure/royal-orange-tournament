@@ -21,7 +21,7 @@ export async function SiteHeader({
     { href: tp("results"), label: "Results" },
     { href: tp("brackets"), label: "Brackets" },
     { href: tp("locations"), label: "Locations" },
-    { href: tp("faq"), label: "FAQ" },
+    { href: tp("rules"), label: "Rules" },
   ] as const;
 
   return (

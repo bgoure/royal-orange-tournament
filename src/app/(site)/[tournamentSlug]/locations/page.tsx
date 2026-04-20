@@ -87,8 +87,8 @@ export default async function LocationsPage({ params }: { params: Promise<{ tour
         <PageTitle>Locations</PageTitle>
         <p className="mt-2 text-sm text-zinc-600">Headquarters and venues for {tournament.name}.</p>
         <p className="mt-2 text-sm">
-          <Link href={tournamentPath(tournamentSlug, "faq")} className="font-medium text-royal-light underline-offset-2 hover:underline">
-            ← FAQ
+          <Link href={tournamentPath(tournamentSlug, "rules")} className="font-medium text-royal-light underline-offset-2 hover:underline">
+            ← Rules and Resources
           </Link>
         </p>
       </div>
