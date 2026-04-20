@@ -3,8 +3,7 @@ import { EmptyState } from "@/components/ui/EmptyState";
 import { PageTitle, SectionTitle } from "@/components/ui/PublicHeading";
 import { formatLocationAddress } from "@/lib/location-utils";
 import { appleMapsUrl, googleMapsUrl, wazeUrl } from "@/lib/maps-links";
-import { getHeadquartersLocation, listLocations } from "@/lib/services/content";
-import { resolveTournamentHeadquartersCoordinates } from "@/lib/services/weather-location";
+import { listLocations } from "@/lib/services/content";
 import { getPublishedTournamentBySlug } from "@/lib/tournament-context";
 import { tournamentPath } from "@/lib/tournament-public-path";
 
@@ -69,23 +68,13 @@ export default async function LocationsPage({ params }: { params: Promise<{ tour
     return <p className="text-sm text-zinc-500">No tournament selected.</p>;
   }
 
-  const [hq, locations, resolved] = await Promise.all([
-    getHeadquartersLocation(tournament.id),
-    listLocations(tournament.id),
-    resolveTournamentHeadquartersCoordinates(tournament.id),
-  ]);
-
-  const hqName = hq?.name?.trim() || "Tournament headquarters";
-  const hqAddressText = hq ? formatLocationAddress(hq) : "";
-
-  const useLat = resolved?.latitude ?? null;
-  const useLon = resolved?.longitude ?? null;
+  const locations = await listLocations(tournament.id);
 
   return (
     <div className="flex flex-col gap-4">
       <div>
         <PageTitle>Locations</PageTitle>
-        <p className="mt-2 text-sm text-zinc-600">Headquarters and venues for {tournament.name}.</p>
+        <p className="mt-2 text-sm text-zinc-600">Venues for {tournament.name}.</p>
         <p className="mt-2 text-sm">
           <Link href={tournamentPath(tournamentSlug, "rules")} className="font-medium text-royal-light underline-offset-2 hover:underline">
             ← Rules and Resources
@@ -94,21 +83,7 @@ export default async function LocationsPage({ params }: { params: Promise<{ tour
       </div>
 
       <section>
-        <SectionTitle className="mb-3">Tournament headquarters</SectionTitle>
-        <ul className="mt-3 flex flex-col gap-3">
-          <li className="rounded-xl border border-zinc-200 bg-white px-4 py-3 shadow-sm">
-            <p className="font-medium text-zinc-900">{hqName}</p>
-            {hqAddressText ? <p className="mt-1 text-sm text-zinc-600">{hqAddressText}</p> : null}
-            <p className="mt-2 text-xs text-zinc-500">
-              Weather uses the headquarters location only (coordinates when set, otherwise a geocoded street address).
-            </p>
-            <MapLinks lat={useLat} lon={useLon} query={hqAddressText || tournament.name} />
-          </li>
-        </ul>
-      </section>
-
-      <section>
-        <SectionTitle className="mb-3">All locations</SectionTitle>
+        <SectionTitle className="mb-3">Tournament Locations</SectionTitle>
         <ul className="mt-3 flex flex-col gap-3">
           {locations.length === 0 ? (
             <li className="list-none">
@@ -132,7 +107,7 @@ export default async function LocationsPage({ params }: { params: Promise<{ tour
                   <p className="font-medium text-zinc-900">
                     {loc.name}
                     {loc.isHeadquarters ? (
-                      <span className="ml-2 text-xs font-normal text-royal-light">(headquarters)</span>
+                      <span className="ml-2 text-sm font-bold text-zinc-900">(headquarters)</span>
                     ) : null}
                   </p>
                   {address ? <p className="mt-1 text-sm text-zinc-600">{address}</p> : null}
