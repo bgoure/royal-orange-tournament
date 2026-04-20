@@ -253,7 +253,7 @@ export function RoyalOrangeClassicRules({ tournamentName }: { tournamentName: st
             <span className="font-semibold text-royal">xi.</span> 9 runs after 6 innings or any subsequent inning
             thereafter.
           </P>
-        </div>
+        </SubRules>
       </SectionShell>
 
       <SectionShell title="Standings &amp; Tiebreakers">
