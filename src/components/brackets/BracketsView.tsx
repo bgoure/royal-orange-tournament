@@ -1,6 +1,6 @@
 "use client";
 
-import { Fragment, useMemo, useState, type Dispatch, type SetStateAction } from "react";
+import { useEffect, useMemo, useState, type Dispatch, type SetStateAction } from "react";
 import type { BracketRound } from "@prisma/client";
 import { formatBracketGameScheduledAt } from "@/lib/datetime-tournament";
 import { EmptyState } from "@/components/ui/EmptyState";
@@ -78,12 +78,23 @@ function MobileBracketRoundNav({
   visibleRounds,
   byRound,
   timeZone,
+  onRoundChange,
 }: {
   visibleRounds: BracketRound[];
   byRound: Map<string, GameRow[]>;
   timeZone?: string | null;
+  onRoundChange?: (roundIndex: number) => void;
 }) {
   const [roundIdx, setRoundIdx] = useState(0);
+  const safeIdx =
+    visibleRounds.length === 0
+      ? 0
+      : Math.min(roundIdx, Math.max(0, visibleRounds.length - 1));
+
+  useEffect(() => {
+    onRoundChange?.(visibleRounds.length > 0 ? safeIdx : 0);
+  }, [safeIdx, onRoundChange, visibleRounds.length]);
+
   if (visibleRounds.length === 0) {
     return (
       <p className="mt-4 text-sm text-zinc-500">
@@ -92,7 +103,6 @@ function MobileBracketRoundNav({
     );
   }
 
-  const safeIdx = Math.min(roundIdx, Math.max(0, visibleRounds.length - 1));
   const r = visibleRounds[safeIdx]!;
   const games = (byRound.get(r.id) ?? []).sort((x, y) => matchSortIndex(x) - matchSortIndex(y));
   const prevRoundName = safeIdx > 0 ? visibleRounds[safeIdx - 1]!.name : null;
@@ -295,13 +305,16 @@ function BracketSection({
   tournamentTimezone,
   mobileView,
   setMobileView,
+  consolationGames,
 }: {
   b: BracketWith;
   tournamentTimezone?: string | null;
   mobileView: "list" | "bracket";
   setMobileView: Dispatch<SetStateAction<"list" | "bracket">>;
+  consolationGames: GameRow[];
 }) {
   const [scope, setScope] = useState<BracketScopeFilter>("all");
+  const [mobileRoundIdx, setMobileRoundIdx] = useState(0);
 
   const roundsSorted = useMemo(
     () => [...b.rounds].sort((a, c) => a.roundIndex - c.roundIndex),
@@ -331,6 +344,8 @@ function BracketSection({
     }
     return m;
   }, [gamesInScope]);
+
+  const visibleRoundsKey = useMemo(() => visibleRounds.map((r) => r.id).join("|"), [visibleRounds]);
 
   return (
     <section className="min-w-0" aria-labelledby={`bracket-heading-${b.id}`}>
@@ -405,7 +420,10 @@ function BracketSection({
           </button>
           <button
             type="button"
-            onClick={() => setMobileView("bracket")}
+            onClick={() => {
+              setMobileView("bracket");
+              setMobileRoundIdx(0);
+            }}
             className={`min-h-11 min-w-[100px] rounded-lg px-4 py-2 text-sm font-semibold transition-colors duration-200 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-royal focus-visible:ring-offset-2 active:opacity-90 ${
               mobileView === "bracket"
                 ? "bg-royal-50 text-royal shadow-sm ring-2 ring-royal/25"
@@ -425,13 +443,21 @@ function BracketSection({
           <BracketMobileList games={gamesInScope} roundsVisible={visibleRounds} timeZone={tournamentTimezone} />
         ) : (
           <MobileBracketRoundNav
-            key={`${b.id}-${scope}-${visibleRounds.map((r) => r.id).join("|")}`}
+            key={`${b.id}-${scope}-${visibleRoundsKey}`}
             visibleRounds={visibleRounds}
             byRound={byRound}
             timeZone={tournamentTimezone}
+            onRoundChange={setMobileRoundIdx}
           />
         )}
       </div>
+
+      <ConsolationGamesSection
+        games={consolationGames}
+        tournamentTimezone={tournamentTimezone}
+        mobileView={mobileView}
+        mobileBracketShowsFirstRoundOnly={mobileView === "bracket" && mobileRoundIdx === 0}
+      />
     </section>
   );
 }
@@ -440,16 +466,25 @@ function ConsolationGamesSection({
   games,
   tournamentTimezone,
   mobileView,
+  mobileBracketShowsFirstRoundOnly,
 }: {
   games: GameRow[];
   tournamentTimezone?: string | null;
   mobileView: "list" | "bracket";
+  /** When false, hide this block below `md` while Bracket mobile view is active (not on round 1). */
+  mobileBracketShowsFirstRoundOnly: boolean;
 }) {
   if (games.length === 0) return null;
   const sorted = [...games].sort((a, b) => a.scheduledAt.getTime() - b.scheduledAt.getTime());
 
+  const showOnMobile =
+    mobileView === "list" || (mobileView === "bracket" && mobileBracketShowsFirstRoundOnly);
+
   return (
-    <section className="mt-6 min-w-0 border-t border-royal/15 pt-6" aria-labelledby="consolation-games-heading">
+    <section
+      className={`mt-6 min-w-0 border-t border-royal/15 pt-6 ${!showOnMobile ? "hidden md:block" : ""}`}
+      aria-labelledby="consolation-games-heading"
+    >
       <SectionTitle id="consolation-games-heading">Consolation Games</SectionTitle>
       <div className="mt-4 hidden md:flex md:flex-col md:gap-4">
         {sorted.map((g, mi) => (
@@ -536,19 +571,14 @@ export function BracketsView({
   return (
     <div className="flex flex-col gap-6">
       {brackets.map((b) => (
-        <Fragment key={b.id}>
-          <BracketSection
-            b={b}
-            tournamentTimezone={tournamentTimezone}
-            mobileView={mobileView}
-            setMobileView={setMobileView}
-          />
-          <ConsolationGamesSection
-            games={consolationByDivision.get(b.divisionId) ?? []}
-            tournamentTimezone={tournamentTimezone}
-            mobileView={mobileView}
-          />
-        </Fragment>
+        <BracketSection
+          key={b.id}
+          b={b}
+          tournamentTimezone={tournamentTimezone}
+          mobileView={mobileView}
+          setMobileView={setMobileView}
+          consolationGames={consolationByDivision.get(b.divisionId) ?? []}
+        />
       ))}
     </div>
   );
