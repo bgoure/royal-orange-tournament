@@ -136,7 +136,7 @@ export async function listScheduleFilterFacets(
   divisionId: string | undefined,
   timezone: string,
 ): Promise<{
-  dayOptions: { value: string; label: string }[];
+  dayOptions: { value: string; label: string; summaryLabel: string }[];
   teamIds: Set<string>;
   fieldIds: Set<string>;
 }> {
@@ -166,6 +166,12 @@ export async function listScheduleFilterFacets(
     month: "short",
     day: "numeric",
   });
+  /** e.g. "July 12" for filter summary line (month long, no weekday). */
+  const daySummaryFmt = new Intl.DateTimeFormat(undefined, {
+    timeZone: timezone,
+    month: "long",
+    day: "numeric",
+  });
 
   const dayKeyToSample = new Map<string, Date>();
   const teamIds = new Set<string>();
@@ -184,6 +190,7 @@ export async function listScheduleFilterFacets(
     .map(([value, sample]) => ({
       value,
       label: dayLabelFmt.format(sample),
+      summaryLabel: daySummaryFmt.format(sample),
     }));
 
   return { dayOptions, teamIds, fieldIds };
