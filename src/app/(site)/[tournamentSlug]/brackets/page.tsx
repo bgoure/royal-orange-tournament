@@ -1,4 +1,4 @@
-import { Suspense } from "react";
+import { DivisionSwipeBoundary } from "@/components/layout/DivisionSwipeBoundary";
 import { BracketsViewWithDivisionTabs } from "@/components/brackets/BracketsViewWithDivisionTabs";
 import { getDivisionTabCookie } from "@/lib/division-tab-cookie";
 import { buildDivisionTabDescriptors } from "@/lib/division-tabs";
@@ -43,12 +43,12 @@ export default async function BracketsPage({
   );
 
   return (
-    <div className="flex flex-col gap-4">
-      <Suspense
-        fallback={
-          <div className="h-40 animate-pulse rounded-xl bg-zinc-100/80" aria-hidden="true" />
-        }
-      >
+    <DivisionSwipeBoundary
+      tournamentSlug={tournamentSlug}
+      divisionIdsOrdered={divisionDescriptors.map((d) => d.id)}
+      defaultDivisionId={defaultDivisionTabId(divisionDescriptors)}
+    >
+      <div className="flex flex-col gap-4">
         <BracketsViewWithDivisionTabs
           poolsForTabs={poolsForTabs}
           brackets={brackets}
@@ -56,7 +56,7 @@ export default async function BracketsPage({
           initialResolvedDivisionId={resolvedDivisionId}
           tournamentTimezone={tournament.timezone}
         />
-      </Suspense>
-    </div>
+      </div>
+    </DivisionSwipeBoundary>
   );
 }

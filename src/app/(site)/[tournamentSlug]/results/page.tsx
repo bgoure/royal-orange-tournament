@@ -1,3 +1,4 @@
+import { DivisionSwipeBoundary } from "@/components/layout/DivisionSwipeBoundary";
 import { ResultsPageHeading } from "@/components/results/ResultsPageHeading";
 import { GameList } from "@/components/schedule/GameList";
 import { StandingsViewWithDivisionTabs } from "@/components/standings/StandingsViewWithDivisionTabs";
@@ -52,23 +53,29 @@ export default async function ResultsPage({
 
   return (
     <PullToRefresh>
-      <div className="flex flex-col gap-4">
-      <ResultsPageHeading />
-      <StandingsViewWithDivisionTabs
-        pools={pools}
-        initialResolvedDivisionId={resolvedDivisionId}
-      />
+      <DivisionSwipeBoundary
+        tournamentSlug={tournamentSlug}
+        divisionIdsOrdered={divisionDescriptors.map((d) => d.id)}
+        defaultDivisionId={defaultDivisionTabId(divisionDescriptors)}
+      >
+        <div className="flex flex-col gap-4">
+          <ResultsPageHeading />
+          <StandingsViewWithDivisionTabs
+            pools={pools}
+            initialResolvedDivisionId={resolvedDivisionId}
+          />
 
-      <section className="flex flex-col gap-3" aria-labelledby="completed-games-heading">
-        <SectionTitle id="completed-games-heading">Completed games</SectionTitle>
-        <GameList
-          games={completedGames}
-          timezone={tournament.timezone}
-          emptyMessage="No completed games for this division yet."
-          emptyHint="Finished games and scores appear here."
-        />
-      </section>
-      </div>
+          <section className="flex flex-col gap-3" aria-labelledby="completed-games-heading">
+            <SectionTitle id="completed-games-heading">Completed games</SectionTitle>
+            <GameList
+              games={completedGames}
+              timezone={tournament.timezone}
+              emptyMessage="No completed games for this division yet."
+              emptyHint="Finished games and scores appear here."
+            />
+          </section>
+        </div>
+      </DivisionSwipeBoundary>
     </PullToRefresh>
   );
 }

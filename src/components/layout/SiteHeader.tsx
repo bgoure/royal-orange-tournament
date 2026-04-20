@@ -1,6 +1,5 @@
 import Image from "next/image";
 import Link from "next/link";
-import { Suspense } from "react";
 import { SiteHeaderDivisionTabs } from "@/components/layout/SiteHeaderDivisionTabs";
 import type { DivisionTabDescriptor } from "@/lib/division-tabs";
 import { tournamentPath } from "@/lib/tournament-public-path";
@@ -48,21 +47,11 @@ export async function SiteHeader({
             </span>
           </Link>
           <div className="flex min-w-0 flex-1 justify-end">
-            <Suspense
-              fallback={
-                <div className="ml-auto flex min-h-11 w-fit flex-wrap justify-end gap-2" aria-hidden>
-                  <span className="h-11 w-12 animate-pulse rounded-full bg-white/15" />
-                  <span className="h-11 w-12 animate-pulse rounded-full bg-white/15" />
-                  <span className="h-11 w-12 animate-pulse rounded-full bg-white/15" />
-                </div>
-              }
-            >
-              <SiteHeaderDivisionTabs
-                tournamentSlug={tournamentSlug}
-                divisionDescriptors={divisionTabDescriptors}
-                cookieDivision={cookieDivision}
-              />
-            </Suspense>
+            <SiteHeaderDivisionTabs
+              tournamentSlug={tournamentSlug}
+              divisionDescriptors={divisionTabDescriptors}
+              cookieDivision={cookieDivision}
+            />
           </div>
         </div>
         <nav className="hidden gap-1 md:flex md:shrink-0">

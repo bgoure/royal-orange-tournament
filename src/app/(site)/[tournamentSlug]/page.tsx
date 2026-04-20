@@ -1,6 +1,7 @@
-import { Suspense, type ReactNode } from "react";
+import type { ReactNode } from "react";
 import Link from "next/link";
 import { AnnouncementList } from "@/components/announcements/AnnouncementList";
+import { DivisionSwipeBoundary } from "@/components/layout/DivisionSwipeBoundary";
 import { UpcomingGamesWithDivisionTabs } from "@/components/schedule/UpcomingGamesWithDivisionTabs";
 import { SectionTitle } from "@/components/ui/PublicHeading";
 import { WeatherSection } from "@/components/weather/WeatherSection";
@@ -69,47 +70,51 @@ export default async function TournamentHomePage({
 
   return (
     <PullToRefresh>
-      <div className="flex flex-col gap-4">
-      <div className="grid grid-cols-1 gap-3 md:grid-cols-2">
-        <div className="flex flex-col gap-3">
-          {hq ? (
-            <p className="text-sm font-semibold text-accent">
-              {formatHeadquartersHomeLabel(hq, tournament.locationLabel)}
-            </p>
-          ) : null}
-          <WeatherSection tournamentId={tournament.id} />
+      <DivisionSwipeBoundary
+        tournamentSlug={tournamentSlug}
+        divisionIdsOrdered={divisionDescriptors.map((d) => d.id)}
+        defaultDivisionId={defaultDivisionTabId(divisionDescriptors)}
+      >
+        <div className="flex flex-col gap-4">
+          <div className="grid grid-cols-1 gap-3 md:grid-cols-2">
+            <div className="flex flex-col gap-3">
+              {hq ? (
+                <p className="text-sm font-semibold text-accent">
+                  {formatHeadquartersHomeLabel(hq, tournament.locationLabel)}
+                </p>
+              ) : null}
+              <WeatherSection tournamentId={tournament.id} />
+              <section>
+                <SectionTitle className="mb-3">Upcoming games</SectionTitle>
+                <div>
+                  <UpcomingGamesWithDivisionTabs games={upcomingGames} timezone={tournament.timezone} />
+                </div>
+              </section>
+            </div>
+            <div className="grid grid-cols-2 gap-3">
+              <QuickLinkCard href={tp("schedule")} label="Schedule" description="Times, fields & matchups" icon={
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={1.5} className="size-7"><rect x="3" y="4" width="18" height="18" rx="2" /><path d="M16 2v4M8 2v4M3 10h18" /></svg>
+              } />
+              <QuickLinkCard href={tp("results")} label="Results" description="Standings & completed games" icon={
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={1.5} className="size-7"><path d="M8 21V16M12 21V10M16 21V4" /></svg>
+              } />
+              <QuickLinkCard href={tp("brackets")} label="Brackets" description="Playoff rounds" icon={
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={1.5} className="size-7"><path d="M4 4v6h4M4 7h4M20 4v6h-4M20 7h-4M4 20v-6h4M4 17h4M20 20v-6h-4M20 17h-4M8 7h2a2 2 0 012 2v6a2 2 0 01-2 2H8M16 7h-2a2 2 0 00-2 2v6a2 2 0 002 2h2" /></svg>
+              } />
+              <QuickLinkCard href={tp("locations")} label="Locations" description="Venues & maps" icon={
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={1.5} className="size-7"><path d="M12 2C8.13 2 5 5.13 5 9c0 5.25 7 13 7 13s7-7.75 7-13c0-3.87-3.13-7-7-7z" /><circle cx="12" cy="9" r="2.5" /></svg>
+              } />
+            </div>
+          </div>
+
           <section>
-            <SectionTitle className="mb-3">Upcoming games</SectionTitle>
+            <SectionTitle className="mb-3">Announcements</SectionTitle>
             <div>
-              <Suspense fallback={<div className="h-32 animate-pulse rounded-xl bg-zinc-100" aria-hidden />}>
-                <UpcomingGamesWithDivisionTabs games={upcomingGames} timezone={tournament.timezone} />
-              </Suspense>
+              <AnnouncementList items={announcements} />
             </div>
           </section>
         </div>
-        <div className="grid grid-cols-2 gap-3">
-          <QuickLinkCard href={tp("schedule")} label="Schedule" description="Times, fields & matchups" icon={
-            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={1.5} className="size-7"><rect x="3" y="4" width="18" height="18" rx="2" /><path d="M16 2v4M8 2v4M3 10h18" /></svg>
-          } />
-          <QuickLinkCard href={tp("results")} label="Results" description="Standings & completed games" icon={
-            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={1.5} className="size-7"><path d="M8 21V16M12 21V10M16 21V4" /></svg>
-          } />
-          <QuickLinkCard href={tp("brackets")} label="Brackets" description="Playoff rounds" icon={
-            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={1.5} className="size-7"><path d="M4 4v6h4M4 7h4M20 4v6h-4M20 7h-4M4 20v-6h4M4 17h4M20 20v-6h-4M20 17h-4M8 7h2a2 2 0 012 2v6a2 2 0 01-2 2H8M16 7h-2a2 2 0 00-2 2v6a2 2 0 002 2h2" /></svg>
-          } />
-          <QuickLinkCard href={tp("locations")} label="Locations" description="Venues & maps" icon={
-            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={1.5} className="size-7"><path d="M12 2C8.13 2 5 5.13 5 9c0 5.25 7 13 7 13s7-7.75 7-13c0-3.87-3.13-7-7-7z" /><circle cx="12" cy="9" r="2.5" /></svg>
-          } />
-        </div>
-      </div>
-
-      <section>
-        <SectionTitle className="mb-3">Announcements</SectionTitle>
-        <div>
-          <AnnouncementList items={announcements} />
-        </div>
-      </section>
-    </div>
+      </DivisionSwipeBoundary>
     </PullToRefresh>
   );
 }

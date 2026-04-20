@@ -86,7 +86,7 @@ export function SiteHeaderDivisionTabs({
   };
 
   return (
-    <div className="ml-auto w-fit min-w-0 max-w-full rounded-xl bg-white/95 p-1.5 shadow-sm ring-1 ring-white/20">
+    <div className="ml-auto min-w-0 max-w-full flex-1 rounded-xl bg-white/95 p-1.5 shadow-sm ring-1 ring-white/20 sm:w-fit sm:flex-initial">
       <DivisionSwitcher
         divisions={tabs}
         selectedDivision={selectedDivision}

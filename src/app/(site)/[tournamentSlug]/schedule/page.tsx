@@ -1,5 +1,5 @@
-import { Suspense } from "react";
 import { GameList } from "@/components/schedule/GameList";
+import { DivisionSwipeBoundary } from "@/components/layout/DivisionSwipeBoundary";
 import { PullToRefresh } from "@/components/ui/PullToRefresh";
 import { ScheduleFilters } from "@/components/schedule/ScheduleFilters";
 import { getDivisionTabCookie } from "@/lib/division-tab-cookie";
@@ -78,20 +78,22 @@ export default async function SchedulePage({
 
   return (
     <PullToRefresh>
-      <div className="flex flex-col gap-4">
-        <PageTitle>Schedule</PageTitle>
-        <Suspense
-          fallback={<div className="h-24 animate-pulse rounded-xl bg-zinc-100" aria-hidden />}
-        >
+      <DivisionSwipeBoundary
+        tournamentSlug={tournamentSlug}
+        divisionIdsOrdered={divisionTabs.map((d) => d.id)}
+        defaultDivisionId={defaultDivisionTabId(divisionTabs)}
+      >
+        <div className="flex flex-col gap-4">
+          <PageTitle>Schedule</PageTitle>
           <ScheduleFilters
             tournamentSlug={tournamentSlug}
             dayOptions={dayOptions}
             teams={filterTeams}
             fields={filterFields}
           />
-        </Suspense>
-        <GameList games={games} timezone={tournament.timezone} showScores={false} />
-      </div>
+          <GameList games={games} timezone={tournament.timezone} showScores={false} />
+        </div>
+      </DivisionSwipeBoundary>
     </PullToRefresh>
   );
 }
