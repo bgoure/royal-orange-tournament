@@ -46,12 +46,7 @@ export default async function TournamentHomePage({
     return null;
   }
 
-  const [announcements, upcomingGames, poolsForTabs, hq] = await Promise.all([
-    listAnnouncements(tournament.id),
-    listUpcomingGamesForHome(tournament.id),
-    listPoolsForDivisionTabs(tournament.id),
-    getHeadquartersLocation(tournament.id),
-  ]);
+  const poolsForTabs = await listPoolsForDivisionTabs(tournament.id);
 
   const divisionDescriptors = buildDivisionTabDescriptors(poolsForTabs);
   const cookieDivision = await getDivisionTabCookie();
@@ -62,6 +57,12 @@ export default async function TournamentHomePage({
     validDivisionIds,
     defaultDivisionTabId(divisionDescriptors),
   );
+
+  const [announcements, upcomingGames, hq] = await Promise.all([
+    listAnnouncements(tournament.id),
+    listUpcomingGamesForHome(tournament.id, resolvedDivisionId || undefined),
+    getHeadquartersLocation(tournament.id),
+  ]);
 
   const tp = (s: string) => tournamentPath(tournamentSlug, s);
 
@@ -79,12 +80,7 @@ export default async function TournamentHomePage({
             <SectionTitle className="mb-3">Upcoming games</SectionTitle>
             <div>
               <Suspense fallback={<div className="h-32 animate-pulse rounded-xl bg-zinc-100" aria-hidden />}>
-                <UpcomingGamesWithDivisionTabs
-                  poolsForTabs={poolsForTabs}
-                  games={upcomingGames}
-                  initialResolvedDivisionId={resolvedDivisionId}
-                  timezone={tournament.timezone}
-                />
+                <UpcomingGamesWithDivisionTabs games={upcomingGames} timezone={tournament.timezone} />
               </Suspense>
             </div>
           </section>

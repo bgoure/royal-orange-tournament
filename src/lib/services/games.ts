@@ -26,8 +26,8 @@ const gameListInclude = {
   bracketRound: true,
 } as const;
 
-/** Next N not-yet-finished games for the home page (by game number like schedule, excludes final/cancelled). */
-const UPCOMING_HOME_MAX = 7;
+/** Next N not-yet-finished games for the home page per active division tab (by game number like schedule, excludes final/cancelled). */
+const UPCOMING_HOME_MAX = 4;
 
 export type GameListFilters = {
   day?: string;
@@ -186,19 +186,24 @@ export async function listScheduleFilterFacets(
   return { dayOptions, teamIds, fieldIds };
 }
 
-export async function listUpcomingGamesForHome(tournamentId: string) {
+export async function listUpcomingGamesForHome(
+  tournamentId: string,
+  divisionTabId: string | undefined,
+) {
   const now = new Date();
-  const rows = await prisma.game.findMany({
-    where: {
-      AND: [
-        {
-          tournamentId,
-          status: { notIn: [GameStatus.FINAL, GameStatus.CANCELLED] },
-          OR: [{ scheduledAt: { gte: now } }, { status: GameStatus.LIVE }],
-        },
-        publicConsolationVisibilityClause(),
-      ],
+  const conditions: Prisma.GameWhereInput[] = [
+    { tournamentId },
+    {
+      status: { notIn: [GameStatus.FINAL, GameStatus.CANCELLED] },
+      OR: [{ scheduledAt: { gte: now } }, { status: GameStatus.LIVE }],
     },
+    publicConsolationVisibilityClause(),
+  ];
+  const divW = divisionTabGameWhere(divisionTabId);
+  if (divW) conditions.push(divW);
+
+  const rows = await prisma.game.findMany({
+    where: { AND: conditions },
     orderBy: { scheduledAt: "asc" },
     include: gameListInclude,
   });
