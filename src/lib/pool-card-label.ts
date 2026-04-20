@@ -89,3 +89,13 @@ export function poolStandingsSectionTitleClass(color: PoolCardLabelColor | null 
   if (color == null) return "border-royal text-royal";
   return STANDINGS_SECTION_TITLE[color];
 }
+
+/**
+ * Cyclic palette aligned with admin pool colour presets. Public standings use this by **pool row index**
+ * (0-based within the visible list) so the 1st / 2nd / … pool blocks look the same across division tabs;
+ * per-pool `cardLabelColor` still controls schedule/game card labels.
+ */
+export function poolStandingsColorByPoolIndex(poolIndex: number): PoolCardLabelColor {
+  const n = POOL_CARD_LABEL_OPTIONS.length;
+  return POOL_CARD_LABEL_OPTIONS[((poolIndex % n) + n) % n]!.value;
+}
