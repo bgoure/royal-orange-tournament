@@ -37,7 +37,7 @@ function P({ children }: { children: ReactNode }) {
   return <p>{children}</p>;
 }
 
-export function RoyalOrangeClassicRules() {
+export function RoyalOrangeClassicRules({ tournamentName }: { tournamentName: string }) {
   return (
     <div className="flex flex-col gap-5 pb-4">
       <div className="rounded-2xl border border-accent/30 bg-gradient-to-br from-royal-50 via-white to-accent-50/40 p-4 shadow-sm sm:p-5">
@@ -62,6 +62,12 @@ export function RoyalOrangeClassicRules() {
             );
           })}
         </div>
+      </div>
+
+      <div className="rounded-2xl border border-royal/20 border-l-4 border-l-accent bg-gradient-to-r from-royal-50/90 to-white px-4 py-4 shadow-md sm:px-6 sm:py-5">
+        <p className="text-lg font-bold leading-snug tracking-tight text-royal sm:text-xl">
+          Tournament rules for {tournamentName}.
+        </p>
       </div>
 
       <SectionShell title="Administrative Items">

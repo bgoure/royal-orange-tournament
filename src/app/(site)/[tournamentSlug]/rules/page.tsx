@@ -13,9 +13,8 @@ export default async function RulesPage({ params }: { params: Promise<{ tourname
     <div className="flex flex-col gap-4">
       <div>
         <PageTitle>Rules and Resources</PageTitle>
-        <p className="mt-2 text-sm text-zinc-600">Tournament rules for {tournament.name}.</p>
       </div>
-      <RoyalOrangeClassicRules />
+      <RoyalOrangeClassicRules tournamentName={tournament.name} />
     </div>
   );
 }
