@@ -2,7 +2,6 @@ import { Suspense } from "react";
 import { GameList } from "@/components/schedule/GameList";
 import { SchedulePullToRefresh } from "@/components/schedule/SchedulePullToRefresh";
 import { ScheduleFilters } from "@/components/schedule/ScheduleFilters";
-import { formatFieldWithLocation } from "@/lib/field-display";
 import { getDivisionTabCookie } from "@/lib/division-tab-cookie";
 import { buildDivisionTabDescriptors } from "@/lib/division-tabs";
 import {
@@ -73,7 +72,7 @@ export default async function SchedulePage({
     .filter((f) => fieldIds.has(f.id))
     .map((f) => ({
       id: f.id,
-      label: formatFieldWithLocation(f.name, f.location.name),
+      label: f.name,
     }))
     .sort((a, b) => a.label.localeCompare(b.label));
 
