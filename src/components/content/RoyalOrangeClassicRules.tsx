@@ -133,23 +133,23 @@ export function RoyalOrangeClassicRules({ tournamentName }: { tournamentName: st
         </P>
         <SubRules>
           <P>
-            <span className="font-semibold text-royal">iv.</span> Pitch Counts will be strictly enforced per OBA Arm
-            Care Rules listed in A12.01/13.01.
+            <span className="font-semibold text-royal">i.</span> Pitch Counts will be strictly enforced per OBA Arm Care
+            Rules listed in A12.01/13.01.
           </P>
           <P>
-            <span className="font-semibold text-royal">v.</span> The Home team is responsible for capturing the pitch
+            <span className="font-semibold text-royal">ii.</span> The Home team is responsible for capturing the pitch
             count in the pitch count app in real time (either pitch by pitch or at the end of each inning) during the
             game.
           </P>
           <P>
-            <span className="font-semibold text-royal">vi.</span> Pitch Counts of the &quot;Official Pitch Counter&quot;
+            <span className="font-semibold text-royal">iii.</span> Pitch Counts of the &quot;Official Pitch Counter&quot;
             will be the only numbers used by the Umpires during a game regardless of what numbers (Pitch Counts) any
             coach or spectator may have – no appeal or protest of the numbers recorded will be permitted. Note: It is
             recommended that coaches check the Pitch Count of a pitcher as recorded by the &quot;Official Pitch
             Counter&quot; at the conclusion of each inning.
           </P>
           <P>
-            <span className="font-semibold text-royal">vii.</span> Both coaches shall verify respective the Official
+            <span className="font-semibold text-royal">iv.</span> Both coaches shall verify respective the Official
             Pitch Counts immediately following the conclusion of the game acknowledging the Pitch Counts of the pitchers
             used during that game. In the event of a discrepancy in numbers, the Pitch Counts of the &quot;Official Pitch
             Counter&quot; shall stand. In the event a coach fails to enter or verify the Pitch Counts, the Pitch Counts
