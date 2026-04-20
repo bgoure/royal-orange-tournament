@@ -37,6 +37,11 @@ function P({ children }: { children: ReactNode }) {
   return <p>{children}</p>;
 }
 
+/** Indented sub-rules under a lettered item; matches pitch-count / mercy styling. */
+function SubRules({ children }: { children: ReactNode }) {
+  return <div className="space-y-3 border-l-2 border-accent/40 pl-4">{children}</div>;
+}
+
 export function RoyalOrangeClassicRules({ tournamentName }: { tournamentName: string }) {
   return (
     <div className="flex flex-col gap-5 pb-4">
@@ -82,11 +87,13 @@ export function RoyalOrangeClassicRules({ tournamentName }: { tournamentName: st
           <span className="font-semibold text-royal">c)</span> Managers and coaches are responsible for the conduct of
           their players, and anyone involved with the team, both on and off the field.
         </P>
-        <P>
-          <span className="font-semibold text-royal">i.</span> There will be Zero Tolerance for any form of abuse
-          directed toward umpires, game convenors, or the tournament director. Any such incidents may result in
-          immediate ejection from the grounds, forfeiture of the game, and will be reported to the OBA without delay.
-        </P>
+        <SubRules>
+          <P>
+            <span className="font-semibold text-royal">i.</span> There will be Zero Tolerance for any form of abuse
+            directed toward umpires, game convenors, or the tournament director. Any such incidents may result in
+            immediate ejection from the grounds, forfeiture of the game, and will be reported to the OBA without delay.
+          </P>
+        </SubRules>
         <P>
           <span className="font-semibold text-royal">d)</span> Tournament awards are set at fourteen (14) per team.
         </P>
@@ -97,18 +104,21 @@ export function RoyalOrangeClassicRules({ tournamentName }: { tournamentName: st
           <span className="font-semibold text-royal">e)</span> This is an 8-team tournament for each age group, divided
           into 2 divisions of 4 teams each. Each team will play 3 round robin games -- weather permitting.
         </P>
-        <P>
-          <span className="font-semibold text-royal">i.</span> The top 2 teams from each division will advance to the
-          knockout stage on Sunday.
-        </P>
-        <P>
-          <span className="font-semibold text-royal">ii.</span> The 3rd and 4th place finishers will have a consolation
-          game on Sunday.
-        </P>
-        <P>
-          <span className="font-semibold text-royal">iii.</span> In the event of inclement weather or other delays, the
-          tournament schedule may be revised -- updates will be sent via a WhatsApp group for Coaches and Managers.
-        </P>
+        <SubRules>
+          <P>
+            <span className="font-semibold text-royal">i.</span> The top 2 teams from each division will advance to the
+            knockout stage on Sunday.
+          </P>
+          <P>
+            <span className="font-semibold text-royal">ii.</span> The 3rd and 4th place finishers will have a consolation
+            game on Sunday.
+          </P>
+          <P>
+            <span className="font-semibold text-royal">iii.</span> In the event of inclement weather or other delays,
+            the tournament schedule may be revised -- updates will be sent via a WhatsApp group for Coaches and
+            Managers.
+          </P>
+        </SubRules>
         <P>
           <span className="font-semibold text-royal">f)</span> Games will commence promptly on time as per the schedule.
           Barring extenuating circumstances, any team unable to field nine (9) eligible players within 15 minutes of
@@ -121,7 +131,7 @@ export function RoyalOrangeClassicRules({ tournamentName }: { tournamentName: st
           <span className="font-semibold text-royal">g)</span> Baseball Ontario pitching rules will be strictly enforced
           (where applicable).
         </P>
-        <div className="space-y-3 border-l-2 border-accent/40 pl-4">
+        <SubRules>
           <P>
             <span className="font-semibold text-royal">iv.</span> Pitch Counts will be strictly enforced per OBA Arm
             Care Rules listed in A12.01/13.01.
@@ -147,7 +157,7 @@ export function RoyalOrangeClassicRules({ tournamentName }: { tournamentName: st
             Note: It is recommended that coaches meet the Convenor immediately following the game and enter and verify the
             Pitch Counts together.
           </P>
-        </div>
+        </SubRules>
       </SectionShell>
 
       <SectionShell title="Score Reporting">
@@ -157,10 +167,12 @@ export function RoyalOrangeClassicRules({ tournamentName }: { tournamentName: st
           promptly after the game at the concession stand near Lions 1 field, -- alternatively give the completed
           scoresheet to the assigned game convenor.
         </P>
-        <P>
-          <span className="font-semibold text-royal">i.</span> Note: Be sure to write the Game ID (generated by the
-          pitch count app) on the scoresheet.
-        </P>
+        <SubRules>
+          <P>
+            <span className="font-semibold text-royal">i.</span> Note: Be sure to write the Game ID (generated by the
+            pitch count app) on the scoresheet.
+          </P>
+        </SubRules>
       </SectionShell>
 
       <SectionShell title="Game Balls">
@@ -197,15 +209,17 @@ export function RoyalOrangeClassicRules({ tournamentName }: { tournamentName: st
           time, if an inning is not completed at 2-hour dead drop time limit, the score will revert to the previous
           completed inning. In event of delays due to weather:
         </P>
-        <P>
-          <span className="font-semibold text-royal">i.</span> If the game start time is delayed, a new scheduled start
-          time will be communicated by the tournament committee and be used as the new starting time for dead drop
-          rule.
-        </P>
-        <P>
-          <span className="font-semibold text-royal">ii.</span> If the weather delay occurs mid-game and the game is
-          suspended. The convenors will note the time the game stopped and accordingly adjust the dead drop time.
-        </P>
+        <SubRules>
+          <P>
+            <span className="font-semibold text-royal">i.</span> If the game start time is delayed, a new scheduled start
+            time will be communicated by the tournament committee and be used as the new starting time for dead drop
+            rule.
+          </P>
+          <P>
+            <span className="font-semibold text-royal">ii.</span> If the weather delay occurs mid-game and the game is
+            suspended. The convenors will note the time the game stopped and accordingly adjust the dead drop time.
+          </P>
+        </SubRules>
         <P>
           <span className="font-semibold text-royal">o)</span> Official Game: A game shall be official if curfew is
           reached, and the home team is leading after 3 ½ innings or the visitors are leading after 4 complete innings.
@@ -225,7 +239,7 @@ export function RoyalOrangeClassicRules({ tournamentName }: { tournamentName: st
           <span className="font-semibold text-royal">p)</span> The OBA mercy rule [RP.2.10(c)] will be in effect for all
           games including the championship game.
         </P>
-        <div className="space-y-2 border-l-2 border-accent/40 pl-4">
+        <SubRules>
           <P>
             <span className="font-semibold text-royal">viii.</span> 18 runs after 3 innings
           </P>
@@ -253,7 +267,7 @@ export function RoyalOrangeClassicRules({ tournamentName }: { tournamentName: st
         </P>
         <div className="space-y-3 rounded-xl border border-zinc-100 bg-zinc-50/80 p-3 sm:p-4">
           <p className="font-bold text-royal">RP7.3(a)</p>
-          <div className="space-y-2">
+          <SubRules>
             <P>
               <span className="font-semibold text-royal">i)</span> Teams with a forfeit loss are ineligible for
               tiebreakers.
@@ -281,13 +295,13 @@ export function RoyalOrangeClassicRules({ tournamentName }: { tournamentName: st
             <P>
               <span className="font-semibold text-royal">vii)</span> Coin Toss.
             </P>
-          </div>
+          </SubRules>
         </div>
         <div className="space-y-3 rounded-xl border border-zinc-100 bg-zinc-50/80 p-3 sm:p-4">
           <p className="font-bold text-royal">
             RP7.3(b) In all other circumstances (3 or more teams), the following will be utilized:
           </p>
-          <div className="space-y-2">
+          <SubRules>
             <P>
               <span className="font-semibold text-royal">i)</span> Teams with a forfeit loss are ineligible for
               tiebreakers.
@@ -311,7 +325,7 @@ export function RoyalOrangeClassicRules({ tournamentName }: { tournamentName: st
             <P>
               <span className="font-semibold text-royal">vi)</span> Coin Toss.
             </P>
-          </div>
+          </SubRules>
         </div>
         <P>
           <span className="font-semibold text-accent">Note #1:</span> Once the tie between 3 or more teams is broken and
