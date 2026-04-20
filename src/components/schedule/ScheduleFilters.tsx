@@ -12,6 +12,8 @@ import {
 } from "@/lib/schedule-pill-styles";
 import { tournamentPath } from "@/lib/tournament-public-path";
 
+export type ScheduleFiltersPathSegment = "schedule" | "results";
+
 type TeamOpt = { id: string; name: string };
 type FieldOpt = { id: string; label: string };
 type DayOpt = { value: string; label: string; summaryLabel: string };
@@ -71,12 +73,17 @@ export function ScheduleFilters({
   dayOptions,
   teams,
   fields,
+  pathSegment = "schedule",
+  filtersAriaLabel = "Schedule filters",
 }: {
   tournamentSlug: string;
   /** Calendar days (tournament timezone) that have at least one game for the current division scope */
   dayOptions: DayOpt[];
   teams: TeamOpt[];
   fields: FieldOpt[];
+  /** Public route under the tournament slug; controls `router.push` targets. */
+  pathSegment?: ScheduleFiltersPathSegment;
+  filtersAriaLabel?: string;
 }) {
   const router = useRouter();
   const sp = useSearchParams();
@@ -121,9 +128,8 @@ export function ScheduleFilters({
         else params.set(k, v);
       }
       const qs = params.toString();
-      const href = qs
-        ? `${tournamentPath(tournamentSlug, "schedule")}?${qs}`
-        : tournamentPath(tournamentSlug, "schedule");
+      const base = tournamentPath(tournamentSlug, pathSegment);
+      const href = qs ? `${base}?${qs}` : base;
       startTransition(() => {
         router.push(href);
         if (closeDrawer) {
@@ -132,7 +138,7 @@ export function ScheduleFilters({
         }
       });
     },
-    [router, sp, tournamentSlug],
+    [pathSegment, router, sp, tournamentSlug],
   );
 
   const summaryLine = useMemo(
@@ -162,7 +168,7 @@ export function ScheduleFilters({
         {...{ [DIVISION_SWIPE_IGNORE]: "" }}
         className="flex min-w-0 gap-2"
         role="group"
-        aria-label="Schedule filters"
+        aria-label={filtersAriaLabel}
       >
         <button
           type="button"

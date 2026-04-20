@@ -130,17 +130,24 @@ export async function listFinalGamesForTournament(tournamentId: string, filters:
   return sortGamesForScheduleList(rows);
 }
 
-/** Distinct days / teams / fields from games matching the division tab (same filter as listGames). */
-export async function listScheduleFilterFacets(
-  tournamentId: string,
-  divisionId: string | undefined,
-  timezone: string,
-): Promise<{
+export type ScheduleFilterFacets = {
   dayOptions: { value: string; label: string; summaryLabel: string }[];
   teamIds: Set<string>;
   fieldIds: Set<string>;
-}> {
-  const conditions: Prisma.GameWhereInput[] = [{ tournamentId }, publicConsolationVisibilityClause()];
+};
+
+/** Distinct days / teams / fields for games in this division scope (optional extra `where`, e.g. FINAL only). */
+async function listGameFilterFacets(
+  tournamentId: string,
+  divisionId: string | undefined,
+  timezone: string,
+  extraWhere?: Prisma.GameWhereInput,
+): Promise<ScheduleFilterFacets> {
+  const conditions: Prisma.GameWhereInput[] = [
+    { tournamentId },
+    publicConsolationVisibilityClause(),
+  ];
+  if (extraWhere) conditions.push(extraWhere);
   const divW = divisionTabGameWhere(divisionId);
   if (divW) conditions.push(divW);
 
@@ -194,6 +201,24 @@ export async function listScheduleFilterFacets(
     }));
 
   return { dayOptions, teamIds, fieldIds };
+}
+
+/** Distinct days / teams / fields from games matching the division tab (same filter as listGames). */
+export async function listScheduleFilterFacets(
+  tournamentId: string,
+  divisionId: string | undefined,
+  timezone: string,
+): Promise<ScheduleFilterFacets> {
+  return listGameFilterFacets(tournamentId, divisionId, timezone);
+}
+
+/** Distinct days / teams / fields from completed (FINAL) games only — Results page filters. */
+export async function listFinalGamesFilterFacets(
+  tournamentId: string,
+  divisionId: string | undefined,
+  timezone: string,
+): Promise<ScheduleFilterFacets> {
+  return listGameFilterFacets(tournamentId, divisionId, timezone, { status: GameStatus.FINAL });
 }
 
 export async function listUpcomingGamesForHome(
