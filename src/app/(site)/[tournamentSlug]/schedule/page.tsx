@@ -91,7 +91,12 @@ export default async function SchedulePage({
             teams={filterTeams}
             fields={filterFields}
           />
-          <GameList games={games} timezone={tournament.timezone} showScores={false} />
+          <GameList
+            games={games}
+            timezone={tournament.timezone}
+            showScores={false}
+            scheduleCompactLayout
+          />
         </div>
       </DivisionSwipeBoundary>
     </PullToRefresh>

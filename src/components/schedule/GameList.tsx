@@ -53,6 +53,7 @@ function GameCardInner({
   displayTimeZone,
   fallbackSeq,
   showScores = true,
+  scheduleCompactLayout = false,
 }: {
   g: GameWithTeams;
   compact?: boolean;
@@ -60,6 +61,8 @@ function GameCardInner({
   displayTimeZone?: string | null;
   fallbackSeq: number;
   showScores?: boolean;
+  /** Schedule page: dense two-row card, hide redundant SCHEDULED pill, meta top-right. */
+  scheduleCompactLayout?: boolean;
 }) {
   const st = statusStyles[g.status] ?? statusStyles.SCHEDULED;
   const hasScore = showScores && g.homeRuns != null && g.awayRuns != null;
@@ -72,11 +75,90 @@ function GameCardInner({
   const nameSize = liveProminent ? "text-base font-bold md:text-lg" : compact ? "text-xs font-bold" : "text-sm font-bold";
   const scoreNum = liveProminent ? "text-2xl" : compact ? "text-base" : "text-lg";
   const logoSize = compact ? "h-7 w-7 min-h-[28px] min-w-[28px]" : "h-8 w-8 min-h-8 min-w-8";
+  const scheduleLogoSize = "h-7 w-7 min-h-[28px] min-w-[28px] shrink-0";
 
-  const cardPadding = compact ? "min-h-[48px] px-3 py-3" : "p-3";
+  const cardPadding = scheduleCompactLayout
+    ? "px-3 py-2"
+    : compact
+      ? "min-h-[48px] px-3 py-3"
+      : "p-3";
   /** Width is set on horizontal row `<li>` so flex cannot under-size items and clip. */
   const compactShell = compact ? `w-full ${cardPadding}` : cardPadding;
   const surfaceGradient = brandCardGradientClass(g.id);
+
+  const showScheduleStatusPill =
+    scheduleCompactLayout && g.status !== "SCHEDULED" && g.status !== "LIVE";
+  const showLivePill = scheduleCompactLayout && isLive;
+
+  const metaTopRight = (
+    <div className="flex min-w-0 max-w-[min(100%,14rem)] flex-wrap items-center justify-end gap-x-1.5 gap-y-1 text-[10px] leading-tight text-zinc-500 sm:max-w-[55%]">
+      {showLivePill ? (
+        <span
+          className={`shrink-0 rounded-full px-2 py-0.5 text-[10px] font-bold uppercase ${st} ${
+            liveProminent ? "ring-2 ring-red-400/60" : "ring-2 ring-red-400/50"
+          }`}
+        >
+          LIVE
+        </span>
+      ) : null}
+      {showScheduleStatusPill ? (
+        <span className={`shrink-0 rounded-full px-2 py-0.5 text-[10px] font-bold uppercase ${st}`}>
+          {g.status}
+        </span>
+      ) : null}
+      <span className="inline-flex flex-wrap items-center justify-end gap-x-1.5">
+        <span className="inline-block shrink-0 rounded-md bg-accent px-2 py-0.5 text-[11px] font-bold tabular-nums text-white">
+          {gameIdDisplayLabel(g, fallbackSeq)}
+        </span>
+        {g.pool ? (
+          <>
+            <span className="text-zinc-400">·</span>
+            <span className={`font-medium ${poolCardLabelTextClass(g.pool.cardLabelColor)}`}>{g.pool.name}</span>
+          </>
+        ) : g.gameKind === GameKind.CONSOLATION && g.division ? (
+          <>
+            <span className="text-zinc-400">·</span>
+            <span className="font-medium text-zinc-600">
+              {g.division.name} · Friendly consolation
+            </span>
+          </>
+        ) : null}
+        <span className="text-zinc-400">·</span>
+        <span className="min-w-0 break-words text-right">{g.field.name}</span>
+      </span>
+    </div>
+  );
+
+  if (scheduleCompactLayout && !hasScore) {
+    return (
+      <div
+        className={`min-w-0 rounded-2xl border border-zinc-200 shadow-[0_1px_3px_rgba(0,0,0,0.1)] ${surfaceGradient} ${leftBorder} ${cardPadding}`}
+      >
+        <div className="flex items-start justify-between gap-2">
+          <p className="min-w-0 flex-1 text-[13px] font-bold leading-snug text-zinc-900">
+            {formatGameScheduledAt(g.scheduledAt, displayTimeZone)}
+          </p>
+          {metaTopRight}
+        </div>
+
+        <div className="mt-1.5 flex min-w-0 items-center gap-1.5 sm:gap-2">
+          <div className="flex min-w-0 flex-1 items-center gap-1.5">
+            <TeamLogoMark team={g.awayTeam} sizeClass={scheduleLogoSize} />
+            <span className="min-w-0 flex-1 line-clamp-2 break-words text-sm font-bold leading-[1.15] text-zinc-900">
+              {g.awayTeam?.name ?? "TBD"}
+            </span>
+          </div>
+          <span className="shrink-0 self-center text-sm font-normal text-accent">vs</span>
+          <div className="flex min-w-0 flex-1 items-center justify-end gap-1.5 text-right">
+            <span className="min-w-0 flex-1 line-clamp-2 break-words text-sm font-bold leading-[1.15] text-zinc-900">
+              {g.homeTeam?.name ?? "TBD"}
+            </span>
+            <TeamLogoMark team={g.homeTeam} sizeClass={scheduleLogoSize} />
+          </div>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div
@@ -178,6 +260,7 @@ function HorizontalGameRow({
   showScores = true,
   animateStagger,
   staggerOffset = 0,
+  scheduleCompactLayout = false,
 }: {
   rows: { g: GameWithTeams; fallbackSeq: number }[];
   liveProminent?: boolean;
@@ -185,6 +268,7 @@ function HorizontalGameRow({
   showScores?: boolean;
   animateStagger?: boolean;
   staggerOffset?: number;
+  scheduleCompactLayout?: boolean;
 }) {
   return (
     <ul
@@ -201,6 +285,7 @@ function HorizontalGameRow({
               displayTimeZone={displayTimeZone}
               fallbackSeq={fallbackSeq}
               showScores={showScores}
+              scheduleCompactLayout={scheduleCompactLayout}
             />
           </AnimatedListItem>
         ) : (
@@ -213,6 +298,7 @@ function HorizontalGameRow({
             displayTimeZone={displayTimeZone}
             fallbackSeq={fallbackSeq}
             showScores={showScores}
+            scheduleCompactLayout={scheduleCompactLayout}
           />
         ),
       )}
@@ -228,6 +314,7 @@ export function GameList({
   horizontal,
   showScores = true,
   animateStagger = false,
+  scheduleCompactLayout = false,
 }: {
   games: GameWithTeams[];
   timezone?: string;
@@ -236,6 +323,7 @@ export function GameList({
   horizontal?: boolean;
   showScores?: boolean;
   animateStagger?: boolean;
+  scheduleCompactLayout?: boolean;
 }) {
   if (games.length === 0) {
     return (
@@ -283,6 +371,7 @@ export function GameList({
             showScores={showScores}
             animateStagger={animateStagger}
             staggerOffset={0}
+            scheduleCompactLayout={scheduleCompactLayout}
           />
         ) : (
           <ul className="flex flex-col gap-2">
@@ -294,6 +383,7 @@ export function GameList({
                 displayTimeZone={timezone}
                 fallbackSeq={fallbackSeq}
                 showScores={showScores}
+                scheduleCompactLayout={scheduleCompactLayout}
               />
             ))}
           </ul>
@@ -312,6 +402,7 @@ export function GameList({
             showScores={showScores}
             animateStagger={animateStagger}
             staggerOffset={liveToday.length}
+            scheduleCompactLayout={scheduleCompactLayout}
           />
         ) : null}
       </div>
@@ -346,6 +437,7 @@ export function GameList({
               displayTimeZone={timezone}
               fallbackSeq={fallbackSeq}
               showScores={showScores}
+              scheduleCompactLayout={scheduleCompactLayout}
             />
           ))}
         </ul>
@@ -367,6 +459,7 @@ export function GameList({
                 displayTimeZone={timezone}
                 fallbackSeq={fallbackSeq}
                 showScores={showScores}
+                scheduleCompactLayout={scheduleCompactLayout}
               />
             ))}
           </ul>
