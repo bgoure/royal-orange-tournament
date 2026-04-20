@@ -10,6 +10,12 @@ This version has breaking changes — APIs, conventions, and file structure may 
 
 Tournament Hub (`tourney-app`) — a Next.js 16 / React 19 / TypeScript full-stack app for youth sports tournaments. Uses Prisma ORM with PostgreSQL, NextAuth v5 for auth, Tailwind CSS v4 for styling.
 
+### Git / deploy workflow
+
+- **Day-to-day work** happens on the **`staging`** Git branch (pushes deploy the **staging** Vercel project, e.g. `royal-orange.goure.ca`).
+- **Production** (`royalorange.ca`) updates only when **`staging` is merged into `main`** (the production Vercel project tracks **`main`**).
+- Do not assume **`main`** has the latest changes until that merge; treat **`staging`** as the integration branch for new work.
+
 ### Prerequisites
 
 PostgreSQL 16 must be running locally. The VM environment has it installed; start it with `sudo pg_ctlcluster 16 main start` if it's not already running. The database `tourney_dev` (user `tourney`/password `tourney`) must exist.
