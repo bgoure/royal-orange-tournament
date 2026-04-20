@@ -105,8 +105,22 @@ model Tournament {
   faqItems      FaqItem[]
   subscribers   TournamentSubscriber[]
   mediaAssets   MediaAsset[]
+  sponsors      TournamentSponsor[]
   createdAt     DateTime @default(now())
   updatedAt     DateTime @updatedAt
+}
+
+/// Home page sponsor logos (stored in DB; max 15 per tournament enforced in app code).
+model TournamentSponsor {
+  id           String     @id @default(cuid())
+  tournamentId String
+  tournament   Tournament @relation(fields: [tournamentId], references: [id], onDelete: Cascade)
+  sortOrder    Int        @default(0)
+  mimeType     String
+  data         Bytes
+  updatedAt    DateTime   @updatedAt
+
+  @@index([tournamentId])
 }
 
 /// Physical site / park. At most one row per tournament may have `isHeadquarters = true`

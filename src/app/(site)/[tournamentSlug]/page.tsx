@@ -129,7 +129,7 @@ export default async function TournamentHomePage({
             } />
           </div>
 
-          <SponsorMarquee />
+          <SponsorMarquee tournamentId={tournament.id} />
         </div>
       </DivisionSwipeBoundary>
     </PullToRefresh>
