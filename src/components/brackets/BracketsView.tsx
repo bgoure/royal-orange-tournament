@@ -4,6 +4,7 @@ import { Fragment, useMemo, useState, type Dispatch, type SetStateAction } from 
 import type { BracketRound } from "@prisma/client";
 import { formatBracketGameScheduledAt } from "@/lib/datetime-tournament";
 import { EmptyState } from "@/components/ui/EmptyState";
+import { SectionTitle } from "@/components/ui/PublicHeading";
 import { TeamLogoMark } from "@/components/ui/TeamLogo";
 import { BracketGameCard } from "@/components/brackets/BracketGameCard";
 import type { BracketWith, GameRow } from "@/components/brackets/bracket-types";
@@ -45,8 +46,10 @@ function BracketGrid({
             className={`flex min-h-[320px] w-[min(100%,260px)] shrink-0 flex-col ${ri > 0 ? "border-l border-dashed border-zinc-200 pl-6" : ""}`}
           >
             <div className="mb-3 shrink-0">
-              <h3 className="text-sm font-medium text-zinc-800">{r.name}</h3>
-              <p className="text-[11px] text-zinc-500">{roundTypeShortLabel(r.roundType)}</p>
+              <h3 className="border-b border-royal/30 pb-1 text-xs font-bold uppercase tracking-[0.06em] text-royal">
+                {r.name}
+              </h3>
+              <p className="mt-1 text-[11px] font-medium text-zinc-600">{roundTypeShortLabel(r.roundType)}</p>
             </div>
             <div className="flex flex-1 flex-col justify-around gap-4">
               {games.length === 0 ? (
@@ -99,7 +102,7 @@ function MobileBracketRoundNav({
       <div className="flex items-center justify-between gap-3">
         <button
           type="button"
-          className="min-h-11 shrink-0 rounded-lg border border-zinc-200 bg-white px-3 py-2 text-sm font-medium text-zinc-800 shadow-sm disabled:opacity-40"
+          className="min-h-11 shrink-0 rounded-lg border-2 border-zinc-200 bg-zinc-100 px-3 py-2 text-sm font-semibold text-zinc-800 shadow-sm transition-colors hover:border-zinc-300 hover:bg-zinc-200 disabled:opacity-40"
           disabled={safeIdx <= 0}
           onClick={() => setRoundIdx((i) => Math.max(0, i - 1))}
           aria-label="Previous round"
@@ -107,12 +110,12 @@ function MobileBracketRoundNav({
           ← Prev
         </button>
         <div className="min-w-0 flex-1 text-center">
-          <p className="text-sm font-semibold text-zinc-900">{r.name}</p>
-          <p className="text-xs text-zinc-500">{roundTypeShortLabel(r.roundType)}</p>
+          <p className="text-sm font-bold uppercase tracking-wide text-royal">{r.name}</p>
+          <p className="text-xs font-medium text-zinc-600">{roundTypeShortLabel(r.roundType)}</p>
         </div>
         <button
           type="button"
-          className="min-h-11 shrink-0 rounded-lg border border-zinc-200 bg-white px-3 py-2 text-sm font-medium text-zinc-800 shadow-sm disabled:opacity-40"
+          className="min-h-11 shrink-0 rounded-lg border-2 border-zinc-200 bg-zinc-100 px-3 py-2 text-sm font-semibold text-zinc-800 shadow-sm transition-colors hover:border-zinc-300 hover:bg-zinc-200 disabled:opacity-40"
           disabled={safeIdx >= visibleRounds.length - 1}
           onClick={() => setRoundIdx((i) => Math.min(visibleRounds.length - 1, i + 1))}
           aria-label="Next round"
@@ -271,7 +274,7 @@ function BracketMobileList({
 }
 
 const scopeBtn =
-  "min-h-10 rounded-full border px-3 py-2 text-sm font-medium transition-colors active:opacity-90";
+  "min-h-10 rounded-lg border-2 px-[14px] py-2 text-sm font-semibold transition-colors duration-200 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-royal focus-visible:ring-offset-2 active:opacity-90 md:min-h-10";
 
 function BracketSection({
   b,
@@ -317,10 +320,10 @@ function BracketSection({
 
   return (
     <section className="min-w-0" aria-labelledby={`bracket-heading-${b.id}`}>
-      <h2 id={`bracket-heading-${b.id}`} className="text-lg font-semibold text-zinc-900">
+      <SectionTitle id={`bracket-heading-${b.id}`} className="normal-case tracking-normal">
         {b.name}
-      </h2>
-      <p className="mt-1 text-xs text-zinc-500">
+      </SectionTitle>
+      <p className="mt-2 text-sm text-zinc-600">
         Schedule and field are set per game. Open slots show pool finish (e.g. division · pool · finish) or the
         previous round until teams advance. Use division tabs in the header to switch age groups.
       </p>
@@ -337,8 +340,8 @@ function BracketSection({
             aria-selected={scope === "all"}
             className={`${scopeBtn} ${
               scope === "all"
-                ? "border-royal bg-royal-50 text-royal shadow-sm"
-                : "border-zinc-200 bg-zinc-50 text-zinc-600"
+                ? "border-royal bg-royal text-white shadow-sm"
+                : "border-zinc-200 bg-zinc-100 text-zinc-800 hover:border-zinc-300 hover:bg-zinc-200"
             }`}
             onClick={() => setScope("all")}
           >
@@ -350,8 +353,8 @@ function BracketSection({
             aria-selected={scope === "main"}
             className={`${scopeBtn} ${
               scope === "main"
-                ? "border-royal bg-royal-50 text-royal shadow-sm"
-                : "border-zinc-200 bg-zinc-50 text-zinc-600"
+                ? "border-royal bg-royal text-white shadow-sm"
+                : "border-zinc-200 bg-zinc-100 text-zinc-800 hover:border-zinc-300 hover:bg-zinc-200"
             }`}
             onClick={() => setScope("main")}
           >
@@ -363,8 +366,8 @@ function BracketSection({
             aria-selected={scope === "consolation"}
             className={`${scopeBtn} ${
               scope === "consolation"
-                ? "border-royal bg-royal-50 text-royal shadow-sm"
-                : "border-zinc-200 bg-zinc-50 text-zinc-600"
+                ? "border-royal bg-royal text-white shadow-sm"
+                : "border-zinc-200 bg-zinc-100 text-zinc-800 hover:border-zinc-300 hover:bg-zinc-200"
             }`}
             onClick={() => setScope("consolation")}
           >
@@ -426,10 +429,8 @@ function ConsolationGamesSection({
   const sorted = [...games].sort((a, b) => a.scheduledAt.getTime() - b.scheduledAt.getTime());
 
   return (
-    <section className="mt-8 min-w-0 border-t border-zinc-200 pt-8" aria-labelledby="consolation-games-heading">
-      <h3 id="consolation-games-heading" className="text-base font-semibold text-zinc-900">
-        Consolation Games
-      </h3>
+    <section className="mt-6 min-w-0 border-t border-royal/15 pt-6" aria-labelledby="consolation-games-heading">
+      <SectionTitle id="consolation-games-heading">Consolation Games</SectionTitle>
       <div className="mt-4 hidden md:flex md:flex-col md:gap-4">
         {sorted.map((g, mi) => (
           <BracketGameCard
@@ -498,7 +499,7 @@ export function BracketsView({
   }
 
   return (
-    <div className="flex flex-col gap-12">
+    <div className="flex flex-col gap-6">
       {brackets.map((b) => (
         <Fragment key={b.id}>
           <BracketSection

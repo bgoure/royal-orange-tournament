@@ -45,10 +45,7 @@ export default async function BracketsPage({
 
   return (
     <div className="flex flex-col gap-4">
-      <div>
-        <PageTitle>Brackets</PageTitle>
-        <p className="mt-2 text-sm text-zinc-600">Playoff rounds and scheduled games.</p>
-      </div>
+      <PageTitle>Brackets</PageTitle>
       <Suspense
         fallback={
           <div className="h-40 animate-pulse rounded-xl bg-zinc-100/80" aria-hidden="true" />

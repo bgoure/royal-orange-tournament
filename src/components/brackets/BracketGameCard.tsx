@@ -51,11 +51,11 @@ export function BracketGameCard({
 
   return (
     <article
-      className="rounded-xl border border-zinc-200 bg-white shadow-sm"
+      className="min-w-0 rounded-2xl border border-zinc-200 border-l-2 border-l-royal/90 bg-white shadow-[0_1px_3px_rgba(0,0,0,0.1)]"
       aria-label={`Bracket match ${matchIndex + 1}`}
     >
-      <div className="border-b border-zinc-100 bg-zinc-50/80 px-3 py-1.5">
-        <p className="text-[11px] leading-snug text-zinc-600">
+      <div className="border-b border-royal/10 bg-royal-50/50 px-3 py-1.5">
+        <p className="text-[11px] font-medium leading-snug text-zinc-700">
           {scheduled}
           <span className="mx-1 text-zinc-300">·</span>
           {game.field.name}
