@@ -4,28 +4,46 @@ import { sponsorLogoUrl } from "@/lib/sponsor-logo";
 
 const PLACEHOLDER_IDS = [0, 1, 2, 3, 4] as const;
 
+/** Inline “classic” baseball: cream sphere + mirrored red seam curves + stitch ticks. */
 function BaseballMark({ className = "" }: { className?: string }) {
   return (
     <svg
       className={className}
-      viewBox="0 0 48 48"
+      viewBox="0 0 64 64"
       fill="none"
       xmlns="http://www.w3.org/2000/svg"
       aria-hidden
     >
-      <circle cx="24" cy="24" r="20" className="fill-white stroke-zinc-300" strokeWidth="1.5" />
+      <circle cx="32" cy="32" r="28" className="fill-[#f5f4f0] stroke-zinc-400/90" strokeWidth="1.5" />
+      <ellipse cx="26" cy="24" rx="14" ry="11" fill="#ffffff" opacity={0.45} />
+      {/* Horseshoe seams (mirrored) */}
       <path
-        d="M14 18c2.5 2 6.5 3.5 10 3.5s7.5-1.5 10-3.5M14 30c2.5-2 6.5-3.5 10-3.5s7.5 1.5 10 3.5"
-        className="stroke-red-600"
-        strokeWidth="1.25"
+        d="M 38 9 C 52 20 52 44 38 55"
+        className="stroke-red-700"
+        strokeWidth="2.4"
         strokeLinecap="round"
+        fill="none"
       />
       <path
-        d="M18 14c1.5 3 2.5 7 2.5 10s-1 7-2.5 10M30 14c-1.5 3-2.5 7-2.5 10s1 7 2.5 10"
-        className="stroke-red-600"
-        strokeWidth="1.25"
+        d="M 26 9 C 12 20 12 44 26 55"
+        className="stroke-red-700"
+        strokeWidth="2.4"
         strokeLinecap="round"
+        fill="none"
       />
+      {/* Stitch ticks along seams */}
+      <g className="stroke-red-700" strokeWidth="1.8" strokeLinecap="round">
+        <path d="M 41 16 l 3 -2" />
+        <path d="M 44 24 l 3.5 -1" />
+        <path d="M 44 32 h 4" />
+        <path d="M 44 40 l 3.5 1" />
+        <path d="M 41 48 l 3 2" />
+        <path d="M 23 16 l -3 -2" />
+        <path d="M 20 24 l -3.5 -1" />
+        <path d="M 20 32 h -4" />
+        <path d="M 20 40 l -3.5 1" />
+        <path d="M 23 48 l -3 2" />
+      </g>
     </svg>
   );
 }
