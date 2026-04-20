@@ -64,8 +64,8 @@ export function RoyalOrangeClassicRules({ tournamentName }: { tournamentName: st
         </div>
       </div>
 
-      <div className="min-w-0 rounded-2xl border border-royal/20 border-l-4 border-l-accent bg-gradient-to-r from-royal-50/90 to-white px-4 py-3 shadow-md sm:px-6 sm:py-4">
-        <p className="overflow-x-auto whitespace-nowrap text-[clamp(0.8125rem,4vw,1.125rem)] font-bold leading-none tracking-tight text-royal [scrollbar-width:thin]">
+      <div className="min-w-0 overflow-hidden rounded-2xl border border-royal/20 border-l-4 border-l-accent bg-gradient-to-r from-royal-50/90 to-white px-3 py-3 shadow-md sm:px-6 sm:py-4">
+        <p className="whitespace-nowrap text-[clamp(0.5625rem,2.95vw,1.125rem)] font-bold leading-none tracking-tight text-royal">
           {tournamentName} Rules.
         </p>
       </div>
