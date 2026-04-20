@@ -1,4 +1,5 @@
 import type { Announcement } from "@prisma/client";
+import { AnimatedListItem } from "@/components/ui/AnimatedListItem";
 
 function formatTime(d: Date) {
   return new Intl.DateTimeFormat(undefined, {
@@ -14,13 +15,12 @@ export function AnnouncementList({ items }: { items: Announcement[] }) {
 
   return (
     <ul className="flex flex-col gap-3">
-      {items.map((a) => (
-        <li
+      {items.map((a, i) => (
+        <AnimatedListItem
           key={a.id}
+          index={i}
           className={`rounded-xl border px-4 py-3 ${
-            a.priority
-              ? "border-amber-200 bg-amber-50/80"
-              : "border-zinc-200 bg-white shadow-sm"
+            a.priority ? "border-amber-200 bg-amber-50/80" : "border-zinc-200 bg-white shadow-sm"
           }`}
         >
           <div className="flex flex-wrap items-baseline justify-between gap-2">
@@ -30,7 +30,7 @@ export function AnnouncementList({ items }: { items: Announcement[] }) {
             </time>
           </div>
           <p className="mt-2 whitespace-pre-wrap text-sm leading-relaxed text-zinc-700">{a.body}</p>
-        </li>
+        </AnimatedListItem>
       ))}
     </ul>
   );

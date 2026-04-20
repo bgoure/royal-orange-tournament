@@ -17,6 +17,7 @@ export function UpcomingGamesWithDivisionTabs({
         emptyMessage="No upcoming games scheduled for this division."
         emptyHint="Check another division or open the full schedule."
         horizontal
+        animateStagger
       />
     </div>
   );

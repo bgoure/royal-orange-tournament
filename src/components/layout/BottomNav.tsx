@@ -2,11 +2,22 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
+import { useCallback, useState } from "react";
+import { Drawer } from "vaul";
 import { tournamentPath } from "@/lib/tournament-public-path";
 
 export function BottomNav({ tournamentSlug }: { tournamentSlug: string }) {
   const pathname = usePathname();
   const tp = (...s: string[]) => tournamentPath(tournamentSlug, ...s);
+  const [moreOpen, setMoreOpen] = useState(false);
+
+  const moreLinks = [
+    { href: tp("locations"), label: "Locations", description: "Venues & maps" },
+    { href: tp("rules"), label: "Rules", description: "Tournament rules & resources" },
+    { href: tp("faq"), label: "FAQ", description: "Frequently asked questions" },
+    { href: tp("settings"), label: "Settings", description: "App preferences" },
+    { href: tp("social"), label: "Social", description: "Follow Baseball Milton" },
+  ] as const;
 
   const tabs = [
     {
@@ -50,55 +61,92 @@ export function BottomNav({ tournamentSlug }: { tournamentSlug: string }) {
         </svg>
       ),
     },
-    {
-      key: "more" as const,
-      href: tp("more"),
-      label: "More",
-      matchPrefixes: [tp("rules"), tp("faq"), tp("locations"), tp("more"), tp("settings"), tp("social")],
-      icon: (
-        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round" className="size-6">
-          <circle cx="12" cy="12" r="1" /><circle cx="12" cy="5" r="1" /><circle cx="12" cy="19" r="1" />
-        </svg>
-      ),
-    },
   ] as const;
+
+  const matchPrefixes = [
+    tp("rules"),
+    tp("faq"),
+    tp("locations"),
+    tp("more"),
+    tp("settings"),
+    tp("social"),
+  ];
 
   const parts = pathname.split("/").filter(Boolean);
   const firstSeg = parts[0] ?? "";
   const secondSeg = parts[1] ?? "";
 
+  const morePathActive =
+    firstSeg === tournamentSlug &&
+    matchPrefixes.some((p) => pathname === p || pathname.startsWith(`${p}/`));
+
+  const pillClass = (active: boolean) =>
+    `flex min-h-[62px] min-w-[62px] flex-col items-center justify-center gap-0.5 rounded-xl px-2 py-1 text-[11px] font-semibold leading-tight transition-colors active:scale-[0.98] ${
+      active ? "bg-royal-50 text-royal ring-2 ring-royal/25" : "text-accent active:text-accent-700"
+    }`;
+
+  const closeMore = useCallback(() => setMoreOpen(false), []);
+
   return (
-    <nav className="fixed bottom-0 left-0 right-0 z-50 border-t border-zinc-200/80 bg-white/95 backdrop-blur-md pb-[env(safe-area-inset-bottom)] md:hidden">
-      <div className="mx-auto flex min-h-[62px] max-w-lg items-center justify-around px-2 py-1">
-        {tabs.map((t) => {
-          let active = false;
-          if (firstSeg !== tournamentSlug) {
-            active = false;
-          } else if (t.key === "home") {
-            active = secondSeg === "";
-          } else if (t.key === "more") {
-            active =
-              "matchPrefixes" in t &&
-              t.matchPrefixes.some((p) => pathname === p || pathname.startsWith(`${p}/`));
-          } else {
-            active = secondSeg === t.key;
-          }
-          return (
-            <Link
-              key={t.href}
-              href={t.href}
-              className={`flex min-h-[62px] min-w-[62px] flex-col items-center justify-center gap-0.5 rounded-xl px-2 py-1 text-[11px] font-semibold leading-tight transition-colors active:scale-[0.98] ${
-                active
-                  ? "bg-royal-50 text-royal ring-2 ring-royal/25"
-                  : "text-accent active:text-accent-700"
-              }`}
+    <Drawer.Root open={moreOpen} onOpenChange={setMoreOpen}>
+        <nav className="fixed bottom-0 left-0 right-0 z-50 border-t border-zinc-200/80 bg-white/95 backdrop-blur-md pb-[env(safe-area-inset-bottom)] md:hidden">
+          <div className="mx-auto flex min-h-[62px] max-w-lg items-center justify-around px-2 py-1">
+            {tabs.map((t) => {
+              let active = false;
+              if (firstSeg !== tournamentSlug) {
+                active = false;
+              } else if (t.key === "home") {
+                active = secondSeg === "";
+              } else {
+                active = secondSeg === t.key;
+              }
+              return (
+                <Link key={t.href} href={t.href} className={pillClass(active)}>
+                  {t.icon}
+                  {t.label}
+                </Link>
+              );
+            })}
+            <button
+              type="button"
+              onClick={() => setMoreOpen(true)}
+              className={pillClass(morePathActive || moreOpen)}
+              aria-expanded={moreOpen}
+              aria-haspopup="dialog"
             >
-              {t.icon}
-              {t.label}
-            </Link>
-          );
-        })}
-      </div>
-    </nav>
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round" className="size-6">
+                <circle cx="12" cy="12" r="1" />
+                <circle cx="12" cy="5" r="1" />
+                <circle cx="12" cy="19" r="1" />
+              </svg>
+              More
+            </button>
+          </div>
+        </nav>
+
+        <Drawer.Portal>
+          <Drawer.Overlay className="fixed inset-0 z-[60] bg-black/40" />
+          <Drawer.Content className="fixed bottom-0 left-0 right-0 z-[60] mt-24 flex max-h-[85vh] flex-col rounded-t-2xl bg-white pb-[env(safe-area-inset-bottom)] outline-none">
+            <Drawer.Title className="sr-only">More</Drawer.Title>
+            <div className="flex shrink-0 justify-center pt-3">
+              <Drawer.Handle className="h-1 w-10 rounded-full bg-zinc-300" />
+            </div>
+            <ul className="min-h-0 flex-1 overflow-y-auto px-4 pb-4 pt-4">
+              {moreLinks.map((item) => (
+                <li key={item.href} className="border-b border-zinc-100 last:border-0">
+                  <Link
+                    href={item.href}
+                    onClick={closeMore}
+                    className="flex min-h-[52px] flex-col justify-center py-3 active:bg-zinc-50"
+                  >
+                    <span className="font-semibold text-zinc-900">{item.label}</span>
+                    <span className="text-xs text-zinc-500">{item.description}</span>
+                  </Link>
+                </li>
+              ))}
+            </ul>
+          </Drawer.Content>
+        </Drawer.Portal>
+    </Drawer.Root>
   );
 }

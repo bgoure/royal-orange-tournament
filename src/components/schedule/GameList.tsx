@@ -4,6 +4,7 @@ import { formatGameScheduledAt, formatGameScheduledAtShort } from "@/lib/datetim
 import { poolCardLabelTextClass } from "@/lib/pool-card-label";
 import { EmptyState } from "@/components/ui/EmptyState";
 import { TeamLogoMark } from "@/components/ui/TeamLogo";
+import { AnimatedListItem } from "@/components/ui/AnimatedListItem";
 import type { TeamWithPublicLogo } from "@/lib/team-logo";
 
 export type GameWithTeams = Game & {
@@ -16,7 +17,8 @@ export type GameWithTeams = Game & {
 
 const statusStyles: Record<string, string> = {
   SCHEDULED: "bg-royal text-white",
-  LIVE: "bg-accent text-white shadow-sm motion-safe:animate-pulse motion-reduce:animate-none",
+  LIVE:
+    "bg-red-500 text-white shadow-[0_0_8px_rgba(239,68,68,0.7)] motion-safe:animate-pulse motion-reduce:animate-none",
   FINAL: "bg-royal-50 text-royal",
   POSTPONED: "bg-zinc-200 text-zinc-700",
   CANCELLED: "bg-zinc-200 text-zinc-600 line-through",
@@ -44,7 +46,7 @@ function gameIdDisplayLabel(g: GameWithTeams, fallbackSeq: number): string {
   return `G${fallbackSeq}`;
 }
 
-function GameCard({
+function GameCardInner({
   g,
   compact,
   liveProminent,
@@ -55,11 +57,8 @@ function GameCard({
   g: GameWithTeams;
   compact?: boolean;
   liveProminent?: boolean;
-  /** Tournament IANA zone — same wall-clock for SSR and browser. */
   displayTimeZone?: string | null;
-  /** Used only when `g.gameNumber` is empty (matches list order in this view). */
   fallbackSeq: number;
-  /** When false (schedule-only view), never show runs even if recorded. */
   showScores?: boolean;
 }) {
   const st = statusStyles[g.status] ?? statusStyles.SCHEDULED;
@@ -67,7 +66,7 @@ function GameCard({
   const isLive = g.status === "LIVE";
 
   const leftBorder = isLive
-    ? "border-l-2 border-l-accent/90"
+    ? "border-l-2 border-l-red-500 shadow-[0_0_12px_rgba(239,68,68,0.35)]"
     : "border-l-2 border-l-royal/90";
 
   const nameSize = liveProminent ? "text-base font-bold md:text-lg" : compact ? "text-xs font-bold" : "text-sm font-bold";
@@ -79,7 +78,7 @@ function GameCard({
     "w-[min(200px,calc(100vw-2rem))] max-[374px]:w-[min(180px,calc(100vw-2.5rem))] shrink-0";
 
   return (
-    <li
+    <div
       className={`min-w-0 rounded-2xl border border-zinc-200 bg-white shadow-[0_1px_3px_rgba(0,0,0,0.1)] ${leftBorder} ${
         compact ? `${compactWidth} ${cardPadding}` : cardPadding
       }`}
@@ -92,7 +91,7 @@ function GameCard({
         </p>
         <span
           className={`shrink-0 rounded-full px-2 py-0.5 text-[10px] font-bold uppercase ${st} ${
-            isLive && liveProminent ? "ring-2 ring-accent/40" : ""
+            isLive && liveProminent ? "ring-2 ring-red-400/60" : isLive ? "ring-2 ring-red-400/50" : ""
           }`}
         >
           {g.status === "LIVE" ? "LIVE" : g.status}
@@ -154,6 +153,14 @@ function GameCard({
         <span className="mx-1.5 text-zinc-400">·</span>
         {g.field.name}
       </p>
+    </div>
+  );
+}
+
+function GameCard(props: Parameters<typeof GameCardInner>[0]) {
+  return (
+    <li className="min-w-0">
+      <GameCardInner {...props} />
     </li>
   );
 }
@@ -163,25 +170,42 @@ function HorizontalGameRow({
   liveProminent,
   displayTimeZone,
   showScores = true,
+  animateStagger,
+  staggerOffset = 0,
 }: {
   rows: { g: GameWithTeams; fallbackSeq: number }[];
   liveProminent?: boolean;
   displayTimeZone?: string | null;
   showScores?: boolean;
+  animateStagger?: boolean;
+  staggerOffset?: number;
 }) {
   return (
     <ul className="-mx-4 flex snap-x snap-mandatory gap-3 overflow-x-auto scroll-smooth px-4 pb-2 [scrollbar-width:thin]">
-      {rows.map(({ g, fallbackSeq }) => (
-        <GameCard
-          key={g.id}
-          g={g}
-          compact
-          liveProminent={liveProminent}
-          displayTimeZone={displayTimeZone}
-          fallbackSeq={fallbackSeq}
-          showScores={showScores}
-        />
-      ))}
+      {rows.map(({ g, fallbackSeq }, i) =>
+        animateStagger ? (
+          <AnimatedListItem key={g.id} index={staggerOffset + i} className="min-w-0">
+            <GameCardInner
+              g={g}
+              compact
+              liveProminent={liveProminent}
+              displayTimeZone={displayTimeZone}
+              fallbackSeq={fallbackSeq}
+              showScores={showScores}
+            />
+          </AnimatedListItem>
+        ) : (
+          <GameCard
+            key={g.id}
+            g={g}
+            compact
+            liveProminent={liveProminent}
+            displayTimeZone={displayTimeZone}
+            fallbackSeq={fallbackSeq}
+            showScores={showScores}
+          />
+        ),
+      )}
     </ul>
   );
 }
@@ -193,14 +217,15 @@ export function GameList({
   emptyHint,
   horizontal,
   showScores = true,
+  animateStagger = false,
 }: {
   games: GameWithTeams[];
   timezone?: string;
   emptyMessage?: string;
   emptyHint?: string;
   horizontal?: boolean;
-  /** When false, schedule-style matchup lines only (no runs), regardless of game state. */
   showScores?: boolean;
+  animateStagger?: boolean;
 }) {
   if (games.length === 0) {
     return (
@@ -241,7 +266,14 @@ export function GameList({
           <span className="text-xs font-medium text-accent-800">Happening now</span>
         </div>
         {horizontal ? (
-          <HorizontalGameRow rows={liveToday} liveProminent displayTimeZone={timezone} showScores={showScores} />
+          <HorizontalGameRow
+            rows={liveToday}
+            liveProminent
+            displayTimeZone={timezone}
+            showScores={showScores}
+            animateStagger={animateStagger}
+            staggerOffset={0}
+          />
         ) : (
           <ul className="flex flex-col gap-3">
             {liveToday.map(({ g, fallbackSeq }) => (
@@ -264,7 +296,13 @@ export function GameList({
       <div className="flex flex-col gap-4">
         {liveBlock}
         {rest.length > 0 ? (
-          <HorizontalGameRow rows={rest} displayTimeZone={timezone} showScores={showScores} />
+          <HorizontalGameRow
+            rows={rest}
+            displayTimeZone={timezone}
+            showScores={showScores}
+            animateStagger={animateStagger}
+            staggerOffset={liveToday.length}
+          />
         ) : null}
       </div>
     );
