@@ -41,9 +41,8 @@ export function RoyalOrangeClassicRules() {
   return (
     <div className="flex flex-col gap-5 pb-4">
       <div className="rounded-2xl border border-accent/30 bg-gradient-to-br from-royal-50 via-white to-accent-50/40 p-4 shadow-sm sm:p-5">
-        <p className="text-sm font-semibold text-royal">Tournament Information and Rules:</p>
-        <p className="mt-4 text-xs font-semibold uppercase tracking-wide text-zinc-700">External Resources</p>
-        <div className="mt-2 flex flex-col gap-2 sm:flex-row sm:flex-wrap">
+        <p className="text-sm font-semibold text-royal">External Resources</p>
+        <div className="mt-3 flex flex-col gap-2 sm:flex-row sm:flex-wrap">
           {EXTERNAL_RESOURCES.map((item, i) => {
             const royal = i % 2 === 0;
             return (
