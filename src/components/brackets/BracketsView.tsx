@@ -179,59 +179,73 @@ function MobileMatchRow({
   const final = game.status === "FINAL" && game.homeRuns != null && game.awayRuns != null;
   const awayW = final && game.awayRuns! > game.homeRuns!;
   const homeW = final && game.homeRuns! > game.awayRuns!;
+  const t = formatBracketGameScheduledAt(game.scheduledAt, timeZone, game.schedulePlaceholder);
+  const scheduled =
+    game.gameNumber != null && game.gameNumber !== ""
+      ? `Game #${game.gameNumber} · ${t}`
+      : t;
 
   return (
-    <li className="rounded-xl border border-zinc-200 bg-white px-4 py-3 shadow-sm">
-      <p className="text-[10px] font-semibold uppercase tracking-wide text-zinc-500">{roundLabel}</p>
-      <div className="mt-2 flex min-w-0 items-center justify-between gap-2">
-        <div className="flex min-w-0 flex-1 items-center gap-2">
-          <TeamLogoMark team={away.team} />
-          <span className={`min-w-0 truncate text-sm leading-snug ${slotLineTextClass(away)}`}>
-            {away.primary}
-          </span>
-        </div>
-        {final ? (
-          <span
-            className={`shrink-0 text-lg font-bold tabular-nums ${awayW ? "text-royal" : "text-zinc-400"}`}
-          >
-            {game.awayRuns}
-            {awayW ? (
-              <span className="ml-0.5 text-sm text-royal" aria-hidden>
-                ✓
-              </span>
-            ) : null}
-          </span>
-        ) : null}
-      </div>
-      <p className="mt-2 text-center text-[10px] text-zinc-400">vs</p>
-      <div className="flex min-w-0 items-center justify-between gap-2">
-        <div className="flex min-w-0 flex-1 items-center gap-2">
-          <TeamLogoMark team={home.team} />
-          <span className={`min-w-0 truncate text-sm leading-snug ${slotLineTextClass(home)}`}>
-            {home.primary}
-          </span>
-        </div>
-        {final ? (
-          <span
-            className={`shrink-0 text-lg font-bold tabular-nums ${homeW ? "text-royal" : "text-zinc-400"}`}
-          >
-            {game.homeRuns}
-            {homeW ? (
-              <span className="ml-0.5 text-sm text-royal" aria-hidden>
-                ✓
-              </span>
-            ) : null}
-          </span>
-        ) : null}
-      </div>
-      {away.secondary ? <p className="mt-1 text-xs text-zinc-500">{away.secondary}</p> : null}
-      {home.secondary ? <p className="mt-0.5 text-xs text-zinc-500">{home.secondary}</p> : null}
-      {final ? (
-        <p className="mt-2 border-t border-zinc-100 pt-2 text-center text-xs text-zinc-500">Final</p>
-      ) : (
-        <p className="mt-2 text-xs text-zinc-500">
-          Upcoming · {formatBracketGameScheduledAt(game.scheduledAt, timeZone, game.schedulePlaceholder)}
+    <li className="min-w-0 list-none rounded-2xl border border-zinc-200 border-l-2 border-l-royal/90 bg-white shadow-[0_1px_3px_rgba(0,0,0,0.1)]">
+      <div className="border-b border-royal/10 bg-royal-50/50 px-3 py-1.5">
+        <p className="text-[11px] font-bold uppercase tracking-[0.06em] text-royal">{roundLabel}</p>
+        <p className="mt-0.5 text-[11px] font-medium leading-snug text-zinc-700">
+          {scheduled}
+          <span className="mx-1 text-zinc-300">·</span>
+          {game.field.name}
         </p>
+      </div>
+      <div className="divide-y divide-zinc-100 px-3 py-0 text-sm">
+        <div className="py-2.5">
+          <div className="flex min-w-0 items-center justify-between gap-2">
+            <div className="flex min-w-0 flex-1 items-center gap-2">
+              <TeamLogoMark team={away.team} />
+              <span className={`min-w-0 truncate leading-snug ${slotLineTextClass(away)}`}>{away.primary}</span>
+            </div>
+            {final ? (
+              <span
+                className={`shrink-0 text-lg font-bold tabular-nums ${awayW ? "text-royal" : "text-zinc-400"}`}
+                aria-label={awayW ? "Away wins" : undefined}
+              >
+                {game.awayRuns}
+                {awayW ? (
+                  <span className="ml-1 text-sm font-semibold text-royal" aria-hidden>
+                    ✓
+                  </span>
+                ) : null}
+              </span>
+            ) : null}
+          </div>
+          {away.secondary ? <p className="mt-0.5 text-xs text-zinc-500">{away.secondary}</p> : null}
+        </div>
+        <div className="py-2.5">
+          <p className="text-[10px] font-medium uppercase tracking-wide text-zinc-400">vs</p>
+          <div className="mt-0.5 flex min-w-0 items-center justify-between gap-2">
+            <div className="flex min-w-0 flex-1 items-center gap-2">
+              <TeamLogoMark team={home.team} />
+              <span className={`min-w-0 truncate leading-snug ${slotLineTextClass(home)}`}>{home.primary}</span>
+            </div>
+            {final ? (
+              <span
+                className={`shrink-0 text-lg font-bold tabular-nums ${homeW ? "text-royal" : "text-zinc-400"}`}
+                aria-label={homeW ? "Home wins" : undefined}
+              >
+                {game.homeRuns}
+                {homeW ? (
+                  <span className="ml-1 text-sm font-semibold text-royal" aria-hidden>
+                    ✓
+                  </span>
+                ) : null}
+              </span>
+            ) : null}
+          </div>
+          {home.secondary ? <p className="mt-0.5 text-xs text-zinc-500">{home.secondary}</p> : null}
+        </div>
+      </div>
+      {final ? (
+        <p className="border-t border-zinc-100 px-3 py-1.5 text-[11px] text-zinc-500">Final</p>
+      ) : (
+        <p className="border-t border-zinc-100 px-3 py-1.5 text-[11px] text-zinc-500">{game.status}</p>
       )}
     </li>
   );
@@ -255,7 +269,7 @@ function BracketMobileList({
   const roundById = new Map(roundsVisible.map((r) => [r.id, r]));
 
   return (
-    <ul className="flex flex-col gap-3 md:hidden">
+    <ul className="flex list-none flex-col gap-3 p-0 md:hidden">
       {sorted.map((g) => {
         const r = g.bracketRoundId ? roundById.get(g.bracketRoundId) : null;
         const prev = prevRoundNameForGame(roundsVisible, r?.id ?? null);
@@ -455,7 +469,7 @@ function ConsolationGamesSection({
       </div>
       <div className="mt-4 md:hidden">
         {mobileView === "list" ? (
-          <ul className="flex flex-col gap-3">
+          <ul className="flex list-none flex-col gap-3 p-0">
             {sorted.map((g) => (
               <MobileMatchRow
                 key={g.id}
