@@ -1,11 +1,9 @@
-import Link from "next/link";
 import { EmptyState } from "@/components/ui/EmptyState";
-import { PageTitle, SectionTitle } from "@/components/ui/PublicHeading";
+import { SectionTitle } from "@/components/ui/PublicHeading";
 import { formatLocationAddress } from "@/lib/location-utils";
 import { appleMapsUrl, googleMapsUrl, wazeUrl } from "@/lib/maps-links";
 import { listLocations } from "@/lib/services/content";
 import { getPublishedTournamentBySlug } from "@/lib/tournament-context";
-import { tournamentPath } from "@/lib/tournament-public-path";
 
 function MapLinks({
   lat,
@@ -72,16 +70,6 @@ export default async function LocationsPage({ params }: { params: Promise<{ tour
 
   return (
     <div className="flex flex-col gap-4">
-      <div>
-        <PageTitle>Locations</PageTitle>
-        <p className="mt-2 text-sm text-zinc-600">Venues for {tournament.name}.</p>
-        <p className="mt-2 text-sm">
-          <Link href={tournamentPath(tournamentSlug, "rules")} className="font-medium text-royal-light underline-offset-2 hover:underline">
-            ← Rules and Resources
-          </Link>
-        </p>
-      </div>
-
       <section>
         <SectionTitle className="mb-3">Tournament Locations</SectionTitle>
         <ul className="mt-3 flex flex-col gap-3">
