@@ -40,3 +40,22 @@ body {
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
 }
+
+@keyframes sponsor-marquee {
+  from {
+    transform: translateX(0);
+  }
+  to {
+    transform: translateX(-50%);
+  }
+}
+
+.sponsor-marquee-track {
+  animation: sponsor-marquee 36s linear infinite;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .sponsor-marquee-track {
+    animation: none;
+  }
+}

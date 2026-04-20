@@ -29,6 +29,9 @@ const gameListInclude = {
 /** Next N not-yet-finished games for the home page per active division tab (by game number like schedule, excludes final/cancelled). */
 const UPCOMING_HOME_MAX = 4;
 
+/** Most recently finished games for the home page (by wall-clock time, newest first). */
+const RECENT_HOME_MAX = 4;
+
 export type GameListFilters = {
   day?: string;
   teamId?: string;
@@ -209,6 +212,27 @@ export async function listUpcomingGamesForHome(
   });
   const sorted = sortGamesForScheduleList(rows);
   return sorted.slice(0, UPCOMING_HOME_MAX);
+}
+
+/** Latest FINAL games for the home page, same includes as upcoming list. */
+export async function listRecentGamesForHome(
+  tournamentId: string,
+  divisionTabId: string | undefined,
+) {
+  const conditions: Prisma.GameWhereInput[] = [
+    { tournamentId },
+    publicConsolationVisibilityClause(),
+    { status: GameStatus.FINAL },
+  ];
+  const divW = divisionTabGameWhere(divisionTabId);
+  if (divW) conditions.push(divW);
+
+  return prisma.game.findMany({
+    where: { AND: conditions },
+    orderBy: { scheduledAt: "desc" },
+    take: RECENT_HOME_MAX,
+    include: gameListInclude,
+  });
 }
 
 export async function listTodaysGames(tournamentId: string, timezone: string) {

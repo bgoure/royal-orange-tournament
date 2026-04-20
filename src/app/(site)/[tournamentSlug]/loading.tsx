@@ -20,39 +20,37 @@ function QuickLinkSkeleton() {
   );
 }
 
+function HorizontalGameSkeleton({ title }: { title: string }) {
+  return (
+    <section>
+      <SectionTitle className="mb-3">{title}</SectionTitle>
+      <ul
+        {...{ [DIVISION_SWIPE_IGNORE]: "" }}
+        className="-mx-4 flex flex-nowrap snap-x snap-mandatory gap-3 overflow-x-auto scroll-smooth px-4 pb-2 [scrollbar-width:thin]"
+      >
+        {[0, 1, 2, 3].map((i) => (
+          <li key={i} className={horizontalRowItemClass}>
+            <SkeletonGameCard />
+          </li>
+        ))}
+      </ul>
+    </section>
+  );
+}
+
 export default function TournamentHomeLoading() {
   return (
     <PullToRefresh>
       <div className="flex flex-col gap-4">
-        <div className="grid grid-cols-1 gap-3 md:grid-cols-2">
-          <div className="flex flex-col gap-3">
-            <div
-              className="h-4 w-48 max-w-full rounded bg-zinc-200 motion-safe:animate-pulse motion-reduce:animate-none"
-              aria-hidden
-            />
-            <div
-              className="h-24 rounded-xl bg-zinc-100 motion-safe:animate-pulse motion-reduce:animate-none"
-              aria-hidden
-            />
-            <section>
-              <SectionTitle className="mb-3">Upcoming games</SectionTitle>
-              <ul
-                {...{ [DIVISION_SWIPE_IGNORE]: "" }}
-                className="-mx-4 flex flex-nowrap snap-x snap-mandatory gap-3 overflow-x-auto scroll-smooth px-4 pb-2 [scrollbar-width:thin]"
-              >
-                {[0, 1, 2, 3].map((i) => (
-                  <li key={i} className={horizontalRowItemClass}>
-                    <SkeletonGameCard />
-                  </li>
-                ))}
-              </ul>
-            </section>
-          </div>
-          <div className="grid grid-cols-2 gap-3">
-            {[0, 1, 2, 3].map((i) => (
-              <QuickLinkSkeleton key={i} />
-            ))}
-          </div>
+        <div className="flex flex-col gap-3">
+          <div
+            className="h-4 w-48 max-w-full rounded bg-zinc-200 motion-safe:animate-pulse motion-reduce:animate-none"
+            aria-hidden
+          />
+          <div
+            className="h-24 rounded-xl bg-zinc-100 motion-safe:animate-pulse motion-reduce:animate-none"
+            aria-hidden
+          />
         </div>
 
         <section>
@@ -63,6 +61,29 @@ export default function TournamentHomeLoading() {
             ))}
           </ul>
         </section>
+
+        <HorizontalGameSkeleton title="Upcoming games" />
+        <HorizontalGameSkeleton title="Recent results" />
+
+        <div className="hidden grid-cols-2 gap-3 md:grid">
+          {[0, 1, 2, 3].map((i) => (
+            <QuickLinkSkeleton key={i} />
+          ))}
+        </div>
+
+        <div className="border-t border-zinc-200/90 pt-5" aria-hidden>
+          <p className="mb-3 text-center text-[11px] font-bold uppercase tracking-[0.12em] text-zinc-400">Sponsors</p>
+          <div className="-mx-4 overflow-hidden px-4 md:mx-0 md:px-0">
+            <div className="flex w-max gap-6 motion-safe:animate-pulse motion-reduce:animate-none md:gap-10">
+              {[0, 1, 2, 3, 4].map((i) => (
+                <div
+                  key={i}
+                  className="h-16 w-28 shrink-0 rounded-xl border border-zinc-200 bg-zinc-100"
+                />
+              ))}
+            </div>
+          </div>
+        </div>
       </div>
     </PullToRefresh>
   );
