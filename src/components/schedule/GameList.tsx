@@ -74,14 +74,12 @@ function GameCardInner({
   const logoSize = compact ? "h-7 w-7 min-h-[28px] min-w-[28px]" : "h-8 w-8 min-h-8 min-w-8";
 
   const cardPadding = compact ? "min-h-[48px] px-3 py-3" : "p-3";
-  const compactWidth =
-    "w-[min(200px,calc(100vw-2rem))] max-[374px]:w-[min(180px,calc(100vw-2.5rem))] shrink-0";
+  /** Width is set on horizontal row `<li>` so flex cannot under-size items and clip. */
+  const compactShell = compact ? `w-full ${cardPadding}` : cardPadding;
 
   return (
     <div
-      className={`min-w-0 rounded-2xl border border-zinc-200 bg-white shadow-[0_1px_3px_rgba(0,0,0,0.1)] ${leftBorder} ${
-        compact ? `${compactWidth} ${cardPadding}` : cardPadding
-      }`}
+      className={`min-w-0 rounded-2xl border border-zinc-200 bg-white shadow-[0_1px_3px_rgba(0,0,0,0.1)] ${leftBorder} ${compactShell}`}
     >
       <div className="flex items-center justify-between gap-2">
         <p className="text-[13px] font-bold leading-snug text-zinc-900">
@@ -157,10 +155,17 @@ function GameCardInner({
   );
 }
 
-function GameCard(props: Parameters<typeof GameCardInner>[0]) {
+/** Horizontal scroller: explicit item width so cards never flex-shrink into each other. */
+const horizontalRowItemClass =
+  "flex-none shrink-0 snap-start w-[min(200px,calc(100vw-2rem))] max-[374px]:w-[min(180px,calc(100vw-2.5rem))]";
+
+function GameCard(
+  props: Parameters<typeof GameCardInner>[0] & { horizontalRow?: boolean },
+) {
+  const { horizontalRow, ...inner } = props;
   return (
-    <li className="min-w-0">
-      <GameCardInner {...props} />
+    <li className={horizontalRow ? horizontalRowItemClass : "min-w-0"}>
+      <GameCardInner {...inner} />
     </li>
   );
 }
@@ -181,10 +186,10 @@ function HorizontalGameRow({
   staggerOffset?: number;
 }) {
   return (
-    <ul className="-mx-4 flex snap-x snap-mandatory gap-3 overflow-x-auto scroll-smooth px-4 pb-2 [scrollbar-width:thin]">
+    <ul className="-mx-4 flex flex-nowrap snap-x snap-mandatory gap-3 overflow-x-auto scroll-smooth px-4 pb-2 [scrollbar-width:thin]">
       {rows.map(({ g, fallbackSeq }, i) =>
         animateStagger ? (
-          <AnimatedListItem key={g.id} index={staggerOffset + i} className="min-w-0">
+          <AnimatedListItem key={g.id} index={staggerOffset + i} className={horizontalRowItemClass}>
             <GameCardInner
               g={g}
               compact
@@ -197,6 +202,7 @@ function HorizontalGameRow({
         ) : (
           <GameCard
             key={g.id}
+            horizontalRow
             g={g}
             compact
             liveProminent={liveProminent}
