@@ -1,5 +1,6 @@
 import type { Division, Pool, PoolStanding } from "@prisma/client";
 import { EmptyState } from "@/components/ui/EmptyState";
+import { DIVISION_SWIPE_IGNORE } from "@/lib/division-swipe-ignore";
 import { TeamLogoMark } from "@/components/ui/TeamLogo";
 import {
   poolStandingsPtsCellClass,
@@ -68,7 +69,10 @@ export function StandingsView({ pools }: { pools: PoolWith[] }) {
                 className="pointer-events-none absolute right-0 top-0 z-10 h-full w-8 bg-gradient-to-l from-white to-transparent sm:hidden"
                 aria-hidden
               />
-              <div className="overflow-x-auto rounded-xl border border-zinc-200 bg-white shadow-sm">
+              <div
+                {...{ [DIVISION_SWIPE_IGNORE]: "" }}
+                className="overflow-x-auto rounded-xl border border-zinc-200 bg-white shadow-sm"
+              >
                 <table className="w-full min-w-[320px] text-left text-sm">
                   <thead>
                     <tr

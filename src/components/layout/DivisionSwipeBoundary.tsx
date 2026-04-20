@@ -1,10 +1,17 @@
 "use client";
 
-import { useCallback, useTransition, type ReactNode } from "react";
+import { useCallback, useRef, useTransition, type ReactNode } from "react";
 import { useSwipeable } from "react-swipeable";
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import { setSelectedDivisionTabId } from "@/app/actions/tournament";
+import { DIVISION_SWIPE_IGNORE_SELECTOR } from "@/lib/division-swipe-ignore";
 import { isDivisionTabBasePath } from "@/lib/tournament-public-path";
+
+function touchTargetElement(target: EventTarget | null): Element | null {
+  if (target instanceof Element) return target;
+  if (target instanceof Text && target.parentElement) return target.parentElement;
+  return null;
+}
 
 type Props = {
   tournamentSlug: string;
@@ -29,6 +36,8 @@ export function DivisionSwipeBoundary({
   const pathname = usePathname();
   const searchParams = useSearchParams();
   const [pending, startTransition] = useTransition();
+  /** Touch started inside a horizontal scroller (game row, tabs, etc.); skip division change. */
+  const swipeStartedInScrollRef = useRef(false);
 
   const navigateToDivision = useCallback(
     (id: string) => {
@@ -70,8 +79,24 @@ export function DivisionSwipeBoundary({
   );
 
   const swipeHandlers = useSwipeable({
-    onSwipedLeft: () => go(1),
-    onSwipedRight: () => go(-1),
+    onSwipeStart: ({ event }) => {
+      const raw = "target" in event ? event.target : null;
+      const el = touchTargetElement(raw);
+      swipeStartedInScrollRef.current =
+        el != null && el.closest(DIVISION_SWIPE_IGNORE_SELECTOR) != null;
+    },
+    onSwipedLeft: () => {
+      const skip = swipeStartedInScrollRef.current;
+      swipeStartedInScrollRef.current = false;
+      if (skip) return;
+      go(1);
+    },
+    onSwipedRight: () => {
+      const skip = swipeStartedInScrollRef.current;
+      swipeStartedInScrollRef.current = false;
+      if (skip) return;
+      go(-1);
+    },
     delta: 70,
     preventScrollOnSwipe: false,
     trackTouch: true,

@@ -1,3 +1,4 @@
+import { DIVISION_SWIPE_IGNORE } from "@/lib/division-swipe-ignore";
 import { SectionTitle } from "@/components/ui/PublicHeading";
 import { PullToRefresh } from "@/components/ui/PullToRefresh";
 import { SkeletonAnnouncement } from "@/components/ui/SkeletonAnnouncement";
@@ -35,7 +36,10 @@ export default function TournamentHomeLoading() {
             />
             <section>
               <SectionTitle className="mb-3">Upcoming games</SectionTitle>
-              <ul className="-mx-4 flex flex-nowrap snap-x snap-mandatory gap-3 overflow-x-auto scroll-smooth px-4 pb-2 [scrollbar-width:thin]">
+              <ul
+                {...{ [DIVISION_SWIPE_IGNORE]: "" }}
+                className="-mx-4 flex flex-nowrap snap-x snap-mandatory gap-3 overflow-x-auto scroll-smooth px-4 pb-2 [scrollbar-width:thin]"
+              >
                 {[0, 1, 2, 3].map((i) => (
                   <li key={i} className={horizontalRowItemClass}>
                     <SkeletonGameCard />

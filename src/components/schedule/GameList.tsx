@@ -1,6 +1,7 @@
 import type { Division, Field, Game, Pool } from "@prisma/client";
 import { GameKind } from "@prisma/client";
 import { formatGameScheduledAt, formatGameScheduledAtShort } from "@/lib/datetime-tournament";
+import { DIVISION_SWIPE_IGNORE } from "@/lib/division-swipe-ignore";
 import { poolCardLabelTextClass } from "@/lib/pool-card-label";
 import { EmptyState } from "@/components/ui/EmptyState";
 import { TeamLogoMark } from "@/components/ui/TeamLogo";
@@ -186,7 +187,10 @@ function HorizontalGameRow({
   staggerOffset?: number;
 }) {
   return (
-    <ul className="-mx-4 flex flex-nowrap snap-x snap-mandatory gap-3 overflow-x-auto scroll-smooth px-4 pb-2 [scrollbar-width:thin]">
+    <ul
+      {...{ [DIVISION_SWIPE_IGNORE]: "" }}
+      className="-mx-4 flex flex-nowrap snap-x snap-mandatory gap-3 overflow-x-auto scroll-smooth px-4 pb-2 [scrollbar-width:thin]"
+    >
       {rows.map(({ g, fallbackSeq }, i) =>
         animateStagger ? (
           <AnimatedListItem key={g.id} index={staggerOffset + i} className={horizontalRowItemClass}>

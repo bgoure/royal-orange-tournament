@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useMemo, useState, type Dispatch, type SetStateAction } from "react";
+import { DIVISION_SWIPE_IGNORE } from "@/lib/division-swipe-ignore";
 import type { BracketRound } from "@prisma/client";
 import { formatBracketGameScheduledAt } from "@/lib/datetime-tournament";
 import { EmptyState } from "@/components/ui/EmptyState";
@@ -33,6 +34,7 @@ function BracketGrid({
 }) {
   return (
     <div
+      {...{ [DIVISION_SWIPE_IGNORE]: "" }}
       className="mt-4 flex gap-6 overflow-x-auto pb-2 md:overflow-visible"
       role="region"
       aria-label="Bracket rounds"

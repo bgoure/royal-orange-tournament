@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useRef, type KeyboardEvent } from "react";
+import { DIVISION_SWIPE_IGNORE } from "@/lib/division-swipe-ignore";
 
 export type DivisionOption = { id: string; name: string };
 
@@ -57,6 +58,7 @@ export function DivisionSwitcher({
 
   return (
     <div
+      {...{ [DIVISION_SWIPE_IGNORE]: "" }}
       className={[
         "flex max-w-full flex-nowrap gap-2 overflow-x-auto overflow-y-visible scroll-smooth pb-0.5 [-ms-overflow-style:none] [scrollbar-width:thin] md:flex-wrap md:overflow-x-visible md:pb-0",
         "[&::-webkit-scrollbar]:h-1.5",

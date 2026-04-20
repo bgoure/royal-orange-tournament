@@ -1,3 +1,4 @@
+import { DIVISION_SWIPE_IGNORE } from "@/lib/division-swipe-ignore";
 import { getHeadquartersWeatherOutcomeForTournament } from "@/lib/services/weather-service";
 
 function labelForCode(code: number): string {
@@ -56,7 +57,10 @@ export async function WeatherSection({ tournamentId }: { tournamentId: string })
         <div className="h-10 w-px shrink-0 bg-zinc-200" />
 
         {/* 5-day forecast — right side, scrollable */}
-        <div className="flex min-w-0 flex-1 gap-1 overflow-x-auto">
+        <div
+          {...{ [DIVISION_SWIPE_IGNORE]: "" }}
+          className="flex min-w-0 flex-1 gap-1 overflow-x-auto"
+        >
           {wx.daily.slice(0, 5).map((d) => (
             <div
               key={d.date}
