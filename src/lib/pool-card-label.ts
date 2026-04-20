@@ -80,6 +80,16 @@ export function poolStandingsTableHeaderClass(color: PoolCardLabelColor | null |
   return STANDINGS_HEADER_ROW[color];
 }
 
+/** Expand (+) strip: same surface as the standings header row. */
+export function poolStandingsExpandStripClass(color: PoolCardLabelColor | null | undefined): string {
+  const base = poolStandingsTableHeaderClass(color);
+  const borderFocus =
+    color === "AMBER"
+      ? "border-l border-zinc-900/15 focus-visible:ring-zinc-900/40"
+      : "border-l border-white/25 focus-visible:ring-white/55";
+  return `${base} ${borderFocus}`;
+}
+
 export function poolStandingsPtsCellClass(color: PoolCardLabelColor | null | undefined): string {
   if (color == null) return "bg-accent/10 text-accent";
   return STANDINGS_PTS_CELL[color];
