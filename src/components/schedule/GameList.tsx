@@ -6,6 +6,7 @@ import {
   formatScheduleDayGroupHeading,
   tournamentCalendarDayKey,
 } from "@/lib/datetime-tournament";
+import { brandCardGradientClass } from "@/lib/brand-card-gradient";
 import { DIVISION_SWIPE_IGNORE } from "@/lib/division-swipe-ignore";
 import { poolCardLabelTextClass } from "@/lib/pool-card-label";
 import { EmptyState } from "@/components/ui/EmptyState";
@@ -75,10 +76,11 @@ function GameCardInner({
   const cardPadding = compact ? "min-h-[48px] px-3 py-3" : "p-3";
   /** Width is set on horizontal row `<li>` so flex cannot under-size items and clip. */
   const compactShell = compact ? `w-full ${cardPadding}` : cardPadding;
+  const surfaceGradient = brandCardGradientClass(g.id);
 
   return (
     <div
-      className={`min-w-0 rounded-2xl border border-zinc-200 bg-white shadow-[0_1px_3px_rgba(0,0,0,0.1)] ${leftBorder} ${compactShell}`}
+      className={`min-w-0 rounded-2xl border border-zinc-200 shadow-[0_1px_3px_rgba(0,0,0,0.1)] ${surfaceGradient} ${leftBorder} ${compactShell}`}
     >
       <div className="flex items-center justify-between gap-2">
         <p className="text-[13px] font-bold leading-snug text-zinc-900">

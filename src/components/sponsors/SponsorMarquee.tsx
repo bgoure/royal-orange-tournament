@@ -1,13 +1,14 @@
 import type { ReactNode } from "react";
+import { brandCardGradientClass } from "@/lib/brand-card-gradient";
 import { listSponsorsForMarquee } from "@/lib/services/sponsors";
 import { sponsorLogoUrl } from "@/lib/sponsor-logo";
 
 const PLACEHOLDER_IDS = [0, 1, 2, 3, 4] as const;
 
-function PlaceholderSlot() {
+function PlaceholderSlot({ seed }: { seed: string }) {
   return (
     <div
-      className="flex h-16 w-28 shrink-0 items-center justify-center rounded-xl border border-zinc-200 bg-white px-4 shadow-sm"
+      className={`flex h-16 w-28 shrink-0 items-center justify-center rounded-xl border border-zinc-200 px-4 shadow-sm ${brandCardGradientClass(seed)}`}
       aria-hidden
     >
       <span className="text-[2.5rem] leading-none select-none">⚾</span>
@@ -43,7 +44,7 @@ function SponsorMarqueePlaceholders() {
   return (
     <SponsorMarqueeShell>
       {loop.map((id, i) => (
-        <PlaceholderSlot key={`${id}-${i}`} />
+        <PlaceholderSlot key={`${id}-${i}`} seed={`sponsor-ph-${id}-${i}`} />
       ))}
     </SponsorMarqueeShell>
   );
@@ -56,7 +57,7 @@ function SponsorMarqueeImages({ sponsors }: { sponsors: { id: string; updatedAt:
       {loop.map((s, i) => (
         <div
           key={`${s.id}-${i}`}
-          className="flex h-16 w-28 shrink-0 items-center justify-center rounded-xl border border-zinc-200 bg-white px-2 shadow-sm"
+          className={`flex h-16 w-28 shrink-0 items-center justify-center rounded-xl border border-zinc-200 px-2 shadow-sm ${brandCardGradientClass(s.id)}`}
           aria-hidden
         >
           {/* eslint-disable-next-line @next/next/no-img-element -- API-served logo bytes */}
