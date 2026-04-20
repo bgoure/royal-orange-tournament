@@ -241,16 +241,16 @@ export function RoyalOrangeClassicRules({ tournamentName }: { tournamentName: st
         </P>
         <SubRules>
           <P>
-            <span className="font-semibold text-royal">viii.</span> 18 runs after 3 innings
+            <span className="font-semibold text-royal">i.</span> 18 runs after 3 innings
           </P>
           <P>
-            <span className="font-semibold text-royal">ix.</span> 15 runs after 4 innings
+            <span className="font-semibold text-royal">ii.</span> 15 runs after 4 innings
           </P>
           <P>
-            <span className="font-semibold text-royal">x.</span> 10 runs after 5 innings
+            <span className="font-semibold text-royal">iii.</span> 10 runs after 5 innings
           </P>
           <P>
-            <span className="font-semibold text-royal">xi.</span> 9 runs after 6 innings or any subsequent inning
+            <span className="font-semibold text-royal">iv.</span> 9 runs after 6 innings or any subsequent inning
             thereafter.
           </P>
         </SubRules>
