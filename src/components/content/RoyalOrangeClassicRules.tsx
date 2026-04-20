@@ -1,8 +1,24 @@
 import Link from "next/link";
 import type { ReactNode } from "react";
 
-const obaBase = "https://www.baseballontario.com/";
-const obaOfficialRules = "https://ondeck.baseballontario.com/page/3013/official-baseball-rules";
+const EXTERNAL_RESOURCES: { label: string; href: string }[] = [
+  {
+    label: "OBA RP2.10 10U/11U Playing Rules",
+    href: "https://ondeck.baseballontario.com/page/5937/rep-division-procedures-playing-rules/20363/rep-division-playing-rules#RP2.10:~:text=RP2.10%C2%A0%20%C2%A010U/11U%20Playing%20Rules",
+  },
+  {
+    label: "OBA Rep Division Playing Rules",
+    href: "https://ondeck.baseballontario.com/page/5937/rep-division-procedures-playing-rules/20363/rep-division-playing-rules",
+  },
+  {
+    label: "OBA Bat Rules",
+    href: "https://ondeck.baseballontario.com/page/786/oba-procedures-playing-rules/20362/bat-rules-explained",
+  },
+  {
+    label: "Official Baseball Rules",
+    href: "https://ondeck.baseballontario.com/page/3013/official-baseball-rules",
+  },
+];
 
 function SectionShell({ title, children }: { title: string; children: ReactNode }) {
   return (
@@ -26,33 +42,27 @@ export function RoyalOrangeClassicRules() {
     <div className="flex flex-col gap-5 pb-4">
       <div className="rounded-2xl border border-accent/30 bg-gradient-to-br from-royal-50 via-white to-accent-50/40 p-4 shadow-sm sm:p-5">
         <p className="text-sm font-semibold text-royal">Tournament Information and Rules:</p>
-        <p className="mt-2 text-sm text-zinc-800">
-          Note all tournament specific rules will also be available in the RoyalOrange.ca web app in the resources
-          section.
-        </p>
-        <div className="mt-4 flex flex-col gap-2 border-t border-royal/15 pt-4 sm:flex-row sm:flex-wrap sm:items-center sm:gap-3">
-          <span className="text-xs font-semibold uppercase tracking-wide text-zinc-600">Ontario Baseball Association</span>
-          <Link
-            href={obaBase}
-            target="_blank"
-            rel="noopener noreferrer"
-            className="inline-flex min-h-11 items-center justify-center rounded-lg bg-royal px-4 py-2.5 text-center text-sm font-semibold text-white shadow-sm transition-colors hover:bg-royal-800"
-          >
-            Baseball Ontario — main site
-          </Link>
-          <Link
-            href={obaOfficialRules}
-            target="_blank"
-            rel="noopener noreferrer"
-            className="inline-flex min-h-11 items-center justify-center rounded-lg border-2 border-accent bg-white px-4 py-2.5 text-center text-sm font-semibold text-accent shadow-sm transition-colors hover:bg-accent-50"
-          >
-            Official Baseball Rules (O.B.A.)
-          </Link>
+        <p className="mt-4 text-xs font-semibold uppercase tracking-wide text-zinc-700">External Resources</p>
+        <div className="mt-2 flex flex-col gap-2 sm:flex-row sm:flex-wrap">
+          {EXTERNAL_RESOURCES.map((item, i) => {
+            const royal = i % 2 === 0;
+            return (
+              <Link
+                key={item.href}
+                href={item.href}
+                target="_blank"
+                rel="noopener noreferrer"
+                className={
+                  royal
+                    ? "inline-flex min-h-11 flex-1 items-center justify-center rounded-lg bg-royal px-4 py-2.5 text-center text-sm font-semibold text-white shadow-sm transition-colors hover:bg-royal-800 sm:min-w-[min(100%,280px)]"
+                    : "inline-flex min-h-11 flex-1 items-center justify-center rounded-lg border-2 border-accent bg-white px-4 py-2.5 text-center text-sm font-semibold text-accent shadow-sm transition-colors hover:bg-accent-50 sm:min-w-[min(100%,280px)]"
+                }
+              >
+                {item.label}
+              </Link>
+            );
+          })}
         </div>
-        <p className="mt-3 text-xs text-zinc-600">
-          The O.B.A. Constitution and Official Rules apply to this event except where these tournament rules say
-          otherwise. Use the links above for the association&apos;s published materials.
-        </p>
       </div>
 
       <SectionShell title="Administrative Items">
