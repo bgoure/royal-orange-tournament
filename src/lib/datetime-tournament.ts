@@ -82,3 +82,23 @@ export function formatBracketGameScheduledAt(
   if (timeZone?.trim()) opts.timeZone = timeZone.trim();
   return new Intl.DateTimeFormat(undefined, opts).format(d);
 }
+
+/** `YYYY-MM-DD` in tournament zone (matches public schedule `day` query values). */
+export function tournamentCalendarDayKey(d: Date, timeZone: string): string {
+  return new Intl.DateTimeFormat("en-CA", {
+    timeZone: timeZone.trim(),
+    year: "numeric",
+    month: "2-digit",
+    day: "2-digit",
+  }).format(d);
+}
+
+/** Sticky schedule group label, e.g. "Friday, July 12". */
+export function formatScheduleDayGroupHeading(d: Date, timeZone: string): string {
+  return new Intl.DateTimeFormat(undefined, {
+    timeZone: timeZone.trim(),
+    weekday: "long",
+    month: "long",
+    day: "numeric",
+  }).format(d);
+}

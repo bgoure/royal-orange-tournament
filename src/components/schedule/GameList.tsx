@@ -1,6 +1,11 @@
 import type { Division, Field, Game, Pool } from "@prisma/client";
 import { GameKind } from "@prisma/client";
-import { formatGameScheduledAt, formatGameScheduledAtShort } from "@/lib/datetime-tournament";
+import {
+  formatGameScheduledAt,
+  formatGameScheduledAtShort,
+  formatScheduleDayGroupHeading,
+  tournamentCalendarDayKey,
+} from "@/lib/datetime-tournament";
 import { DIVISION_SWIPE_IGNORE } from "@/lib/division-swipe-ignore";
 import { poolCardLabelTextClass } from "@/lib/pool-card-label";
 import { EmptyState } from "@/components/ui/EmptyState";
@@ -25,19 +30,12 @@ const statusStyles: Record<string, string> = {
   CANCELLED: "bg-zinc-200 text-zinc-600 line-through",
 };
 
-function dayKeyInTz(d: Date, tz: string): string {
-  return new Intl.DateTimeFormat("en-CA", {
-    timeZone: tz,
-    year: "numeric",
-    month: "2-digit",
-    day: "2-digit",
-  }).format(d);
-}
-
 export function isLiveGameToday(g: GameWithTeams, timezone: string): boolean {
   if (g.status !== "LIVE") return false;
+  const tz = timezone.trim();
+  if (!tz) return false;
   const now = new Date();
-  return dayKeyInTz(g.scheduledAt, timezone) === dayKeyInTz(now, timezone);
+  return tournamentCalendarDayKey(g.scheduledAt, tz) === tournamentCalendarDayKey(now, tz);
 }
 
 /** Uses admin `gameNumber` when set; otherwise falls back to list position. */
@@ -285,7 +283,7 @@ export function GameList({
             staggerOffset={0}
           />
         ) : (
-          <ul className="flex flex-col gap-3">
+          <ul className="flex flex-col gap-2">
             {liveToday.map(({ g, fallbackSeq }) => (
               <GameCard
                 key={g.id}
@@ -318,12 +316,28 @@ export function GameList({
     );
   }
 
-  return (
-    <div className="flex flex-col gap-4">
-      {liveBlock}
-      {rest.length > 0 ? (
-        <ul className="flex flex-col gap-3">
-          {rest.map(({ g, fallbackSeq }) => (
+  const tz = timezone?.trim() ?? "";
+
+  const restByCalendarDay = (() => {
+    if (!tz || rest.length === 0) return null;
+    const map = new Map<string, typeof rest>();
+    for (const row of rest) {
+      const key = tournamentCalendarDayKey(row.g.scheduledAt, tz);
+      const bucket = map.get(key);
+      if (bucket) bucket.push(row);
+      else map.set(key, [row]);
+    }
+    return [...map.entries()].sort(([a], [b]) => a.localeCompare(b));
+  })();
+
+  const restGrouped =
+    restByCalendarDay?.map(([dayKey, rows]) => (
+      <section key={dayKey} className="flex flex-col gap-2">
+        <h2 className="sticky top-[4.75rem] z-30 -mx-1 border-b border-zinc-200/90 bg-white/90 px-1 py-2 text-sm font-bold text-zinc-900 backdrop-blur-md md:top-[5rem]">
+          {formatScheduleDayGroupHeading(rows[0]!.g.scheduledAt, tz)}
+        </h2>
+        <ul className="flex flex-col gap-2">
+          {rows.map(({ g, fallbackSeq }) => (
             <GameCard
               key={g.id}
               g={g}
@@ -333,6 +347,28 @@ export function GameList({
             />
           ))}
         </ul>
+      </section>
+    )) ?? null;
+
+  return (
+    <div className="flex flex-col gap-4">
+      {liveBlock}
+      {rest.length > 0 ? (
+        restGrouped ? (
+          <div className="flex flex-col gap-6">{restGrouped}</div>
+        ) : (
+          <ul className="flex flex-col gap-2">
+            {rest.map(({ g, fallbackSeq }) => (
+              <GameCard
+                key={g.id}
+                g={g}
+                displayTimeZone={timezone}
+                fallbackSeq={fallbackSeq}
+                showScores={showScores}
+              />
+            ))}
+          </ul>
+        )
       ) : null}
     </div>
   );

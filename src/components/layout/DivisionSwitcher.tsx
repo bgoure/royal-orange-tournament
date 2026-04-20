@@ -2,6 +2,12 @@
 
 import { useEffect, useRef, type KeyboardEvent } from "react";
 import { DIVISION_SWIPE_IGNORE } from "@/lib/division-swipe-ignore";
+import {
+  schedulePillActive,
+  schedulePillInactive,
+  schedulePillTapMin,
+  schedulePillTransition,
+} from "@/lib/schedule-pill-styles";
 
 export type DivisionOption = { id: string; name: string };
 
@@ -12,15 +18,6 @@ type DivisionSwitcherProps = {
   disabled?: boolean;
   className?: string;
 };
-
-const pillActive =
-  "border-2 border-royal bg-royal font-semibold text-white shadow-sm";
-const pillInactive =
-  "border-2 border-zinc-200 bg-zinc-100 font-medium text-zinc-800 hover:border-zinc-300 hover:bg-zinc-200";
-const pillTransition = "transition-colors duration-200 ease-in-out";
-
-/** 44px min touch target on small screens; slightly shorter on md+ */
-const tapMin = "min-h-[44px] md:min-h-10";
 
 export function DivisionSwitcher({
   divisions,
@@ -87,14 +84,14 @@ export function DivisionSwitcher({
             onClick={() => onDivisionChange(d.id)}
             onKeyDown={(e) => onPillKeyDown(e, index)}
             className={[
-              tapMin,
-              pillTransition,
+              schedulePillTapMin,
+              schedulePillTransition,
               "snap-start",
               "disabled:pointer-events-none disabled:opacity-50",
               "min-w-0 shrink-0 rounded-lg px-[14px] py-2.5 text-sm",
               "sm:text-base md:min-w-[7.5rem]",
               "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-royal focus-visible:ring-offset-2",
-              active ? pillActive : pillInactive,
+              active ? schedulePillActive : schedulePillInactive,
             ].join(" ")}
           >
             {d.name}
