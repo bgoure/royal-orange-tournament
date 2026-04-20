@@ -10,6 +10,7 @@ import {
   divisionValidIds,
   resolveDivisionTabForFilters,
 } from "@/lib/division-tab-utils";
+import { brandCardGradientClass } from "@/lib/brand-card-gradient";
 import { isDivisionTabBasePath } from "@/lib/tournament-public-path";
 
 export function SiteHeaderDivisionTabs({
@@ -86,7 +87,9 @@ export function SiteHeaderDivisionTabs({
   };
 
   return (
-    <div className="ml-auto w-fit min-w-0 max-w-full rounded-xl bg-white/95 p-1.5 shadow-sm ring-1 ring-white/20">
+    <div
+      className={`ml-auto w-fit min-w-0 max-w-full rounded-xl p-1.5 shadow-sm ring-1 ring-white/30 ${brandCardGradientClass(`div-switcher-${tournamentSlug}`)}`}
+    >
       <DivisionSwitcher
         divisions={tabs}
         selectedDivision={selectedDivision}

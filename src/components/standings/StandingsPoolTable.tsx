@@ -126,31 +126,33 @@ export function StandingsPoolTable({
                   rowIdx % 2 === 1 ? "bg-[#f9f9f9]" : "bg-white"
                 }`}
               >
-                <td className="py-2.5 pl-3 pr-1">
-                  <span className="inline-flex min-w-0 items-center gap-2 text-sm font-bold text-zinc-900">
+                <td className="max-w-0 py-2 pl-3 pr-1 align-middle">
+                  <div className="flex min-w-0 items-center gap-2">
                     <TeamLogoMark team={s.team} sizeClass="h-6 w-6 min-h-6 min-w-6 shrink-0" />
-                    <span className="min-w-0 truncate">{s.team.name}</span>
-                  </span>
+                    <span className="min-w-0 line-clamp-2 break-words text-[12px] font-bold leading-[1.12] text-zinc-900 sm:text-[13px]">
+                      {s.team.name}
+                    </span>
+                  </div>
                 </td>
-                <td className="px-2 py-2.5 text-right font-mono tabular-nums font-semibold">{s.wins}</td>
-                <td className="px-2 py-2.5 text-right font-mono tabular-nums">{s.losses}</td>
-                <td className="px-2 py-2.5 text-right font-mono tabular-nums">{s.ties}</td>
+                <td className="px-2 py-2 align-middle text-right font-mono tabular-nums font-semibold">{s.wins}</td>
+                <td className="px-2 py-2 align-middle text-right font-mono tabular-nums">{s.losses}</td>
+                <td className="px-2 py-2 align-middle text-right font-mono tabular-nums">{s.ties}</td>
                 <td
-                  className={`px-2 py-2.5 text-right font-mono tabular-nums font-bold ${poolStandingsPtsCellClass(standingsColor)}`}
+                  className={`px-2 py-2 align-middle text-right font-mono tabular-nums font-bold ${poolStandingsPtsCellClass(standingsColor)}`}
                 >
                   {s.points}
                 </td>
-                <td className={`${extraCellClass} px-2 py-2.5 text-right font-mono tabular-nums`}>
+                <td className={`${extraCellClass} px-2 py-2 align-middle text-right font-mono tabular-nums`}>
                   {s.runsFor}
                 </td>
-                <td className={`${extraCellClass} px-2 py-2.5 text-right font-mono tabular-nums`}>
+                <td className={`${extraCellClass} px-2 py-2 align-middle text-right font-mono tabular-nums`}>
                   {s.runsAgainst}
                 </td>
-                <td className={`${extraCellClass} px-2 py-2.5 text-right font-mono tabular-nums`}>
+                <td className={`${extraCellClass} px-2 py-2 align-middle text-right font-mono tabular-nums`}>
                   {fmtInnings(s.defensiveInnings)}
                 </td>
                 <td
-                  className={`${extraCellClass} px-2 py-2.5 text-right font-mono tabular-nums text-zinc-500`}
+                  className={`${extraCellClass} px-2 py-2 align-middle text-right font-mono tabular-nums text-zinc-500`}
                 >
                   {fmtRatio(s.runsAgainst, s.defensiveInnings)}
                 </td>
