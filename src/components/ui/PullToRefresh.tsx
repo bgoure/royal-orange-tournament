@@ -4,12 +4,14 @@ import { useRouter } from "next/navigation";
 import { useCallback, useRef, useState, useTransition, type ReactNode } from "react";
 
 const THRESHOLD_PX = 72;
+/** Height of the indicator strip while `router.refresh` transition is in flight */
+const PENDING_INDICATOR_PX = 48;
 
 /**
- * Pull down at scroll top to refetch server components (router.refresh).
+ * Pull down at scroll top to refetch server components (`router.refresh`).
  * iOS-friendly: no extra deps; complements native overscroll where present.
  */
-export function SchedulePullToRefresh({ children }: { children: ReactNode }) {
+export function PullToRefresh({ children }: { children: ReactNode }) {
   const router = useRouter();
   const [pending, startTransition] = useTransition();
   const [pull, setPull] = useState(0);
@@ -41,26 +43,49 @@ export function SchedulePullToRefresh({ children }: { children: ReactNode }) {
     const p = pullRef.current;
     pullRef.current = 0;
     if (p >= THRESHOLD_PX) {
+      setPull(0);
       startTransition(() => {
         router.refresh();
       });
+    } else {
+      setPull(0);
     }
-    setPull(0);
   }, [router]);
 
   const onTouchEnd = useCallback(() => end(), [end]);
   const onTouchCancel = useCallback(() => end(), [end]);
 
+  const indicatorHeight = pending ? PENDING_INDICATOR_PX : pull;
+  const showLabel = pending || pull > 8;
+
   return (
-    <div className="relative" onTouchStart={onTouchStart} onTouchMove={onTouchMove} onTouchEnd={onTouchEnd} onTouchCancel={onTouchCancel}>
+    <div
+      className="relative"
+      onTouchStart={onTouchStart}
+      onTouchMove={onTouchMove}
+      onTouchEnd={onTouchEnd}
+      onTouchCancel={onTouchCancel}
+    >
       <div
         className="pointer-events-none flex items-end justify-center overflow-hidden text-royal transition-[height] duration-150"
-        style={{ height: pull > 4 ? pull : 0 }}
+        style={{ height: indicatorHeight > 4 ? indicatorHeight : 0 }}
         aria-hidden
       >
-        {pull > 8 ? (
-          <span className="pb-1 text-xs font-medium">
-            {pending ? "Refreshing…" : pull >= THRESHOLD_PX ? "Release to refresh" : "Pull to refresh"}
+        {showLabel ? (
+          <span className="flex items-center gap-2 pb-1 text-xs font-medium">
+            {pending ? (
+              <>
+                <span
+                  className="inline-block size-4 shrink-0 rounded-full border-2 border-royal/30 border-t-royal animate-spin"
+                  aria-hidden
+                />
+                Refreshing…
+              </>
+            ) : pull >= THRESHOLD_PX ? (
+              "Release to refresh"
+            ) : (
+              "Pull to refresh"
+            )}
           </span>
         ) : null}
       </div>

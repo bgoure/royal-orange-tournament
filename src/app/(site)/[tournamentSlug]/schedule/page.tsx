@@ -1,6 +1,6 @@
 import { Suspense } from "react";
 import { GameList } from "@/components/schedule/GameList";
-import { SchedulePullToRefresh } from "@/components/schedule/SchedulePullToRefresh";
+import { PullToRefresh } from "@/components/ui/PullToRefresh";
 import { ScheduleFilters } from "@/components/schedule/ScheduleFilters";
 import { getDivisionTabCookie } from "@/lib/division-tab-cookie";
 import { buildDivisionTabDescriptors } from "@/lib/division-tabs";
@@ -77,7 +77,7 @@ export default async function SchedulePage({
     .sort((a, b) => a.label.localeCompare(b.label));
 
   return (
-    <SchedulePullToRefresh>
+    <PullToRefresh>
       <div className="flex flex-col gap-4">
         <PageTitle>Schedule</PageTitle>
         <Suspense
@@ -92,6 +92,6 @@ export default async function SchedulePage({
         </Suspense>
         <GameList games={games} timezone={tournament.timezone} showScores={false} />
       </div>
-    </SchedulePullToRefresh>
+    </PullToRefresh>
   );
 }

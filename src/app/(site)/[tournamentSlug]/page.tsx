@@ -18,6 +18,7 @@ import { listUpcomingGamesForHome } from "@/lib/services/games";
 import { listPoolsForDivisionTabs } from "@/lib/services/pools";
 import { getPublishedTournamentBySlug } from "@/lib/tournament-context";
 import { tournamentPath } from "@/lib/tournament-public-path";
+import { PullToRefresh } from "@/components/ui/PullToRefresh";
 
 function QuickLinkCard({ href, label, description, icon }: { href: string; label: string; description: string; icon: ReactNode }) {
   return (
@@ -67,7 +68,8 @@ export default async function TournamentHomePage({
   const tp = (s: string) => tournamentPath(tournamentSlug, s);
 
   return (
-    <div className="flex flex-col gap-4">
+    <PullToRefresh>
+      <div className="flex flex-col gap-4">
       <div className="grid grid-cols-1 gap-3 md:grid-cols-2">
         <div className="flex flex-col gap-3">
           {hq ? (
@@ -108,5 +110,6 @@ export default async function TournamentHomePage({
         </div>
       </section>
     </div>
+    </PullToRefresh>
   );
 }

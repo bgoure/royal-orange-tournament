@@ -12,6 +12,7 @@ import {
 import { listFinalGamesForTournament } from "@/lib/services/games";
 import { listPoolsWithStandings } from "@/lib/services/pools";
 import { getPublishedTournamentBySlug } from "@/lib/tournament-context";
+import { PullToRefresh } from "@/components/ui/PullToRefresh";
 
 export default async function ResultsPage({
   params,
@@ -50,7 +51,8 @@ export default async function ResultsPage({
   });
 
   return (
-    <div className="flex flex-col gap-4">
+    <PullToRefresh>
+      <div className="flex flex-col gap-4">
       <ResultsPageHeading />
       <StandingsViewWithDivisionTabs
         pools={pools}
@@ -66,6 +68,7 @@ export default async function ResultsPage({
           emptyHint="Finished games and scores appear here."
         />
       </section>
-    </div>
+      </div>
+    </PullToRefresh>
   );
 }
