@@ -9,7 +9,6 @@ import {
 } from "@/lib/division-tab-utils";
 import { listBracketsForTournament, listConsolationGamesForTournament } from "@/lib/services/brackets";
 import { listPoolsForDivisionTabs } from "@/lib/services/pools";
-import { PageTitle } from "@/components/ui/PublicHeading";
 import { getPublishedTournamentBySlug } from "@/lib/tournament-context";
 
 export default async function BracketsPage({
@@ -45,7 +44,6 @@ export default async function BracketsPage({
 
   return (
     <div className="flex flex-col gap-4">
-      <PageTitle>Brackets</PageTitle>
       <Suspense
         fallback={
           <div className="h-40 animate-pulse rounded-xl bg-zinc-100/80" aria-hidden="true" />

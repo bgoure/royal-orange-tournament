@@ -337,10 +337,6 @@ function BracketSection({
       <SectionTitle id={`bracket-heading-${b.id}`} className="normal-case tracking-normal">
         {b.name}
       </SectionTitle>
-      <p className="mt-2 text-sm text-zinc-600">
-        Schedule and field are set per game. Open slots show pool finish (e.g. division · pool · finish) or the
-        previous round until teams advance. Use division tabs in the header to switch age groups.
-      </p>
 
       {showScope ? (
         <div
