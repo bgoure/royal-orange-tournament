@@ -377,12 +377,18 @@ function BracketSection({
       ) : null}
 
       <div className="mt-4 flex md:hidden">
-        <div className="inline-flex rounded-full border border-zinc-200 bg-zinc-50 p-1">
+        <div
+          className="inline-flex rounded-xl border border-zinc-200 bg-zinc-100/80 p-1 shadow-sm"
+          role="group"
+          aria-label="Mobile bracket view"
+        >
           <button
             type="button"
             onClick={() => setMobileView("list")}
-            className={`min-h-11 min-w-[100px] rounded-full px-4 py-2 text-sm font-medium transition-colors active:opacity-90 ${
-              mobileView === "list" ? "bg-white text-zinc-900 shadow-sm" : "text-zinc-600"
+            className={`min-h-11 min-w-[100px] rounded-lg px-4 py-2 text-sm font-semibold transition-colors duration-200 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-royal focus-visible:ring-offset-2 active:opacity-90 ${
+              mobileView === "list"
+                ? "bg-royal-50 text-royal shadow-sm ring-2 ring-royal/25"
+                : "text-zinc-700"
             }`}
           >
             List
@@ -390,8 +396,10 @@ function BracketSection({
           <button
             type="button"
             onClick={() => setMobileView("bracket")}
-            className={`min-h-11 min-w-[100px] rounded-full px-4 py-2 text-sm font-medium transition-colors active:opacity-90 ${
-              mobileView === "bracket" ? "bg-white text-zinc-900 shadow-sm" : "text-zinc-600"
+            className={`min-h-11 min-w-[100px] rounded-lg px-4 py-2 text-sm font-semibold transition-colors duration-200 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-royal focus-visible:ring-offset-2 active:opacity-90 ${
+              mobileView === "bracket"
+                ? "bg-royal-50 text-royal shadow-sm ring-2 ring-royal/25"
+                : "text-zinc-700"
             }`}
           >
             Bracket
@@ -421,9 +429,11 @@ function BracketSection({
 function ConsolationGamesSection({
   games,
   tournamentTimezone,
+  mobileView,
 }: {
   games: GameRow[];
   tournamentTimezone?: string | null;
+  mobileView: "list" | "bracket";
 }) {
   if (games.length === 0) return null;
   const sorted = [...games].sort((a, b) => a.scheduledAt.getTime() - b.scheduledAt.getTime());
@@ -444,17 +454,32 @@ function ConsolationGamesSection({
         ))}
       </div>
       <div className="mt-4 md:hidden">
-        <ul className="flex flex-col gap-3">
-          {sorted.map((g) => (
-            <MobileMatchRow
-              key={g.id}
-              game={g}
-              roundLabel="Consolation Games"
-              prevRoundName={null}
-              timeZone={tournamentTimezone}
-            />
-          ))}
-        </ul>
+        {mobileView === "list" ? (
+          <ul className="flex flex-col gap-3">
+            {sorted.map((g) => (
+              <MobileMatchRow
+                key={g.id}
+                game={g}
+                roundLabel="Consolation"
+                prevRoundName={null}
+                timeZone={tournamentTimezone}
+              />
+            ))}
+          </ul>
+        ) : (
+          <div className="flex flex-col gap-4">
+            {sorted.map((g, mi) => (
+              <BracketGameCard
+                key={g.id}
+                game={g}
+                roundIndexDb={0}
+                matchIndex={mi}
+                prevRoundName={null}
+                timeZone={tournamentTimezone}
+              />
+            ))}
+          </div>
+        )}
       </div>
     </section>
   );
@@ -511,6 +536,7 @@ export function BracketsView({
           <ConsolationGamesSection
             games={consolationByDivision.get(b.divisionId) ?? []}
             tournamentTimezone={tournamentTimezone}
+            mobileView={mobileView}
           />
         </Fragment>
       ))}
