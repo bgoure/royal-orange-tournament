@@ -166,8 +166,8 @@ export async function listScheduleFilterFacets(
     month: "short",
     day: "numeric",
   });
-  /** e.g. "July 12" for filter summary line (month long, no weekday). */
-  const daySummaryFmt = new Intl.DateTimeFormat(undefined, {
+  /** e.g. "July 12" for filter summary line (month long, no weekday; en-US ordering). */
+  const daySummaryFmt = new Intl.DateTimeFormat("en-US", {
     timeZone: timezone,
     month: "long",
     day: "numeric",
