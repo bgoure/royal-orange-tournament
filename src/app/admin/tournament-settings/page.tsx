@@ -7,6 +7,7 @@ import {
 } from "@/components/admin/tournament/TournamentHeadquartersForm";
 import { TournamentRenameForm } from "@/components/admin/tournament/TournamentRenameForm";
 import { TournamentBrandingForm } from "@/components/admin/tournament/TournamentBrandingForm";
+import { TournamentPublicAnnouncementsForm } from "@/components/admin/tournament/TournamentPublicAnnouncementsForm";
 import { can } from "@/lib/rbac/permissions";
 import { formatLocationAddress } from "@/lib/location-utils";
 import { getHeadquartersLocation, listLocations } from "@/lib/services/content";
@@ -63,6 +64,11 @@ export default async function AdminTournamentSettingsPage() {
     return (
       <div className="flex flex-col gap-8">
         <TournamentRenameForm tournamentName={tournament.name} canManage={canManage} />
+        <TournamentPublicAnnouncementsForm
+          showPublicAnnouncements={tournament.showPublicAnnouncements}
+          tournamentName={tournament.name}
+          canManage={canManage}
+        />
         <TournamentBrandingForm branding={branding} canManage={canManage} />
         <TournamentHeadquartersForm
           headquarters={{
@@ -83,6 +89,11 @@ export default async function AdminTournamentSettingsPage() {
   return (
     <div className="flex flex-col gap-8">
       <TournamentRenameForm tournamentName={tournament.name} canManage={canManage} />
+      <TournamentPublicAnnouncementsForm
+        showPublicAnnouncements={tournament.showPublicAnnouncements}
+        tournamentName={tournament.name}
+        canManage={canManage}
+      />
       <TournamentBrandingForm branding={branding} canManage={canManage} />
       <TournamentHeadquartersForm
         headquarters={headquarters}

@@ -6,12 +6,28 @@ import { useCallback, useState } from "react";
 import { Drawer } from "vaul";
 import { tournamentPath } from "@/lib/tournament-public-path";
 
-export function BottomNav({ tournamentSlug }: { tournamentSlug: string }) {
+export function BottomNav({
+  tournamentSlug,
+  showPublicAnnouncements = true,
+}: {
+  tournamentSlug: string;
+  /** When false, announcements are omitted from the More drawer (matches Tournament HQ setting). */
+  showPublicAnnouncements?: boolean;
+}) {
   const pathname = usePathname();
   const tp = (...s: string[]) => tournamentPath(tournamentSlug, ...s);
   const [moreOpen, setMoreOpen] = useState(false);
 
   const moreLinks = [
+    ...(showPublicAnnouncements
+      ? ([
+          {
+            href: tp("announcements"),
+            label: "Announcements",
+            description: "Current and past tournament updates",
+          },
+        ] as const)
+      : []),
     { href: tp("locations"), label: "Locations", description: "Game Fields and Directions" },
     {
       href: tp("rules"),
@@ -67,6 +83,7 @@ export function BottomNav({ tournamentSlug }: { tournamentSlug: string }) {
   ] as const;
 
   const matchPrefixes = [
+    ...(showPublicAnnouncements ? [tp("announcements")] : []),
     tp("rules"),
     tp("locations"),
     tp("more"),

@@ -15,7 +15,7 @@ import {
   divisionValidIds,
   resolveDivisionTabForFilters,
 } from "@/lib/division-tab-utils";
-import { listAnnouncements } from "@/lib/services/announcements";
+import { countAnnouncements, listLatestAnnouncementForHome } from "@/lib/services/announcements";
 import { formatHeadquartersHomeLabel } from "@/lib/headquarters-display";
 import { getHeadquartersLocation } from "@/lib/services/content";
 import { listRecentGamesForHome, listUpcomingGamesForHome } from "@/lib/services/games";
@@ -62,8 +62,10 @@ export default async function TournamentHomePage({
     defaultDivisionTabId(divisionDescriptors),
   );
 
-  const [announcements, upcomingGames, recentGames, hq] = await Promise.all([
-    listAnnouncements(tournament.id),
+  const showPublicAnnouncements = tournament.showPublicAnnouncements;
+  const [latestAnnouncement, announcementCount, upcomingGames, recentGames, hq] = await Promise.all([
+    showPublicAnnouncements ? listLatestAnnouncementForHome(tournament.id) : Promise.resolve(null),
+    showPublicAnnouncements ? countAnnouncements(tournament.id) : Promise.resolve(0),
     listUpcomingGamesForHome(tournament.id, resolvedDivisionId || undefined),
     listRecentGamesForHome(tournament.id, resolvedDivisionId || undefined),
     getHeadquartersLocation(tournament.id),
@@ -88,12 +90,26 @@ export default async function TournamentHomePage({
             <WeatherSection tournamentId={tournament.id} />
           </div>
 
-          <section>
-            <SectionTitle className="mb-3">Announcements</SectionTitle>
-            <div>
-              <AnnouncementList items={announcements} />
-            </div>
-          </section>
+          {showPublicAnnouncements ? (
+            <section>
+              <SectionTitle className="mb-3">Announcements</SectionTitle>
+              <div>
+                <AnnouncementList items={latestAnnouncement ? [latestAnnouncement] : []} />
+              </div>
+              {announcementCount > 0 ? (
+                <p className="mt-3 text-center">
+                  <Link
+                    href={tp("announcements")}
+                    className="text-sm font-medium text-royal underline-offset-2 hover:underline"
+                  >
+                    {announcementCount > 1
+                      ? `View all ${announcementCount} announcements`
+                      : "View announcement history"}
+                  </Link>
+                </p>
+              ) : null}
+            </section>
+          ) : null}
 
           <section>
             <SectionTitle className="mb-3">Upcoming games</SectionTitle>

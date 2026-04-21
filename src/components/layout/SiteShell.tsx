@@ -69,7 +69,7 @@ export async function SiteShell({
       >
         Deploy {sha}
       </p>
-      <BottomNav tournamentSlug={slug} />
+      <BottomNav tournamentSlug={slug} showPublicAnnouncements={tournament.showPublicAnnouncements} />
     </div>
   );
 }

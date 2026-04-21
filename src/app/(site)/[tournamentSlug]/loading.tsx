@@ -56,9 +56,7 @@ export default function TournamentHomeLoading() {
         <section>
           <SectionTitle className="mb-3">Announcements</SectionTitle>
           <ul className="flex flex-col gap-3">
-            {[0, 1, 2].map((i) => (
-              <SkeletonAnnouncement key={i} />
-            ))}
+            <SkeletonAnnouncement />
           </ul>
         </section>
 

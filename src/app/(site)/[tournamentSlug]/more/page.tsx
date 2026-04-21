@@ -1,12 +1,23 @@
 import Link from "next/link";
 import { PageTitle } from "@/components/ui/PublicHeading";
 import { tournamentPath } from "@/lib/tournament-public-path";
+import { getPublishedTournamentBySlug } from "@/lib/tournament-context";
 
 export default async function MorePage({ params }: { params: Promise<{ tournamentSlug: string }> }) {
   const { tournamentSlug } = await params;
   const tp = (s: string) => tournamentPath(tournamentSlug, s);
+  const tournament = await getPublishedTournamentBySlug(tournamentSlug);
 
   const links = [
+    ...(tournament?.showPublicAnnouncements !== false
+      ? ([
+          {
+            href: tp("announcements"),
+            label: "Announcements",
+            description: "Current and past tournament updates",
+          },
+        ] as const)
+      : []),
     { href: tp("locations"), label: "Locations", description: "Game Fields and Directions" },
     {
       href: tp("rules"),

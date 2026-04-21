@@ -35,3 +35,32 @@ export async function updateTournamentName(
     return { ok: false, error: e instanceof Error ? e.message : "Failed to update name" };
   }
 }
+
+export async function updatePublicAnnouncementsVisibility(
+  _prev: ContentActionResult | undefined,
+  formData: FormData,
+): Promise<ContentActionResult> {
+  const c = await contentCtx();
+  if ("error" in c) return { ok: false, error: c.error };
+  if (!assertContentManage(c.session.user.role)) return contentDeny();
+
+  const showPublicAnnouncements = formData.get("showPublicAnnouncements") === "on";
+
+  try {
+    await prisma.tournament.update({
+      where: { id: c.tournament.id },
+      data: { showPublicAnnouncements },
+    });
+    revalidatePath("/", "layout");
+    await revalidatePublishedTournamentSites();
+    revalidatePath("/admin/tournament-settings");
+    return {
+      ok: true,
+      notice: showPublicAnnouncements
+        ? "Announcements are visible on the public site."
+        : "Announcements are hidden on the public site.",
+    };
+  } catch (e) {
+    return { ok: false, error: e instanceof Error ? e.message : "Failed to update setting" };
+  }
+}
