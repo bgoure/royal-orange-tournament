@@ -117,7 +117,7 @@ export function WeatherInteractiveCard({
           </div>
           {canToggle ? (
             <p className="mt-1.5 text-center text-[10px] font-medium text-zinc-500">
-              {view === "daily" ? "Tap card for next 8 hours" : "Tap card for 5-day highs & lows"}
+              {view === "daily" ? "Tap for hourly forecast" : "Tap for 5 day forecast"}
             </p>
           ) : null}
         </div>
