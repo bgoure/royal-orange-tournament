@@ -2,8 +2,16 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { useCallback, useState } from "react";
+import { useCallback, useState, type ReactNode } from "react";
 import { Drawer } from "vaul";
+import {
+  MoreIconAnnouncements,
+  MoreIconFeedback,
+  MoreIconLocations,
+  MoreIconRules,
+  MoreIconSettings,
+  MoreIconSocial,
+} from "@/components/icons/MoreMenuIcons";
 import { tournamentPath } from "@/lib/tournament-public-path";
 
 export function BottomNav({
@@ -18,25 +26,32 @@ export function BottomNav({
   const tp = (...s: string[]) => tournamentPath(tournamentSlug, ...s);
   const [moreOpen, setMoreOpen] = useState(false);
 
-  const moreLinks = [
+  const moreLinks: readonly { href: string; label: string; description: string; icon: ReactNode }[] = [
     ...(showPublicAnnouncements
-      ? ([
+      ? [
           {
             href: tp("announcements"),
             label: "Announcements",
             description: "Current and past tournament updates",
+            icon: <MoreIconAnnouncements />,
           },
-        ] as const)
+        ]
       : []),
-    { href: tp("locations"), label: "Locations", description: "Game Fields and Directions" },
+    {
+      href: tp("locations"),
+      label: "Locations",
+      description: "Game Fields and Directions",
+      icon: <MoreIconLocations />,
+    },
     {
       href: tp("rules"),
       label: "Tournament Rules & Resources",
       description: "Rules for Royal & Classic and OBA resources",
+      icon: <MoreIconRules />,
     },
-    { href: tp("social"), label: "Social", description: "Follow Baseball Milton" },
-    { href: tp("settings"), label: "Settings", description: "App preferences" },
-  ] as const;
+    { href: tp("social"), label: "Social", description: "Follow Baseball Milton", icon: <MoreIconSocial /> },
+    { href: tp("settings"), label: "Settings", description: "App preferences", icon: <MoreIconSettings /> },
+  ];
 
   const tabs = [
     {
@@ -157,10 +172,15 @@ export function BottomNav({
                   <Link
                     href={item.href}
                     onClick={closeMore}
-                    className="flex min-h-[52px] flex-col justify-center py-3 active:bg-zinc-50"
+                    className="flex min-h-[52px] items-start gap-3 py-3 text-accent active:bg-zinc-50"
                   >
-                    <span className="font-semibold text-zinc-900">{item.label}</span>
-                    <span className="text-xs text-zinc-500">{item.description}</span>
+                    <span className="mt-0.5 text-accent" aria-hidden>
+                      {item.icon}
+                    </span>
+                    <span className="min-w-0 flex-1">
+                      <span className="block text-[11px] font-semibold leading-tight">{item.label}</span>
+                      <span className="mt-0.5 block text-xs font-normal text-zinc-500">{item.description}</span>
+                    </span>
                   </Link>
                 </li>
               ))}
@@ -168,10 +188,17 @@ export function BottomNav({
                 <Link
                   href={tp("feedback")}
                   onClick={closeMore}
-                  className="flex min-h-[52px] flex-col justify-center py-3 active:bg-zinc-50"
+                  className="flex min-h-[52px] items-start gap-3 py-3 text-accent active:bg-zinc-50"
                 >
-                  <span className="font-semibold text-zinc-900">Feedback</span>
-                  <span className="text-xs text-zinc-500">Report a problem or share a suggestion</span>
+                  <span className="mt-0.5 text-accent" aria-hidden>
+                    <MoreIconFeedback />
+                  </span>
+                  <span className="min-w-0 flex-1">
+                    <span className="block text-[11px] font-semibold leading-tight">Feedback</span>
+                    <span className="mt-0.5 block text-xs font-normal text-zinc-500">
+                      Report a problem or share a suggestion
+                    </span>
+                  </span>
                 </Link>
               </li>
             </ul>
