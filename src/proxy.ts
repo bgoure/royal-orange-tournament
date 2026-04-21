@@ -32,9 +32,9 @@ export async function proxy(req: NextRequest) {
     if (isApi) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }
-    const signIn = new URL("/api/auth/signin", req.nextUrl.origin);
-    signIn.searchParams.set("callbackUrl", path);
-    return NextResponse.redirect(signIn);
+    const login = new URL("/login", req.nextUrl.origin);
+    login.searchParams.set("callbackUrl", path);
+    return NextResponse.redirect(login);
   }
 
   const role = typeof token.role === "string" ? token.role : undefined;

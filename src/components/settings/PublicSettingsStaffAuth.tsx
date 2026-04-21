@@ -1,7 +1,6 @@
 "use client";
 
 import type { Role } from "@prisma/client";
-import Link from "next/link";
 import { signIn, signOut } from "next-auth/react";
 
 const CogIcon = () => (
@@ -13,18 +12,23 @@ const CogIcon = () => (
 
 export function PublicSettingsStaffAuth({
   tournamentSlug,
+  requestOrigin,
   googleAuthConfigured,
   signedIn,
   userLabel,
   role,
 }: {
   tournamentSlug: string;
+  /** Host the user actually hit (forwarded). Used so links and OAuth return URLs stay on prod vs staging. */
+  requestOrigin: string;
   googleAuthConfigured: boolean;
   signedIn: boolean;
   userLabel: string;
   role: Role;
 }) {
-  const settingsUrl = `/${tournamentSlug}/settings`;
+  const settingsPath = `/${tournamentSlug}/settings`;
+  const settingsAbsolute = requestOrigin ? `${requestOrigin}${settingsPath}` : settingsPath;
+  const adminHref = requestOrigin ? `${requestOrigin}/admin` : "/admin";
   const isAdmin = role === "ADMIN";
 
   return (
@@ -44,12 +48,12 @@ export function PublicSettingsStaffAuth({
               <span className="font-medium text-zinc-800">ADMIN</span> accounts can also tap game cards on this public
               site to quick-edit field, time, status, and runs.
             </p>
-            <Link
-              href="/admin"
+            <a
+              href={adminHref}
               className="mt-3 inline-flex min-h-[40px] items-center rounded-lg border border-zinc-200/90 bg-white/70 px-3 py-2 text-sm text-zinc-600 shadow-sm transition-colors hover:border-zinc-300 hover:bg-white hover:text-zinc-800 active:opacity-90"
             >
               Open admin portal
-            </Link>
+            </a>
           </div>
 
           <div className="border-t border-zinc-200/80 pt-3">
@@ -66,7 +70,7 @@ export function PublicSettingsStaffAuth({
                 <button
                   type="button"
                   className="inline-flex min-h-[40px] items-center rounded-lg border border-zinc-300 bg-white px-3 py-2 text-sm font-medium text-zinc-800 shadow-sm transition-colors hover:bg-zinc-50 active:opacity-90"
-                  onClick={() => void signIn("google", { callbackUrl: settingsUrl })}
+                  onClick={() => void signIn("google", { callbackUrl: settingsAbsolute })}
                 >
                   Sign in with Google
                 </button>
@@ -80,7 +84,7 @@ export function PublicSettingsStaffAuth({
                 <button
                   type="button"
                   className="inline-flex min-h-[40px] items-center rounded-lg border border-zinc-300 bg-white px-3 py-2 text-sm font-medium text-zinc-700 shadow-sm transition-colors hover:bg-zinc-50 active:opacity-90"
-                  onClick={() => void signOut({ callbackUrl: settingsUrl })}
+                  onClick={() => void signOut({ callbackUrl: settingsAbsolute })}
                 >
                   Sign out
                 </button>
@@ -94,7 +98,7 @@ export function PublicSettingsStaffAuth({
                 <button
                   type="button"
                   className="inline-flex min-h-[40px] items-center rounded-lg border border-zinc-300 bg-white px-3 py-2 text-sm font-medium text-zinc-700 shadow-sm transition-colors hover:bg-zinc-50 active:opacity-90"
-                  onClick={() => void signOut({ callbackUrl: settingsUrl })}
+                  onClick={() => void signOut({ callbackUrl: settingsAbsolute })}
                 >
                   Sign out
                 </button>

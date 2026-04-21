@@ -1,12 +1,14 @@
 import { PageTitle } from "@/components/ui/PublicHeading";
 import { PublicSettingsStaffAuth } from "@/components/settings/PublicSettingsStaffAuth";
 import { auth } from "@/auth";
+import { getRequestPublicOrigin } from "@/lib/request-public-origin";
 
 const googleAuthConfigured =
   Boolean(process.env.GOOGLE_CLIENT_ID?.trim()) && Boolean(process.env.GOOGLE_CLIENT_SECRET?.trim());
 
 export default async function SettingsPage({ params }: { params: Promise<{ tournamentSlug: string }> }) {
   const { tournamentSlug } = await params;
+  const requestOrigin = await getRequestPublicOrigin();
   const session = await auth();
   const user = session?.user;
   const signedIn = Boolean(user?.id);
@@ -37,6 +39,7 @@ export default async function SettingsPage({ params }: { params: Promise<{ tourn
 
       <PublicSettingsStaffAuth
         tournamentSlug={tournamentSlug}
+        requestOrigin={requestOrigin}
         googleAuthConfigured={googleAuthConfigured}
         signedIn={signedIn}
         userLabel={userLabel}
