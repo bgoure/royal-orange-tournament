@@ -1,0 +1,56 @@
+import { GameResultType, GameStatus } from "@prisma/client";
+import { z } from "zod";
+
+const optionalInt = z.preprocess((v) => {
+  if (v === "" || v === null || v === undefined) return null;
+  const n = Number(v);
+  return Number.isFinite(n) ? n : null;
+}, z.number().int().nullable());
+
+const optionalFloat = z.preprocess((v) => {
+  if (v === "" || v === null || v === undefined) return null;
+  const n = Number(v);
+  return Number.isFinite(n) ? n : null;
+}, z.number().nullable());
+
+export const publicQuickGameUpdateSchema = z
+  .object({
+    tournamentSlug: z.string().trim().min(1),
+    id: z.string().min(1),
+    fieldId: z.string().min(1, "Select a field"),
+    scheduledAt: z.string().min(1),
+    homeRuns: optionalInt,
+    awayRuns: optionalInt,
+    homeDefensiveInnings: optionalFloat,
+    awayDefensiveInnings: optionalFloat,
+    homeOffensiveInnings: optionalFloat,
+    awayOffensiveInnings: optionalFloat,
+    status: z.nativeEnum(GameStatus),
+    resultType: z.nativeEnum(GameResultType).optional().default(GameResultType.REGULAR),
+  })
+  .superRefine((data, ctx) => {
+    const hasAnyRun = data.homeRuns != null || data.awayRuns != null;
+    if (hasAnyRun) {
+      if (data.homeDefensiveInnings == null) {
+        ctx.addIssue({
+          code: "custom",
+          message: "Home defensive innings required when runs are entered.",
+          path: ["homeDefensiveInnings"],
+        });
+      }
+      if (data.awayDefensiveInnings == null) {
+        ctx.addIssue({
+          code: "custom",
+          message: "Away defensive innings required when runs are entered.",
+          path: ["awayDefensiveInnings"],
+        });
+      }
+    }
+    if (data.status === "FINAL" && (data.homeRuns == null || data.awayRuns == null)) {
+      ctx.addIssue({
+        code: "custom",
+        message: "Final games need both teams’ runs.",
+        path: ["homeRuns"],
+      });
+    }
+  });

@@ -1,4 +1,7 @@
+"use client";
+
 import type { Division, Field, Game, Pool } from "@prisma/client";
+import type { KeyboardEvent } from "react";
 import { GameKind } from "@prisma/client";
 import {
   formatGameScheduledAt,
@@ -12,7 +15,26 @@ import { poolCardLabelTextClass } from "@/lib/pool-card-label";
 import { EmptyState } from "@/components/ui/EmptyState";
 import { TeamLogoMark } from "@/components/ui/TeamLogo";
 import { AnimatedListItem } from "@/components/ui/AnimatedListItem";
+import type { QuickEditGamePayload } from "@/components/public-admin/PublicQuickGameProvider";
+import { usePublicQuickGameEdit } from "@/components/public-admin/PublicQuickGameProvider";
 import type { TeamWithPublicLogo } from "@/lib/team-logo";
+
+function gameWithTeamsToQuickPayload(g: GameWithTeams): QuickEditGamePayload {
+  return {
+    id: g.id,
+    fieldId: g.fieldId,
+    scheduledAt: g.scheduledAt,
+    schedulePlaceholder: g.schedulePlaceholder,
+    status: g.status,
+    resultType: g.resultType,
+    homeRuns: g.homeRuns,
+    awayRuns: g.awayRuns,
+    homeDefensiveInnings: g.homeDefensiveInnings,
+    awayDefensiveInnings: g.awayDefensiveInnings,
+    homeTeamName: g.homeTeam?.name ?? "TBD",
+    awayTeamName: g.awayTeam?.name ?? "TBD",
+  };
+}
 
 export type GameWithTeams = Game & {
   field: Field & { location: { name: string } };
@@ -65,6 +87,30 @@ function GameCardInner({
   /** Schedule page: dense two-row card, hide redundant SCHEDULED pill, meta top-right. */
   scheduleCompactLayout?: boolean;
 }) {
+  const quickEdit = usePublicQuickGameEdit();
+  const quickOpen = quickEdit?.enabled
+    ? () => quickEdit.open(gameWithTeamsToQuickPayload(g))
+    : undefined;
+  const quickShell =
+    quickEdit?.enabled === true
+      ? " w-full cursor-pointer text-left ring-2 ring-amber-400/30 transition-[box-shadow] hover:ring-amber-500/55 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-royal focus-visible:ring-offset-2"
+      : "";
+
+  const quickInteract =
+    quickOpen != null
+      ? {
+          role: "button" as const,
+          tabIndex: 0,
+          onClick: quickOpen,
+          onKeyDown: (e: KeyboardEvent) => {
+            if (e.key === "Enter" || e.key === " ") {
+              e.preventDefault();
+              quickOpen();
+            }
+          },
+        }
+      : {};
+
   const st = GAME_CARD_STATUS_STYLES[g.status] ?? GAME_CARD_STATUS_STYLES.SCHEDULED;
   const hasScore = showScores && g.homeRuns != null && g.awayRuns != null;
   const isLive = g.status === "LIVE";
@@ -133,7 +179,8 @@ function GameCardInner({
   if (scheduleCompactLayout && !hasScore) {
     return (
       <div
-        className={`min-w-0 rounded-2xl border border-zinc-200 shadow-[0_1px_3px_rgba(0,0,0,0.1)] ${surfaceGradient} ${leftBorder} ${cardPadding}`}
+        className={`min-w-0 rounded-2xl border border-zinc-200 shadow-[0_1px_3px_rgba(0,0,0,0.1)] ${surfaceGradient} ${leftBorder} ${cardPadding}${quickShell}`}
+        {...quickInteract}
       >
         <div className="flex items-start justify-between gap-2">
           <p className="min-w-0 flex-1 text-[13px] font-bold leading-snug text-zinc-900">
@@ -163,7 +210,8 @@ function GameCardInner({
 
   return (
     <div
-      className={`min-w-0 rounded-2xl border border-zinc-200 shadow-[0_1px_3px_rgba(0,0,0,0.1)] ${surfaceGradient} ${leftBorder} ${compactShell}`}
+      className={`min-w-0 rounded-2xl border border-zinc-200 shadow-[0_1px_3px_rgba(0,0,0,0.1)] ${surfaceGradient} ${leftBorder} ${compactShell}${quickShell}`}
+      {...quickInteract}
     >
       <div className="flex items-center justify-between gap-2">
         <p className="text-[13px] font-bold leading-snug text-zinc-900">

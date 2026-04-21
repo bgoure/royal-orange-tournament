@@ -1,10 +1,13 @@
 import type { Tournament } from "@prisma/client";
+import { auth } from "@/auth";
 import { SiteHeader } from "@/components/layout/SiteHeader";
 import { BottomNav } from "@/components/layout/BottomNav";
+import { PublicQuickGameProvider } from "@/components/public-admin/PublicQuickGameProvider";
 import { PwaInstallPrompt } from "@/components/ui/PwaInstallPrompt";
 import { getDivisionTabCookie } from "@/lib/division-tab-cookie";
 import { buildDivisionTabDescriptors } from "@/lib/division-tabs";
-import { listPoolsForDivisionTabs } from "@/lib/services/pools";
+import { formatFieldWithLocation } from "@/lib/field-display";
+import { listFieldsForTournament, listPoolsForDivisionTabs } from "@/lib/services/pools";
 
 function deployShaLabel(): string {
   const full =
@@ -25,10 +28,18 @@ export async function SiteShell({
   const sha = deployShaLabel();
   const slug = tournament.slug;
 
-  const divisionTabDescriptors = await listPoolsForDivisionTabs(tournament.id).then(
-    buildDivisionTabDescriptors,
-  );
-  const cookieDivision = await getDivisionTabCookie();
+  const [divisionTabDescriptors, cookieDivision, session, fieldRows] = await Promise.all([
+    listPoolsForDivisionTabs(tournament.id).then(buildDivisionTabDescriptors),
+    getDivisionTabCookie(),
+    auth(),
+    listFieldsForTournament(tournament.id),
+  ]);
+
+  const isAdmin = session?.user?.role === "ADMIN";
+  const quickFieldOptions = fieldRows.map((f) => ({
+    id: f.id,
+    label: formatFieldWithLocation(f.name, f.location.name),
+  }));
 
   return (
     <div className="flex min-h-full flex-col">
@@ -38,7 +49,16 @@ export async function SiteShell({
         cookieDivision={cookieDivision}
       />
       <PwaInstallPrompt />
-      <main className="mx-auto flex w-full max-w-5xl flex-1 flex-col gap-6 px-4 py-6 pb-[7.2rem] md:pb-6">{children}</main>
+      <PublicQuickGameProvider
+        isAdmin={isAdmin}
+        tournamentSlug={slug}
+        timezone={tournament.timezone}
+        fieldOptions={quickFieldOptions}
+      >
+        <main className="mx-auto flex w-full max-w-5xl flex-1 flex-col gap-6 px-4 py-6 pb-[7.2rem] md:pb-6">
+          {children}
+        </main>
+      </PublicQuickGameProvider>
       <footer className="hidden border-t border-zinc-200 py-6 text-center text-xs text-zinc-500 md:block">
         Royal &amp; Orange 2026 — schedules, scores, and brackets
         <span className="mt-2 block font-mono text-[10px] text-zinc-400">Deploy {sha}</span>
@@ -53,3 +73,4 @@ export async function SiteShell({
     </div>
   );
 }
+

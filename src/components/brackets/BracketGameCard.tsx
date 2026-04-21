@@ -1,3 +1,6 @@
+"use client";
+
+import type { KeyboardEvent } from "react";
 import { GameKind } from "@prisma/client";
 import { formatBracketGameScheduledAt } from "@/lib/datetime-tournament";
 import { brandCardGradientClass } from "@/lib/brand-card-gradient";
@@ -7,6 +10,25 @@ import { GAME_CARD_STATUS_STYLES } from "@/components/schedule/GameList";
 import type { GameRow } from "@/components/brackets/bracket-types";
 import { getBracketSlotSources } from "@/lib/brackets/game-slot-sources";
 import { slotLines, slotLineTextClass } from "@/components/brackets/bracket-slot-lines";
+import type { QuickEditGamePayload } from "@/components/public-admin/PublicQuickGameProvider";
+import { usePublicQuickGameEdit } from "@/components/public-admin/PublicQuickGameProvider";
+
+function gameRowToQuickPayload(game: GameRow): QuickEditGamePayload {
+  return {
+    id: game.id,
+    fieldId: game.fieldId,
+    scheduledAt: game.scheduledAt,
+    schedulePlaceholder: game.schedulePlaceholder,
+    status: game.status,
+    resultType: game.resultType,
+    homeRuns: game.homeRuns,
+    awayRuns: game.awayRuns,
+    homeDefensiveInnings: game.homeDefensiveInnings,
+    awayDefensiveInnings: game.awayDefensiveInnings,
+    homeTeamName: game.homeTeam?.name ?? "TBD",
+    awayTeamName: game.awayTeam?.name ?? "TBD",
+  };
+}
 
 const scheduleLogoSize = "h-7 w-7 min-h-[28px] min-w-[28px] shrink-0";
 const scoredLogoSize = "h-7 w-7 min-h-[28px] min-w-[28px]";
@@ -59,6 +81,29 @@ export function BracketGameCard({
     "home",
     prevRoundName,
   );
+
+  const quickEdit = usePublicQuickGameEdit();
+  const quickOpen = quickEdit?.enabled
+    ? () => quickEdit.open(gameRowToQuickPayload(game))
+    : undefined;
+  const quickShell =
+    quickEdit?.enabled === true
+      ? " cursor-pointer ring-2 ring-amber-400/30 transition-[box-shadow] hover:ring-amber-500/55 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-royal focus-visible:ring-offset-2"
+      : "";
+  const quickInteract =
+    quickOpen != null
+      ? {
+          role: "button" as const,
+          tabIndex: 0,
+          onClick: quickOpen,
+          onKeyDown: (e: KeyboardEvent) => {
+            if (e.key === "Enter" || e.key === " ") {
+              e.preventDefault();
+              quickOpen();
+            }
+          },
+        }
+      : {};
 
   const st = GAME_CARD_STATUS_STYLES[game.status] ?? GAME_CARD_STATUS_STYLES.SCHEDULED;
   const isLive = game.status === "LIVE";
@@ -115,8 +160,9 @@ export function BracketGameCard({
 
   return (
     <article
-      className={`min-w-0 rounded-2xl border border-zinc-200 shadow-[0_1px_3px_rgba(0,0,0,0.1)] ${surfaceGradient} ${leftBorder} ${cardPadding}`}
+      className={`min-w-0 rounded-2xl border border-zinc-200 shadow-[0_1px_3px_rgba(0,0,0,0.1)] ${surfaceGradient} ${leftBorder} ${cardPadding}${quickShell}`}
       aria-label={`Bracket match ${gChipIndex + 1}`}
+      {...quickInteract}
     >
       {roundLabel ? (
         <p className="mb-1 text-[10px] font-bold uppercase tracking-[0.06em] text-royal">{roundLabel}</p>
