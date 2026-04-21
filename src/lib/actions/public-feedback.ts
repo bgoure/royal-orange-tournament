@@ -3,6 +3,7 @@
 import { headers } from "next/headers";
 import { prisma } from "@/lib/db";
 import { sendPublicFeedbackNotification } from "@/lib/email/feedback-email";
+import { listAdminNotificationEmails } from "@/lib/services/admin-notification-emails";
 import { getPublishedTournamentBySlug } from "@/lib/tournament-context";
 import { publicFeedbackSchema } from "@/lib/validations/feedback";
 
@@ -56,10 +57,16 @@ export async function submitFeedbackAction(
     },
   });
 
-  const notifyTo = process.env.FEEDBACK_NOTIFY_EMAIL?.trim();
-  if (notifyTo) {
+  const adminEmails = await listAdminNotificationEmails();
+  const envExtra = process.env.FEEDBACK_NOTIFY_EMAIL?.trim();
+  const recipients: string[] = [...adminEmails];
+  if (envExtra && !recipients.some((e) => e.toLowerCase() === envExtra.toLowerCase())) {
+    recipients.push(envExtra);
+  }
+
+  if (recipients.length > 0) {
     const sent = await sendPublicFeedbackNotification({
-      to: notifyTo,
+      to: recipients,
       tournamentName: tournament.name,
       tournamentSlug: tournament.slug,
       message: parsed.data.message,
@@ -69,6 +76,8 @@ export async function submitFeedbackAction(
     if (!sent.ok) {
       console.warn("[feedback] email notify failed:", sent.error);
     }
+  } else {
+    console.warn("[feedback] no ADMIN emails in DB and FEEDBACK_NOTIFY_EMAIL unset; skipping email");
   }
 
   return { ok: true };

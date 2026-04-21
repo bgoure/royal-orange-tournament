@@ -2,17 +2,22 @@ import { Resend } from "resend";
 import { getResendFromAddress } from "@/lib/email/resend";
 
 /**
- * Sends one notification to FEEDBACK_NOTIFY_EMAIL when Resend is configured.
+ * Sends one notification to the given addresses when Resend is configured.
  * Failures are non-fatal — feedback is already stored in the database.
  */
 export async function sendPublicFeedbackNotification(opts: {
-  to: string;
+  to: string[];
   tournamentName: string;
   tournamentSlug: string;
   message: string;
   contactEmail: string | null;
   feedbackId: string;
 }): Promise<{ ok: true } | { ok: false; error: string }> {
+  const recipients = [...new Set(opts.to.map((t) => t.trim()).filter(Boolean))];
+  if (recipients.length === 0) {
+    return { ok: false, error: "No recipients" };
+  }
+
   const apiKey = process.env.RESEND_API_KEY?.trim();
   if (!apiKey) {
     return { ok: false, error: "RESEND_API_KEY not set" };
@@ -37,7 +42,7 @@ export async function sendPublicFeedbackNotification(opts: {
 
   const { error } = await resend.emails.send({
     from,
-    to: opts.to.trim(),
+    to: recipients,
     subject,
     text,
   });
