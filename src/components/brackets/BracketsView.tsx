@@ -3,19 +3,11 @@
 import { useEffect, useMemo, useState, type Dispatch, type SetStateAction } from "react";
 import { DIVISION_SWIPE_IGNORE } from "@/lib/division-swipe-ignore";
 import type { BracketRound } from "@prisma/client";
-import { formatBracketGameScheduledAt } from "@/lib/datetime-tournament";
 import { EmptyState } from "@/components/ui/EmptyState";
 import { SectionTitle } from "@/components/ui/PublicHeading";
-import { TeamLogoMark } from "@/components/ui/TeamLogo";
 import { BracketGameCard } from "@/components/brackets/BracketGameCard";
 import type { BracketWith, GameRow } from "@/components/brackets/bracket-types";
-import {
-  matchSortIndex,
-  prevRoundNameForGame,
-  slotLines,
-  slotLineTextClass,
-} from "@/components/brackets/bracket-slot-lines";
-import { getBracketSlotSources } from "@/lib/brackets/game-slot-sources";
+import { matchSortIndex, prevRoundNameForGame } from "@/components/brackets/bracket-slot-lines";
 import {
   filterRoundsForScope,
   hasConsolationRounds,
@@ -160,105 +152,29 @@ function MobileMatchRow({
   roundLabel,
   prevRoundName,
   timeZone,
+  gLabelFallbackIndexZeroBased,
 }: {
   game: GameRow;
   roundLabel: string;
   prevRoundName: string | null;
   timeZone?: string | null;
+  gLabelFallbackIndexZeroBased: number;
 }) {
   const bm = game.bracketMatch;
   const mi = bm?.matchIndex ?? 0;
   const ri = game.bracketRound?.roundIndex ?? 0;
-  const src = getBracketSlotSources(game);
-  const away = slotLines(
-    game.awayTeam,
-    src.awayPool,
-    src.awayRank,
-    ri,
-    mi,
-    "away",
-    prevRoundName,
-  );
-  const home = slotLines(
-    game.homeTeam,
-    src.homePool,
-    src.homeRank,
-    ri,
-    mi,
-    "home",
-    prevRoundName,
-  );
-  const final = game.status === "FINAL" && game.homeRuns != null && game.awayRuns != null;
-  const awayW = final && game.awayRuns! > game.homeRuns!;
-  const homeW = final && game.homeRuns! > game.awayRuns!;
-  const t = formatBracketGameScheduledAt(game.scheduledAt, timeZone, game.schedulePlaceholder);
-  const scheduled =
-    game.gameNumber != null && game.gameNumber !== ""
-      ? `Game #${game.gameNumber} · ${t}`
-      : t;
 
   return (
-    <li className="min-w-0 list-none rounded-2xl border border-zinc-200 border-l-2 border-l-royal/90 bg-white shadow-[0_1px_3px_rgba(0,0,0,0.1)]">
-      <div className="border-b border-royal/10 bg-royal-50/50 px-3 py-1.5">
-        <p className="text-[11px] font-bold uppercase tracking-[0.06em] text-royal">{roundLabel}</p>
-        <p className="mt-0.5 text-[11px] font-medium leading-snug text-zinc-700">
-          {scheduled}
-          <span className="mx-1 text-zinc-300">·</span>
-          {game.field.name}
-        </p>
-      </div>
-      <div className="divide-y divide-zinc-100 px-3 py-0 text-sm">
-        <div className="py-2.5">
-          <div className="flex min-w-0 items-center justify-between gap-2">
-            <div className="flex min-w-0 flex-1 items-center gap-2">
-              <TeamLogoMark team={away.team} />
-              <span className={`min-w-0 truncate leading-snug ${slotLineTextClass(away)}`}>{away.primary}</span>
-            </div>
-            {final ? (
-              <span
-                className={`shrink-0 text-lg font-bold tabular-nums ${awayW ? "text-royal" : "text-zinc-400"}`}
-                aria-label={awayW ? "Away wins" : undefined}
-              >
-                {game.awayRuns}
-                {awayW ? (
-                  <span className="ml-1 text-sm font-semibold text-royal" aria-hidden>
-                    ✓
-                  </span>
-                ) : null}
-              </span>
-            ) : null}
-          </div>
-          {away.secondary ? <p className="mt-0.5 text-xs text-zinc-500">{away.secondary}</p> : null}
-        </div>
-        <div className="py-2.5">
-          <p className="text-[10px] font-medium uppercase tracking-wide text-zinc-400">vs</p>
-          <div className="mt-0.5 flex min-w-0 items-center justify-between gap-2">
-            <div className="flex min-w-0 flex-1 items-center gap-2">
-              <TeamLogoMark team={home.team} />
-              <span className={`min-w-0 truncate leading-snug ${slotLineTextClass(home)}`}>{home.primary}</span>
-            </div>
-            {final ? (
-              <span
-                className={`shrink-0 text-lg font-bold tabular-nums ${homeW ? "text-royal" : "text-zinc-400"}`}
-                aria-label={homeW ? "Home wins" : undefined}
-              >
-                {game.homeRuns}
-                {homeW ? (
-                  <span className="ml-1 text-sm font-semibold text-royal" aria-hidden>
-                    ✓
-                  </span>
-                ) : null}
-              </span>
-            ) : null}
-          </div>
-          {home.secondary ? <p className="mt-0.5 text-xs text-zinc-500">{home.secondary}</p> : null}
-        </div>
-      </div>
-      {final ? (
-        <p className="border-t border-zinc-100 px-3 py-1.5 text-[11px] text-zinc-500">Final</p>
-      ) : (
-        <p className="border-t border-zinc-100 px-3 py-1.5 text-[11px] text-zinc-500">{game.status}</p>
-      )}
+    <li className="min-w-0 list-none">
+      <BracketGameCard
+        game={game}
+        roundIndexDb={ri}
+        matchIndex={mi}
+        prevRoundName={prevRoundName}
+        timeZone={timeZone}
+        roundLabel={roundLabel}
+        gLabelFallbackIndexZeroBased={gLabelFallbackIndexZeroBased}
+      />
     </li>
   );
 }
@@ -282,7 +198,7 @@ function BracketMobileList({
 
   return (
     <ul className="flex list-none flex-col gap-3 p-0 md:hidden">
-      {sorted.map((g) => {
+      {sorted.map((g, listIdx) => {
         const r = g.bracketRoundId ? roundById.get(g.bracketRoundId) : null;
         const prev = prevRoundNameForGame(roundsVisible, r?.id ?? null);
         return (
@@ -292,6 +208,7 @@ function BracketMobileList({
             roundLabel={r?.name ?? "Round"}
             prevRoundName={prev}
             timeZone={timeZone}
+            gLabelFallbackIndexZeroBased={listIdx}
           />
         );
       })}
@@ -503,13 +420,14 @@ function ConsolationGamesSection({
       <div className="mt-4 md:hidden">
         {mobileView === "list" ? (
           <ul className="flex list-none flex-col gap-3 p-0">
-            {sorted.map((g) => (
+            {sorted.map((g, listIdx) => (
               <MobileMatchRow
                 key={g.id}
                 game={g}
                 roundLabel="Consolation"
                 prevRoundName={null}
                 timeZone={tournamentTimezone}
+                gLabelFallbackIndexZeroBased={listIdx}
               />
             ))}
           </ul>

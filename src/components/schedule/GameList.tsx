@@ -22,7 +22,8 @@ export type GameWithTeams = Game & {
   division?: { id: string; name: string } | null;
 };
 
-const statusStyles: Record<string, string> = {
+/** Shared with bracket cards so status pills match schedule / results. */
+export const GAME_CARD_STATUS_STYLES: Record<string, string> = {
   SCHEDULED: "bg-royal text-white",
   LIVE:
     "bg-red-500 text-white shadow-[0_0_8px_rgba(239,68,68,0.7)] motion-safe:animate-pulse motion-reduce:animate-none",
@@ -64,7 +65,7 @@ function GameCardInner({
   /** Schedule page: dense two-row card, hide redundant SCHEDULED pill, meta top-right. */
   scheduleCompactLayout?: boolean;
 }) {
-  const st = statusStyles[g.status] ?? statusStyles.SCHEDULED;
+  const st = GAME_CARD_STATUS_STYLES[g.status] ?? GAME_CARD_STATUS_STYLES.SCHEDULED;
   const hasScore = showScores && g.homeRuns != null && g.awayRuns != null;
   const isLive = g.status === "LIVE";
 

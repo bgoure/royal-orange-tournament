@@ -20,6 +20,7 @@ export type BracketMatchWithPools = BracketMatch & {
 };
 
 export type GameRow = Game & {
+  pool?: (Pool & { division: Division }) | null;
   homeTeam: TeamWithPool | null;
   awayTeam: TeamWithPool | null;
   field: Field & { location: { name: string } };

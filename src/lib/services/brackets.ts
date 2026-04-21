@@ -3,6 +3,7 @@ import { prisma } from "@/lib/db";
 
 /** Shared shape for public bracket-style games (playoff + friendly consolation). */
 export const publicBracketStyleGameInclude = {
+  pool: { include: { division: true } },
   homeTeam: {
     include: {
       pool: { include: { division: true } },
@@ -44,6 +45,7 @@ export function listBracketsForTournament(
       games: {
         orderBy: [{ bracketRound: { roundIndex: "asc" } }, { bracketPosition: "asc" }],
         include: {
+          pool: { include: { division: true } },
           homeTeam: {
             include: {
               pool: { include: { division: true } },

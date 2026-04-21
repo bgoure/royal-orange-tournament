@@ -11,7 +11,7 @@ export type SlotLine = {
 };
 
 export function slotLineTextClass(line: SlotLine): string {
-  if (line.team) return "font-medium text-zinc-900";
+  if (line.team) return "font-bold text-zinc-900";
   if (line.isPlaceholder) return "font-medium italic text-zinc-500";
   return "font-medium text-zinc-900";
 }
