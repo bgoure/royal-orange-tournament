@@ -107,24 +107,24 @@ function GameCardInner({
         </span>
       ) : null}
       <span className="inline-flex flex-wrap items-center justify-end gap-x-1.5">
-        <span className="inline-block shrink-0 rounded-md bg-accent px-2 py-0.5 text-[11px] font-bold tabular-nums text-white">
-          {gameIdDisplayLabel(g, fallbackSeq)}
-        </span>
         {g.pool ? (
           <>
-            <span className="text-zinc-400">·</span>
             <span className={`font-medium ${poolCardLabelTextClass(g.pool.cardLabelColor)}`}>{g.pool.name}</span>
+            <span className="text-zinc-400">·</span>
           </>
         ) : g.gameKind === GameKind.CONSOLATION && g.division ? (
           <>
-            <span className="text-zinc-400">·</span>
             <span className="font-medium text-zinc-600">
               {g.division.name} · Friendly consolation
             </span>
+            <span className="text-zinc-400">·</span>
           </>
         ) : null}
-        <span className="text-zinc-400">·</span>
         <span className="min-w-0 break-words text-right">{g.field.name}</span>
+        <span className="text-zinc-400">·</span>
+        <span className="inline-block shrink-0 rounded-md bg-accent px-2 py-0.5 text-[11px] font-bold tabular-nums text-white">
+          {gameIdDisplayLabel(g, fallbackSeq)}
+        </span>
       </span>
     </div>
   );
@@ -215,24 +215,24 @@ function GameCardInner({
       )}
 
       <p className="mt-2 text-[10px] leading-tight text-zinc-500">
-        <span className="inline-block rounded-md bg-accent px-2 py-0.5 text-[11px] font-bold tabular-nums text-white">
-          {gameIdDisplayLabel(g, fallbackSeq)}
-        </span>
         {g.pool ? (
           <>
-            <span className="mx-1.5 text-zinc-400">·</span>
             <span className={`font-medium ${poolCardLabelTextClass(g.pool.cardLabelColor)}`}>{g.pool.name}</span>
+            <span className="mx-1.5 text-zinc-400">·</span>
           </>
         ) : g.gameKind === GameKind.CONSOLATION && g.division ? (
           <>
-            <span className="mx-1.5 text-zinc-400">·</span>
             <span className="font-medium">
               {g.division.name} · Friendly consolation
             </span>
+            <span className="mx-1.5 text-zinc-400">·</span>
           </>
         ) : null}
-        <span className="mx-1.5 text-zinc-400">·</span>
         {g.field.name}
+        <span className="mx-1.5 text-zinc-400">·</span>
+        <span className="inline-block rounded-md bg-accent px-2 py-0.5 text-[11px] font-bold tabular-nums text-white">
+          {gameIdDisplayLabel(g, fallbackSeq)}
+        </span>
       </p>
     </div>
   );
