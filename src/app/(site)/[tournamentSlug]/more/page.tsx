@@ -7,14 +7,14 @@ export default async function MorePage({ params }: { params: Promise<{ tournamen
   const tp = (s: string) => tournamentPath(tournamentSlug, s);
 
   const links = [
-    { href: tp("locations"), label: "Locations", description: "Venues & maps" },
+    { href: tp("locations"), label: "Locations", description: "Game Fields and Directions" },
     {
       href: tp("rules"),
-      label: "Rules and Resources",
-      description: "Tournament rules & O.B.A. links",
+      label: "Tournament Rules & Resources",
+      description: "Rules for Royal & Classic and OBA resources",
     },
-    { href: tp("settings"), label: "Settings", description: "App preferences" },
     { href: tp("social"), label: "Social", description: "Follow Baseball Milton" },
+    { href: tp("settings"), label: "Settings", description: "App preferences" },
   ] as const;
 
   return (

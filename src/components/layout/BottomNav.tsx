@@ -12,11 +12,14 @@ export function BottomNav({ tournamentSlug }: { tournamentSlug: string }) {
   const [moreOpen, setMoreOpen] = useState(false);
 
   const moreLinks = [
-    { href: tp("locations"), label: "Locations", description: "Venues & maps" },
-    { href: tp("rules"), label: "Rules", description: "Tournament rules & resources" },
-    { href: tp("faq"), label: "FAQ", description: "Frequently asked questions" },
-    { href: tp("settings"), label: "Settings", description: "App preferences" },
+    { href: tp("locations"), label: "Locations", description: "Game Fields and Directions" },
+    {
+      href: tp("rules"),
+      label: "Tournament Rules & Resources",
+      description: "Rules for Royal & Classic and OBA resources",
+    },
     { href: tp("social"), label: "Social", description: "Follow Baseball Milton" },
+    { href: tp("settings"), label: "Settings", description: "App preferences" },
   ] as const;
 
   const tabs = [
@@ -65,7 +68,6 @@ export function BottomNav({ tournamentSlug }: { tournamentSlug: string }) {
 
   const matchPrefixes = [
     tp("rules"),
-    tp("faq"),
     tp("locations"),
     tp("more"),
     tp("settings"),
