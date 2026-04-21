@@ -17,14 +17,43 @@ type OpenMeteoDaily = {
   temperature_2m_min: number[];
 };
 
+type OpenMeteoHourly = {
+  time: string[];
+  temperature_2m: number[];
+  weather_code: number[];
+};
+
 export type WeatherWidgetPayload = {
   current: { tempC: number; code: number; windKmh?: number };
   daily: { date: string; highC: number; lowC: number; code: number }[];
+  /** Next wall-clock hours from the forecast (typically 8), local timezone per API. */
+  hourly: { time: string; tempC: number; code: number }[];
   fetchedAt: string;
 };
 
 function cacheKey(lat: number, lon: number): string {
-  return `wx:m:${lat.toFixed(3)}:${lon.toFixed(3)}`;
+  return `wx:m:v2:${lat.toFixed(3)}:${lon.toFixed(3)}`;
+}
+
+function nextHourlySlots(
+  hourly: OpenMeteoHourly,
+  nowMs: number,
+  maxSlots: number,
+): { time: string; tempC: number; code: number }[] {
+  const { time: times, temperature_2m: temps, weather_code: codes } = hourly;
+  const slots: { time: string; tempC: number; code: number }[] = [];
+  const graceMs = 20 * 60 * 1000;
+  for (let i = 0; i < times.length && slots.length < maxSlots; i++) {
+    const t = new Date(times[i]!).getTime();
+    if (Number.isNaN(t)) continue;
+    if (t < nowMs - graceMs) continue;
+    slots.push({
+      time: times[i]!,
+      tempC: Math.round(temps[i] ?? 0),
+      code: codes[i] ?? 0,
+    });
+  }
+  return slots;
 }
 
 export async function getWeatherForTournament(opts: {
@@ -37,7 +66,10 @@ export async function getWeatherForTournament(opts: {
 
   const cached = await prisma.weatherCache.findUnique({ where: { key } });
   if (cached && cached.expiresAt > now) {
-    return cached.payload as unknown as WeatherWidgetPayload;
+    const parsed = cached.payload as unknown as Partial<WeatherWidgetPayload>;
+    if (Array.isArray(parsed.hourly)) {
+      return parsed as WeatherWidgetPayload;
+    }
   }
 
   const url = new URL("https://api.open-meteo.com/v1/forecast");
@@ -45,6 +77,7 @@ export async function getWeatherForTournament(opts: {
   url.searchParams.set("longitude", String(longitude));
   url.searchParams.set("current", "temperature_2m,weather_code,wind_speed_10m");
   url.searchParams.set("daily", "weather_code,temperature_2m_max,temperature_2m_min");
+  url.searchParams.set("hourly", "temperature_2m,weather_code");
   url.searchParams.set("temperature_unit", "celsius");
   url.searchParams.set("wind_speed_unit", "kmh");
   url.searchParams.set("timezone", "auto");
@@ -56,6 +89,7 @@ export async function getWeatherForTournament(opts: {
   const data = (await res.json()) as {
     current: OpenMeteoCurrent;
     daily: OpenMeteoDaily;
+    hourly?: OpenMeteoHourly;
   };
 
   const daily = data.daily.time.map((date, i) => ({
@@ -64,6 +98,9 @@ export async function getWeatherForTournament(opts: {
     lowC: Math.round(data.daily.temperature_2m_min[i] ?? 0),
     code: data.daily.weather_code[i] ?? 0,
   }));
+
+  const hourly =
+    data.hourly != null ? nextHourlySlots(data.hourly, now.getTime(), 8) : [];
 
   const payload: WeatherWidgetPayload = {
     current: {
@@ -74,6 +111,7 @@ export async function getWeatherForTournament(opts: {
         : undefined,
     },
     daily,
+    hourly,
     fetchedAt: now.toISOString(),
   };
 
