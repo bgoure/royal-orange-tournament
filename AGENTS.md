@@ -14,6 +14,7 @@ Tournament Hub (`tourney-app`) — a Next.js 16 / React 19 / TypeScript full-sta
 
 - **Day-to-day work** happens on the **`staging`** Git branch (pushes deploy the **staging** Vercel project, e.g. `royal-orange.goure.ca`).
 - **Production** (`royalorange.ca`) updates only when **`staging` is merged into `main`** (the production Vercel project tracks **`main`**).
+- **Auth URL per Vercel project:** In each project’s **Production** env, set **`AUTH_URL`** and **`NEXTAUTH_URL`** to that project’s public origin (staging → `https://royal-orange.goure.ca`, production → `https://royalorange.ca`). If production still has staging’s values, Google sign-in and post-login redirects can send users to the wrong host even though the app code only uses relative `/` links.
 - Do not assume **`main`** has the latest changes until that merge; treat **`staging`** as the integration branch for new work.
 
 ### Prerequisites
