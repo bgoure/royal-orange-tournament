@@ -42,8 +42,12 @@ export async function SiteHeader({
               priority
             />
             <span className="flex min-w-0 flex-col gap-0">
-              <span className="text-lg font-bold tracking-tight text-white">Royal &amp; Orange</span>
-              <span className="text-lg font-bold tracking-tight text-accent">Classic 2026</span>
+              <span className="text-xl font-bold leading-tight tracking-tight text-white sm:text-2xl">
+                Royal &amp; Orange
+              </span>
+              <span className="mt-px text-sm font-bold leading-tight tracking-tight text-accent sm:text-base">
+                Classic 2026
+              </span>
             </span>
           </Link>
           <div className="flex min-w-0 flex-1 justify-end">
