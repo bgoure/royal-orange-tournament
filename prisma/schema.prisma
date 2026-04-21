@@ -105,9 +105,24 @@ model Tournament {
   faqItems      FaqItem[]
   subscribers   TournamentSubscriber[]
   mediaAssets   MediaAsset[]
-  sponsors      TournamentSponsor[]
-  createdAt     DateTime @default(now())
-  updatedAt     DateTime @updatedAt
+  sponsors        TournamentSponsor[]
+  publicFeedbacks PublicFeedback[]
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+}
+
+/// Anonymous public-site feedback (message + optional contact); emailed to directors when configured.
+model PublicFeedback {
+  id           String     @id @default(cuid())
+  tournamentId String
+  tournament   Tournament @relation(fields: [tournamentId], references: [id], onDelete: Cascade)
+  message      String     @db.Text
+  contactEmail String?
+  userAgent    String?    @db.Text
+  sourcePath   String?
+  createdAt    DateTime   @default(now())
+
+  @@index([tournamentId, createdAt])
 }
 
 /// Home page sponsor logos (stored in DB; max 15 per tournament enforced in app code).

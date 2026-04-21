@@ -72,6 +72,7 @@ export function BottomNav({ tournamentSlug }: { tournamentSlug: string }) {
     tp("more"),
     tp("settings"),
     tp("social"),
+    tp("feedback"),
   ];
 
   const parts = pathname.split("/").filter(Boolean);
@@ -135,7 +136,7 @@ export function BottomNav({ tournamentSlug }: { tournamentSlug: string }) {
             </div>
             <ul className="min-h-0 flex-1 overflow-y-auto px-4 pb-4 pt-4">
               {moreLinks.map((item) => (
-                <li key={item.href} className="border-b border-zinc-100 last:border-0">
+                <li key={item.href} className="border-b border-zinc-100">
                   <Link
                     href={item.href}
                     onClick={closeMore}
@@ -146,6 +147,16 @@ export function BottomNav({ tournamentSlug }: { tournamentSlug: string }) {
                   </Link>
                 </li>
               ))}
+              <li className="mt-2 border-t border-zinc-200 pt-2">
+                <Link
+                  href={tp("feedback")}
+                  onClick={closeMore}
+                  className="flex min-h-[52px] flex-col justify-center py-3 active:bg-zinc-50"
+                >
+                  <span className="font-semibold text-zinc-900">Feedback</span>
+                  <span className="text-xs text-zinc-500">Report a problem or share a suggestion</span>
+                </Link>
+              </li>
             </ul>
           </Drawer.Content>
         </Drawer.Portal>
