@@ -1,6 +1,7 @@
 /** Stroke icons aligned with bottom nav (24px, rounded caps). */
 
 const cls = "size-6 shrink-0";
+const clsLg = "size-8 shrink-0";
 
 export function MoreIconAnnouncements() {
   return (
@@ -30,7 +31,7 @@ export function MoreIconLocations() {
       strokeWidth={2}
       strokeLinecap="round"
       strokeLinejoin="round"
-      className={cls}
+      className={clsLg}
       aria-hidden
     >
       <path d="M12 21s7-4.35 7-10a7 7 0 10-14 0c0 5.65 7 10 7 10z" />
@@ -88,7 +89,7 @@ export function MoreIconSettings() {
       strokeWidth={2}
       strokeLinecap="round"
       strokeLinejoin="round"
-      className="size-8 shrink-0"
+      className={clsLg}
       aria-hidden
     >
       <path d="M12 3l2.39 3.23 3.97-.59-.59 3.97L21 12l-3.23 2.39.59 3.97-3.97-.59L12 21l-2.39-3.23-3.97.59.59-3.97L3 12l3.23-2.39-.59-3.97 3.97.59L12 3z" />
