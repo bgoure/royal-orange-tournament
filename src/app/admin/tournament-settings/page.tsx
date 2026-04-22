@@ -5,10 +5,12 @@ import {
   type HeadquartersLocationOption,
   type TournamentHeadquartersState,
 } from "@/components/admin/tournament/TournamentHeadquartersForm";
+import { TournamentDangerZoneForm } from "@/components/admin/tournament/TournamentDangerZoneForm";
 import { TournamentRenameForm } from "@/components/admin/tournament/TournamentRenameForm";
 import { TournamentBrandingForm } from "@/components/admin/tournament/TournamentBrandingForm";
 import { TournamentPublicAnnouncementsForm } from "@/components/admin/tournament/TournamentPublicAnnouncementsForm";
 import { can } from "@/lib/rbac/permissions";
+import { Role } from "@prisma/client";
 import { formatLocationAddress } from "@/lib/location-utils";
 import { getHeadquartersLocation, listLocations } from "@/lib/services/content";
 import { getTournamentForRequest } from "@/lib/tournament-context";
@@ -47,6 +49,7 @@ export default async function AdminTournamentSettingsPage() {
 
   const role = session?.user?.role;
   const canManage = role != null && can(role, "content:manage");
+  const isAdmin = role === Role.ADMIN;
 
   const branding = {
     pwaIcon192Url: tournament.pwaIcon192Url,
@@ -94,6 +97,12 @@ export default async function AdminTournamentSettingsPage() {
           tournamentName={tournament.name}
           canManage={canManage}
         />
+        <TournamentDangerZoneForm
+          tournamentSlug={tournament.slug}
+          tournamentName={tournament.name}
+          canManage={canManage}
+          isAdmin={isAdmin}
+        />
       </div>
     );
   }
@@ -112,6 +121,12 @@ export default async function AdminTournamentSettingsPage() {
         locations={options}
         tournamentName={tournament.name}
         canManage={canManage}
+      />
+      <TournamentDangerZoneForm
+        tournamentSlug={tournament.slug}
+        tournamentName={tournament.name}
+        canManage={canManage}
+        isAdmin={isAdmin}
       />
     </div>
   );
