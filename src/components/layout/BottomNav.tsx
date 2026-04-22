@@ -178,7 +178,7 @@ export function BottomNav({
                       {item.icon}
                     </span>
                     <span className="min-w-0 flex-1">
-                      <span className="block text-sm font-semibold leading-snug">{item.label}</span>
+                      <span className="block text-base font-semibold leading-snug">{item.label}</span>
                       <span className="mt-0.5 block text-[10px] font-normal leading-snug text-royal">
                         {item.description}
                       </span>
@@ -196,7 +196,7 @@ export function BottomNav({
                     <MoreIconFeedback />
                   </span>
                   <span className="min-w-0 flex-1">
-                    <span className="block text-sm font-semibold leading-snug">Feedback</span>
+                    <span className="block text-base font-semibold leading-snug">Feedback</span>
                     <span className="mt-0.5 block text-[10px] font-normal leading-snug text-royal">
                       Report a problem or share a suggestion
                     </span>
