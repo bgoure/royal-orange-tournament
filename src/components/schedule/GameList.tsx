@@ -1,6 +1,6 @@
 "use client";
 
-import type { Division, Field, Game, Pool } from "@prisma/client";
+import type { BracketRound, Division, Field, Game, Pool } from "@prisma/client";
 import type { KeyboardEvent } from "react";
 import { GameKind } from "@prisma/client";
 import {
@@ -9,6 +9,7 @@ import {
   formatScheduleDayGroupHeading,
   tournamentCalendarDayKey,
 } from "@/lib/datetime-tournament";
+import { playoffScheduleBracketCaption } from "@/lib/brackets/bracket-display";
 import { brandCardGradientClass } from "@/lib/brand-card-gradient";
 import { DIVISION_SWIPE_IGNORE } from "@/lib/division-swipe-ignore";
 import { poolCardLabelTextClass } from "@/lib/pool-card-label";
@@ -42,6 +43,11 @@ export type GameWithTeams = Game & {
   awayTeam: TeamWithPublicLogo | null;
   pool: (Pool & { division: Division }) | null;
   division?: { id: string; name: string } | null;
+  bracketRound:
+    | (BracketRound & {
+        bracket: { division: { id: string; name: string } };
+      })
+    | null;
 };
 
 /** Shared with bracket cards so status pills match schedule / results. */
@@ -67,6 +73,15 @@ function gameIdDisplayLabel(g: GameWithTeams, fallbackSeq: number): string {
   const n = g.gameNumber?.trim();
   if (n) return `G${n}`;
   return `G${fallbackSeq}`;
+}
+
+function bracketCaptionForScheduleCard(g: GameWithTeams): string | null {
+  return playoffScheduleBracketCaption({
+    gameKind: g.gameKind,
+    division: g.division,
+    bracketRound: g.bracketRound ?? undefined,
+    bracketDivision: g.bracketRound?.bracket?.division,
+  });
 }
 
 function GameCardInner({
@@ -137,6 +152,8 @@ function GameCardInner({
 
   const scheduleCompactFooterStatus = scheduleCompactLayout && g.status !== "SCHEDULED";
 
+  const bracketCaption = bracketCaptionForScheduleCard(g);
+
   const scheduleCompactPoolField = (
     <div className="inline-flex min-w-0 max-w-full flex-wrap items-center justify-end gap-x-1.5 text-[10px] leading-tight text-zinc-500">
       {g.pool ? (
@@ -147,6 +164,11 @@ function GameCardInner({
       ) : g.gameKind === GameKind.CONSOLATION && g.division ? (
         <>
           <span className="font-medium text-zinc-600">{g.division.name} · Friendly consolation</span>
+          <span className="text-zinc-400">·</span>
+        </>
+      ) : bracketCaption ? (
+        <>
+          <span className="font-medium text-zinc-600">{bracketCaption}</span>
           <span className="text-zinc-400">·</span>
         </>
       ) : null}
@@ -295,6 +317,11 @@ function GameCardInner({
             <span className="font-medium">
               {g.division.name} · Friendly consolation
             </span>
+            <span className="mx-1.5 text-zinc-400">·</span>
+          </>
+        ) : bracketCaption ? (
+          <>
+            <span className="font-medium text-zinc-600">{bracketCaption}</span>
             <span className="mx-1.5 text-zinc-400">·</span>
           </>
         ) : null}
