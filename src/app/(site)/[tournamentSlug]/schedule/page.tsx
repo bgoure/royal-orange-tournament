@@ -1,18 +1,5 @@
-import { GameList } from "@/components/schedule/GameList";
-import { DivisionSwipeBoundary } from "@/components/layout/DivisionSwipeBoundary";
-import { PullToRefresh } from "@/components/ui/PullToRefresh";
-import { ScheduleFilters } from "@/components/schedule/ScheduleFilters";
-import { getDivisionTabCookie } from "@/lib/division-tab-cookie";
-import { buildDivisionTabDescriptors } from "@/lib/division-tabs";
-import {
-  defaultDivisionTabId,
-  divisionValidIds,
-  resolveDivisionTabForFilters,
-} from "@/lib/division-tab-utils";
-import { listFieldsForTournament, listPoolsForDivisionTabs, listTeamsForTournament } from "@/lib/services/pools";
-import { listGamesForTournament, listScheduleFilterFacets } from "@/lib/services/games";
-import { PageTitle } from "@/components/ui/PublicHeading";
 import { getPublishedTournamentBySlug } from "@/lib/tournament-context";
+import { TournamentSchedulePublic } from "@/app/(site)/public-pages/tournament-schedule-public";
 
 export default async function SchedulePage({
   params,
@@ -29,76 +16,5 @@ export default async function SchedulePage({
     return <p className="text-sm text-zinc-500">No tournament selected.</p>;
   }
 
-  const [teams, fields, poolRows] = await Promise.all([
-    listTeamsForTournament(tournament.id),
-    listFieldsForTournament(tournament.id),
-    listPoolsForDivisionTabs(tournament.id),
-  ]);
-
-  const divisionTabs = buildDivisionTabDescriptors(poolRows);
-  const cookieDivision = await getDivisionTabCookie();
-  const validIds = divisionValidIds(divisionTabs);
-  const resolvedDivisionId = resolveDivisionTabForFilters(
-    sp.division,
-    cookieDivision,
-    validIds,
-    defaultDivisionTabId(divisionTabs),
-  );
-
-  const { dayOptions, teamIds, fieldIds } = await listScheduleFilterFacets(
-    tournament.id,
-    resolvedDivisionId,
-    tournament.timezone,
-  );
-
-  const dayFilter =
-    sp.day && dayOptions.some((d) => d.value === sp.day) ? sp.day : undefined;
-  const teamFilter = sp.team && teamIds.has(sp.team) ? sp.team : undefined;
-  const fieldFilter = sp.field && fieldIds.has(sp.field) ? sp.field : undefined;
-
-  const games = await listGamesForTournament(tournament.id, {
-    day: dayFilter,
-    teamId: teamFilter,
-    fieldId: fieldFilter,
-    divisionId: resolvedDivisionId,
-  });
-
-  const filterTeams = teams
-    .filter((t) => teamIds.has(t.id))
-    .map((t) => ({ id: t.id, name: t.name }))
-    .sort((a, b) => a.name.localeCompare(b.name));
-
-  const filterFields = fields
-    .filter((f) => fieldIds.has(f.id))
-    .map((f) => ({
-      id: f.id,
-      label: f.name,
-    }))
-    .sort((a, b) => a.label.localeCompare(b.label));
-
-  return (
-    <PullToRefresh>
-      <DivisionSwipeBoundary
-        tournamentSlug={tournamentSlug}
-        divisionIdsOrdered={divisionTabs.map((d) => d.id)}
-        defaultDivisionId={defaultDivisionTabId(divisionTabs)}
-      >
-        <div className="flex flex-col gap-4">
-          <PageTitle>Schedule</PageTitle>
-          <ScheduleFilters
-            tournamentSlug={tournamentSlug}
-            dayOptions={dayOptions}
-            teams={filterTeams}
-            fields={filterFields}
-          />
-          <GameList
-            games={games}
-            timezone={tournament.timezone}
-            showScores={false}
-            scheduleCompactLayout
-          />
-        </div>
-      </DivisionSwipeBoundary>
-    </PullToRefresh>
-  );
+  return TournamentSchedulePublic({ tournament, searchParams: sp });
 }

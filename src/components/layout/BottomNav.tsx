@@ -12,18 +12,19 @@ import {
   MoreIconSettings,
   MoreIconSocial,
 } from "@/components/icons/MoreMenuIcons";
-import { tournamentPath } from "@/lib/tournament-public-path";
+import { tournamentPathFromBase } from "@/lib/tournament-public-path";
 
 export function BottomNav({
-  tournamentSlug,
+  publicBasePath,
   showPublicAnnouncements = true,
 }: {
-  tournamentSlug: string;
+  publicBasePath: string;
   /** When false, announcements are omitted from the More drawer (matches Tournament HQ setting). */
   showPublicAnnouncements?: boolean;
 }) {
   const pathname = usePathname();
-  const tp = (...s: string[]) => tournamentPath(tournamentSlug, ...s);
+  const tp = (...s: string[]) => tournamentPathFromBase(publicBasePath, ...s);
+  const baseSegments = publicBasePath.split("/").filter(Boolean);
   const [moreOpen, setMoreOpen] = useState(false);
 
   const moreLinks: readonly { href: string; label: string; description: string; icon: ReactNode }[] = [
@@ -108,19 +109,22 @@ export function BottomNav({
   ];
 
   const parts = pathname.split("/").filter(Boolean);
-  const firstSeg = parts[0] ?? "";
-  const secondSeg = parts[1] ?? "";
+  const underTournamentBase =
+    baseSegments.length > 0 &&
+    baseSegments.every((seg, i) => parts[i] === seg) &&
+    parts.length >= baseSegments.length;
+  const restAfterBase = underTournamentBase ? parts.slice(baseSegments.length) : [];
+  const secondSeg = restAfterBase[0] ?? "";
 
   const morePathActive =
-    firstSeg === tournamentSlug &&
-    matchPrefixes.some((p) => pathname === p || pathname.startsWith(`${p}/`));
+    underTournamentBase && matchPrefixes.some((p) => pathname === p || pathname.startsWith(`${p}/`));
 
   const pillClass = (active: boolean) =>
     `flex min-h-[62px] min-w-[62px] flex-col items-center justify-center gap-0.5 rounded-xl px-2 py-1 text-[11px] font-semibold leading-tight transition-colors active:scale-[0.98] ${
       active ? "bg-royal-50 text-royal ring-2 ring-royal/25" : "text-accent active:text-accent-700"
     }`;
 
-  const closeMore = useCallback(() => setMoreOpen(false), []);
+  const closeMore = useCallback(() => setMoreOpen(false), [setMoreOpen]);
 
   return (
     <Drawer.Root open={moreOpen} onOpenChange={setMoreOpen}>
@@ -128,7 +132,7 @@ export function BottomNav({
           <div className="mx-auto flex min-h-[62px] max-w-lg items-center justify-around px-2 py-1">
             {tabs.map((t) => {
               let active = false;
-              if (firstSeg !== tournamentSlug) {
+              if (!underTournamentBase) {
                 active = false;
               } else if (t.key === "home") {
                 active = secondSeg === "";

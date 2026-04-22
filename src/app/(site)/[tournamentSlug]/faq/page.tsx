@@ -1,8 +1,10 @@
 import { redirect } from "next/navigation";
-import { tournamentPath } from "@/lib/tournament-public-path";
+import { getPublishedTournamentBySlug } from "@/lib/tournament-context";
+import { tournamentPathFromBase, tournamentPublicBasePath } from "@/lib/tournament-public-path";
 
-/** Legacy FAQ URL; content now lives under Rules and Resources. */
 export default async function FaqRedirectPage({ params }: { params: Promise<{ tournamentSlug: string }> }) {
   const { tournamentSlug } = await params;
-  redirect(tournamentPath(tournamentSlug, "rules"));
+  const tournament = await getPublishedTournamentBySlug(tournamentSlug);
+  if (!tournament) redirect("/");
+  redirect(tournamentPathFromBase(tournamentPublicBasePath(tournament), "rules"));
 }

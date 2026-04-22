@@ -8,6 +8,7 @@ import { getDivisionTabCookie } from "@/lib/division-tab-cookie";
 import { buildDivisionTabDescriptors } from "@/lib/division-tabs";
 import { formatFieldWithLocation } from "@/lib/field-display";
 import { listFieldsForTournament, listPoolsForDivisionTabs } from "@/lib/services/pools";
+import { tournamentPublicBasePath } from "@/lib/tournament-public-path";
 
 function deployShaLabel(): string {
   const full =
@@ -27,6 +28,7 @@ export async function SiteShell({
 }) {
   const sha = deployShaLabel();
   const slug = tournament.slug;
+  const publicBasePath = tournamentPublicBasePath(tournament);
 
   const [divisionTabDescriptors, cookieDivision, session, fieldRows] = await Promise.all([
     listPoolsForDivisionTabs(tournament.id).then(buildDivisionTabDescriptors),
@@ -45,6 +47,7 @@ export async function SiteShell({
     <div className="flex min-h-full flex-col">
       <SiteHeader
         tournamentSlug={slug}
+        publicBasePath={publicBasePath}
         divisionTabDescriptors={divisionTabDescriptors}
         cookieDivision={cookieDivision}
       />
@@ -69,7 +72,7 @@ export async function SiteShell({
       >
         Deploy {sha}
       </p>
-      <BottomNav tournamentSlug={slug} showPublicAnnouncements={tournament.showPublicAnnouncements} />
+      <BottomNav publicBasePath={publicBasePath} showPublicAnnouncements={tournament.showPublicAnnouncements} />
     </div>
   );
 }

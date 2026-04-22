@@ -14,7 +14,7 @@ const cookieOpts = {
 };
 
 /** Persists division filter across pages/sessions. */
-export async function setSelectedDivisionTabId(tabId: string, tournamentSlug: string) {
+export async function setSelectedDivisionTabId(tabId: string, publicBasePath: string) {
   const c = await cookies();
   const t = tabId.trim();
   if (!t) {
@@ -26,7 +26,7 @@ export async function setSelectedDivisionTabId(tabId: string, tournamentSlug: st
     return { ok: false as const, error: "invalid_division_tab" as const };
   }
   revalidatePath("/", "layout");
-  revalidatePath(`/${tournamentSlug}`, "layout");
+  revalidatePath(publicBasePath, "layout");
   return { ok: true as const };
 }
 
@@ -35,6 +35,7 @@ export async function setSelectedTournamentSlug(slug: string) {
     where: {
       slug: { equals: slug, mode: "insensitive" },
       isPublished: true,
+      archivedAt: null,
     },
     select: { slug: true },
   });

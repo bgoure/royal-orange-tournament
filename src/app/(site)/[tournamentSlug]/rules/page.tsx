@@ -1,6 +1,5 @@
-import { RoyalOrangeClassicRules } from "@/components/content/RoyalOrangeClassicRules";
-import { PageTitle } from "@/components/ui/PublicHeading";
 import { getPublishedTournamentBySlug } from "@/lib/tournament-context";
+import { TournamentRulesPublic } from "@/app/(site)/public-pages/tournament-rules-public";
 
 export default async function RulesPage({ params }: { params: Promise<{ tournamentSlug: string }> }) {
   const { tournamentSlug } = await params;
@@ -9,12 +8,5 @@ export default async function RulesPage({ params }: { params: Promise<{ tourname
     return <p className="text-sm text-zinc-500">No tournament selected.</p>;
   }
 
-  return (
-    <div className="flex flex-col gap-4">
-      <div>
-        <PageTitle>Rules and Resources</PageTitle>
-      </div>
-      <RoyalOrangeClassicRules tournamentName={tournament.name} />
-    </div>
-  );
+  return TournamentRulesPublic({ tournament });
 }

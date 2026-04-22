@@ -84,6 +84,10 @@ model Tournament {
   latitude      Float?
   longitude     Float?
   isPublished   Boolean  @default(true)
+  /// Set when the event is moved off the live switcher but kept for public history at /{archiveFolder}/{slug}.
+  archivedAt    DateTime?
+  /// URL segment for archived tournaments only (e.g. 10U11U-2026). Must be set when archivedAt is set.
+  archiveFolder String?
   /// When false, announcements are hidden on the public site (home, More menu, history page).
   showPublicAnnouncements Boolean @default(true)
   /// PWA install icons: absolute URL or site path (e.g. /branding/slug/icon-192.png).
@@ -125,6 +129,8 @@ model Tournament {
   publicFeedbacks PublicFeedback[]
   createdAt       DateTime @default(now())
   updatedAt       DateTime @updatedAt
+
+  @@index([archiveFolder, slug])
 }
 
 /// Anonymous public-site feedback (message + optional contact); emailed to directors when configured.

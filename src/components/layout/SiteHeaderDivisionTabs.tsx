@@ -15,10 +15,12 @@ import { isDivisionTabBasePath } from "@/lib/tournament-public-path";
 
 export function SiteHeaderDivisionTabs({
   tournamentSlug,
+  publicBasePath,
   divisionDescriptors,
   cookieDivision,
 }: {
   tournamentSlug: string;
+  publicBasePath: string;
   divisionDescriptors: DivisionTabDescriptor[];
   cookieDivision: string | null;
 }) {
@@ -52,7 +54,7 @@ export function SiteHeaderDivisionTabs({
     );
   }, [tabs.length, searchParams, cookieDivision, validIds, defaultTabId]);
 
-  const showTabs = isDivisionTabBasePath(pathname, tournamentSlug) && tabs.length > 1;
+  const showTabs = isDivisionTabBasePath(pathname, publicBasePath) && tabs.length > 1;
 
   const selectedDivision = tabs.some((t) => t.id === effectiveId)
     ? effectiveId
@@ -77,7 +79,7 @@ export function SiteHeaderDivisionTabs({
 
   const onDivisionChange = (id: string) => {
     startTransition(async () => {
-      await setSelectedDivisionTabId(id, tournamentSlug);
+      await setSelectedDivisionTabId(id, publicBasePath);
       const p = new URLSearchParams(searchParams.toString());
       p.set("division", id);
       const qs = p.toString();

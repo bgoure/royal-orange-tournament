@@ -148,7 +148,7 @@ describe("softResetTournamentProgressForId", () => {
     }
   });
 
-  it("preserves CANCELLED and POSTPONED status; clears scores on postponed", async (t) => {
+  it("sets CANCELLED and POSTPONED games to SCHEDULED with cleared scores", async (t) => {
     if (!run) {
       t.skip("DATABASE_URL not set");
       return;
@@ -218,9 +218,9 @@ describe("softResetTournamentProgressForId", () => {
 
       const c = await prisma.game.findUnique({ where: { id: cancelled.id } });
       const p = await prisma.game.findUnique({ where: { id: postponed.id } });
-      assert.equal(c!.status, GameStatus.CANCELLED);
-      assert.equal(c!.homeRuns, 1);
-      assert.equal(p!.status, GameStatus.POSTPONED);
+      assert.equal(c!.status, GameStatus.SCHEDULED);
+      assert.equal(c!.homeRuns, null);
+      assert.equal(p!.status, GameStatus.SCHEDULED);
       assert.equal(p!.homeRuns, null);
       assert.equal(p!.awayRuns, null);
     } finally {

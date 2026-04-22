@@ -14,6 +14,7 @@ import { Role } from "@prisma/client";
 import { formatLocationAddress } from "@/lib/location-utils";
 import { getHeadquartersLocation, listLocations } from "@/lib/services/content";
 import { getTournamentForRequest } from "@/lib/tournament-context";
+import { tournamentPublicBasePath } from "@/lib/tournament-public-path";
 
 export default async function AdminTournamentSettingsPage() {
   const session = await auth();
@@ -50,6 +51,8 @@ export default async function AdminTournamentSettingsPage() {
   const role = session?.user?.role;
   const canManage = role != null && can(role, "content:manage");
   const isAdmin = role === Role.ADMIN;
+  const isArchived = tournament.archivedAt != null;
+  const publicSitePath = tournamentPublicBasePath(tournament);
 
   const branding = {
     pwaIcon192Url: tournament.pwaIcon192Url,
@@ -125,6 +128,8 @@ export default async function AdminTournamentSettingsPage() {
       <TournamentDangerZoneForm
         tournamentSlug={tournament.slug}
         tournamentName={tournament.name}
+        publicSitePath={publicSitePath}
+        isArchived={isArchived}
         canManage={canManage}
         isAdmin={isAdmin}
       />

@@ -4,7 +4,7 @@ import { headers } from "next/headers";
 import { prisma } from "@/lib/db";
 import { sendPublicFeedbackNotification } from "@/lib/email/feedback-email";
 import { listAdminNotificationEmails } from "@/lib/services/admin-notification-emails";
-import { getPublishedTournamentBySlug } from "@/lib/tournament-context";
+import { getPublishedTournamentBySlugForActions } from "@/lib/tournament-context";
 import { publicFeedbackSchema } from "@/lib/validations/feedback";
 
 export type FeedbackActionState =
@@ -38,7 +38,7 @@ export async function submitFeedbackAction(
     };
   }
 
-  const tournament = await getPublishedTournamentBySlug(parsed.data.tournamentSlug);
+  const tournament = await getPublishedTournamentBySlugForActions(parsed.data.tournamentSlug);
   if (!tournament) {
     return { ok: false, error: "Tournament not found." };
   }

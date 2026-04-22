@@ -18,32 +18,17 @@ const SCORE_RESET = {
 };
 
 /**
- * Clears competitive state for a tournament: scores and non-preserved statuses,
+ * Clears competitive state for a tournament: scores and all game statuses → scheduled,
  * recomputes pool standings, clears winner-advanced bracket slots and consolation teams,
  * then re-fills round 0 + consolation from current pool order (no RR-complete requirement).
  */
 export async function softResetTournamentProgressForId(tournamentId: string): Promise<void> {
-  await prisma.$transaction(async (tx) => {
-    await tx.game.updateMany({
-      where: {
-        tournamentId,
-        status: { notIn: [GameStatus.CANCELLED, GameStatus.POSTPONED] },
-      },
-      data: {
-        status: GameStatus.SCHEDULED,
-        ...SCORE_RESET,
-      },
-    });
-
-    await tx.game.updateMany({
-      where: {
-        tournamentId,
-        status: GameStatus.POSTPONED,
-      },
-      data: {
-        ...SCORE_RESET,
-      },
-    });
+  await prisma.game.updateMany({
+    where: { tournamentId },
+    data: {
+      status: GameStatus.SCHEDULED,
+      ...SCORE_RESET,
+    },
   });
 
   await clearLaterBracketRoundTeamSlots(tournamentId);

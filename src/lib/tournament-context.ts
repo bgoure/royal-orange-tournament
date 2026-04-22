@@ -6,37 +6,65 @@ export const TOURNAMENT_SLUG_COOKIE = "tournament_slug";
 /** Hide switcher entries for events whose first day is more than this many calendar months after today. */
 const SWITCHER_MAX_LEAD_MONTHS = 2;
 
-/** Published tournaments shown in the public switcher: not too far in the future, newest start date first. */
+/** Live tournaments only: published, not archived, within switcher date window. */
 function switcherListWhere() {
   const now = new Date();
   const cutoff = new Date(
     Date.UTC(now.getUTCFullYear(), now.getUTCMonth() + SWITCHER_MAX_LEAD_MONTHS, now.getUTCDate()),
   );
-  return { isPublished: true as const, startDate: { lte: cutoff } };
+  return {
+    isPublished: true as const,
+    archivedAt: null as const,
+    startDate: { lte: cutoff },
+  };
 }
 
 const switcherListOrderBy = [{ startDate: "desc" as const }, { slug: "asc" as const }];
+
+/** Single-segment public URLs: active tournaments only. */
+function publishedActiveSlugWhere(slug: string) {
+  return {
+    slug: { equals: slug, mode: "insensitive" as const },
+    isPublished: true as const,
+    archivedAt: null as const,
+  };
+}
 
 export async function getSelectedTournamentSlug(): Promise<string | null> {
   const c = await cookies();
   return c.get(TOURNAMENT_SLUG_COOKIE)?.value ?? null;
 }
 
-/** Public URL segment may differ in case from stored `slug`; Postgres compare is case-sensitive by default. */
-function publishedSlugWhere(slug: string) {
-  return {
-    slug: { equals: slug, mode: "insensitive" as const },
-    isPublished: true as const,
-  };
-}
-
+/** Active (non-archived) published tournament for `/{slug}` routes. */
 export async function getPublishedTournamentBySlug(slug: string) {
   return prisma.tournament.findFirst({
-    where: publishedSlugWhere(slug),
+    where: publishedActiveSlugWhere(slug),
   });
 }
 
-/** First published tournament slug for redirecting `/` on the public site. */
+/** Published tournament by slug (live or archived). For server actions that only receive the slug. */
+export async function getPublishedTournamentBySlugForActions(slug: string) {
+  return prisma.tournament.findFirst({
+    where: {
+      slug: { equals: slug, mode: "insensitive" },
+      isPublished: true,
+    },
+  });
+}
+
+/** Archived tournament for `/{archiveFolder}/{slug}` historical viewing. */
+export async function getArchivedPublishedTournamentByFolderAndSlug(archiveFolder: string, slug: string) {
+  return prisma.tournament.findFirst({
+    where: {
+      archiveFolder: { equals: archiveFolder, mode: "insensitive" },
+      slug: { equals: slug, mode: "insensitive" },
+      isPublished: true,
+      archivedAt: { not: null },
+    },
+  });
+}
+
+/** First live tournament slug for redirecting `/` on the public site. */
 export async function getDefaultPublicTournamentSlug(): Promise<string | null> {
   const withinSwitcherWindow = await prisma.tournament.findFirst({
     where: switcherListWhere(),
@@ -45,18 +73,25 @@ export async function getDefaultPublicTournamentSlug(): Promise<string | null> {
   });
   if (withinSwitcherWindow) return withinSwitcherWindow.slug;
   const any = await prisma.tournament.findFirst({
-    where: { isPublished: true },
+    where: { isPublished: true, archivedAt: null },
     orderBy: switcherListOrderBy,
     select: { slug: true },
   });
   return any?.slug ?? null;
 }
 
+/**
+ * Tournament for admin + cookie context: any published row (live or archived) matching the slug cookie,
+ * else first live tournament in the switcher window, else any live published tournament.
+ */
 export async function getTournamentForRequest() {
   const slug = await getSelectedTournamentSlug();
   if (slug) {
     const t = await prisma.tournament.findFirst({
-      where: publishedSlugWhere(slug),
+      where: {
+        slug: { equals: slug, mode: "insensitive" },
+        isPublished: true,
+      },
     });
     if (t) return t;
   }
@@ -66,7 +101,7 @@ export async function getTournamentForRequest() {
   });
   if (withinSwitcherWindow) return withinSwitcherWindow;
   return prisma.tournament.findFirst({
-    where: { isPublished: true },
+    where: { isPublished: true, archivedAt: null },
     orderBy: switcherListOrderBy,
   });
 }

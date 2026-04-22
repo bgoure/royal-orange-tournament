@@ -1,14 +1,15 @@
 import { revalidatePath } from "next/cache";
 import { prisma } from "@/lib/db";
+import { tournamentPublicBasePath } from "@/lib/tournament-public-path";
 
-/** Invalidate every published tournament’s public layout (and its nested routes). */
+/** Invalidate every published tournament’s public layout (live and archived paths). */
 export async function revalidatePublishedTournamentSites() {
   revalidatePath("/", "layout");
   const rows = await prisma.tournament.findMany({
     where: { isPublished: true },
-    select: { slug: true },
+    select: { slug: true, archiveFolder: true, archivedAt: true },
   });
-  for (const { slug } of rows) {
-    revalidatePath(`/${slug}`, "layout");
+  for (const row of rows) {
+    revalidatePath(tournamentPublicBasePath(row), "layout");
   }
 }

@@ -6,7 +6,7 @@ import { auth } from "@/auth";
 import { prisma } from "@/lib/db";
 import { deliverAnnouncementEmail } from "@/lib/services/announcement-email";
 import { revalidatePublishedTournamentSites } from "@/lib/revalidate-public-tournament-site";
-import { getPublishedTournamentBySlug } from "@/lib/tournament-context";
+import { getPublishedTournamentBySlugForActions } from "@/lib/tournament-context";
 import { announcementUpdateSchema } from "@/lib/validations/announcements-admin";
 
 export type PublicAnnouncementResult = { ok: true; notice?: string } | { ok: false; error: string };
@@ -27,7 +27,7 @@ async function assertAdminAnnouncementContext(
   const slug = String(formData.get("tournamentSlug") ?? "").trim();
   if (!slug) return deny("Missing tournament.");
 
-  const tournament = await getPublishedTournamentBySlug(slug);
+  const tournament = await getPublishedTournamentBySlugForActions(slug);
   if (!tournament) return deny("Tournament not found.");
 
   return { tournamentId: tournament.id, slug: tournament.slug };

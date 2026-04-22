@@ -11,14 +11,15 @@ const CogIcon = () => (
 );
 
 export function PublicSettingsStaffAuth({
-  tournamentSlug,
+  settingsPath,
   requestOrigin,
   googleAuthConfigured,
   signedIn,
   userLabel,
   role,
 }: {
-  tournamentSlug: string;
+  /** Public path to this tournament’s settings page (e.g. /slug/settings or /folder/slug/settings). */
+  settingsPath: string;
   /** Host the user actually hit (forwarded). Used so links and OAuth return URLs stay on prod vs staging. */
   requestOrigin: string;
   googleAuthConfigured: boolean;
@@ -26,7 +27,6 @@ export function PublicSettingsStaffAuth({
   userLabel: string;
   role: Role;
 }) {
-  const settingsPath = `/${tournamentSlug}/settings`;
   const settingsAbsolute = requestOrigin ? `${requestOrigin}${settingsPath}` : settingsPath;
   const adminHref = requestOrigin ? `${requestOrigin}/admin` : "/admin";
   const isAdmin = role === "ADMIN";

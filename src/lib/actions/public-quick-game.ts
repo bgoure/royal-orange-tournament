@@ -7,7 +7,7 @@ import { parseDatetimeLocalInTimeZone } from "@/lib/datetime-tournament";
 import { assertFieldInTournament, assertGameInTournament } from "@/lib/services/admin-games";
 import { advanceBracketWinnerFromGame } from "@/lib/services/bracket-advance";
 import { recomputePoolStandings } from "@/lib/services/standings";
-import { getPublishedTournamentBySlug } from "@/lib/tournament-context";
+import { getPublishedTournamentBySlugForActions } from "@/lib/tournament-context";
 import { publicQuickGameUpdateSchema } from "@/lib/validations/public-quick-game";
 
 export type PublicQuickGameResult = { ok: true } | { ok: false; error?: string };
@@ -43,7 +43,7 @@ export async function updatePublicQuickGameAction(
     return { ok: false, error: msg };
   }
 
-  const tournament = await getPublishedTournamentBySlug(parsed.data.tournamentSlug);
+  const tournament = await getPublishedTournamentBySlugForActions(parsed.data.tournamentSlug);
   if (!tournament) {
     return { ok: false, error: "Tournament not found." };
   }

@@ -14,7 +14,8 @@ function touchTargetElement(target: EventTarget | null): Element | null {
 }
 
 type Props = {
-  tournamentSlug: string;
+  /** Base path for this tournament’s public site (e.g. /slug or /folder/slug). */
+  publicBasePath: string;
   /** Same order as header division tabs (`buildDivisionTabDescriptors`). */
   divisionIdsOrdered: string[];
   defaultDivisionId: string;
@@ -27,7 +28,7 @@ type Props = {
  * Large `delta` reduces accidental navigation while scrolling vertically.
  */
 export function DivisionSwipeBoundary({
-  tournamentSlug,
+  publicBasePath,
   divisionIdsOrdered,
   defaultDivisionId,
   children,
@@ -42,20 +43,20 @@ export function DivisionSwipeBoundary({
   const navigateToDivision = useCallback(
     (id: string) => {
       startTransition(async () => {
-        await setSelectedDivisionTabId(id, tournamentSlug);
+        await setSelectedDivisionTabId(id, publicBasePath);
         const p = new URLSearchParams(searchParams.toString());
         p.set("division", id);
         const qs = p.toString();
         router.replace(qs ? `${pathname}?${qs}` : pathname, { scroll: false });
       });
     },
-    [pathname, router, searchParams, tournamentSlug],
+    [pathname, router, searchParams, publicBasePath],
   );
 
   const go = useCallback(
     (dir: 1 | -1) => {
       if (pending || divisionIdsOrdered.length < 2) return;
-      if (!isDivisionTabBasePath(pathname, tournamentSlug)) return;
+      if (!isDivisionTabBasePath(pathname, publicBasePath)) return;
 
       const raw = searchParams.get("division");
       const current = raw && divisionIdsOrdered.includes(raw) ? raw : defaultDivisionId;
@@ -74,7 +75,7 @@ export function DivisionSwipeBoundary({
       pathname,
       pending,
       searchParams,
-      tournamentSlug,
+      publicBasePath,
     ],
   );
 

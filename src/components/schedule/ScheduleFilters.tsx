@@ -4,7 +4,7 @@ import { useRouter, useSearchParams } from "next/navigation";
 import { useCallback, useMemo, useState, useTransition } from "react";
 import { Drawer } from "vaul";
 import { DIVISION_SWIPE_IGNORE } from "@/lib/division-swipe-ignore";
-import { tournamentPath } from "@/lib/tournament-public-path";
+import { tournamentPathFromBase } from "@/lib/tournament-public-path";
 
 export type ScheduleFiltersPathSegment = "schedule" | "results";
 
@@ -76,14 +76,14 @@ function buildScheduleFilterSummaryLine(
 }
 
 export function ScheduleFilters({
-  tournamentSlug,
+  publicBasePath,
   dayOptions,
   teams,
   fields,
   pathSegment = "schedule",
   filtersAriaLabel = "Schedule filters",
 }: {
-  tournamentSlug: string;
+  publicBasePath: string;
   /** Calendar days (tournament timezone) that have at least one game for the current division scope */
   dayOptions: DayOpt[];
   teams: TeamOpt[];
@@ -135,7 +135,7 @@ export function ScheduleFilters({
         else params.set(k, v);
       }
       const qs = params.toString();
-      const base = tournamentPath(tournamentSlug, pathSegment);
+      const base = tournamentPathFromBase(publicBasePath, pathSegment);
       const href = qs ? `${base}?${qs}` : base;
       startTransition(() => {
         router.push(href);
@@ -145,7 +145,7 @@ export function ScheduleFilters({
         }
       });
     },
-    [pathSegment, router, sp, tournamentSlug],
+    [pathSegment, router, sp, publicBasePath],
   );
 
   const summaryLine = useMemo(

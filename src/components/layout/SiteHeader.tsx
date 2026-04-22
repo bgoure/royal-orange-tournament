@@ -2,18 +2,20 @@ import Image from "next/image";
 import Link from "next/link";
 import { SiteHeaderDivisionTabs } from "@/components/layout/SiteHeaderDivisionTabs";
 import type { DivisionTabDescriptor } from "@/lib/division-tabs";
-import { tournamentPath } from "@/lib/tournament-public-path";
+import { tournamentPathFromBase } from "@/lib/tournament-public-path";
 
 export async function SiteHeader({
   tournamentSlug,
+  publicBasePath,
   divisionTabDescriptors,
   cookieDivision,
 }: {
   tournamentSlug: string;
+  publicBasePath: string;
   divisionTabDescriptors: DivisionTabDescriptor[];
   cookieDivision: string | null;
 }) {
-  const tp = (...s: string[]) => tournamentPath(tournamentSlug, ...s);
+  const tp = (...s: string[]) => tournamentPathFromBase(publicBasePath, ...s);
   const nav = [
     { href: tp(), label: "Home" },
     { href: tp("schedule"), label: "Schedule" },
@@ -53,6 +55,7 @@ export async function SiteHeader({
           <div className="flex min-w-0 flex-1 justify-end">
             <SiteHeaderDivisionTabs
               tournamentSlug={tournamentSlug}
+              publicBasePath={publicBasePath}
               divisionDescriptors={divisionTabDescriptors}
               cookieDivision={cookieDivision}
             />
