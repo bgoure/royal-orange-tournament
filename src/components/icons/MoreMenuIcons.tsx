@@ -78,7 +78,7 @@ export function MoreIconSocial() {
   );
 }
 
-/** 8-tooth gear (alternating outer/inner radius) + hub — reads as cog at ~28px. */
+/** 8-tooth gear (alternating outer/inner radius) + hub — reads as cog at ~32px. */
 export function MoreIconSettings() {
   return (
     <svg
@@ -88,7 +88,7 @@ export function MoreIconSettings() {
       strokeWidth={2}
       strokeLinecap="round"
       strokeLinejoin="round"
-      className="size-7 shrink-0"
+      className="size-8 shrink-0"
       aria-hidden
     >
       <path d="M12 3l2.39 3.23 3.97-.59-.59 3.97L21 12l-3.23 2.39.59 3.97-3.97-.59L12 21l-2.39-3.23-3.97.59.59-3.97L3 12l3.23-2.39-.59-3.97 3.97.59L12 3z" />
