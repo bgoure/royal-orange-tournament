@@ -91,6 +91,8 @@ export function divisionTabGameWhere(
         { awayTeam: { pool: poolNameMatch } },
         { bracketMatch: { homeSourcePool: poolNameMatch } },
         { bracketMatch: { awaySourcePool: poolNameMatch } },
+        /** Semis/final feed prior rounds — source pools are null; scope by bracket division. */
+        { bracket: { division: { pools: { some: poolNameMatch } } } },
         { gameKind: GameKind.CONSOLATION, consolationHomePool: poolNameMatch },
         { gameKind: GameKind.CONSOLATION, consolationAwayPool: poolNameMatch },
       ],
@@ -103,6 +105,7 @@ export function divisionTabGameWhere(
       { awayTeam: { pool: { divisionId: divisionId } } },
       { bracketMatch: { homeSourcePool: { divisionId: divisionId } } },
       { bracketMatch: { awaySourcePool: { divisionId: divisionId } } },
+      { bracket: { divisionId: divisionId } },
       { gameKind: GameKind.CONSOLATION, divisionId: divisionId },
     ],
   };
