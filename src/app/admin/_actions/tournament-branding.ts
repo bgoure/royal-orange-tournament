@@ -36,6 +36,18 @@ export async function updateTournamentBranding(
     socialXUrl: formData.get("socialXUrl"),
     socialYoutubeUrl: formData.get("socialYoutubeUrl"),
     socialEmail: formData.get("socialEmail"),
+    socialShowWebsite: formData.get("socialShowWebsite"),
+    socialShowFacebook: formData.get("socialShowFacebook"),
+    socialShowInstagram: formData.get("socialShowInstagram"),
+    socialShowX: formData.get("socialShowX"),
+    socialShowYoutube: formData.get("socialShowYoutube"),
+    socialShowEmail: formData.get("socialShowEmail"),
+    socialWebsiteSubtext: formData.get("socialWebsiteSubtext"),
+    socialFacebookSubtext: formData.get("socialFacebookSubtext"),
+    socialInstagramSubtext: formData.get("socialInstagramSubtext"),
+    socialXSubtext: formData.get("socialXSubtext"),
+    socialYoutubeSubtext: formData.get("socialYoutubeSubtext"),
+    socialEmailSubtext: formData.get("socialEmailSubtext"),
   });
 
   if (!parsed.success) {
@@ -57,6 +69,18 @@ export async function updateTournamentBranding(
         socialXUrl: d.socialXUrl ?? null,
         socialYoutubeUrl: d.socialYoutubeUrl ?? null,
         socialEmail: d.socialEmail ?? null,
+        socialShowWebsite: d.socialShowWebsite,
+        socialShowFacebook: d.socialShowFacebook,
+        socialShowInstagram: d.socialShowInstagram,
+        socialShowX: d.socialShowX,
+        socialShowYoutube: d.socialShowYoutube,
+        socialShowEmail: d.socialShowEmail,
+        socialWebsiteSubtext: d.socialWebsiteSubtext ?? null,
+        socialFacebookSubtext: d.socialFacebookSubtext ?? null,
+        socialInstagramSubtext: d.socialInstagramSubtext ?? null,
+        socialXSubtext: d.socialXSubtext ?? null,
+        socialYoutubeSubtext: d.socialYoutubeSubtext ?? null,
+        socialEmailSubtext: d.socialEmailSubtext ?? null,
       },
     });
     await revalidateBranding();

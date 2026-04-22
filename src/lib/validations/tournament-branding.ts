@@ -27,6 +27,13 @@ const optionalEmail = z.preprocess(
 
 const optionalHexColor = z.preprocess(emptyToUndef, z.string().regex(/^#[0-9A-Fa-f]{6}$/, "Use #RRGGBB").optional());
 
+const checkboxOn = z.preprocess((v) => v === "on", z.boolean());
+
+const optionalShortText = z.preprocess(
+  emptyToUndef,
+  z.string().max(160, "Subtext must be 160 characters or less").optional(),
+);
+
 export const tournamentBrandingFormSchema = z.object({
   pwaIcon192Url: optionalAssetUrl,
   pwaIcon512Url: optionalAssetUrl,
@@ -37,6 +44,18 @@ export const tournamentBrandingFormSchema = z.object({
   socialXUrl: optionalHttpUrl,
   socialYoutubeUrl: optionalHttpUrl,
   socialEmail: optionalEmail,
+  socialShowWebsite: checkboxOn,
+  socialShowFacebook: checkboxOn,
+  socialShowInstagram: checkboxOn,
+  socialShowX: checkboxOn,
+  socialShowYoutube: checkboxOn,
+  socialShowEmail: checkboxOn,
+  socialWebsiteSubtext: optionalShortText,
+  socialFacebookSubtext: optionalShortText,
+  socialInstagramSubtext: optionalShortText,
+  socialXSubtext: optionalShortText,
+  socialYoutubeSubtext: optionalShortText,
+  socialEmailSubtext: optionalShortText,
 });
 
 export type TournamentBrandingFormInput = z.infer<typeof tournamentBrandingFormSchema>;

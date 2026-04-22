@@ -58,6 +58,18 @@ export default async function AdminTournamentSettingsPage() {
     socialXUrl: tournament.socialXUrl,
     socialYoutubeUrl: tournament.socialYoutubeUrl,
     socialEmail: tournament.socialEmail,
+    socialShowWebsite: tournament.socialShowWebsite,
+    socialShowFacebook: tournament.socialShowFacebook,
+    socialShowInstagram: tournament.socialShowInstagram,
+    socialShowX: tournament.socialShowX,
+    socialShowYoutube: tournament.socialShowYoutube,
+    socialShowEmail: tournament.socialShowEmail,
+    socialWebsiteSubtext: tournament.socialWebsiteSubtext,
+    socialFacebookSubtext: tournament.socialFacebookSubtext,
+    socialInstagramSubtext: tournament.socialInstagramSubtext,
+    socialXSubtext: tournament.socialXSubtext,
+    socialYoutubeSubtext: tournament.socialYoutubeSubtext,
+    socialEmailSubtext: tournament.socialEmailSubtext,
   };
 
   if (!headquarters) {

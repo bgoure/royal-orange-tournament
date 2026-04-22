@@ -98,6 +98,20 @@ model Tournament {
   socialYoutubeUrl  String? @db.Text
   /// Plain email address for mailto (no mailto: prefix).
   socialEmail       String?
+  /// Per-channel visibility on the public Social page (unchecked = hidden even if URL is set).
+  socialShowWebsite    Boolean @default(true)
+  socialShowFacebook   Boolean @default(true)
+  socialShowInstagram  Boolean @default(true)
+  socialShowX          Boolean @default(true)
+  socialShowYoutube    Boolean @default(true)
+  socialShowEmail      Boolean @default(true)
+  /// Optional subtitle under each channel label; empty uses built-in default copy.
+  socialWebsiteSubtext   String? @db.VarChar(160)
+  socialFacebookSubtext  String? @db.VarChar(160)
+  socialInstagramSubtext String? @db.VarChar(160)
+  socialXSubtext         String? @db.VarChar(160)
+  socialYoutubeSubtext   String? @db.VarChar(160)
+  socialEmailSubtext     String? @db.VarChar(160)
   divisions     Division[]
   locations     Location[]
   fields        Field[]

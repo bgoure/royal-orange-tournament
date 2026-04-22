@@ -7,6 +7,7 @@ import {
   updateTournamentBranding,
   uploadPwaBrandingIcon,
 } from "@/app/admin/_actions/tournament-branding";
+import { SOCIAL_DEFAULT_HINTS } from "@/lib/tournament-social-public";
 
 const inputClass =
   "mt-1 w-full rounded-md border border-zinc-300 bg-white px-2 py-2 text-sm text-zinc-900 shadow-sm focus:border-emerald-500 focus:outline-none focus:ring-2 focus:ring-emerald-500/20";
@@ -34,6 +35,69 @@ function SuccessBanner({ state }: { state: ContentActionResult | undefined }) {
   );
 }
 
+function SocialChannelFields({
+  title,
+  showName,
+  urlName,
+  urlType,
+  subtextName,
+  showChecked,
+  urlValue,
+  subtextValue,
+  defaultHint,
+  urlPlaceholder,
+}: {
+  title: string;
+  showName: string;
+  urlName: string;
+  urlType: "url" | "email";
+  subtextName: string;
+  showChecked: boolean;
+  urlValue: string | null;
+  subtextValue: string | null;
+  defaultHint: string;
+  urlPlaceholder?: string;
+}) {
+  return (
+    <div className="rounded-lg border border-zinc-200 bg-white p-4">
+      <label className="flex cursor-pointer items-center gap-2">
+        <input
+          type="checkbox"
+          name={showName}
+          value="on"
+          defaultChecked={showChecked}
+          className="h-4 w-4 rounded border-zinc-300 text-emerald-600 focus:ring-emerald-500"
+        />
+        <span className="text-sm font-medium text-zinc-900">Show on public Social page</span>
+      </label>
+      <p className="mt-2 text-xs font-semibold uppercase tracking-wide text-zinc-500">{title}</p>
+      <label htmlFor={urlName} className={`${labelClass} mt-2 block`}>
+        {urlType === "email" ? "Address" : "URL"}
+      </label>
+      <input
+        id={urlName}
+        name={urlName}
+        type={urlType}
+        defaultValue={urlValue ?? ""}
+        placeholder={urlPlaceholder}
+        className={inputClass}
+      />
+      <label htmlFor={subtextName} className={`${labelClass} mt-2 block`}>
+        Subtext (optional)
+      </label>
+      <input
+        id={subtextName}
+        name={subtextName}
+        type="text"
+        maxLength={160}
+        defaultValue={subtextValue ?? ""}
+        placeholder={defaultHint}
+        className={inputClass}
+      />
+    </div>
+  );
+}
+
 export type TournamentBrandingState = {
   pwaIcon192Url: string | null;
   pwaIcon512Url: string | null;
@@ -44,6 +108,18 @@ export type TournamentBrandingState = {
   socialXUrl: string | null;
   socialYoutubeUrl: string | null;
   socialEmail: string | null;
+  socialShowWebsite: boolean;
+  socialShowFacebook: boolean;
+  socialShowInstagram: boolean;
+  socialShowX: boolean;
+  socialShowYoutube: boolean;
+  socialShowEmail: boolean;
+  socialWebsiteSubtext: string | null;
+  socialFacebookSubtext: string | null;
+  socialInstagramSubtext: string | null;
+  socialXSubtext: string | null;
+  socialYoutubeSubtext: string | null;
+  socialEmailSubtext: string | null;
 };
 
 export function TournamentBrandingForm({
@@ -179,84 +255,83 @@ export function TournamentBrandingForm({
         </div>
 
         <h3 className="pt-2 text-xs font-semibold uppercase tracking-wide text-zinc-500">Social (public page)</h3>
+        <p className="text-xs text-zinc-600">
+          Uncheck <strong>Show</strong> to hide a card even when a URL is saved. Subtext appears under the channel name;
+          leave blank to use the default line shown in the placeholder.
+        </p>
+
         <div className="grid gap-4 sm:grid-cols-2">
-          <div>
-            <label htmlFor="socialWebsiteUrl" className={labelClass}>
-              Website
-            </label>
-            <input
-              id="socialWebsiteUrl"
-              name="socialWebsiteUrl"
-              type="url"
-              defaultValue={branding.socialWebsiteUrl ?? ""}
-              className={inputClass}
-            />
-          </div>
-          <div>
-            <label htmlFor="socialFacebookUrl" className={labelClass}>
-              Facebook
-            </label>
-            <input
-              id="socialFacebookUrl"
-              name="socialFacebookUrl"
-              type="url"
-              defaultValue={branding.socialFacebookUrl ?? ""}
-              className={inputClass}
-            />
-          </div>
-          <div>
-            <label htmlFor="socialInstagramUrl" className={labelClass}>
-              Instagram
-            </label>
-            <input
-              id="socialInstagramUrl"
-              name="socialInstagramUrl"
-              type="url"
-              defaultValue={branding.socialInstagramUrl ?? ""}
-              className={inputClass}
-            />
-          </div>
-          <div>
-            <label htmlFor="socialXUrl" className={labelClass}>
-              X (Twitter)
-            </label>
-            <input
-              id="socialXUrl"
-              name="socialXUrl"
-              type="url"
-              defaultValue={branding.socialXUrl ?? ""}
-              className={inputClass}
-            />
-          </div>
-          <div>
-            <label htmlFor="socialYoutubeUrl" className={labelClass}>
-              YouTube
-            </label>
-            <input
-              id="socialYoutubeUrl"
-              name="socialYoutubeUrl"
-              type="url"
-              defaultValue={branding.socialYoutubeUrl ?? ""}
-              className={inputClass}
-            />
-          </div>
-          <div>
-            <label htmlFor="socialEmail" className={labelClass}>
-              Contact email
-            </label>
-            <input
-              id="socialEmail"
-              name="socialEmail"
-              type="email"
-              defaultValue={branding.socialEmail ?? ""}
-              placeholder="info@example.com"
-              className={inputClass}
-            />
-          </div>
+          <SocialChannelFields
+            title="Website"
+            showName="socialShowWebsite"
+            urlName="socialWebsiteUrl"
+            urlType="url"
+            subtextName="socialWebsiteSubtext"
+            showChecked={branding.socialShowWebsite}
+            urlValue={branding.socialWebsiteUrl}
+            subtextValue={branding.socialWebsiteSubtext}
+            defaultHint={SOCIAL_DEFAULT_HINTS.website}
+          />
+          <SocialChannelFields
+            title="Facebook"
+            showName="socialShowFacebook"
+            urlName="socialFacebookUrl"
+            urlType="url"
+            subtextName="socialFacebookSubtext"
+            showChecked={branding.socialShowFacebook}
+            urlValue={branding.socialFacebookUrl}
+            subtextValue={branding.socialFacebookSubtext}
+            defaultHint={SOCIAL_DEFAULT_HINTS.facebook}
+          />
+          <SocialChannelFields
+            title="Instagram"
+            showName="socialShowInstagram"
+            urlName="socialInstagramUrl"
+            urlType="url"
+            subtextName="socialInstagramSubtext"
+            showChecked={branding.socialShowInstagram}
+            urlValue={branding.socialInstagramUrl}
+            subtextValue={branding.socialInstagramSubtext}
+            defaultHint={SOCIAL_DEFAULT_HINTS.instagram}
+          />
+          <SocialChannelFields
+            title="X (Twitter)"
+            showName="socialShowX"
+            urlName="socialXUrl"
+            urlType="url"
+            subtextName="socialXSubtext"
+            showChecked={branding.socialShowX}
+            urlValue={branding.socialXUrl}
+            subtextValue={branding.socialXSubtext}
+            defaultHint={SOCIAL_DEFAULT_HINTS.x}
+          />
+          <SocialChannelFields
+            title="YouTube"
+            showName="socialShowYoutube"
+            urlName="socialYoutubeUrl"
+            urlType="url"
+            subtextName="socialYoutubeSubtext"
+            showChecked={branding.socialShowYoutube}
+            urlValue={branding.socialYoutubeUrl}
+            subtextValue={branding.socialYoutubeSubtext}
+            defaultHint={SOCIAL_DEFAULT_HINTS.youtube}
+          />
+          <SocialChannelFields
+            title="Contact email"
+            showName="socialShowEmail"
+            urlName="socialEmail"
+            urlType="email"
+            subtextName="socialEmailSubtext"
+            showChecked={branding.socialShowEmail}
+            urlValue={branding.socialEmail}
+            subtextValue={branding.socialEmailSubtext}
+            defaultHint={SOCIAL_DEFAULT_HINTS.email}
+            urlPlaceholder="info@example.com"
+          />
         </div>
 
         <button type="submit" disabled={savePending} className={`${btnPrimary} w-fit`}>
-          {savePending ? "Saving…" : "Save URLs & theme"}
+          {savePending ? "Saving…" : "Save PWA & social"}
         </button>
       </form>
     </section>
