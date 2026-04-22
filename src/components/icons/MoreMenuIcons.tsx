@@ -78,7 +78,7 @@ export function MoreIconSocial() {
   );
 }
 
-/** Hex nut / 6-tooth silhouette + hub — distinct at 24px (no soft organic curves). */
+/** 8-tooth gear (alternating outer/inner radius) + hub — reads as cog at ~28px. */
 export function MoreIconSettings() {
   return (
     <svg
@@ -86,12 +86,13 @@ export function MoreIconSettings() {
       fill="none"
       stroke="currentColor"
       strokeWidth={2}
+      strokeLinecap="round"
       strokeLinejoin="round"
-      className={cls}
+      className="size-7 shrink-0"
       aria-hidden
     >
-      <path d="M12 5L18.06 8.5V15.5L12 19L5.94 15.5V8.5L12 5z" />
-      <circle cx="12" cy="12" r="3.25" />
+      <path d="M12 3l2.39 3.23 3.97-.59-.59 3.97L21 12l-3.23 2.39.59 3.97-3.97-.59L12 21l-2.39-3.23-3.97.59.59-3.97L3 12l3.23-2.39-.59-3.97 3.97.59L12 3z" />
+      <circle cx="12" cy="12" r="3" />
     </svg>
   );
 }
