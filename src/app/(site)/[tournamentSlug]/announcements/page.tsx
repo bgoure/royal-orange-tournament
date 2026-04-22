@@ -21,20 +21,7 @@ export default async function TournamentAnnouncementsPage({
 
   return (
     <div className="flex flex-col gap-4">
-      <div>
-        <PageTitle>Announcements</PageTitle>
-        <p className="mt-2 text-sm text-zinc-600">
-          Newest updates first. Priority items appear at the top when published.
-          {isAdmin ? (
-            <>
-              {" "}
-              <span className="font-medium text-zinc-700">
-                As an admin, tap a card to edit or delete without opening the admin portal.
-              </span>
-            </>
-          ) : null}
-        </p>
-      </div>
+      <PageTitle>Announcements</PageTitle>
       <AnnouncementList
         items={items}
         adminEditable={isAdmin}
