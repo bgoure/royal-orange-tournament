@@ -91,7 +91,7 @@ export function BottomNav({
       label: "Brackets",
       icon: (
         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round" className="size-6">
-          <path d="M3 7h5M3 17h5M8 7l4 5M8 17l4-5M12 12h9" />
+          <path d="M2 4h5M2 8h5M2 14h5M2 18h5M7 4L10 6M7 8L10 6M7 14L10 16M7 18L10 16M10 6L13 11M10 16L13 11M13 11h8" />
         </svg>
       ),
     },
