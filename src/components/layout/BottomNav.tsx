@@ -178,8 +178,10 @@ export function BottomNav({
                       {item.icon}
                     </span>
                     <span className="min-w-0 flex-1">
-                      <span className="block text-[11px] font-semibold leading-tight">{item.label}</span>
-                      <span className="mt-0.5 block text-xs font-normal text-zinc-500">{item.description}</span>
+                      <span className="block text-sm font-semibold leading-snug">{item.label}</span>
+                      <span className="mt-0.5 block text-[10px] font-normal leading-snug text-royal">
+                        {item.description}
+                      </span>
                     </span>
                   </Link>
                 </li>
@@ -194,8 +196,8 @@ export function BottomNav({
                     <MoreIconFeedback />
                   </span>
                   <span className="min-w-0 flex-1">
-                    <span className="block text-[11px] font-semibold leading-tight">Feedback</span>
-                    <span className="mt-0.5 block text-xs font-normal text-zinc-500">
+                    <span className="block text-sm font-semibold leading-snug">Feedback</span>
+                    <span className="mt-0.5 block text-[10px] font-normal leading-snug text-royal">
                       Report a problem or share a suggestion
                     </span>
                   </span>
