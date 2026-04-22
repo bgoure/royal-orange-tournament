@@ -37,11 +37,11 @@ export default async function MorePage({ params }: { params: Promise<{ tournamen
     {
       href: tp("rules"),
       label: "Tournament Rules & Resources",
-      description: "Rules for Royal & Classic and OBA resources",
+      description: "Know your Tournament!",
       icon: <MoreIconRules />,
     },
-    { href: tp("social"), label: "Social", description: "Follow Baseball Milton", icon: <MoreIconSocial /> },
-    { href: tp("settings"), label: "Settings", description: "App preferences", icon: <MoreIconSettings /> },
+    { href: tp("social"), label: "Social", description: "Follow Us!", icon: <MoreIconSocial /> },
+    { href: tp("settings"), label: "Settings", description: "Admin items", icon: <MoreIconSettings /> },
   ];
 
   const cardClass =
@@ -75,7 +75,7 @@ export default async function MorePage({ params }: { params: Promise<{ tournamen
             <span className="min-w-0 flex-1">
               <span className="block text-[11px] font-semibold leading-tight">Feedback</span>
               <span className="mt-0.5 block text-xs font-normal text-zinc-500">
-                Report a problem or share a suggestion
+                Report something broken or just send us some love!
               </span>
             </span>
           </Link>

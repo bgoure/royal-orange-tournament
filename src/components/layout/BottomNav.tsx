@@ -46,11 +46,11 @@ export function BottomNav({
     {
       href: tp("rules"),
       label: "Tournament Rules & Resources",
-      description: "Rules for Royal & Classic and OBA resources",
+      description: "Know your Tournament!",
       icon: <MoreIconRules />,
     },
-    { href: tp("social"), label: "Social", description: "Follow Baseball Milton", icon: <MoreIconSocial /> },
-    { href: tp("settings"), label: "Settings", description: "App preferences", icon: <MoreIconSettings /> },
+    { href: tp("social"), label: "Social", description: "Follow Us!", icon: <MoreIconSocial /> },
+    { href: tp("settings"), label: "Settings", description: "Admin items", icon: <MoreIconSettings /> },
   ];
 
   const tabs = [
@@ -198,7 +198,7 @@ export function BottomNav({
                   <span className="min-w-0 flex-1">
                     <span className="block text-base font-semibold leading-snug">Feedback</span>
                     <span className="mt-0.5 block text-[10px] font-normal leading-snug text-royal">
-                      Report a problem or share a suggestion
+                      Report something broken or just send us some love!
                     </span>
                   </span>
                 </Link>
