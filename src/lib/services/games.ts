@@ -4,7 +4,7 @@ import { divisionTabGameWhere } from "@/lib/division-tabs";
 import { prisma } from "@/lib/db";
 import { teamWithPublicLogoInclude } from "@/lib/team-logo";
 
-/** On the public site, hide friendly consolation until that division’s playoff bracket is published. */
+/** On the public site, hide consolation games until that division’s playoff bracket is published. */
 function publicConsolationVisibilityClause(): Prisma.GameWhereInput {
   return {
     OR: [

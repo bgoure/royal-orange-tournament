@@ -333,7 +333,7 @@ function GameCard({
             {game.pool
               ? ` · ${game.pool.division.name} — ${game.pool.name}`
               : game.gameKind === GameKind.CONSOLATION && game.division
-                ? ` · ${game.division.name} · Friendly consolation`
+                ? ` · ${game.division.name} · Consolation Game`
                 : " · Bracket (no pool)"}
           </p>
         </div>
@@ -355,7 +355,7 @@ function GameCard({
                 game.poolId
                   ? "Delete this game? Standings will be recalculated for the pool."
                   : game.gameKind === GameKind.CONSOLATION
-                    ? "Delete this friendly consolation game? This cannot be undone."
+                    ? "Delete this consolation game? This cannot be undone."
                     : "Delete this bracket game? This cannot be undone."
               }
               action={delAction}

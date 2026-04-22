@@ -1,7 +1,7 @@
 import { GameKind } from "@prisma/client";
 import { prisma } from "@/lib/db";
 
-/** Shared shape for public bracket-style games (playoff + friendly consolation). */
+/** Shared shape for public bracket-style games (playoff + consolation). */
 export const publicBracketStyleGameInclude = {
   pool: { include: { division: true } },
   homeTeam: {
@@ -73,7 +73,7 @@ export function listBracketsForTournament(
 }
 
 /**
- * Friendly consolation games for the public site. Only divisions whose playoff bracket is published
+ * Consolation games for the public site. Only divisions whose playoff bracket is published
  * contribute rows (enforced in the query).
  */
 export function listConsolationGamesForTournament(

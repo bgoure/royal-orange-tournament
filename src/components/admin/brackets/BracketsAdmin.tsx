@@ -327,7 +327,7 @@ export function BracketsAdmin({
 
       {canConfigure && divisionsWithPools.length > 0 && fields.length > 0 ? (
         <section className="rounded-xl border border-zinc-200 bg-white p-6 shadow-sm">
-          <h2 className="text-sm font-semibold text-zinc-900">Friendly consolation (one game at a time)</h2>
+          <h2 className="text-sm font-semibold text-zinc-900">Consolation game (one game at a time)</h2>
           <p className="mt-1 text-xs text-zinc-500">
             Non-bracket games seeded from pool finishing order. Teams fill when you apply standings on the playoff
             bracket for this division. Each pool finishing slot can only appear once per division (duplicate ranks
@@ -483,7 +483,7 @@ export function BracketsAdmin({
               ))}
             </ul>
           ) : (
-            <p className="mt-4 text-sm text-zinc-500">No friendly consolation games yet.</p>
+            <p className="mt-4 text-sm text-zinc-500">No consolation games yet.</p>
           )}
         </section>
       ) : null}

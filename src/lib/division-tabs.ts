@@ -173,7 +173,7 @@ export function entityDivisionMatchesTab(
   return divisionId === tabId;
 }
 
-/** Friendly consolation games: same division scoping as brackets (including synthetic age tabs). */
+/** Consolation games: same division scoping as brackets (including synthetic age tabs). */
 export function consolationGameMatchesDivisionTab(
   game: { divisionId: string | null },
   tabId: string,

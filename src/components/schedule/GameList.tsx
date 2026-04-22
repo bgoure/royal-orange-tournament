@@ -163,7 +163,7 @@ function GameCardInner({
         </>
       ) : g.gameKind === GameKind.CONSOLATION && g.division ? (
         <>
-          <span className="font-medium text-zinc-600">{g.division.name} · Friendly consolation</span>
+          <span className="font-medium text-zinc-600">{g.division.name} · Consolation Game</span>
           <span className="text-zinc-400">·</span>
         </>
       ) : bracketCaption ? (
@@ -315,7 +315,7 @@ function GameCardInner({
         ) : g.gameKind === GameKind.CONSOLATION && g.division ? (
           <>
             <span className="font-medium">
-              {g.division.name} · Friendly consolation
+              {g.division.name} · Consolation Game
             </span>
             <span className="mx-1.5 text-zinc-400">·</span>
           </>

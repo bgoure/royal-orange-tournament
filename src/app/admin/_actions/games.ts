@@ -197,7 +197,7 @@ export async function updateBracketGameSchedule(
   try {
     const existing = await assertGameInTournament(parsed.data.id, ctx.tournament.id);
     if (!existing.bracketId && existing.gameKind !== GameKind.CONSOLATION) {
-      return { ok: false, error: "Not a bracket or friendly consolation game" };
+      return { ok: false, error: "Not a bracket or consolation game" };
     }
 
     const d = parsed.data;
@@ -250,7 +250,7 @@ export async function updateBracketGameTeams(
   try {
     const existing = await assertGameInTournament(parsed.data.id, ctx.tournament.id);
     if (!existing.bracketId && existing.gameKind !== GameKind.CONSOLATION) {
-      return { ok: false, error: "Not a bracket or friendly consolation game" };
+      return { ok: false, error: "Not a bracket or consolation game" };
     }
     const d = parsed.data;
     await assertTeamsInBracketTournament(ctx.tournament.id, d.homeTeamId, d.awayTeamId);

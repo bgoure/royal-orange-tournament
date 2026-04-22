@@ -55,7 +55,7 @@ export function roundTypeShortLabel(roundType: BracketRoundType): string {
 }
 
 /**
- * Schedule / results card line: "{division} · Semifinals" / "Championship" (friendly consolation uses separate copy).
+ * Schedule / results card line: "{division} · Semifinals" / "Championship" (consolation games use separate copy).
  */
 export function playoffScheduleBracketCaption(input: {
   gameKind: GameKind;

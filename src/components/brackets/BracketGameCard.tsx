@@ -140,7 +140,7 @@ export function BracketGameCard({
         ) : game.gameKind === GameKind.CONSOLATION && game.division ? (
           <>
             <span className="font-medium text-zinc-600">
-              {game.division.name} · Friendly consolation
+              {game.division.name} · Consolation Game
             </span>
             <span className="text-zinc-400">·</span>
           </>
