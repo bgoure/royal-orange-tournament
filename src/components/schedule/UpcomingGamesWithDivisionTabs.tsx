@@ -18,7 +18,6 @@ export function UpcomingGamesWithDivisionTabs({
         emptyHint="Check another division or open the full schedule."
         horizontal
         animateStagger
-        scheduleCompactLayout
       />
     </div>
   );
