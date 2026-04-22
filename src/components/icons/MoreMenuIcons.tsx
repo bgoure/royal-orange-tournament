@@ -78,6 +78,7 @@ export function MoreIconSocial() {
   );
 }
 
+/** Hex nut / 6-tooth silhouette + hub — distinct at 24px (no soft organic curves). */
 export function MoreIconSettings() {
   return (
     <svg
@@ -85,13 +86,12 @@ export function MoreIconSettings() {
       fill="none"
       stroke="currentColor"
       strokeWidth={2}
-      strokeLinecap="round"
       strokeLinejoin="round"
       className={cls}
       aria-hidden
     >
-      <path d="M12 15a3 3 0 100-6 3 3 0 000 6z" />
-      <path d="M19.4 15a1.65 1.65 0 00.33 1.82l.06.06a2 2 0 010 2.83 2 2 0 01-2.83 0l-.06-.06a1.65 1.65 0 00-1.82-.33 1.65 1.65 0 00-1 1.51V21a2 2 0 01-2 2 2 2 0 01-2-2v-.09A1.65 1.65 0 009 19.4a1.65 1.65 0 00-1.82.33l-.06.06a2 2 0 01-2.83 0 2 2 0 010-2.83l.06-.06A1.65 1.65 0 009 14.4a1.65 1.65 0 00-1-1.51V12a2 2 0 012-2h.09a1.65 1.65 0 001 1.51 1.65 1.65 0 001.82-.33l.06-.06a2 2 0 012.83 0 2 2 0 010 2.83l-.06.06A1.65 1.65 0 0019.4 15z" />
+      <path d="M12 5L18.06 8.5V15.5L12 19L5.94 15.5V8.5L12 5z" />
+      <circle cx="12" cy="12" r="3.25" />
     </svg>
   );
 }
