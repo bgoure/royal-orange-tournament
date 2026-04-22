@@ -14,7 +14,7 @@ function switcherListWhere() {
   );
   return {
     isPublished: true as const,
-    archivedAt: null as const,
+    archivedAt: null,
     startDate: { lte: cutoff },
   };
 }
@@ -26,7 +26,7 @@ function publishedActiveSlugWhere(slug: string) {
   return {
     slug: { equals: slug, mode: "insensitive" as const },
     isPublished: true as const,
-    archivedAt: null as const,
+    archivedAt: null,
   };
 }
 

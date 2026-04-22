@@ -103,6 +103,8 @@ export default async function AdminTournamentSettingsPage() {
         <TournamentDangerZoneForm
           tournamentSlug={tournament.slug}
           tournamentName={tournament.name}
+          publicSitePath={publicSitePath}
+          isArchived={isArchived}
           canManage={canManage}
           isAdmin={isAdmin}
         />
