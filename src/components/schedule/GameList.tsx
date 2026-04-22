@@ -84,7 +84,7 @@ function GameCardInner({
   displayTimeZone?: string | null;
   fallbackSeq: number;
   showScores?: boolean;
-  /** Schedule page: dense two-row card, hide redundant SCHEDULED pill, meta top-right. */
+  /** Schedule / home upcoming: time + game ID on top row; pool/field bottom-right; status bottom-left when not SCHEDULED. */
   scheduleCompactLayout?: boolean;
 }) {
   const quickEdit = usePublicQuickGameEdit();
@@ -133,46 +133,22 @@ function GameCardInner({
   const compactShell = compact ? `w-full ${cardPadding}` : cardPadding;
   const surfaceGradient = brandCardGradientClass(g.id);
 
-  const showScheduleStatusPill =
-    scheduleCompactLayout && g.status !== "SCHEDULED" && g.status !== "LIVE";
-  const showLivePill = scheduleCompactLayout && isLive;
+  const scheduleCompactFooterStatus = scheduleCompactLayout && g.status !== "SCHEDULED";
 
-  const metaTopRight = (
-    <div className="flex min-w-0 max-w-[min(100%,14rem)] flex-wrap items-center justify-end gap-x-1.5 gap-y-1 text-[10px] leading-tight text-zinc-500 sm:max-w-[55%]">
-      {showLivePill ? (
-        <span
-          className={`shrink-0 rounded-full px-2 py-0.5 text-[10px] font-bold uppercase ${st} ${
-            liveProminent ? "ring-2 ring-red-400/60" : "ring-2 ring-red-400/50"
-          }`}
-        >
-          LIVE
-        </span>
+  const scheduleCompactPoolField = (
+    <div className="inline-flex min-w-0 max-w-full flex-wrap items-center justify-end gap-x-1.5 text-[10px] leading-tight text-zinc-500">
+      {g.pool ? (
+        <>
+          <span className={`font-medium ${poolCardLabelTextClass(g.pool.cardLabelColor)}`}>{g.pool.name}</span>
+          <span className="text-zinc-400">·</span>
+        </>
+      ) : g.gameKind === GameKind.CONSOLATION && g.division ? (
+        <>
+          <span className="font-medium text-zinc-600">{g.division.name} · Friendly consolation</span>
+          <span className="text-zinc-400">·</span>
+        </>
       ) : null}
-      {showScheduleStatusPill ? (
-        <span className={`shrink-0 rounded-full px-2 py-0.5 text-[10px] font-bold uppercase ${st}`}>
-          {g.status}
-        </span>
-      ) : null}
-      <span className="inline-flex flex-wrap items-center justify-end gap-x-1.5">
-        {g.pool ? (
-          <>
-            <span className={`font-medium ${poolCardLabelTextClass(g.pool.cardLabelColor)}`}>{g.pool.name}</span>
-            <span className="text-zinc-400">·</span>
-          </>
-        ) : g.gameKind === GameKind.CONSOLATION && g.division ? (
-          <>
-            <span className="font-medium text-zinc-600">
-              {g.division.name} · Friendly consolation
-            </span>
-            <span className="text-zinc-400">·</span>
-          </>
-        ) : null}
-        <span className="min-w-0 break-words text-right">{g.field.name}</span>
-        <span className="text-zinc-400">·</span>
-        <span className="inline-block shrink-0 rounded-md bg-accent px-2 py-0.5 text-[11px] font-bold tabular-nums text-white">
-          {gameIdDisplayLabel(g, fallbackSeq)}
-        </span>
-      </span>
+      <span className="min-w-0 break-words text-right">{g.field.name}</span>
     </div>
   );
 
@@ -186,7 +162,9 @@ function GameCardInner({
           <p className="min-w-0 flex-1 text-[13px] font-bold leading-snug text-zinc-900">
             {formatGameScheduledAt(g.scheduledAt, displayTimeZone)}
           </p>
-          {metaTopRight}
+          <span className="inline-block shrink-0 rounded-md bg-accent px-2 py-0.5 text-[11px] font-bold tabular-nums text-white">
+            {gameIdDisplayLabel(g, fallbackSeq)}
+          </span>
         </div>
 
         <div className="mt-1.5 flex min-w-0 items-center gap-1.5 sm:gap-2">
@@ -203,6 +181,25 @@ function GameCardInner({
             </span>
             <TeamLogoMark team={g.homeTeam} sizeClass={scheduleLogoSize} />
           </div>
+        </div>
+
+        <div className="mt-1.5 flex min-h-[1.25rem] items-end justify-between gap-2">
+          <div className="min-w-0 shrink-0">
+            {scheduleCompactFooterStatus ? (
+              <span
+                className={`inline-block rounded-full px-2 py-0.5 text-[10px] font-bold uppercase ${st} ${
+                  isLive
+                    ? liveProminent
+                      ? "ring-2 ring-red-400/60"
+                      : "ring-2 ring-red-400/50"
+                    : ""
+                }`}
+              >
+                {g.status === "LIVE" ? "LIVE" : g.status}
+              </span>
+            ) : null}
+          </div>
+          {scheduleCompactPoolField}
         </div>
       </div>
     );
