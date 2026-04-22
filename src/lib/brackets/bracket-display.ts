@@ -1,4 +1,4 @@
-import type { BracketRoundType } from "@prisma/client";
+import type { BracketRoundType, GameKind } from "@prisma/client";
 
 /** e.g. rank 1 → "1st", 2 → "2nd" */
 export function ordinalPlace(rank: number): string {
@@ -52,4 +52,27 @@ export function roundTypeShortLabel(roundType: BracketRoundType): string {
     default:
       return roundType;
   }
+}
+
+/**
+ * Schedule / results card line: "{division} · Semifinals" / "Championship" (friendly consolation uses separate copy).
+ */
+export function playoffScheduleBracketCaption(input: {
+  gameKind: GameKind;
+  division: { name: string } | null | undefined;
+  bracketRound: {
+    name: string;
+    roundType: BracketRoundType;
+  } | null | undefined;
+  bracketDivision: { name: string } | null | undefined;
+}): string | null {
+  if (!input.bracketRound || input.gameKind === "CONSOLATION") return null;
+
+  const divName = input.bracketDivision?.name ?? input.division?.name;
+  if (!divName) return null;
+
+  const roundLabel =
+    input.bracketRound.roundType === "FINAL" ? "Championship" : input.bracketRound.name;
+
+  return `${divName} · ${roundLabel}`;
 }

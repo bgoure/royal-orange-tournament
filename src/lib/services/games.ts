@@ -23,7 +23,11 @@ const gameListInclude = {
   awayTeam: teamWithPublicLogoInclude,
   pool: { include: { division: true } },
   division: { select: { id: true, name: true } },
-  bracketRound: true,
+  bracketRound: {
+    include: {
+      bracket: { select: { division: { select: { id: true, name: true } } } },
+    },
+  },
 } as const;
 
 /** Next N not-yet-finished games for the home page per active division tab (by game number like schedule, excludes final/cancelled). */

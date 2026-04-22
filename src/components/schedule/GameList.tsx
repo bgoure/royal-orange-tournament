@@ -1,6 +1,6 @@
 "use client";
 
-import type { Division, Field, Game, Pool } from "@prisma/client";
+import type { BracketRound, Division, Field, Game, Pool } from "@prisma/client";
 import type { KeyboardEvent } from "react";
 import { GameKind } from "@prisma/client";
 import {
@@ -9,6 +9,7 @@ import {
   formatScheduleDayGroupHeading,
   tournamentCalendarDayKey,
 } from "@/lib/datetime-tournament";
+import { playoffScheduleBracketCaption } from "@/lib/brackets/bracket-display";
 import { brandCardGradientClass } from "@/lib/brand-card-gradient";
 import { DIVISION_SWIPE_IGNORE } from "@/lib/division-swipe-ignore";
 import { poolCardLabelTextClass } from "@/lib/pool-card-label";
@@ -42,6 +43,11 @@ export type GameWithTeams = Game & {
   awayTeam: TeamWithPublicLogo | null;
   pool: (Pool & { division: Division }) | null;
   division?: { id: string; name: string } | null;
+  bracketRound:
+    | (BracketRound & {
+        bracket: { division: { id: string; name: string } };
+      })
+    | null;
 };
 
 /** Shared with bracket cards so status pills match schedule / results. */
@@ -69,6 +75,15 @@ function gameIdDisplayLabel(g: GameWithTeams, fallbackSeq: number): string {
   return `G${fallbackSeq}`;
 }
 
+function bracketCaptionForScheduleCard(g: GameWithTeams): string | null {
+  return playoffScheduleBracketCaption({
+    gameKind: g.gameKind,
+    division: g.division,
+    bracketRound: g.bracketRound ?? undefined,
+    bracketDivision: g.bracketRound?.bracket?.division,
+  });
+}
+
 function GameCardInner({
   g,
   compact,
@@ -84,7 +99,7 @@ function GameCardInner({
   displayTimeZone?: string | null;
   fallbackSeq: number;
   showScores?: boolean;
-  /** Schedule page: dense two-row card, hide redundant SCHEDULED pill, meta top-right. */
+  /** Time + game ID top; pool/field bottom-right; status bottom-left when not SCHEDULED. Full-width schedule stays dense; horizontal strips keep compact min-height and two-line team rows. */
   scheduleCompactLayout?: boolean;
 }) {
   const quickEdit = usePublicQuickGameEdit();
@@ -124,85 +139,113 @@ function GameCardInner({
   const logoSize = compact ? "h-7 w-7 min-h-[28px] min-w-[28px]" : "h-8 w-8 min-h-8 min-w-8";
   const scheduleLogoSize = "h-7 w-7 min-h-[28px] min-w-[28px] shrink-0";
 
-  const cardPadding = scheduleCompactLayout
-    ? "px-3 py-2"
-    : compact
-      ? "min-h-[48px] px-3 py-3"
-      : "p-3";
+  /** Full-width schedule list stays dense; horizontal (home upcoming) keeps the original compact card height. */
+  const cardPadding =
+    scheduleCompactLayout && !compact
+      ? "px-3 py-2"
+      : compact
+        ? "min-h-[48px] px-3 py-3"
+        : "p-3";
   /** Width is set on horizontal row `<li>` so flex cannot under-size items and clip. */
   const compactShell = compact ? `w-full ${cardPadding}` : cardPadding;
   const surfaceGradient = brandCardGradientClass(g.id);
 
-  const showScheduleStatusPill =
-    scheduleCompactLayout && g.status !== "SCHEDULED" && g.status !== "LIVE";
-  const showLivePill = scheduleCompactLayout && isLive;
+  const scheduleCompactFooterStatus = scheduleCompactLayout && g.status !== "SCHEDULED";
 
-  const metaTopRight = (
-    <div className="flex min-w-0 max-w-[min(100%,14rem)] flex-wrap items-center justify-end gap-x-1.5 gap-y-1 text-[10px] leading-tight text-zinc-500 sm:max-w-[55%]">
-      {showLivePill ? (
-        <span
-          className={`shrink-0 rounded-full px-2 py-0.5 text-[10px] font-bold uppercase ${st} ${
-            liveProminent ? "ring-2 ring-red-400/60" : "ring-2 ring-red-400/50"
-          }`}
-        >
-          LIVE
-        </span>
+  const bracketCaption = bracketCaptionForScheduleCard(g);
+
+  const scheduleCompactPoolField = (
+    <div className="inline-flex min-w-0 max-w-full flex-wrap items-center justify-end gap-x-1.5 text-[10px] leading-tight text-zinc-500">
+      {g.pool ? (
+        <>
+          <span className={`font-medium ${poolCardLabelTextClass(g.pool.cardLabelColor)}`}>{g.pool.name}</span>
+          <span className="text-zinc-400">·</span>
+        </>
+      ) : g.gameKind === GameKind.CONSOLATION && g.division ? (
+        <>
+          <span className="font-medium text-zinc-600">{g.division.name} · Friendly consolation</span>
+          <span className="text-zinc-400">·</span>
+        </>
+      ) : bracketCaption ? (
+        <>
+          <span className="font-medium text-zinc-600">{bracketCaption}</span>
+          <span className="text-zinc-400">·</span>
+        </>
       ) : null}
-      {showScheduleStatusPill ? (
-        <span className={`shrink-0 rounded-full px-2 py-0.5 text-[10px] font-bold uppercase ${st}`}>
-          {g.status}
-        </span>
-      ) : null}
-      <span className="inline-flex flex-wrap items-center justify-end gap-x-1.5">
-        {g.pool ? (
-          <>
-            <span className={`font-medium ${poolCardLabelTextClass(g.pool.cardLabelColor)}`}>{g.pool.name}</span>
-            <span className="text-zinc-400">·</span>
-          </>
-        ) : g.gameKind === GameKind.CONSOLATION && g.division ? (
-          <>
-            <span className="font-medium text-zinc-600">
-              {g.division.name} · Friendly consolation
-            </span>
-            <span className="text-zinc-400">·</span>
-          </>
-        ) : null}
-        <span className="min-w-0 break-words text-right">{g.field.name}</span>
-        <span className="text-zinc-400">·</span>
-        <span className="inline-block shrink-0 rounded-md bg-accent px-2 py-0.5 text-[11px] font-bold tabular-nums text-white">
-          {gameIdDisplayLabel(g, fallbackSeq)}
-        </span>
-      </span>
+      <span className="min-w-0 break-words text-right">{g.field.name}</span>
     </div>
   );
 
   if (scheduleCompactLayout && !hasScore) {
+    const timeLine = compact
+      ? formatGameScheduledAtShort(g.scheduledAt, displayTimeZone)
+      : formatGameScheduledAt(g.scheduledAt, displayTimeZone);
+
+    const matchupBlock = compact ? (
+      <div className="mt-1.5 min-w-0 space-y-0.5">
+        <p className={`flex min-w-0 items-center gap-2 leading-snug text-zinc-900 ${nameSize}`}>
+          <TeamLogoMark team={g.awayTeam} sizeClass={logoSize} />
+          <span className="min-w-0 truncate">{g.awayTeam?.name ?? "TBD"}</span>
+          <span className="shrink-0 font-normal text-accent">vs</span>
+        </p>
+        <p className={`flex min-w-0 items-center gap-2 truncate leading-snug text-zinc-900 ${nameSize}`}>
+          <TeamLogoMark team={g.homeTeam} sizeClass={logoSize} />
+          <span className="truncate">{g.homeTeam?.name ?? "TBD"}</span>
+        </p>
+      </div>
+    ) : (
+      <div className="mt-1.5 flex min-w-0 items-center gap-1.5 sm:gap-2">
+        <div className="flex min-w-0 flex-1 items-center gap-1.5">
+          <TeamLogoMark team={g.awayTeam} sizeClass={scheduleLogoSize} />
+          <span className="min-w-0 flex-1 line-clamp-2 break-words text-sm font-bold leading-[1.15] text-zinc-900">
+            {g.awayTeam?.name ?? "TBD"}
+          </span>
+        </div>
+        <span className="shrink-0 self-center text-sm font-normal text-accent">vs</span>
+        <div className="flex min-w-0 flex-1 items-center justify-end gap-1.5 text-right">
+          <span className="min-w-0 flex-1 line-clamp-2 break-words text-sm font-bold leading-[1.15] text-zinc-900">
+            {g.homeTeam?.name ?? "TBD"}
+          </span>
+          <TeamLogoMark team={g.homeTeam} sizeClass={scheduleLogoSize} />
+        </div>
+      </div>
+    );
+
+    const footerGap = compact ? "mt-2" : "mt-1.5";
+
     return (
       <div
         className={`min-w-0 rounded-2xl border border-zinc-200 shadow-[0_1px_3px_rgba(0,0,0,0.1)] ${surfaceGradient} ${leftBorder} ${cardPadding}${quickShell}`}
         {...quickInteract}
       >
         <div className="flex items-start justify-between gap-2">
-          <p className="min-w-0 flex-1 text-[13px] font-bold leading-snug text-zinc-900">
-            {formatGameScheduledAt(g.scheduledAt, displayTimeZone)}
-          </p>
-          {metaTopRight}
+          <p className="min-w-0 flex-1 text-[13px] font-bold leading-snug text-zinc-900">{timeLine}</p>
+          <span className="inline-block shrink-0 rounded-md bg-accent px-2 py-0.5 text-[11px] font-bold tabular-nums text-white">
+            {gameIdDisplayLabel(g, fallbackSeq)}
+          </span>
         </div>
 
-        <div className="mt-1.5 flex min-w-0 items-center gap-1.5 sm:gap-2">
-          <div className="flex min-w-0 flex-1 items-center gap-1.5">
-            <TeamLogoMark team={g.awayTeam} sizeClass={scheduleLogoSize} />
-            <span className="min-w-0 flex-1 line-clamp-2 break-words text-sm font-bold leading-[1.15] text-zinc-900">
-              {g.awayTeam?.name ?? "TBD"}
-            </span>
+        {matchupBlock}
+
+        <div
+          className={`${footerGap} flex ${compact ? "min-h-0" : "min-h-[1.25rem]"} items-end justify-between gap-2`}
+        >
+          <div className="min-w-0 shrink-0">
+            {scheduleCompactFooterStatus ? (
+              <span
+                className={`inline-block rounded-full px-2 py-0.5 text-[10px] font-bold uppercase ${st} ${
+                  isLive
+                    ? liveProminent
+                      ? "ring-2 ring-red-400/60"
+                      : "ring-2 ring-red-400/50"
+                    : ""
+                }`}
+              >
+                {g.status === "LIVE" ? "LIVE" : g.status}
+              </span>
+            ) : null}
           </div>
-          <span className="shrink-0 self-center text-sm font-normal text-accent">vs</span>
-          <div className="flex min-w-0 flex-1 items-center justify-end gap-1.5 text-right">
-            <span className="min-w-0 flex-1 line-clamp-2 break-words text-sm font-bold leading-[1.15] text-zinc-900">
-              {g.homeTeam?.name ?? "TBD"}
-            </span>
-            <TeamLogoMark team={g.homeTeam} sizeClass={scheduleLogoSize} />
-          </div>
+          {scheduleCompactPoolField}
         </div>
       </div>
     );
@@ -274,6 +317,11 @@ function GameCardInner({
             <span className="font-medium">
               {g.division.name} · Friendly consolation
             </span>
+            <span className="mx-1.5 text-zinc-400">·</span>
+          </>
+        ) : bracketCaption ? (
+          <>
+            <span className="font-medium text-zinc-600">{bracketCaption}</span>
             <span className="mx-1.5 text-zinc-400">·</span>
           </>
         ) : null}
