@@ -33,34 +33,46 @@ export const publicQuickGameUpdateSchema = z
   })
   .superRefine((data, ctx) => {
     const hasAnyRun = data.homeRuns != null || data.awayRuns != null;
-    const poolNeedsInnings = data.gameKind === GameKind.POOL && hasAnyRun;
-    const poolFinalNeedsInnings = data.gameKind === GameKind.POOL && data.status === "FINAL";
-    if (poolNeedsInnings || poolFinalNeedsInnings) {
-      if (data.homeDefensiveInnings == null) {
-        ctx.addIssue({
-          code: "custom",
-          message: poolFinalNeedsInnings && !hasAnyRun
-            ? "Pool games marked final need both teams’ defensive innings."
-            : "Home defensive innings required when runs are entered.",
-          path: ["homeDefensiveInnings"],
-        });
-      }
-      if (data.awayDefensiveInnings == null) {
-        ctx.addIssue({
-          code: "custom",
-          message: poolFinalNeedsInnings && !hasAnyRun
-            ? "Pool games marked final need both teams’ defensive innings."
-            : "Away defensive innings required when runs are entered.",
-          path: ["awayDefensiveInnings"],
-        });
-      }
-    }
-    if (data.status === "FINAL" && (data.homeRuns == null || data.awayRuns == null)) {
+    const poolFinalIncomplete =
+      data.gameKind === GameKind.POOL &&
+      data.status === "FINAL" &&
+      (data.homeRuns == null ||
+        data.awayRuns == null ||
+        data.homeDefensiveInnings == null ||
+        data.awayDefensiveInnings == null);
+
+    if (poolFinalIncomplete) {
       ctx.addIssue({
         code: "custom",
-        message: "Final games need both teams’ runs.",
+        message:
+          "To finalize scoring a game, each team's runs and number of defensive innings must be recorded",
         path: ["homeRuns"],
       });
+    } else {
+      const poolNeedsInnings = data.gameKind === GameKind.POOL && hasAnyRun;
+      if (poolNeedsInnings) {
+        if (data.homeDefensiveInnings == null) {
+          ctx.addIssue({
+            code: "custom",
+            message: "Home defensive innings required when runs are entered.",
+            path: ["homeDefensiveInnings"],
+          });
+        }
+        if (data.awayDefensiveInnings == null) {
+          ctx.addIssue({
+            code: "custom",
+            message: "Away defensive innings required when runs are entered.",
+            path: ["awayDefensiveInnings"],
+          });
+        }
+      }
+      if (data.status === "FINAL" && (data.homeRuns == null || data.awayRuns == null)) {
+        ctx.addIssue({
+          code: "custom",
+          message: "Final games need both teams’ runs.",
+          path: ["homeRuns"],
+        });
+      }
     }
     if (data.status === "AWAITING_RESULTS" && (data.homeRuns != null || data.awayRuns != null)) {
       ctx.addIssue({

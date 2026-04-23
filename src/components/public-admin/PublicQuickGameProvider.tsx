@@ -207,11 +207,8 @@ function QuickGameModal({
           {game.homeTeamId && game.awayTeamId ? (
             <fieldset className="rounded-xl border border-zinc-200 bg-zinc-50/80 px-3 py-2">
               <legend className="px-1 text-[10px] font-semibold uppercase tracking-wide text-zinc-500">
-                Field home (record)
+                Home Team
               </legend>
-              <p className="mb-2 text-[11px] leading-snug text-zinc-500">
-                Which side is recorded as home in the app (not dugout placement). Stats save under home/away accordingly.
-              </p>
               <div className="flex flex-col gap-2 sm:flex-row sm:flex-wrap">
                 <label className="flex cursor-pointer items-center gap-2 text-sm text-zinc-800">
                   <input
@@ -220,10 +217,7 @@ function QuickGameModal({
                     value={game.awayTeamId}
                     className="size-4 border-zinc-300 text-royal focus:ring-royal/30"
                   />
-                  <span>
-                    <span className="font-medium">{game.awayTeamName}</span>
-                    <span className="ml-1 text-xs text-zinc-400">(A)</span>
-                  </span>
+                  <span className="font-medium">{game.awayTeamName}</span>
                 </label>
                 <label className="flex cursor-pointer items-center gap-2 text-sm text-zinc-800">
                   <input
@@ -233,10 +227,7 @@ function QuickGameModal({
                     defaultChecked
                     className="size-4 border-zinc-300 text-royal focus:ring-royal/30"
                   />
-                  <span>
-                    <span className="font-medium">{game.homeTeamName}</span>
-                    <span className="ml-1 text-xs text-zinc-400">(H)</span>
-                  </span>
+                  <span className="font-medium">{game.homeTeamName}</span>
                 </label>
               </div>
             </fieldset>
@@ -306,13 +297,6 @@ function QuickGameModal({
               </>
             ) : null}
           </div>
-
-          <p className="text-[11px] leading-snug text-zinc-500">
-            {isPool
-              ? "Pool games: if either team has runs or the game is final, both defensive innings are required (standings tiebreakers). "
-              : "Playoff / consolation: runs only; defensive innings are optional and not used for standings. "}
-            Saving updates the schedule time and clears “TBD” placeholder.
-          </p>
 
           <div className="flex flex-wrap gap-2 pt-2">
             <button
