@@ -1,5 +1,5 @@
 ---
-description: Commit and push after substantive changes unless user opts out
+description: Commit and push after substantive changes; staging first, never main without ask
 alwaysApply: true
 ---
 
@@ -8,8 +8,9 @@ alwaysApply: true
 After completing substantive code or config changes in this repo:
 
 1. **Stage** and **commit** with a clear, accurate message.
-2. **Push only `staging` by default:** use `git push origin staging` after ensuring the work is on `staging` (merge or cherry-pick from another branch if you committed elsewhere). **Do not** run `git push origin main` or otherwise publish `main` unless the user explicitly asks to release or push to `main`.
-3. Skip push only when there is **nothing to commit**, the user has asked **not** to push, or they are in the middle of a **WIP** they explicitly want local-only.
-4. If the user says **stop pushing** (or similar), honor that until they say to resume.
+2. **`staging` first (mandatory):** put the work on **`staging`** (`git checkout staging` as needed, merge or cherry-pick commits from another branch if you committed on the wrong branch). Push with **`git push origin staging`** so Vercel / CI for staging can run.
+3. **`main` is opt-in only:** **never** `git push origin main`, merge to `main`, or otherwise publish production **`main`** unless the user **explicitly** asks in that conversation (e.g. “push to main”, “release to production”, “merge to main and push”). Vague “push” or “ship it” **does not** imply `main`—default remains **`staging`**.
+4. Skip push only when there is **nothing to commit**, the user has asked **not** to push, or they are in the middle of a **WIP** they explicitly want local-only.
+5. If the user says **stop pushing** (or similar), honor that until they say to resume.
 
 Do not create empty commits. Resolve or surface merge/push failures instead of leaving the branch unsynced without explanation.
