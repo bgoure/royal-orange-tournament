@@ -67,6 +67,14 @@ export function gameCardStatusPillText(
   return publicGameStatusLabel(g.status);
 }
 
+function ahSuffix(which: "A" | "H") {
+  return (
+    <span className="ml-1 text-[10px] font-medium text-zinc-400" aria-hidden>
+      ({which})
+    </span>
+  );
+}
+
 function gameWithTeamsToQuickPayload(g: GameWithTeams): QuickEditGamePayload {
   return {
     id: g.id,
@@ -80,6 +88,8 @@ function gameWithTeamsToQuickPayload(g: GameWithTeams): QuickEditGamePayload {
     awayRuns: g.awayRuns,
     homeDefensiveInnings: g.homeDefensiveInnings,
     awayDefensiveInnings: g.awayDefensiveInnings,
+    homeTeamId: g.homeTeamId,
+    awayTeamId: g.awayTeamId,
     homeTeamName: g.homeTeam?.name ?? "TBD",
     awayTeamName: g.awayTeam?.name ?? "TBD",
   };
@@ -284,12 +294,18 @@ function GameCardInner({
       <div className="mt-1.5 min-w-0 space-y-0.5">
         <p className={`flex min-w-0 items-center gap-2 leading-snug ${nameTone} ${nameSize}`}>
           <TeamLogoMark team={g.awayTeam} sizeClass={logoSize} className={logoTone} />
-          <span className="min-w-0 truncate">{g.awayTeam?.name ?? "TBD"}</span>
+          <span className="min-w-0 truncate">
+            {g.awayTeam?.name ?? "TBD"}
+            {ahSuffix("A")}
+          </span>
           <span className={`shrink-0 font-normal ${vsTone}`}>vs</span>
         </p>
         <p className={`flex min-w-0 items-center gap-2 truncate leading-snug ${nameTone} ${nameSize}`}>
           <TeamLogoMark team={g.homeTeam} sizeClass={logoSize} className={logoTone} />
-          <span className="truncate">{g.homeTeam?.name ?? "TBD"}</span>
+          <span className="truncate">
+            {g.homeTeam?.name ?? "TBD"}
+            {ahSuffix("H")}
+          </span>
         </p>
       </div>
     ) : (
@@ -298,12 +314,14 @@ function GameCardInner({
           <TeamLogoMark team={g.awayTeam} sizeClass={scheduleLogoSize} className={logoTone} />
           <span className={`min-w-0 flex-1 line-clamp-2 break-words text-sm font-bold leading-[1.15] ${nameTone}`}>
             {g.awayTeam?.name ?? "TBD"}
+            {ahSuffix("A")}
           </span>
         </div>
         <span className={`shrink-0 self-center text-sm font-normal ${vsTone}`}>vs</span>
         <div className="flex min-w-0 flex-1 items-center justify-end gap-1.5 text-right">
           <span className={`min-w-0 flex-1 line-clamp-2 break-words text-sm font-bold leading-[1.15] ${nameTone}`}>
             {g.homeTeam?.name ?? "TBD"}
+            {ahSuffix("H")}
           </span>
           <TeamLogoMark team={g.homeTeam} sizeClass={scheduleLogoSize} className={logoTone} />
         </div>
@@ -383,6 +401,7 @@ function GameCardInner({
               <TeamLogoMark team={g.awayTeam} sizeClass={logoSize} className={logoTone} />
               <p className={`min-w-0 truncate leading-snug ${nameTone} ${nameSize}`}>
                 {g.awayTeam?.name ?? "TBD"}
+                {ahSuffix("A")}
               </p>
             </div>
             <span className={`shrink-0 font-bold tabular-nums ${scoreTone} ${scoreNum}`}>{g.awayRuns}</span>
@@ -392,6 +411,7 @@ function GameCardInner({
               <TeamLogoMark team={g.homeTeam} sizeClass={logoSize} className={logoTone} />
               <p className={`min-w-0 truncate leading-snug ${nameTone} ${nameSize}`}>
                 {g.homeTeam?.name ?? "TBD"}
+                {ahSuffix("H")}
               </p>
             </div>
             <span className={`shrink-0 font-bold tabular-nums ${scoreTone} ${scoreNum}`}>{g.homeRuns}</span>
@@ -401,12 +421,18 @@ function GameCardInner({
         <div className="mt-1.5 min-w-0 space-y-0.5">
           <p className={`flex min-w-0 items-center gap-2 leading-snug ${nameTone} ${nameSize}`}>
             <TeamLogoMark team={g.awayTeam} sizeClass={logoSize} className={logoTone} />
-            <span className="min-w-0 truncate">{g.awayTeam?.name ?? "TBD"}</span>
+            <span className="min-w-0 truncate">
+              {g.awayTeam?.name ?? "TBD"}
+              {ahSuffix("A")}
+            </span>
             <span className={`shrink-0 font-normal ${vsTone}`}>vs</span>
           </p>
           <p className={`flex min-w-0 items-center gap-2 truncate leading-snug ${nameTone} ${nameSize}`}>
             <TeamLogoMark team={g.homeTeam} sizeClass={logoSize} className={logoTone} />
-            <span className="truncate">{g.homeTeam?.name ?? "TBD"}</span>
+            <span className="truncate">
+              {g.homeTeam?.name ?? "TBD"}
+              {ahSuffix("H")}
+            </span>
           </p>
         </div>
       )}

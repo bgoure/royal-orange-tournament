@@ -5,6 +5,7 @@ import { auth } from "@/auth";
 import { prisma } from "@/lib/db";
 import { parseDatetimeLocalInTimeZone } from "@/lib/datetime-tournament";
 import { assertFieldInTournament, assertGameInTournament } from "@/lib/services/admin-games";
+import { applyFieldHomeToScoringOptional } from "@/lib/services/game-field-home";
 import { advanceBracketWinnerFromGame } from "@/lib/services/bracket-advance";
 import { recomputePoolStandings } from "@/lib/services/standings";
 import { getPublishedTournamentBySlugForActions } from "@/lib/tournament-context";
@@ -17,8 +18,11 @@ export async function updatePublicQuickGameAction(
   formData: FormData,
 ): Promise<PublicQuickGameResult> {
   const session = await auth();
-  if (!session?.user?.id || session.user.role !== "ADMIN") {
-    return { ok: false, error: "You must be signed in as an admin to edit games." };
+  if (
+    !session?.user?.id ||
+    (session.user.role !== "ADMIN" && session.user.role !== "POWER_USER")
+  ) {
+    return { ok: false, error: "You must be signed in as an admin or power user to edit games." };
   }
 
   const parsed = publicQuickGameUpdateSchema.safeParse({
@@ -26,6 +30,7 @@ export async function updatePublicQuickGameAction(
     id: formData.get("id"),
     fieldId: formData.get("fieldId"),
     scheduledAt: formData.get("scheduledAt"),
+    fieldHomeTeamId: formData.get("fieldHomeTeamId"),
     homeRuns: formData.get("homeRuns"),
     awayRuns: formData.get("awayRuns"),
     homeDefensiveInnings: formData.get("homeDefensiveInnings"),
@@ -56,6 +61,14 @@ export async function updatePublicQuickGameAction(
     }
     await assertFieldInTournament(parsed.data.fieldId, tournament.id);
 
+    const teamRow = await prisma.game.findFirst({
+      where: { id: parsed.data.id, tournamentId: tournament.id },
+      select: { homeTeamId: true, awayTeamId: true },
+    });
+    if (!teamRow) {
+      return { ok: false, error: "Game not found." };
+    }
+
     let scheduledAt: Date;
     try {
       scheduledAt = parseDatetimeLocalInTimeZone(parsed.data.scheduledAt, tournament.timezone);
@@ -69,20 +82,43 @@ export async function updatePublicQuickGameAction(
     if (homeOI == null && d.awayDefensiveInnings != null) homeOI = d.awayDefensiveInnings;
     if (awayOI == null && d.homeDefensiveInnings != null) awayOI = d.homeDefensiveInnings;
 
+    let merged;
+    try {
+      merged = applyFieldHomeToScoringOptional(
+        teamRow.homeTeamId,
+        teamRow.awayTeamId,
+        d.fieldHomeTeamId,
+        {
+          homeRuns: d.homeRuns,
+          awayRuns: d.awayRuns,
+          homeDefensiveInnings: d.homeDefensiveInnings,
+          awayDefensiveInnings: d.awayDefensiveInnings,
+          homeOffensiveInnings: homeOI,
+          awayOffensiveInnings: awayOI,
+          resultType: d.resultType ?? "REGULAR",
+        },
+      );
+    } catch (e) {
+      const msg = e instanceof Error ? e.message : "Invalid field home.";
+      return { ok: false, error: msg };
+    }
+
     await prisma.game.update({
       where: { id: d.id },
       data: {
         fieldId: d.fieldId,
         scheduledAt,
         schedulePlaceholder: false,
-        homeRuns: d.homeRuns,
-        awayRuns: d.awayRuns,
-        homeDefensiveInnings: d.homeDefensiveInnings,
-        awayDefensiveInnings: d.awayDefensiveInnings,
-        homeOffensiveInnings: homeOI,
-        awayOffensiveInnings: awayOI,
+        homeTeamId: merged.homeTeamId,
+        awayTeamId: merged.awayTeamId,
+        homeRuns: merged.homeRuns,
+        awayRuns: merged.awayRuns,
+        homeDefensiveInnings: merged.homeDefensiveInnings,
+        awayDefensiveInnings: merged.awayDefensiveInnings,
+        homeOffensiveInnings: merged.homeOffensiveInnings,
+        awayOffensiveInnings: merged.awayOffensiveInnings,
         status: d.status,
-        resultType: d.resultType ?? "REGULAR",
+        resultType: merged.resultType,
       },
     });
 

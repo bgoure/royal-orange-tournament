@@ -19,6 +19,8 @@ export const publicQuickGameUpdateSchema = z
     id: z.string().min(1),
     fieldId: z.string().min(1, "Select a field"),
     scheduledAt: z.string().min(1),
+    fieldHomeTeamId: z
+      .preprocess((v) => (v == null || v === "" ? undefined : String(v)), z.string().min(1).optional()),
     homeRuns: optionalInt,
     awayRuns: optionalInt,
     homeDefensiveInnings: optionalFloat,
@@ -32,18 +34,23 @@ export const publicQuickGameUpdateSchema = z
   .superRefine((data, ctx) => {
     const hasAnyRun = data.homeRuns != null || data.awayRuns != null;
     const poolNeedsInnings = data.gameKind === GameKind.POOL && hasAnyRun;
-    if (poolNeedsInnings) {
+    const poolFinalNeedsInnings = data.gameKind === GameKind.POOL && data.status === "FINAL";
+    if (poolNeedsInnings || poolFinalNeedsInnings) {
       if (data.homeDefensiveInnings == null) {
         ctx.addIssue({
           code: "custom",
-          message: "Home defensive innings required when runs are entered.",
+          message: poolFinalNeedsInnings && !hasAnyRun
+            ? "Pool games marked final need both teams’ defensive innings."
+            : "Home defensive innings required when runs are entered.",
           path: ["homeDefensiveInnings"],
         });
       }
       if (data.awayDefensiveInnings == null) {
         ctx.addIssue({
           code: "custom",
-          message: "Away defensive innings required when runs are entered.",
+          message: poolFinalNeedsInnings && !hasAnyRun
+            ? "Pool games marked final need both teams’ defensive innings."
+            : "Away defensive innings required when runs are entered.",
           path: ["awayDefensiveInnings"],
         });
       }

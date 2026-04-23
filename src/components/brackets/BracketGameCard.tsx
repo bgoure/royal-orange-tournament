@@ -26,9 +26,19 @@ function gameRowToQuickPayload(game: GameRow): QuickEditGamePayload {
     awayRuns: game.awayRuns,
     homeDefensiveInnings: game.homeDefensiveInnings,
     awayDefensiveInnings: game.awayDefensiveInnings,
+    homeTeamId: game.homeTeamId,
+    awayTeamId: game.awayTeamId,
     homeTeamName: game.homeTeam?.name ?? "TBD",
     awayTeamName: game.awayTeam?.name ?? "TBD",
   };
+}
+
+function bracketAhTag(which: "A" | "H") {
+  return (
+    <span className="ml-1 text-[10px] font-medium text-zinc-400" aria-hidden>
+      ({which})
+    </span>
+  );
 }
 
 const scheduleLogoSize = "h-7 w-7 min-h-[28px] min-w-[28px] shrink-0";
@@ -180,6 +190,7 @@ export function BracketGameCard({
               <TeamLogoMark team={away.team} sizeClass={scoredLogoSize} />
               <p className={`min-w-0 truncate text-xs font-bold leading-snug text-zinc-900 ${slotLineTextClass(away)}`}>
                 {away.primary}
+                {bracketAhTag("A")}
               </p>
             </div>
             <span className="shrink-0 text-base font-bold tabular-nums text-zinc-900">{game.awayRuns}</span>
@@ -189,6 +200,7 @@ export function BracketGameCard({
               <TeamLogoMark team={home.team} sizeClass={scoredLogoSize} />
               <p className={`min-w-0 truncate text-xs font-bold leading-snug text-zinc-900 ${slotLineTextClass(home)}`}>
                 {home.primary}
+                {bracketAhTag("H")}
               </p>
             </div>
             <span className="shrink-0 text-base font-bold tabular-nums text-zinc-900">{game.homeRuns}</span>
@@ -203,6 +215,7 @@ export function BracketGameCard({
                 className={`line-clamp-2 break-words text-sm leading-[1.15] ${slotLineTextClass(away)}`}
               >
                 {away.primary}
+                {bracketAhTag("A")}
               </p>
               {away.secondary ? <p className="mt-0.5 text-xs text-zinc-500">{away.secondary}</p> : null}
             </div>
@@ -214,6 +227,7 @@ export function BracketGameCard({
                 className={`line-clamp-2 break-words text-sm leading-[1.15] ${slotLineTextClass(home)}`}
               >
                 {home.primary}
+                {bracketAhTag("H")}
               </p>
               {home.secondary ? <p className="mt-0.5 text-xs text-zinc-500">{home.secondary}</p> : null}
             </div>

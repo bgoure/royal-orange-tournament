@@ -34,6 +34,8 @@ export type QuickEditGamePayload = {
   awayRuns: number | null;
   homeDefensiveInnings: number | null;
   awayDefensiveInnings: number | null;
+  homeTeamId: string | null;
+  awayTeamId: string | null;
   homeTeamName: string;
   awayTeamName: string;
 };
@@ -144,8 +146,10 @@ function QuickGameModal({
 
           <p className="text-sm text-zinc-600">
             <span className="font-semibold text-zinc-900">{game.awayTeamName}</span>
+            <span className="ml-1 text-xs font-medium text-zinc-400">(A)</span>
             <span className="mx-1 text-accent">vs</span>
             <span className="font-semibold text-zinc-900">{game.homeTeamName}</span>
+            <span className="ml-1 text-xs font-medium text-zinc-400">(H)</span>
           </p>
 
           <div>
@@ -200,10 +204,51 @@ function QuickGameModal({
             </select>
           </div>
 
+          {game.homeTeamId && game.awayTeamId ? (
+            <fieldset className="rounded-xl border border-zinc-200 bg-zinc-50/80 px-3 py-2">
+              <legend className="px-1 text-[10px] font-semibold uppercase tracking-wide text-zinc-500">
+                Field home (record)
+              </legend>
+              <p className="mb-2 text-[11px] leading-snug text-zinc-500">
+                Which side is recorded as home in the app (not dugout placement). Stats save under home/away accordingly.
+              </p>
+              <div className="flex flex-col gap-2 sm:flex-row sm:flex-wrap">
+                <label className="flex cursor-pointer items-center gap-2 text-sm text-zinc-800">
+                  <input
+                    type="radio"
+                    name="fieldHomeTeamId"
+                    value={game.awayTeamId}
+                    className="size-4 border-zinc-300 text-royal focus:ring-royal/30"
+                  />
+                  <span>
+                    <span className="font-medium">{game.awayTeamName}</span>
+                    <span className="ml-1 text-xs text-zinc-400">(A)</span>
+                  </span>
+                </label>
+                <label className="flex cursor-pointer items-center gap-2 text-sm text-zinc-800">
+                  <input
+                    type="radio"
+                    name="fieldHomeTeamId"
+                    value={game.homeTeamId}
+                    defaultChecked
+                    className="size-4 border-zinc-300 text-royal focus:ring-royal/30"
+                  />
+                  <span>
+                    <span className="font-medium">{game.homeTeamName}</span>
+                    <span className="ml-1 text-xs text-zinc-400">(H)</span>
+                  </span>
+                </label>
+              </div>
+            </fieldset>
+          ) : (
+            <input type="hidden" name="fieldHomeTeamId" value="" />
+          )}
+
           <div className="grid grid-cols-2 gap-3">
             <div>
               <label htmlFor="qg-ar" className="mb-1 block text-xs font-semibold text-zinc-500">
-                Away runs
+                Runs — {game.awayTeamName}
+                <span className="ml-1 font-normal text-zinc-400">(A)</span>
               </label>
               <input
                 id="qg-ar"
@@ -216,7 +261,8 @@ function QuickGameModal({
             </div>
             <div>
               <label htmlFor="qg-hr" className="mb-1 block text-xs font-semibold text-zinc-500">
-                Home runs
+                Runs — {game.homeTeamName}
+                <span className="ml-1 font-normal text-zinc-400">(H)</span>
               </label>
               <input
                 id="qg-hr"
@@ -230,7 +276,10 @@ function QuickGameModal({
             {isPool ? (
               <>
                 <div>
-                  <label className="mb-1 block text-xs font-semibold text-zinc-500">Away def. innings</label>
+                  <label className="mb-1 block text-xs font-semibold text-zinc-500">
+                    Def. innings — {game.awayTeamName}{" "}
+                    <span className="font-normal text-zinc-400">(A)</span>
+                  </label>
                   <input
                     name="awayDefensiveInnings"
                     type="number"
@@ -241,7 +290,10 @@ function QuickGameModal({
                   />
                 </div>
                 <div>
-                  <label className="mb-1 block text-xs font-semibold text-zinc-500">Home def. innings</label>
+                  <label className="mb-1 block text-xs font-semibold text-zinc-500">
+                    Def. innings — {game.homeTeamName}{" "}
+                    <span className="font-normal text-zinc-400">(H)</span>
+                  </label>
                   <input
                     name="homeDefensiveInnings"
                     type="number"
@@ -257,7 +309,7 @@ function QuickGameModal({
 
           <p className="text-[11px] leading-snug text-zinc-500">
             {isPool
-              ? "Pool games: if either team has runs, both defensive innings are required (standings tiebreakers). "
+              ? "Pool games: if either team has runs or the game is final, both defensive innings are required (standings tiebreakers). "
               : "Playoff / consolation: runs only; defensive innings are optional and not used for standings. "}
             Saving updates the schedule time and clears “TBD” placeholder.
           </p>

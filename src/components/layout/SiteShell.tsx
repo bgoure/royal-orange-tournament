@@ -37,7 +37,7 @@ export async function SiteShell({
     listFieldsForTournament(tournament.id),
   ]);
 
-  const isAdmin = session?.user?.role === "ADMIN";
+  const isAdmin = session?.user?.role === "ADMIN" || session?.user?.role === "POWER_USER";
   const quickFieldOptions = fieldRows.map((f) => ({
     id: f.id,
     label: formatFieldWithLocation(f.name, f.location.name),

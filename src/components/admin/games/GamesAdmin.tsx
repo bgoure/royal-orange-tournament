@@ -116,8 +116,8 @@ export function GamesAdmin({
       <section className="rounded-xl border border-zinc-200 bg-zinc-50/80 p-6">
         <h2 className="text-sm font-semibold text-zinc-900">New pool game</h2>
         <p className="mt-1 text-xs text-zinc-600">
-          Pool play games belong to a division pool. Both teams must be assigned to that pool. Runs allowed are implied
-          from the opponent&apos;s runs scored.
+          Pool play games belong to a division pool. Pick two opponents from that pool (both required). Which side is
+          recorded as home is set when you enter scores, not here.
         </p>
         <ActionMessage state={createState} />
         {poolsWithTeams.length === 0 ? (
@@ -179,7 +179,7 @@ export function GamesAdmin({
               </div>
               <div>
                 <label htmlFor="cg-away" className={labelClass}>
-                  Away
+                  Opponent 1
                 </label>
                 <select id="cg-away" name="awayTeamId" required className={`${formClass} mt-1 w-full`}>
                   <option value="">Select…</option>
@@ -189,10 +189,11 @@ export function GamesAdmin({
                     </option>
                   ))}
                 </select>
+                <p className="mt-0.5 text-[10px] text-zinc-500">Stored as away slot until scoring sets field home.</p>
               </div>
               <div>
                 <label htmlFor="cg-home" className={labelClass}>
-                  Home
+                  Opponent 2
                 </label>
                 <select id="cg-home" name="homeTeamId" required className={`${formClass} mt-1 w-full`}>
                   <option value="">Select…</option>
@@ -202,6 +203,7 @@ export function GamesAdmin({
                     </option>
                   ))}
                 </select>
+                <p className="mt-0.5 text-[10px] text-zinc-500">Stored as home slot until scoring sets field home.</p>
               </div>
               <div>
                 <label htmlFor="cg-status" className={labelClass}>
@@ -380,13 +382,52 @@ function GameCard({
         <h3 className="text-xs font-semibold uppercase tracking-wide text-zinc-500">Scoring &amp; innings</h3>
         <p className="mt-1 text-[11px] text-zinc-500">
           {isPoolGame
-            ? "Pool: away/home runs and defensive IP; offensive IP defaults from opponent defensive when left blank."
+            ? "Pool: runs and defensive IP for each side; offensive IP defaults from opponent defensive when left blank. Final games need both runs and both defensive innings."
             : "Playoff / consolation: runs (and optional offensive IP); defensive IP not required for standings."}
         </p>
         <ActionMessage state={scoreState} />
         <form action={scoreAction} className="mt-3">
           <input type="hidden" name="id" value={game.id} />
           <input type="hidden" name="gameKind" value={game.gameKind} />
+          {game.homeTeamId && game.awayTeamId ? (
+            <fieldset className="mb-3 rounded-lg border border-zinc-200 bg-zinc-50/80 px-3 py-2">
+              <legend className="px-1 text-[10px] font-semibold uppercase tracking-wide text-zinc-500">
+                Field home (record)
+              </legend>
+              <p className="mb-2 text-[11px] leading-snug text-zinc-500">
+                Which team is recorded as home in the app. Swapping updates home/away columns and paired stats.
+              </p>
+              <div className="flex flex-col gap-2 sm:flex-row sm:flex-wrap">
+                <label className="flex cursor-pointer items-center gap-2 text-sm text-zinc-800">
+                  <input
+                    type="radio"
+                    name="fieldHomeTeamId"
+                    value={game.awayTeamId}
+                    className="size-4 border-zinc-300 text-emerald-600 focus:ring-emerald-500/30"
+                  />
+                  <span>
+                    <span className="font-medium">{awayLabel}</span>
+                    <span className="ml-1 text-xs text-zinc-400">(A)</span>
+                  </span>
+                </label>
+                <label className="flex cursor-pointer items-center gap-2 text-sm text-zinc-800">
+                  <input
+                    type="radio"
+                    name="fieldHomeTeamId"
+                    value={game.homeTeamId}
+                    defaultChecked
+                    className="size-4 border-zinc-300 text-emerald-600 focus:ring-emerald-500/30"
+                  />
+                  <span>
+                    <span className="font-medium">{homeLabel}</span>
+                    <span className="ml-1 text-xs text-zinc-400">(H)</span>
+                  </span>
+                </label>
+              </div>
+            </fieldset>
+          ) : (
+            <input type="hidden" name="fieldHomeTeamId" value="" />
+          )}
           {!isPoolGame ? (
             <>
               <input type="hidden" name="homeDefensiveInnings" value={game.homeDefensiveInnings ?? ""} />
@@ -396,7 +437,9 @@ function GameCard({
           <div className="flex flex-wrap items-end gap-3">
             <div className={`grid grid-cols-2 gap-3 ${isPoolGame ? "sm:grid-cols-4" : "sm:grid-cols-2"}`}>
               <div>
-                <span className={labelClass}>Away runs</span>
+                <span className={labelClass}>
+                  Runs — {awayLabel} <span className="font-normal text-zinc-400">(A)</span>
+                </span>
                 <input
                   name="awayRuns"
                   type="number"
@@ -407,7 +450,9 @@ function GameCard({
               </div>
               {isPoolGame ? (
                 <div>
-                  <span className={labelClass}>Away def. IP</span>
+                  <span className={labelClass}>
+                    Def. IP — {awayLabel} <span className="font-normal text-zinc-400">(A)</span>
+                  </span>
                   <input
                     name="awayDefensiveInnings"
                     type="number"
@@ -419,7 +464,9 @@ function GameCard({
                 </div>
               ) : null}
               <div>
-                <span className={labelClass}>Home runs</span>
+                <span className={labelClass}>
+                  Runs — {homeLabel} <span className="font-normal text-zinc-400">(H)</span>
+                </span>
                 <input
                   name="homeRuns"
                   type="number"
@@ -430,7 +477,9 @@ function GameCard({
               </div>
               {isPoolGame ? (
                 <div>
-                  <span className={labelClass}>Home def. IP</span>
+                  <span className={labelClass}>
+                    Def. IP — {homeLabel} <span className="font-normal text-zinc-400">(H)</span>
+                  </span>
                   <input
                     name="homeDefensiveInnings"
                     type="number"
@@ -450,7 +499,7 @@ function GameCard({
                   type="number"
                   step={0.1}
                   min={0}
-                  placeholder="away"
+                  placeholder={`${awayLabel} (A)`}
                   defaultValue={game.awayOffensiveInnings ?? ""}
                   className={`${formClass} w-20`}
                 />
@@ -459,7 +508,7 @@ function GameCard({
                   type="number"
                   step={0.1}
                   min={0}
-                  placeholder="home"
+                  placeholder={`${homeLabel} (H)`}
                   defaultValue={game.homeOffensiveInnings ?? ""}
                   className={`${formClass} w-20`}
                 />

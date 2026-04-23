@@ -13,6 +13,7 @@ import {
   assertTeamsInPool,
 } from "@/lib/services/admin-games";
 import { advanceBracketWinnerFromGame } from "@/lib/services/bracket-advance";
+import { applyFieldHomeToScoringOptional } from "@/lib/services/game-field-home";
 import { recomputePoolStandings } from "@/lib/services/standings";
 import {
   createGameSchema,
@@ -128,6 +129,7 @@ export async function updateGameScoring(
 
   const parsed = updateGameScoringSchema.safeParse({
     id: formData.get("id"),
+    fieldHomeTeamId: formData.get("fieldHomeTeamId"),
     homeRuns: formData.get("homeRuns"),
     awayRuns: formData.get("awayRuns"),
     homeDefensiveInnings: formData.get("homeDefensiveInnings"),
@@ -149,23 +151,53 @@ export async function updateGameScoring(
     if (existing.gameKind !== parsed.data.gameKind) {
       return { ok: false, error: "Game type mismatch; refresh and try again." };
     }
+    const teamRow = await prisma.game.findFirst({
+      where: { id: parsed.data.id, tournamentId: ctx.tournament.id },
+      select: { homeTeamId: true, awayTeamId: true },
+    });
+    if (!teamRow) {
+      return { ok: false, error: "Game not found." };
+    }
     const d = parsed.data;
     let homeOI = d.homeOffensiveInnings;
     let awayOI = d.awayOffensiveInnings;
     if (homeOI == null && d.awayDefensiveInnings != null) homeOI = d.awayDefensiveInnings;
     if (awayOI == null && d.homeDefensiveInnings != null) awayOI = d.homeDefensiveInnings;
 
+    let merged;
+    try {
+      merged = applyFieldHomeToScoringOptional(
+        teamRow.homeTeamId,
+        teamRow.awayTeamId,
+        d.fieldHomeTeamId,
+        {
+          homeRuns: d.homeRuns,
+          awayRuns: d.awayRuns,
+          homeDefensiveInnings: d.homeDefensiveInnings,
+          awayDefensiveInnings: d.awayDefensiveInnings,
+          homeOffensiveInnings: homeOI,
+          awayOffensiveInnings: awayOI,
+          resultType: d.resultType,
+        },
+      );
+    } catch (e) {
+      const msg = e instanceof Error ? e.message : "Invalid field home.";
+      return { ok: false, error: msg };
+    }
+
     await prisma.game.update({
       where: { id: d.id },
       data: {
-        homeRuns: d.homeRuns,
-        awayRuns: d.awayRuns,
-        homeDefensiveInnings: d.homeDefensiveInnings,
-        awayDefensiveInnings: d.awayDefensiveInnings,
-        homeOffensiveInnings: homeOI,
-        awayOffensiveInnings: awayOI,
+        homeTeamId: merged.homeTeamId,
+        awayTeamId: merged.awayTeamId,
+        homeRuns: merged.homeRuns,
+        awayRuns: merged.awayRuns,
+        homeDefensiveInnings: merged.homeDefensiveInnings,
+        awayDefensiveInnings: merged.awayDefensiveInnings,
+        homeOffensiveInnings: merged.homeOffensiveInnings,
+        awayOffensiveInnings: merged.awayOffensiveInnings,
         status: d.status,
-        resultType: d.resultType,
+        resultType: merged.resultType,
       },
     });
 
