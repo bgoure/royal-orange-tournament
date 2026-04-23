@@ -4,6 +4,7 @@ import { useActionState } from "react";
 import type { Role } from "@prisma/client";
 import { removeUserAccess, updateUserRole, type UserAdminActionResult } from "@/app/admin/_actions/users";
 import { ConfirmForm } from "@/components/admin/structure/ConfirmForm";
+import { InviteUserSheet } from "@/components/admin/users/InviteUserSheet";
 
 const formClass =
   "rounded-md border border-zinc-300 bg-white px-2 py-1.5 text-sm text-zinc-900 shadow-sm focus:border-emerald-500 focus:outline-none focus:ring-2 focus:ring-emerald-500/20";
@@ -123,12 +124,15 @@ export function UsersAdmin({
 }) {
   return (
     <div className="flex flex-col gap-6">
-      <header className="border-b border-zinc-200 pb-6">
-        <h1 className="text-2xl font-semibold tracking-tight text-zinc-900">Users</h1>
-        <p className="mt-2 max-w-2xl text-sm text-zinc-600">
-          Change roles between public, power user, and admin. At least one admin must always remain; the sole admin
-          cannot demote or delete themselves.
-        </p>
+      <header className="flex flex-wrap items-end justify-between gap-4 border-b border-zinc-200 pb-6">
+        <div>
+          <h1 className="text-2xl font-semibold tracking-tight text-zinc-900">Users</h1>
+          <p className="mt-2 max-w-2xl text-sm text-zinc-600">
+            Invite people by email (Google sign-in), then adjust roles here. At least one admin must always remain; the
+            sole admin cannot demote or delete themselves.
+          </p>
+        </div>
+        <InviteUserSheet canInvite={canManage} />
       </header>
 
       <div className="overflow-x-auto rounded-xl border border-zinc-200 bg-white shadow-sm">

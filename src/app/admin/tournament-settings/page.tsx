@@ -81,6 +81,12 @@ export default async function AdminTournamentSettingsPage() {
   if (!headquarters) {
     return (
       <div className="flex flex-col gap-8">
+        <header className="border-b border-zinc-200 pb-6">
+          <h1 className="text-2xl font-semibold tracking-tight text-zinc-900">Tournament Admin</h1>
+          <p className="mt-1 text-sm text-zinc-600">
+            Branding, headquarters, announcements, and archive tools for <strong>{tournament.name}</strong>.
+          </p>
+        </header>
         <TournamentRenameForm tournamentName={tournament.name} canManage={canManage} />
         <TournamentPublicAnnouncementsForm
           showPublicAnnouncements={tournament.showPublicAnnouncements}
@@ -114,6 +120,12 @@ export default async function AdminTournamentSettingsPage() {
 
   return (
     <div className="flex flex-col gap-8">
+      <header className="border-b border-zinc-200 pb-6">
+        <h1 className="text-2xl font-semibold tracking-tight text-zinc-900">Tournament Admin</h1>
+        <p className="mt-1 text-sm text-zinc-600">
+          Branding, headquarters, announcements, and archive tools for <strong>{tournament.name}</strong>.
+        </p>
+      </header>
       <TournamentRenameForm tournamentName={tournament.name} canManage={canManage} />
       <TournamentPublicAnnouncementsForm
         showPublicAnnouncements={tournament.showPublicAnnouncements}

@@ -19,7 +19,7 @@ export function BottomNav({
   showPublicAnnouncements = true,
 }: {
   publicBasePath: string;
-  /** When false, announcements are omitted from the More drawer (matches Tournament HQ setting). */
+  /** When false, announcements are omitted from the More drawer (matches Tournament Admin setting). */
   showPublicAnnouncements?: boolean;
 }) {
   const pathname = usePathname();

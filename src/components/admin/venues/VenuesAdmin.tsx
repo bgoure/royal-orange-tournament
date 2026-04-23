@@ -76,7 +76,7 @@ export function VenuesAdmin({
             FAQ
           </Link>
           <Link href="/admin/tournament-settings" className={btnSecondary}>
-            Tournament HQ
+            Tournament Admin
           </Link>
           <Link href={tournamentPathFromBase(publicSitePath, "locations")} className={btnSecondary}>
             View public page ↗

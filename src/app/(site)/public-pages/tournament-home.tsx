@@ -171,7 +171,7 @@ export async function TournamentHomePublic({
             />
           </div>
 
-          <SponsorMarquee tournamentId={tournament.id} />
+          {tournament.showPublicSponsorsSection ? <SponsorMarquee tournamentId={tournament.id} /> : null}
         </div>
       </DivisionSwipeBoundary>
     </PullToRefresh>

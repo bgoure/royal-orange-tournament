@@ -24,6 +24,7 @@ export default async function AdminFaqPage() {
       tournamentName={tournament.name}
       publicSitePath={tournamentPublicBasePath(tournament)}
       canManage={canManage}
+      showPublicFaqSection={tournament.showPublicFaqSection}
     />
   );
 }

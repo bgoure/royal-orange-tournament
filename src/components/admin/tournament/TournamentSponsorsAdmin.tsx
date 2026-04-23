@@ -1,6 +1,7 @@
 "use client";
 
 import { useActionState } from "react";
+import { updateShowPublicSponsorsSection } from "@/app/admin/_actions/tournament-public-sections";
 import {
   deleteTournamentSponsor,
   uploadTournamentSponsorLogo,
@@ -21,9 +22,19 @@ const btnDanger =
 type Props = {
   sponsors: SponsorRow[];
   canManage: boolean;
+  showPublicSponsorsSection: boolean;
 };
 
-export function TournamentSponsorsAdmin({ sponsors, canManage }: Props) {
+const segBtn = (active: boolean) =>
+  `rounded-lg px-3 py-2 text-sm font-medium transition-colors ${
+    active ? "bg-emerald-600 text-white shadow-sm" : "bg-zinc-100 text-zinc-700 hover:bg-zinc-200"
+  }`;
+
+export function TournamentSponsorsAdmin({ sponsors, canManage, showPublicSponsorsSection }: Props) {
+  const [visibilityState, visibilityAction, visibilityPending] = useActionState(
+    updateShowPublicSponsorsSection,
+    undefined as ContentActionResult | undefined,
+  );
   const [uploadState, uploadAction, uploadPending] = useActionState(
     uploadTournamentSponsorLogo,
     undefined as ContentActionResult | undefined,
@@ -37,11 +48,38 @@ export function TournamentSponsorsAdmin({ sponsors, canManage }: Props) {
 
   return (
     <div className="flex flex-col gap-6">
+      <section className="rounded-xl border border-zinc-200 bg-zinc-50/80 p-4">
+        <h2 className="text-sm font-semibold text-zinc-900">Home page — Sponsors section</h2>
+        <p className="mt-1 text-xs text-zinc-600">
+          Hide the entire sponsors block on the public home page, or show it (logos or placeholders).
+        </p>
+        <ActionMessage state={visibilityState} />
+        {canManage ? (
+          <div className="mt-3 flex flex-wrap items-center gap-2">
+            <form action={visibilityAction} className="inline">
+              <input type="hidden" name="showPublicSponsorsSection" value="true" />
+              <button type="submit" disabled={visibilityPending || showPublicSponsorsSection} className={segBtn(showPublicSponsorsSection)}>
+                Show section
+              </button>
+            </form>
+            <form action={visibilityAction} className="inline">
+              <input type="hidden" name="showPublicSponsorsSection" value="false" />
+              <button type="submit" disabled={visibilityPending || !showPublicSponsorsSection} className={segBtn(!showPublicSponsorsSection)}>
+                Hide section
+              </button>
+            </form>
+          </div>
+        ) : (
+          <p className="mt-2 text-xs text-zinc-500">Current: {showPublicSponsorsSection ? "Visible" : "Hidden"}</p>
+        )}
+      </section>
+
       <div>
         <h2 className="text-lg font-semibold text-zinc-900">Sponsor logos</h2>
         <p className="mt-1 text-sm text-zinc-600">
-          Shown in a scrolling row on the public home page. Up to {MAX_TOURNAMENT_SPONSORS} images (PNG,
-          JPEG, or WebP, max 400KB each). Until you add one, visitors see placeholder graphics.
+          When the section is visible, logos appear in a scrolling row on the public home page. Up to{" "}
+          {MAX_TOURNAMENT_SPONSORS} images (PNG, JPEG, or WebP, max 400KB each). With no logos, visitors see
+          placeholders.
         </p>
       </div>
 

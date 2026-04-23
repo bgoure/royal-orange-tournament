@@ -5,6 +5,8 @@ import Link from "next/link";
 import type { FaqItem } from "@prisma/client";
 import type { ContentActionResult } from "@/app/admin/_actions/content-shared";
 import { createFaqItem, deleteFaqItem, moveFaqItem, updateFaqItem } from "@/app/admin/_actions/faq";
+import { updateShowPublicFaqSection } from "@/app/admin/_actions/tournament-public-sections";
+import { ActionMessage } from "@/components/admin/structure/ActionMessage";
 import { ConfirmForm } from "@/components/admin/structure/ConfirmForm";
 import { tournamentPathFromBase } from "@/lib/tournament-public-path";
 
@@ -18,6 +20,11 @@ const btnSecondary =
 const btnDanger =
   "rounded-md border border-red-200 bg-red-50 px-2 py-1 text-xs font-medium text-red-800 hover:bg-red-100";
 const btnGhost = "rounded-md border border-zinc-200 bg-white px-2 py-1 text-xs font-medium text-zinc-700 hover:bg-zinc-50";
+
+const segBtn = (active: boolean) =>
+  `rounded-lg px-3 py-2 text-sm font-medium transition-colors ${
+    active ? "bg-emerald-600 text-white shadow-sm" : "bg-zinc-100 text-zinc-700 hover:bg-zinc-200"
+  }`;
 
 function ErrorBanner({ state }: { state: ContentActionResult | undefined }) {
   if (!state || state.ok) return null;
@@ -33,15 +40,21 @@ export function FaqAdmin({
   tournamentName,
   publicSitePath,
   canManage,
+  showPublicFaqSection,
 }: {
   items: FaqItem[];
   tournamentName: string;
   /** Canonical public site base (`/{slug}` live or `/{folder}/{slug}` when archived). */
   publicSitePath: string;
   canManage: boolean;
+  showPublicFaqSection: boolean;
 }) {
   const [createState, createAction, createPending] = useActionState(
     createFaqItem,
+    undefined as ContentActionResult | undefined,
+  );
+  const [faqVisibilityState, faqVisibilityAction, faqVisibilityPending] = useActionState(
+    updateShowPublicFaqSection,
     undefined as ContentActionResult | undefined,
   );
 
@@ -58,13 +71,50 @@ export function FaqAdmin({
             Locations
           </Link>
           <Link href="/admin/tournament-settings" className={btnSecondary}>
-            Tournament HQ
+            Tournament Admin
           </Link>
           <Link href={tournamentPathFromBase(publicSitePath, "rules")} className={btnSecondary}>
             View public rules ↗
           </Link>
         </div>
       </header>
+
+      <section className="rounded-xl border border-zinc-200 bg-zinc-50/80 p-4">
+        <h2 className="text-sm font-semibold text-zinc-900">Public site — FAQ section</h2>
+        <p className="mt-1 text-xs text-zinc-600">
+          Published entries appear on the <strong>Rules &amp; Resources</strong> page when the section is shown. Hiding
+          removes the whole block (even if you have questions saved).
+        </p>
+        <div className="mt-2">
+          <ActionMessage state={faqVisibilityState} />
+        </div>
+        {canManage ? (
+          <div className="mt-3 flex flex-wrap items-center gap-2">
+            <form action={faqVisibilityAction} className="inline">
+              <input type="hidden" name="showPublicFaqSection" value="true" />
+              <button
+                type="submit"
+                disabled={faqVisibilityPending || showPublicFaqSection}
+                className={segBtn(showPublicFaqSection)}
+              >
+                Show section
+              </button>
+            </form>
+            <form action={faqVisibilityAction} className="inline">
+              <input type="hidden" name="showPublicFaqSection" value="false" />
+              <button
+                type="submit"
+                disabled={faqVisibilityPending || !showPublicFaqSection}
+                className={segBtn(!showPublicFaqSection)}
+              >
+                Hide section
+              </button>
+            </form>
+          </div>
+        ) : (
+          <p className="mt-2 text-xs text-zinc-500">Current: {showPublicFaqSection ? "Visible" : "Hidden"}</p>
+        )}
+      </section>
 
       {!canManage ? (
         <p className="text-sm text-zinc-600">You don’t have permission to manage FAQ content.</p>

@@ -35,6 +35,11 @@ function SuccessBanner({ state }: { state: ContentActionResult | undefined }) {
   );
 }
 
+const segClass = (on: boolean) =>
+  `flex-1 rounded-md px-3 py-2 text-center text-sm font-medium transition-colors ${
+    on ? "bg-emerald-600 text-white shadow-sm" : "bg-zinc-100 text-zinc-700 hover:bg-zinc-200"
+  }`;
+
 function SocialChannelFields({
   title,
   showName,
@@ -60,17 +65,18 @@ function SocialChannelFields({
 }) {
   return (
     <div className="rounded-lg border border-zinc-200 bg-white p-4">
-      <label className="flex cursor-pointer items-center gap-2">
-        <input
-          type="checkbox"
-          name={showName}
-          value="on"
-          defaultChecked={showChecked}
-          className="h-4 w-4 rounded border-zinc-300 text-emerald-600 focus:ring-emerald-500"
-        />
-        <span className="text-sm font-medium text-zinc-900">Show on public Social page</span>
-      </label>
-      <p className="mt-2 text-xs font-semibold uppercase tracking-wide text-zinc-500">{title}</p>
+      <p className="text-xs font-semibold uppercase tracking-wide text-zinc-500">Public Social page</p>
+      <div className="mt-2 flex gap-2 rounded-lg border border-zinc-200 bg-zinc-50/80 p-1" role="group" aria-label={`Show ${title}`}>
+        <label className={`flex flex-1 cursor-pointer ${segClass(showChecked)}`}>
+          <input type="radio" name={showName} value="on" defaultChecked={showChecked} className="sr-only" />
+          Show
+        </label>
+        <label className={`flex flex-1 cursor-pointer ${segClass(!showChecked)}`}>
+          <input type="radio" name={showName} value="off" defaultChecked={!showChecked} className="sr-only" />
+          Hide
+        </label>
+      </div>
+      <p className="mt-3 text-xs font-semibold uppercase tracking-wide text-zinc-500">{title}</p>
       <label htmlFor={urlName} className={`${labelClass} mt-2 block`}>
         {urlType === "email" ? "Address" : "URL"}
       </label>
@@ -256,7 +262,7 @@ export function TournamentBrandingForm({
 
         <h3 className="pt-2 text-xs font-semibold uppercase tracking-wide text-zinc-500">Social (public page)</h3>
         <p className="text-xs text-zinc-600">
-          Uncheck <strong>Show</strong> to hide a card even when a URL is saved. Subtext appears under the channel name;
+          Use <strong>Hide</strong> to suppress a card even when a URL is saved. Subtext appears under the channel name;
           leave blank to use the default line shown in the placeholder.
         </p>
 

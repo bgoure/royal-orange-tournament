@@ -1,0 +1,108 @@
+"use client";
+
+import { useActionState, useEffect, useState } from "react";
+import { useRouter } from "next/navigation";
+import { Drawer } from "vaul";
+import { inviteUser, type UserAdminActionResult } from "@/app/admin/_actions/users";
+
+const formClass =
+  "mt-1 w-full rounded-md border border-zinc-300 bg-white px-2 py-2 text-sm text-zinc-900 shadow-sm focus:border-emerald-500 focus:outline-none focus:ring-2 focus:ring-emerald-500/20";
+const labelClass = "text-[10px] font-semibold uppercase tracking-wide text-zinc-500";
+const btnPrimary =
+  "rounded-md bg-emerald-600 px-4 py-2 text-sm font-medium text-white hover:bg-emerald-700 disabled:opacity-50";
+const btnSecondary =
+  "rounded-md border border-zinc-300 bg-white px-4 py-2 text-sm font-medium text-zinc-800 hover:bg-zinc-50";
+
+export function InviteUserSheet({ canInvite }: { canInvite: boolean }) {
+  const router = useRouter();
+  const [open, setOpen] = useState(false);
+  const [state, action, pending] = useActionState(
+    inviteUser,
+    undefined as UserAdminActionResult | undefined,
+  );
+
+  useEffect(() => {
+    if (!state?.ok) return;
+    router.refresh();
+    const id = window.setTimeout(() => setOpen(false), 0);
+    return () => window.clearTimeout(id);
+  }, [state?.ok, router]);
+
+  if (!canInvite) return null;
+
+  return (
+    <>
+      <button type="button" onClick={() => setOpen(true)} className={btnPrimary}>
+        Add user
+      </button>
+      <Drawer.Root open={open} onOpenChange={setOpen}>
+        <Drawer.Portal>
+          <Drawer.Overlay className="fixed inset-0 z-[80] bg-black/40" />
+          <Drawer.Content className="fixed bottom-0 left-0 right-0 z-[80] flex max-h-[90vh] flex-col rounded-t-2xl bg-white outline-none">
+            <Drawer.Title className="sr-only">Invite user</Drawer.Title>
+            <div className="flex shrink-0 justify-center pt-3">
+              <Drawer.Handle className="h-1 w-10 rounded-full bg-zinc-300" />
+            </div>
+            <div className="min-h-0 flex-1 overflow-y-auto px-5 pb-6 pt-4">
+              <h2 className="text-lg font-semibold text-zinc-900">Add user</h2>
+              <p className="mt-1 text-sm text-zinc-600">
+                Creates the account for this Google email and sends a short invite. They must sign in with Google using
+                the same address.
+              </p>
+              {state && !state.ok ? (
+                <p className="mt-3 rounded-md bg-red-50 px-3 py-2 text-sm text-red-800 ring-1 ring-red-200" role="alert">
+                  {state.error}
+                </p>
+              ) : null}
+              {state?.ok && state.notice ? (
+                <p className="mt-3 rounded-md bg-emerald-50 px-3 py-2 text-sm text-emerald-900 ring-1 ring-emerald-200">
+                  {state.notice}
+                </p>
+              ) : null}
+              <form action={action} className="mt-4 flex flex-col gap-4">
+                <div>
+                  <label htmlFor="invite-name" className={labelClass}>
+                    Display name (optional)
+                  </label>
+                  <input id="invite-name" name="name" type="text" autoComplete="name" className={formClass} />
+                </div>
+                <div>
+                  <label htmlFor="invite-email" className={labelClass}>
+                    Email (Google account)
+                  </label>
+                  <input
+                    id="invite-email"
+                    name="email"
+                    type="email"
+                    required
+                    autoComplete="email"
+                    className={formClass}
+                    placeholder="director@school.org"
+                  />
+                </div>
+                <div>
+                  <label htmlFor="invite-role" className={labelClass}>
+                    Role
+                  </label>
+                  <select id="invite-role" name="role" required className={formClass} defaultValue="POWER_USER">
+                    <option value="POWER_USER">Power user</option>
+                    <option value="ADMIN">Admin</option>
+                    <option value="PUBLIC">Public</option>
+                  </select>
+                </div>
+                <div className="flex flex-wrap gap-2 pt-2">
+                  <button type="submit" disabled={pending} className={btnPrimary}>
+                    {pending ? "Saving…" : "Save & send invite"}
+                  </button>
+                  <button type="button" onClick={() => setOpen(false)} className={btnSecondary}>
+                    Cancel
+                  </button>
+                </div>
+              </form>
+            </div>
+          </Drawer.Content>
+        </Drawer.Portal>
+      </Drawer.Root>
+    </>
+  );
+}

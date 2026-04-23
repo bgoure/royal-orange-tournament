@@ -6,7 +6,8 @@ import { auth } from "@/auth";
 import { prisma } from "@/lib/db";
 import { can } from "@/lib/rbac/permissions";
 import { countAdmins } from "@/lib/services/users-admin";
-import { removeUserSchema, updateUserRoleSchema } from "@/lib/validations/users-admin";
+import { sendStaffInviteEmail } from "@/lib/email/user-invite-email";
+import { inviteUserSchema, removeUserSchema, updateUserRoleSchema } from "@/lib/validations/users-admin";
 
 export type UserAdminActionResult = { ok: true; notice?: string } | { ok: false; error: string };
 
@@ -86,6 +87,77 @@ export async function updateUserRole(
   } catch (e) {
     return { ok: false, error: e instanceof Error ? e.message : "Failed to update role" };
   }
+}
+
+function roleInviteLabel(role: Role): string {
+  switch (role) {
+    case "ADMIN":
+      return "Admin";
+    case "POWER_USER":
+      return "Power user";
+    case "PUBLIC":
+      return "Public";
+    default:
+      return role;
+  }
+}
+
+export async function inviteUser(
+  _prev: UserAdminActionResult | undefined,
+  formData: FormData,
+): Promise<UserAdminActionResult> {
+  const session = await auth();
+  if (!session?.user?.id) return { ok: false, error: "Unauthorized" };
+  if (!can(session.user.role, "user:manageRoles")) return deny();
+
+  const parsed = inviteUserSchema.safeParse({
+    email: formData.get("email"),
+    name: formData.get("name"),
+    role: formData.get("role"),
+  });
+  if (!parsed.success) {
+    return { ok: false, error: parsed.error.flatten().formErrors.join(", ") || "Invalid input" };
+  }
+
+  const email = parsed.data.email.toLowerCase();
+  const existing = await prisma.user.findUnique({ where: { email }, select: { id: true } });
+  if (existing) {
+    return { ok: false, error: "A user with this email already exists." };
+  }
+
+  try {
+    await prisma.user.create({
+      data: {
+        email,
+        name: parsed.data.name ?? null,
+        role: parsed.data.role,
+      },
+    });
+  } catch (e) {
+    return { ok: false, error: e instanceof Error ? e.message : "Failed to create user" };
+  }
+
+  const base =
+    process.env.NEXTAUTH_URL?.trim() ||
+    process.env.AUTH_URL?.trim() ||
+    (process.env.VERCEL_URL ? `https://${process.env.VERCEL_URL}` : "");
+  const signInUrl = base ? `${base.replace(/\/$/, "")}/login` : "/login";
+
+  const sent = await sendStaffInviteEmail({
+    to: email,
+    displayName: parsed.data.name ?? null,
+    roleLabel: roleInviteLabel(parsed.data.role),
+    signInUrl,
+  });
+
+  revalidatePath("/admin/users");
+  if (!sent.ok) {
+    return {
+      ok: true,
+      notice: `User added. Invite email was not sent (${sent.error}). They can still sign in with Google using this email.`,
+    };
+  }
+  return { ok: true, notice: "User added and invite email sent." };
 }
 
 export async function removeUserAccess(

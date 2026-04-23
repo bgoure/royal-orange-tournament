@@ -23,7 +23,11 @@ export default async function AdminSponsorsPage() {
       <p className="text-sm text-zinc-600">
         Manage logos for the home page marquee ({tournament.name}).
       </p>
-      <TournamentSponsorsAdmin sponsors={sponsors} canManage={canManage} />
+      <TournamentSponsorsAdmin
+        sponsors={sponsors}
+        canManage={canManage}
+        showPublicSponsorsSection={tournament.showPublicSponsorsSection}
+      />
     </div>
   );
 }

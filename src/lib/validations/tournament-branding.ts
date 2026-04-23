@@ -27,7 +27,8 @@ const optionalEmail = z.preprocess(
 
 const optionalHexColor = z.preprocess(emptyToUndef, z.string().regex(/^#[0-9A-Fa-f]{6}$/, "Use #RRGGBB").optional());
 
-const checkboxOn = z.preprocess((v) => v === "on", z.boolean());
+/** Checkbox `on` or segmented control `on` / `off`. */
+const showHideField = z.preprocess((v) => v === "on" || v === true, z.boolean());
 
 const optionalShortText = z.preprocess(
   emptyToUndef,
@@ -44,12 +45,12 @@ export const tournamentBrandingFormSchema = z.object({
   socialXUrl: optionalHttpUrl,
   socialYoutubeUrl: optionalHttpUrl,
   socialEmail: optionalEmail,
-  socialShowWebsite: checkboxOn,
-  socialShowFacebook: checkboxOn,
-  socialShowInstagram: checkboxOn,
-  socialShowX: checkboxOn,
-  socialShowYoutube: checkboxOn,
-  socialShowEmail: checkboxOn,
+  socialShowWebsite: showHideField,
+  socialShowFacebook: showHideField,
+  socialShowInstagram: showHideField,
+  socialShowX: showHideField,
+  socialShowYoutube: showHideField,
+  socialShowEmail: showHideField,
   socialWebsiteSubtext: optionalShortText,
   socialFacebookSubtext: optionalShortText,
   socialInstagramSubtext: optionalShortText,

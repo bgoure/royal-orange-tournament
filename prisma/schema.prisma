@@ -90,6 +90,10 @@ model Tournament {
   archiveFolder String?
   /// When false, announcements are hidden on the public site (home, More menu, history page).
   showPublicAnnouncements Boolean @default(true)
+  /// When false, the home page sponsor strip is hidden (even if logos exist).
+  showPublicSponsorsSection Boolean @default(true)
+  /// When false, the FAQ block on the public Rules page is hidden (even if entries exist).
+  showPublicFaqSection Boolean @default(true)
   /// PWA install icons: absolute URL or site path (e.g. /branding/slug/icon-192.png).
   pwaIcon192Url     String?
   pwaIcon512Url     String?
