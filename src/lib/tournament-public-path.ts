@@ -2,10 +2,13 @@ import type { Tournament } from "@prisma/client";
 
 type TournamentPathFields = Pick<Tournament, "slug" | "archiveFolder" | "archivedAt">;
 
-/** Base path for the public tournament site: `/slug` live, or `/folder/slug` when archived. */
+/**
+ * Base path for the public tournament site: `/{slug}` when live, or
+ * `/past/{archiveFolder}/{slug}` when archived (static `past` avoids a route clash with `/{slug}/schedule`, etc.).
+ */
 export function tournamentPublicBasePath(t: TournamentPathFields): string {
   if (t.archivedAt != null && t.archiveFolder != null && t.archiveFolder.length > 0) {
-    return `/${encodeURIComponent(t.archiveFolder)}/${encodeURIComponent(t.slug)}`;
+    return `/past/${encodeURIComponent(t.archiveFolder)}/${encodeURIComponent(t.slug)}`;
   }
   return `/${encodeURIComponent(t.slug)}`;
 }

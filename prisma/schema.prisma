@@ -84,7 +84,7 @@ model Tournament {
   latitude      Float?
   longitude     Float?
   isPublished   Boolean  @default(true)
-  /// Set when the event is moved off the live switcher but kept for public history at /{archiveFolder}/{slug}.
+  /// Set when the event is moved off the live switcher but kept for public history at /past/{archiveFolder}/{slug}.
   archivedAt    DateTime?
   /// URL segment for archived tournaments only (e.g. 10U11U-2026). Must be set when archivedAt is set.
   archiveFolder String?

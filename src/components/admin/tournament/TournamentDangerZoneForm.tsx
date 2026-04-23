@@ -46,7 +46,7 @@ export function TournamentDangerZoneForm({
 }: {
   tournamentSlug: string;
   tournamentName: string;
-  /** Full public base path for this tournament (e.g. /slug or /folder/slug). */
+  /** Full public base path for this tournament (e.g. /slug or /past/folder/slug). */
   publicSitePath: string;
   isArchived: boolean;
   canManage: boolean;
@@ -130,17 +130,17 @@ export function TournamentDangerZoneForm({
           <div className="border-t border-violet-200 pt-6">
             <h3 className="text-xs font-semibold text-violet-950">Archive — move off the live switcher</h3>
             <p className="mt-1 text-sm text-zinc-800">
-              Keeps all data and public viewing at a two-part URL{" "}
-              <code className="rounded bg-zinc-100 px-1 py-0.5 text-xs">/your-folder/{tournamentSlug}</code>. The event
-              disappears from the default tournament list so you can run the next weekend without clutter. Announcements,
-              FAQ, and subscribers stay in the database.
+              Keeps all data and public viewing at{" "}
+              <code className="rounded bg-zinc-100 px-1 py-0.5 text-xs">/past/your-folder/{tournamentSlug}</code>. The
+              event disappears from the default tournament list so you can run the next weekend without clutter.
+              Announcements, FAQ, and subscribers stay in the database.
             </p>
             <ErrorBanner state={archiveState} />
             <SuccessBanner state={archiveState} />
             <form action={archiveAction} className="mt-4 flex max-w-xl flex-col gap-3">
               <div>
                 <label htmlFor="archiveFolder" className={`${labelClass} block`}>
-                  Archive folder (first URL segment)
+                  Archive folder (segment after <span className="font-mono">/past/</span>)
                 </label>
                 <input
                   id="archiveFolder"
@@ -151,8 +151,9 @@ export function TournamentDangerZoneForm({
                   className="mt-1 w-full max-w-md rounded-md border border-zinc-300 bg-white px-3 py-2 text-sm text-zinc-900 shadow-sm"
                 />
                 <p className="mt-1 text-xs text-zinc-600">
-                  Public link will be <span className="font-mono text-zinc-800">/folder-name/{tournamentSlug}</span>.
-                  Use one folder for multiple age divisions from the same event.
+                  Public link will be{" "}
+                  <span className="font-mono text-zinc-800">/past/folder-name/{tournamentSlug}</span>. Use one folder for
+                  multiple age divisions from the same event.
                 </p>
               </div>
               <label className="flex cursor-pointer items-start gap-3 text-sm text-zinc-800">

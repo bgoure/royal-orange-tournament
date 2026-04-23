@@ -76,7 +76,7 @@ export async function softResetTournamentProgress(
   }
 }
 
-/** Move tournament off the live switcher; public URL becomes /{archiveFolder}/{slug}. ADMIN only. */
+/** Move tournament off the live switcher; public URL becomes /past/{archiveFolder}/{slug}. ADMIN only. */
 export async function archiveTournament(
   _prev: ContentActionResult | undefined,
   formData: FormData,

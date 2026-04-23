@@ -52,7 +52,7 @@ export async function getPublishedTournamentBySlugForActions(slug: string) {
   });
 }
 
-/** Archived tournament for `/{archiveFolder}/{slug}` historical viewing. */
+/** Archived tournament for `/past/{archiveFolder}/{slug}` historical viewing. */
 export async function getArchivedPublishedTournamentByFolderAndSlug(archiveFolder: string, slug: string) {
   return prisma.tournament.findFirst({
     where: {
