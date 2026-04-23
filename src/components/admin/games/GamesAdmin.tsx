@@ -321,6 +321,7 @@ function GameCard({
   const awayLabel = game.awayTeam ? game.awayTeam.name : "TBD";
   const homeLabel = game.homeTeam ? game.homeTeam.name : "TBD";
   const iso = typeof game.scheduledAt === "string" ? game.scheduledAt : new Date(game.scheduledAt).toISOString();
+  const isPoolGame = game.gameKind === GameKind.POOL;
 
   return (
     <article className="overflow-hidden rounded-xl border border-zinc-200 bg-white shadow-sm">
@@ -378,14 +379,22 @@ function GameCard({
         <ActionMessage state={delState} />
         <h3 className="text-xs font-semibold uppercase tracking-wide text-zinc-500">Scoring &amp; innings</h3>
         <p className="mt-1 text-[11px] text-zinc-500">
-          Away runs / defensive innings · Home runs / defensive innings. Offensive innings default from opponent
-          defensive when left blank on save.
+          {isPoolGame
+            ? "Pool: away/home runs and defensive IP; offensive IP defaults from opponent defensive when left blank."
+            : "Playoff / consolation: runs (and optional offensive IP); defensive IP not required for standings."}
         </p>
         <ActionMessage state={scoreState} />
         <form action={scoreAction} className="mt-3">
           <input type="hidden" name="id" value={game.id} />
+          <input type="hidden" name="gameKind" value={game.gameKind} />
+          {!isPoolGame ? (
+            <>
+              <input type="hidden" name="homeDefensiveInnings" value={game.homeDefensiveInnings ?? ""} />
+              <input type="hidden" name="awayDefensiveInnings" value={game.awayDefensiveInnings ?? ""} />
+            </>
+          ) : null}
           <div className="flex flex-wrap items-end gap-3">
-            <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
+            <div className={`grid grid-cols-2 gap-3 ${isPoolGame ? "sm:grid-cols-4" : "sm:grid-cols-2"}`}>
               <div>
                 <span className={labelClass}>Away runs</span>
                 <input
@@ -396,17 +405,19 @@ function GameCard({
                   className={`${formClass} mt-1 w-20`}
                 />
               </div>
-              <div>
-                <span className={labelClass}>Away def. IP</span>
-                <input
-                  name="awayDefensiveInnings"
-                  type="number"
-                  step={0.1}
-                  min={0}
-                  defaultValue={game.awayDefensiveInnings ?? ""}
-                  className={`${formClass} mt-1 w-24`}
-                />
-              </div>
+              {isPoolGame ? (
+                <div>
+                  <span className={labelClass}>Away def. IP</span>
+                  <input
+                    name="awayDefensiveInnings"
+                    type="number"
+                    step={0.1}
+                    min={0}
+                    defaultValue={game.awayDefensiveInnings ?? ""}
+                    className={`${formClass} mt-1 w-24`}
+                  />
+                </div>
+              ) : null}
               <div>
                 <span className={labelClass}>Home runs</span>
                 <input
@@ -417,17 +428,19 @@ function GameCard({
                   className={`${formClass} mt-1 w-20`}
                 />
               </div>
-              <div>
-                <span className={labelClass}>Home def. IP</span>
-                <input
-                  name="homeDefensiveInnings"
-                  type="number"
-                  step={0.1}
-                  min={0}
-                  defaultValue={game.homeDefensiveInnings ?? ""}
-                  className={`${formClass} mt-1 w-24`}
-                />
-              </div>
+              {isPoolGame ? (
+                <div>
+                  <span className={labelClass}>Home def. IP</span>
+                  <input
+                    name="homeDefensiveInnings"
+                    type="number"
+                    step={0.1}
+                    min={0}
+                    defaultValue={game.homeDefensiveInnings ?? ""}
+                    className={`${formClass} mt-1 w-24`}
+                  />
+                </div>
+              ) : null}
             </div>
             <div>
               <span className={labelClass}>Off. IP (opt)</span>

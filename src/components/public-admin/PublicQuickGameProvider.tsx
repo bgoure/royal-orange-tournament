@@ -1,6 +1,6 @@
 "use client";
 
-import { GameResultType, GameStatus } from "@prisma/client";
+import { GameKind, GameResultType, GameStatus } from "@prisma/client";
 import {
   createContext,
   useCallback,
@@ -27,6 +27,7 @@ export type QuickEditGamePayload = {
   fieldId: string;
   scheduledAt: Date;
   schedulePlaceholder: boolean;
+  gameKind: GameKind;
   status: GameStatus;
   resultType: GameResultType;
   homeRuns: number | null;
@@ -87,6 +88,8 @@ function QuickGameModal({
     [game.scheduledAt, timezone],
   );
 
+  const isPool = game.gameKind === GameKind.POOL;
+
   return (
     <div
       className="fixed inset-0 z-[100] flex items-end justify-center sm:items-center"
@@ -124,9 +127,16 @@ function QuickGameModal({
         <form action={formAction} className="flex flex-col gap-3 px-4 py-4">
           <input type="hidden" name="tournamentSlug" value={tournamentSlug} />
           <input type="hidden" name="id" value={game.id} />
+          <input type="hidden" name="gameKind" value={game.gameKind} />
           <input type="hidden" name="resultType" value={game.resultType} />
           <input type="hidden" name="homeOffensiveInnings" value="" />
           <input type="hidden" name="awayOffensiveInnings" value="" />
+          {!isPool ? (
+            <>
+              <input type="hidden" name="homeDefensiveInnings" value={game.homeDefensiveInnings ?? ""} />
+              <input type="hidden" name="awayDefensiveInnings" value={game.awayDefensiveInnings ?? ""} />
+            </>
+          ) : null}
 
           {!state.ok && state.error ? (
             <p className="rounded-lg border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-800">{state.error}</p>
@@ -217,33 +227,39 @@ function QuickGameModal({
                 className="w-full rounded-xl border border-zinc-200 px-3 py-2 text-sm shadow-sm focus:border-royal focus:outline-none focus:ring-2 focus:ring-royal/20"
               />
             </div>
-            <div>
-              <label className="mb-1 block text-xs font-semibold text-zinc-500">Away def. innings</label>
-              <input
-                name="awayDefensiveInnings"
-                type="number"
-                step="any"
-                min={0}
-                defaultValue={game.awayDefensiveInnings ?? ""}
-                className="w-full rounded-xl border border-zinc-200 px-3 py-2 text-sm shadow-sm focus:border-royal focus:outline-none focus:ring-2 focus:ring-royal/20"
-              />
-            </div>
-            <div>
-              <label className="mb-1 block text-xs font-semibold text-zinc-500">Home def. innings</label>
-              <input
-                name="homeDefensiveInnings"
-                type="number"
-                step="any"
-                min={0}
-                defaultValue={game.homeDefensiveInnings ?? ""}
-                className="w-full rounded-xl border border-zinc-200 px-3 py-2 text-sm shadow-sm focus:border-royal focus:outline-none focus:ring-2 focus:ring-royal/20"
-              />
-            </div>
+            {isPool ? (
+              <>
+                <div>
+                  <label className="mb-1 block text-xs font-semibold text-zinc-500">Away def. innings</label>
+                  <input
+                    name="awayDefensiveInnings"
+                    type="number"
+                    step="any"
+                    min={0}
+                    defaultValue={game.awayDefensiveInnings ?? ""}
+                    className="w-full rounded-xl border border-zinc-200 px-3 py-2 text-sm shadow-sm focus:border-royal focus:outline-none focus:ring-2 focus:ring-royal/20"
+                  />
+                </div>
+                <div>
+                  <label className="mb-1 block text-xs font-semibold text-zinc-500">Home def. innings</label>
+                  <input
+                    name="homeDefensiveInnings"
+                    type="number"
+                    step="any"
+                    min={0}
+                    defaultValue={game.homeDefensiveInnings ?? ""}
+                    className="w-full rounded-xl border border-zinc-200 px-3 py-2 text-sm shadow-sm focus:border-royal focus:outline-none focus:ring-2 focus:ring-royal/20"
+                  />
+                </div>
+              </>
+            ) : null}
           </div>
 
           <p className="text-[11px] leading-snug text-zinc-500">
-            If either team has runs, both defensive innings are required. Saving updates the schedule time and clears
-            “TBD” placeholder.
+            {isPool
+              ? "Pool games: if either team has runs, both defensive innings are required (standings tiebreakers). "
+              : "Playoff / consolation: runs only; defensive innings are optional and not used for standings. "}
+            Saving updates the schedule time and clears “TBD” placeholder.
           </p>
 
           <div className="flex flex-wrap gap-2 pt-2">

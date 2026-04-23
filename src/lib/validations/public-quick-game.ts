@@ -1,4 +1,4 @@
-import { GameResultType, GameStatus } from "@prisma/client";
+import { GameKind, GameResultType, GameStatus } from "@prisma/client";
 import { z } from "zod";
 
 const optionalInt = z.preprocess((v) => {
@@ -27,10 +27,12 @@ export const publicQuickGameUpdateSchema = z
     awayOffensiveInnings: optionalFloat,
     status: z.nativeEnum(GameStatus),
     resultType: z.nativeEnum(GameResultType).optional().default(GameResultType.REGULAR),
+    gameKind: z.nativeEnum(GameKind),
   })
   .superRefine((data, ctx) => {
     const hasAnyRun = data.homeRuns != null || data.awayRuns != null;
-    if (hasAnyRun) {
+    const poolNeedsInnings = data.gameKind === GameKind.POOL && hasAnyRun;
+    if (poolNeedsInnings) {
       if (data.homeDefensiveInnings == null) {
         ctx.addIssue({
           code: "custom",

@@ -19,6 +19,7 @@ function gameRowToQuickPayload(game: GameRow): QuickEditGamePayload {
     fieldId: game.fieldId,
     scheduledAt: game.scheduledAt,
     schedulePlaceholder: game.schedulePlaceholder,
+    gameKind: game.gameKind,
     status: game.status,
     resultType: game.resultType,
     homeRuns: game.homeRuns,

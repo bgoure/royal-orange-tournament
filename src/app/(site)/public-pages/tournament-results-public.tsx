@@ -110,6 +110,7 @@ export async function TournamentResultsPublic({
               timezone={tournament.timezone}
               emptyMessage="No result games for this division yet."
               emptyHint="Final scores, cancelled games, and games awaiting results appear here. Try another filter."
+              resultsFinalInningsBadge
             />
           </section>
         </div>

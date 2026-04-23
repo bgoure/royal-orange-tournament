@@ -136,13 +136,19 @@ export async function updateGameScoring(
     awayOffensiveInnings: formData.get("awayOffensiveInnings"),
     status: formData.get("status"),
     resultType: formData.get("resultType"),
+    gameKind: formData.get("gameKind"),
   });
   if (!parsed.success) {
-    return { ok: false, error: "Invalid scoring input" };
+    const msg =
+      parsed.error.issues.map((i) => i.message).join(", ") || "Invalid scoring input";
+    return { ok: false, error: msg };
   }
 
   try {
     const existing = await assertGameInTournament(parsed.data.id, ctx.tournament.id);
+    if (existing.gameKind !== parsed.data.gameKind) {
+      return { ok: false, error: "Game type mismatch; refresh and try again." };
+    }
     const d = parsed.data;
     let homeOI = d.homeOffensiveInnings;
     let awayOI = d.awayOffensiveInnings;

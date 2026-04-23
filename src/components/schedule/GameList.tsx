@@ -40,12 +40,40 @@ export function publicGameStatusLabel(status: string): string {
   }
 }
 
+function formatInningsCountForBadge(n: number): string {
+  const t = Math.round(n * 10) / 10;
+  if (Number.isInteger(t)) return String(t);
+  return t.toFixed(1).replace(/\.0$/, "");
+}
+
+/** Status text for game card pills; results list can show FINAL + home defensive innings. */
+export function gameCardStatusPillText(
+  g: GameWithTeams,
+  opts?: { showScores?: boolean; resultsFinalInnings?: boolean },
+): string {
+  const showScores = opts?.showScores !== false;
+  const hasScore = showScores && g.homeRuns != null && g.awayRuns != null;
+  if (
+    opts?.resultsFinalInnings &&
+    g.status === "FINAL" &&
+    hasScore &&
+    g.homeDefensiveInnings != null
+  ) {
+    const n = g.homeDefensiveInnings;
+    const count = formatInningsCountForBadge(n);
+    const inningWord = n === 1 ? "inning" : "innings";
+    return `FINAL - ${count} ${inningWord}`;
+  }
+  return publicGameStatusLabel(g.status);
+}
+
 function gameWithTeamsToQuickPayload(g: GameWithTeams): QuickEditGamePayload {
   return {
     id: g.id,
     fieldId: g.fieldId,
     scheduledAt: g.scheduledAt,
     schedulePlaceholder: g.schedulePlaceholder,
+    gameKind: g.gameKind,
     status: g.status,
     resultType: g.resultType,
     homeRuns: g.homeRuns,
@@ -135,6 +163,7 @@ function GameCardInner({
   showScores = true,
   scheduleCompactLayout = false,
   muted = false,
+  resultsFinalInningsBadge = false,
 }: {
   g: GameWithTeams;
   compact?: boolean;
@@ -146,6 +175,8 @@ function GameCardInner({
   scheduleCompactLayout?: boolean;
   /** Muted palette for finished games at the bottom of the public schedule. */
   muted?: boolean;
+  /** Public results: show "FINAL - N innings" from home defensive innings when scored. */
+  resultsFinalInningsBadge?: boolean;
 }) {
   const quickEdit = usePublicQuickGameEdit();
   const quickOpen = quickEdit?.enabled
@@ -174,6 +205,11 @@ function GameCardInner({
   const st = GAME_CARD_STATUS_STYLES[g.status] ?? GAME_CARD_STATUS_STYLES.SCHEDULED;
   const hasScore = showScores && g.homeRuns != null && g.awayRuns != null;
   const isLive = g.status === "LIVE";
+  const statusPillLabel = gameCardStatusPillText(g, { showScores, resultsFinalInnings: resultsFinalInningsBadge });
+  const statusPillCase =
+    resultsFinalInningsBadge && g.status === "FINAL" && hasScore && g.homeDefensiveInnings != null
+      ? "normal-case"
+      : "uppercase";
 
   const leftBorder = isLive
     ? "border-l-2 border-l-red-500 shadow-[0_0_12px_rgba(239,68,68,0.35)]"
@@ -300,7 +336,7 @@ function GameCardInner({
           <div className="min-w-0 shrink-0">
             {scheduleCompactFooterStatus ? (
               <span
-                className={`inline-block rounded-full px-2 py-0.5 text-[10px] font-bold uppercase ${st} ${
+                className={`inline-block rounded-full px-2 py-0.5 text-[10px] font-bold ${statusPillCase} ${st} ${
                   isLive
                     ? liveProminent
                       ? "ring-2 ring-red-400/60"
@@ -308,7 +344,7 @@ function GameCardInner({
                     : ""
                 }`}
               >
-                {publicGameStatusLabel(g.status)}
+                {statusPillLabel}
               </span>
             ) : null}
           </div>
@@ -332,11 +368,11 @@ function GameCardInner({
             : formatGameScheduledAt(g.scheduledAt, displayTimeZone)}
         </p>
         <span
-          className={`shrink-0 rounded-full px-2 py-0.5 text-[10px] font-bold uppercase ${st} ${
+          className={`shrink-0 rounded-full px-2 py-0.5 text-[10px] font-bold ${statusPillCase} ${st} ${
             isLive && liveProminent ? "ring-2 ring-red-400/60" : isLive ? "ring-2 ring-red-400/50" : ""
           }`}
         >
-          {publicGameStatusLabel(g.status)}
+          {statusPillLabel}
         </span>
       </div>
 
@@ -431,6 +467,7 @@ function HorizontalGameRow({
   animateStagger,
   staggerOffset = 0,
   scheduleCompactLayout = false,
+  resultsFinalInningsBadge = false,
 }: {
   rows: { g: GameWithTeams; fallbackSeq: number }[];
   liveProminent?: boolean;
@@ -439,6 +476,7 @@ function HorizontalGameRow({
   animateStagger?: boolean;
   staggerOffset?: number;
   scheduleCompactLayout?: boolean;
+  resultsFinalInningsBadge?: boolean;
 }) {
   return (
     <ul
@@ -456,6 +494,7 @@ function HorizontalGameRow({
               fallbackSeq={fallbackSeq}
               showScores={showScores}
               scheduleCompactLayout={scheduleCompactLayout}
+              resultsFinalInningsBadge={resultsFinalInningsBadge}
             />
           </AnimatedListItem>
         ) : (
@@ -469,6 +508,7 @@ function HorizontalGameRow({
             fallbackSeq={fallbackSeq}
             showScores={showScores}
             scheduleCompactLayout={scheduleCompactLayout}
+            resultsFinalInningsBadge={resultsFinalInningsBadge}
           />
         ),
       )}
@@ -487,6 +527,7 @@ export function GameList({
   animateStagger = false,
   scheduleCompactLayout = false,
   scheduleDeprioritizeCompleted = false,
+  resultsFinalInningsBadge = false,
 }: {
   games: GameWithTeams[];
   /** Tournament IANA zone for “Live today” and schedule day grouping. */
@@ -504,6 +545,8 @@ export function GameList({
    * all other games with a muted card treatment. Horizontal lists ignore this.
    */
   scheduleDeprioritizeCompleted?: boolean;
+  /** Public results page: status pill shows FINAL + home defensive innings when scored. */
+  resultsFinalInningsBadge?: boolean;
 }) {
   if (games.length === 0) {
     return (
@@ -562,6 +605,7 @@ export function GameList({
             animateStagger={animateStagger}
             staggerOffset={0}
             scheduleCompactLayout={scheduleCompactLayout}
+            resultsFinalInningsBadge={resultsFinalInningsBadge}
           />
         ) : (
           <ul className="flex flex-col gap-2">
@@ -574,6 +618,7 @@ export function GameList({
                 fallbackSeq={fallbackSeq}
                 showScores={showScores}
                 scheduleCompactLayout={scheduleCompactLayout}
+                resultsFinalInningsBadge={resultsFinalInningsBadge}
               />
             ))}
           </ul>
@@ -593,6 +638,7 @@ export function GameList({
             animateStagger={animateStagger}
             staggerOffset={liveToday.length}
             scheduleCompactLayout={scheduleCompactLayout}
+            resultsFinalInningsBadge={resultsFinalInningsBadge}
           />
         ) : null}
       </div>
@@ -619,6 +665,7 @@ export function GameList({
               fallbackSeq={fallbackSeq}
               showScores={showScores}
               scheduleCompactLayout={scheduleCompactLayout}
+              resultsFinalInningsBadge={resultsFinalInningsBadge}
             />
           ))}
         </ul>
@@ -644,6 +691,7 @@ export function GameList({
               showScores={showScores}
               scheduleCompactLayout={scheduleCompactLayout}
               muted={true}
+              resultsFinalInningsBadge={resultsFinalInningsBadge}
             />
           ))}
         </ul>
@@ -669,6 +717,7 @@ export function GameList({
                 showScores={showScores}
                 scheduleCompactLayout={scheduleCompactLayout}
                 muted={true}
+                resultsFinalInningsBadge={resultsFinalInningsBadge}
               />
             ))}
           </ul>
@@ -692,6 +741,7 @@ export function GameList({
                 fallbackSeq={fallbackSeq}
                 showScores={showScores}
                 scheduleCompactLayout={scheduleCompactLayout}
+                resultsFinalInningsBadge={resultsFinalInningsBadge}
               />
             ))}
           </ul>

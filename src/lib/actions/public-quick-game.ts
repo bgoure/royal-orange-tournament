@@ -34,6 +34,7 @@ export async function updatePublicQuickGameAction(
     awayOffensiveInnings: formData.get("awayOffensiveInnings"),
     status: formData.get("status"),
     resultType: formData.get("resultType") || undefined,
+    gameKind: formData.get("gameKind"),
   });
 
   if (!parsed.success) {
@@ -50,6 +51,9 @@ export async function updatePublicQuickGameAction(
 
   try {
     const existing = await assertGameInTournament(parsed.data.id, tournament.id);
+    if (existing.gameKind !== parsed.data.gameKind) {
+      return { ok: false, error: "Game type mismatch; refresh the page and try again." };
+    }
     await assertFieldInTournament(parsed.data.fieldId, tournament.id);
 
     let scheduledAt: Date;
