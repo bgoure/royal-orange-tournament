@@ -4,6 +4,7 @@ import { FieldsAdmin } from "@/components/admin/fields/FieldsAdmin";
 import { can } from "@/lib/rbac/permissions";
 import { listLocationsWithFields } from "@/lib/services/content";
 import { getTournamentForRequest } from "@/lib/tournament-context";
+import { tournamentPublicBasePath } from "@/lib/tournament-public-path";
 
 export default async function AdminFieldsPage() {
   const session = await auth();
@@ -21,7 +22,7 @@ export default async function AdminFieldsPage() {
     <FieldsAdmin
       groups={groups}
       tournamentName={tournament.name}
-      tournamentSlug={tournament.slug}
+      publicSitePath={tournamentPublicBasePath(tournament)}
       canManage={canManage}
     />
   );

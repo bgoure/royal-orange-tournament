@@ -16,7 +16,7 @@ export function tournamentPathFromBase(basePath: string, ...segments: string[]):
   return rest ? `${base}/${rest}` : base;
 }
 
-/** Public site URLs for a **live** (non-archived) tournament only — e.g. admin “view site” links. */
+/** Public site URLs for a **live** (non-archived) tournament only. Prefer `tournamentPublicBasePath` + `tournamentPathFromBase` when the row may be archived. */
 export function tournamentBasePath(slug: string): string {
   return `/${encodeURIComponent(slug)}`;
 }

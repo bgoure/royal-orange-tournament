@@ -11,7 +11,7 @@ import {
   type StandingsActionResult,
 } from "@/app/admin/_actions/standings";
 import { ActionMessage } from "@/components/admin/structure/ActionMessage";
-import { tournamentPath } from "@/lib/tournament-public-path";
+import { tournamentPathFromBase } from "@/lib/tournament-public-path";
 
 type StandingRow = PoolStanding & { team: Team };
 
@@ -33,11 +33,12 @@ const btnDanger =
 type Props = {
   pools: PoolWithStandings[];
   tournamentName: string;
-  tournamentSlug: string;
+  /** Canonical public site base (`/{slug}` live or `/{folder}/{slug}` when archived). */
+  publicSitePath: string;
   canConfigure: boolean;
 };
 
-export function StandingsRulesAdmin({ pools, tournamentName, tournamentSlug, canConfigure }: Props) {
+export function StandingsRulesAdmin({ pools, tournamentName, publicSitePath, canConfigure }: Props) {
   const [enableState, enableAction, enablePending] = useActionState(
     enablePoolStandingsManualMode,
     undefined as StandingsActionResult | undefined,
@@ -63,7 +64,7 @@ export function StandingsRulesAdmin({ pools, tournamentName, tournamentSlug, can
           <h1 className="text-2xl font-semibold tracking-tight text-zinc-900">Standings overrides</h1>
           <p className="mt-1 text-sm text-zinc-600">{tournamentName}</p>
         </div>
-        <Link href={tournamentPath(tournamentSlug, "results")} className={`${btnSecondary} inline-flex items-center`}>
+        <Link href={tournamentPathFromBase(publicSitePath, "results")} className={`${btnSecondary} inline-flex items-center`}>
           View public results ↗
         </Link>
       </header>

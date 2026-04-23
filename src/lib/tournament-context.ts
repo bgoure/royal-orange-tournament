@@ -64,6 +64,18 @@ export async function getArchivedPublishedTournamentByFolderAndSlug(archiveFolde
   });
 }
 
+/** Archived published row by slug only (for legacy `/{slug}` → canonical archive URL). */
+export async function getArchivedPublishedTournamentBySlug(slug: string) {
+  return prisma.tournament.findFirst({
+    where: {
+      slug: { equals: slug, mode: "insensitive" },
+      isPublished: true,
+      archivedAt: { not: null },
+      archiveFolder: { not: null },
+    },
+  });
+}
+
 /** First live tournament slug for redirecting `/` on the public site. */
 export async function getDefaultPublicTournamentSlug(): Promise<string | null> {
   const withinSwitcherWindow = await prisma.tournament.findFirst({

@@ -11,6 +11,7 @@ import {
 } from "@/lib/services/admin-brackets";
 import { can } from "@/lib/rbac/permissions";
 import { getTournamentForRequest } from "@/lib/tournament-context";
+import { tournamentPublicBasePath } from "@/lib/tournament-public-path";
 
 export default async function AdminBracketsPage() {
   const session = await auth();
@@ -54,7 +55,7 @@ export default async function AdminBracketsPage() {
       brackets={brackets}
       consolationGames={consolationGames}
       tournamentName={tournament.name}
-      tournamentSlug={tournament.slug}
+      publicSitePath={tournamentPublicBasePath(tournament)}
       tournamentTimezone={tournament.timezone}
       canConfigure={canConfigure}
     />

@@ -12,7 +12,7 @@ import {
   updateVenue,
 } from "@/app/admin/_actions/venues";
 import { ConfirmForm } from "@/components/admin/structure/ConfirmForm";
-import { tournamentPath } from "@/lib/tournament-public-path";
+import { tournamentPathFromBase } from "@/lib/tournament-public-path";
 
 const formClass =
   "rounded-md border border-zinc-300 bg-white px-2 py-1.5 text-sm text-zinc-900 shadow-sm focus:border-emerald-500 focus:outline-none focus:ring-2 focus:ring-emerald-500/20";
@@ -42,12 +42,13 @@ function SuccessLine({ state }: { state: ContentActionResult | undefined }) {
 export function VenuesAdmin({
   locations,
   tournamentName,
-  tournamentSlug,
+  publicSitePath,
   canManage,
 }: {
   locations: Location[];
   tournamentName: string;
-  tournamentSlug: string;
+  /** Canonical public site base (`/{slug}` live or `/{folder}/{slug}` when archived). */
+  publicSitePath: string;
   canManage: boolean;
 }) {
   const [createState, createAction, createPending] = useActionState(
@@ -77,7 +78,7 @@ export function VenuesAdmin({
           <Link href="/admin/tournament-settings" className={btnSecondary}>
             Tournament HQ
           </Link>
-          <Link href={tournamentPath(tournamentSlug, "locations")} className={btnSecondary}>
+          <Link href={tournamentPathFromBase(publicSitePath, "locations")} className={btnSecondary}>
             View public page ↗
           </Link>
         </div>

@@ -6,7 +6,7 @@ import type { Field, Location } from "@prisma/client";
 import type { ContentActionResult } from "@/app/admin/_actions/content-shared";
 import { createField, deleteField, moveField, updateField } from "@/app/admin/_actions/fields";
 import { ConfirmForm } from "@/components/admin/structure/ConfirmForm";
-import { tournamentPath } from "@/lib/tournament-public-path";
+import { tournamentPathFromBase } from "@/lib/tournament-public-path";
 
 const formClass =
   "rounded-md border border-zinc-300 bg-white px-2 py-1.5 text-sm text-zinc-900 shadow-sm focus:border-emerald-500 focus:outline-none focus:ring-2 focus:ring-emerald-500/20";
@@ -33,12 +33,13 @@ function ErrorBanner({ state }: { state: ContentActionResult | undefined }) {
 export function FieldsAdmin({
   groups,
   tournamentName,
-  tournamentSlug,
+  publicSitePath,
   canManage,
 }: {
   groups: LocationWithFields[];
   tournamentName: string;
-  tournamentSlug: string;
+  /** Canonical public site base (`/{slug}` live or `/{folder}/{slug}` when archived). */
+  publicSitePath: string;
   canManage: boolean;
 }) {
   const [createRootState, createRootAction, createRootPending] = useActionState(
@@ -66,7 +67,7 @@ export function FieldsAdmin({
           <Link href="/admin/games" className={btnSecondary}>
             Games
           </Link>
-          <Link href={tournamentPath(tournamentSlug, "schedule")} className={btnSecondary}>
+          <Link href={tournamentPathFromBase(publicSitePath, "schedule")} className={btnSecondary}>
             View schedule ↗
           </Link>
         </div>

@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import type { NextRequest } from "next/server";
 import { getToken } from "next-auth/jwt";
+import { TOURNEY_PATHNAME_HEADER } from "@/lib/tourney-request";
 
 /**
  * Admin/staff gate without `NextAuth().auth()` — that runs the full Auth session action on Edge
@@ -9,7 +10,21 @@ import { getToken } from "next-auth/jwt";
  */
 const STAFF_ROLES = new Set<string>(["POWER_USER", "ADMIN"]);
 
+function withPathnameHeader(req: NextRequest) {
+  const requestHeaders = new Headers(req.headers);
+  requestHeaders.set(TOURNEY_PATHNAME_HEADER, req.nextUrl.pathname);
+  return requestHeaders;
+}
+
 export async function proxy(req: NextRequest) {
+  const path = req.nextUrl.pathname;
+  const requestHeaders = withPathnameHeader(req);
+
+  const isProtected = path.startsWith("/admin") || path.startsWith("/api/admin");
+  if (!isProtected) {
+    return NextResponse.next({ request: { headers: requestHeaders } });
+  }
+
   const secret = process.env.AUTH_SECRET ?? process.env.NEXTAUTH_SECRET;
   if (typeof secret !== "string" || secret.length === 0) {
     return new NextResponse(
@@ -25,7 +40,6 @@ export async function proxy(req: NextRequest) {
     secureCookie,
   });
 
-  const path = req.nextUrl.pathname;
   const isApi = path.startsWith("/api/admin");
 
   if (!token) {
@@ -58,9 +72,9 @@ export async function proxy(req: NextRequest) {
     });
   }
 
-  return NextResponse.next();
+  return NextResponse.next({ request: { headers: requestHeaders } });
 }
 
 export const config = {
-  matcher: ["/admin", "/admin/:path*", "/api/admin/:path*"],
+  matcher: ["/((?!_next/static|_next/image|favicon.ico|.*\\.(?:svg|png|jpg|jpeg|gif|webp|ico)$).*)"],
 };

@@ -5,6 +5,7 @@ import { getPoolsForStandingsAdmin } from "@/lib/services/admin-structure";
 import { can } from "@/lib/rbac/permissions";
 import { recomputePoolStandings } from "@/lib/services/standings";
 import { getTournamentForRequest } from "@/lib/tournament-context";
+import { tournamentPublicBasePath } from "@/lib/tournament-public-path";
 
 export default async function AdminStandingsPage() {
   const session = await auth();
@@ -26,7 +27,7 @@ export default async function AdminStandingsPage() {
     <StandingsRulesAdmin
       pools={pools}
       tournamentName={tournament.name}
-      tournamentSlug={tournament.slug}
+      publicSitePath={tournamentPublicBasePath(tournament)}
       canConfigure={canConfigure}
     />
   );

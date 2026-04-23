@@ -1,6 +1,20 @@
-import { notFound } from "next/navigation";
+import { headers } from "next/headers";
+import { notFound, permanentRedirect } from "next/navigation";
 import { SiteShell } from "@/components/layout/SiteShell";
-import { getPublishedTournamentBySlug } from "@/lib/tournament-context";
+import {
+  getArchivedPublishedTournamentBySlug,
+  getPublishedTournamentBySlug,
+} from "@/lib/tournament-context";
+import { tournamentPathFromBase, tournamentPublicBasePath } from "@/lib/tournament-public-path";
+import { TOURNEY_PATHNAME_HEADER } from "@/lib/tourney-request";
+
+function pathAfterFirstSegment(pathname: string, slug: string): string | null {
+  const pathOnly = pathname.split("?")[0] ?? pathname;
+  const parts = pathOnly.split("/").filter(Boolean);
+  if (parts.length === 0) return null;
+  if (parts[0]!.toLowerCase() !== slug.toLowerCase()) return null;
+  return parts.slice(1).join("/");
+}
 
 export default async function TournamentSiteLayout({
   children,
@@ -10,7 +24,18 @@ export default async function TournamentSiteLayout({
   params: Promise<{ tournamentSlug: string }>;
 }) {
   const { tournamentSlug } = await params;
-  const tournament = await getPublishedTournamentBySlug(tournamentSlug);
-  if (!tournament) notFound();
-  return <SiteShell tournament={tournament}>{children}</SiteShell>;
+  const live = await getPublishedTournamentBySlug(tournamentSlug);
+  if (live) {
+    return <SiteShell tournament={live}>{children}</SiteShell>;
+  }
+
+  const archived = await getArchivedPublishedTournamentBySlug(tournamentSlug);
+  if (!archived) notFound();
+
+  const pathname = (await headers()).get(TOURNEY_PATHNAME_HEADER) ?? `/${tournamentSlug}`;
+  const canonicalBase = tournamentPublicBasePath(archived);
+  const rest = pathAfterFirstSegment(pathname, tournamentSlug) ?? "";
+  const target =
+    rest.length > 0 ? tournamentPathFromBase(canonicalBase, ...rest.split("/").filter(Boolean)) : canonicalBase;
+  permanentRedirect(target);
 }

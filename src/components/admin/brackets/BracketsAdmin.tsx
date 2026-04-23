@@ -17,7 +17,7 @@ import { ActionMessage } from "@/components/admin/structure/ActionMessage";
 import { ConfirmForm } from "@/components/admin/structure/ConfirmForm";
 import { formatJsDateAsDatetimeLocalInZone } from "@/lib/datetime-tournament";
 import { formatFieldWithLocation } from "@/lib/field-display";
-import { tournamentPath } from "@/lib/tournament-public-path";
+import { tournamentPathFromBase } from "@/lib/tournament-public-path";
 import type { FirstRoundSlot } from "@/lib/services/bracket-division-build";
 import type { Pool } from "@prisma/client";
 
@@ -74,7 +74,8 @@ type Props = {
   brackets: BracketRow[];
   consolationGames: ConsolationAdminRow[];
   tournamentName: string;
-  tournamentSlug: string;
+  /** Canonical public site base (`/{slug}` live or `/{folder}/{slug}` when archived). */
+  publicSitePath: string;
   tournamentTimezone: string;
   canConfigure: boolean;
 };
@@ -217,7 +218,7 @@ export function BracketsAdmin({
   brackets,
   consolationGames,
   tournamentName,
-  tournamentSlug,
+  publicSitePath,
   tournamentTimezone,
   canConfigure,
 }: Props) {
@@ -295,7 +296,7 @@ export function BracketsAdmin({
           <p className="mt-1 text-sm text-zinc-600">{tournamentName}</p>
         </div>
         <div className="flex gap-2">
-          <Link href={tournamentPath(tournamentSlug, "brackets")} className={`${btnSecondary}`}>
+          <Link href={tournamentPathFromBase(publicSitePath, "brackets")} className={`${btnSecondary}`}>
             Public brackets ↗
           </Link>
           <Link href="/admin/games" className={`${btnSecondary}`}>

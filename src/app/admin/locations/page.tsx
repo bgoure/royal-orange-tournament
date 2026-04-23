@@ -4,6 +4,7 @@ import { VenuesAdmin } from "@/components/admin/venues/VenuesAdmin";
 import { can } from "@/lib/rbac/permissions";
 import { listLocations } from "@/lib/services/content";
 import { getTournamentForRequest } from "@/lib/tournament-context";
+import { tournamentPublicBasePath } from "@/lib/tournament-public-path";
 
 export default async function AdminLocationsPage() {
   const session = await auth();
@@ -21,7 +22,7 @@ export default async function AdminLocationsPage() {
     <VenuesAdmin
       locations={locations}
       tournamentName={tournament.name}
-      tournamentSlug={tournament.slug}
+      publicSitePath={tournamentPublicBasePath(tournament)}
       canManage={canManage}
     />
   );
