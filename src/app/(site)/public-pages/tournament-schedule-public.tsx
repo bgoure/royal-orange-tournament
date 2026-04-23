@@ -91,6 +91,7 @@ export async function TournamentSchedulePublic({
             timezone={tournament.timezone}
             showScores={false}
             scheduleCompactLayout
+            scheduleDeprioritizeCompleted
           />
         </div>
       </DivisionSwipeBoundary>

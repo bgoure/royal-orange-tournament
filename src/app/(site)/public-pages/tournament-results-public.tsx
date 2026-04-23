@@ -96,20 +96,20 @@ export async function TournamentResultsPublic({
           />
 
           <section className="flex flex-col gap-3" aria-labelledby="completed-games-heading">
-            <SectionTitle id="completed-games-heading">Completed games</SectionTitle>
+            <SectionTitle id="completed-games-heading">Results and game outcomes</SectionTitle>
             <ScheduleFilters
               publicBasePath={publicBasePath}
               dayOptions={dayOptions}
               teams={filterTeams}
               fields={filterFields}
               pathSegment="results"
-              filtersAriaLabel="Filter completed games"
+              filtersAriaLabel="Filter results and outcomes"
             />
             <GameList
               games={completedGames}
               timezone={tournament.timezone}
-              emptyMessage="No completed games for this division yet."
-              emptyHint="Try another filter, or finished games will appear here as divisions play."
+              emptyMessage="No result games for this division yet."
+              emptyHint="Final scores, cancelled games, and games awaiting results appear here. Try another filter."
             />
           </section>
         </div>

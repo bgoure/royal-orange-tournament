@@ -30,10 +30,23 @@ const gameListInclude = {
   },
 } as const;
 
-/** Next N not-yet-finished games for the home page per active division tab (by game number like schedule, excludes final/cancelled). */
+/** Home “Recent results” + public Results page listing (scored finals, cancelled, awaiting scores). */
+export const PUBLIC_RECENT_RESULT_STATUSES: GameStatus[] = [
+  GameStatus.FINAL,
+  GameStatus.CANCELLED,
+  GameStatus.AWAITING_RESULTS,
+];
+
+const HOME_UPCOMING_EXCLUDED_STATUSES: GameStatus[] = [
+  GameStatus.FINAL,
+  GameStatus.CANCELLED,
+  GameStatus.AWAITING_RESULTS,
+];
+
+/** Next N not-yet-finished games for the home page per active division tab (by game number like schedule). */
 const UPCOMING_HOME_MAX = 4;
 
-/** Most recently finished games for the home page (by wall-clock time, newest first). */
+/** Latest closed-out / result-pending games for the home page (newest by scheduled time first). */
 const RECENT_HOME_MAX = 4;
 
 export type GameListFilters = {
@@ -98,12 +111,12 @@ export async function listGamesForTournament(tournamentId: string, filters: Game
   return sortGamesForScheduleList(rows);
 }
 
-/** Finished pool/bracket games for the public Results page (same filters as schedule, FINAL only). */
+/** Pool/bracket games for the public Results page: final, cancelled, or awaiting scores (same filters as schedule). */
 export async function listFinalGamesForTournament(tournamentId: string, filters: GameListFilters = {}) {
   const conditions: Prisma.GameWhereInput[] = [
     { tournamentId },
     publicConsolationVisibilityClause(),
-    { status: GameStatus.FINAL },
+    { status: { in: PUBLIC_RECENT_RESULT_STATUSES } },
   ];
 
   if (filters.teamId) {
@@ -216,13 +229,15 @@ export async function listScheduleFilterFacets(
   return listGameFilterFacets(tournamentId, divisionId, timezone);
 }
 
-/** Distinct days / teams / fields from completed (FINAL) games only — Results page filters. */
+/** Distinct days / teams / fields from games on the Results page (final, cancelled, awaiting results). */
 export async function listFinalGamesFilterFacets(
   tournamentId: string,
   divisionId: string | undefined,
   timezone: string,
 ): Promise<ScheduleFilterFacets> {
-  return listGameFilterFacets(tournamentId, divisionId, timezone, { status: GameStatus.FINAL });
+  return listGameFilterFacets(tournamentId, divisionId, timezone, {
+    status: { in: PUBLIC_RECENT_RESULT_STATUSES },
+  });
 }
 
 export async function listUpcomingGamesForHome(
@@ -233,7 +248,7 @@ export async function listUpcomingGamesForHome(
   const conditions: Prisma.GameWhereInput[] = [
     { tournamentId },
     {
-      status: { notIn: [GameStatus.FINAL, GameStatus.CANCELLED] },
+      status: { notIn: HOME_UPCOMING_EXCLUDED_STATUSES },
       OR: [{ scheduledAt: { gte: now } }, { status: GameStatus.LIVE }],
     },
     publicConsolationVisibilityClause(),
@@ -250,7 +265,7 @@ export async function listUpcomingGamesForHome(
   return sorted.slice(0, UPCOMING_HOME_MAX);
 }
 
-/** Latest FINAL games for the home page, same includes as upcoming list. */
+/** Latest games for the home “Recent results” strip (final, cancelled, awaiting scores). */
 export async function listRecentGamesForHome(
   tournamentId: string,
   divisionTabId: string | undefined,
@@ -258,7 +273,7 @@ export async function listRecentGamesForHome(
   const conditions: Prisma.GameWhereInput[] = [
     { tournamentId },
     publicConsolationVisibilityClause(),
-    { status: GameStatus.FINAL },
+    { status: { in: PUBLIC_RECENT_RESULT_STATUSES } },
   ];
   const divW = divisionTabGameWhere(divisionTabId);
   if (divW) conditions.push(divW);

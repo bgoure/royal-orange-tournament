@@ -3,6 +3,7 @@
 import { useActionState, useMemo, useState } from "react";
 import Link from "next/link";
 import { GameKind, GameResultType, GameStatus } from "@prisma/client";
+import { publicGameStatusLabel } from "@/components/schedule/GameList";
 import type { Division, Field, Game, Pool, Team } from "@prisma/client";
 import { formatFieldWithLocation } from "@/lib/field-display";
 import {
@@ -209,7 +210,7 @@ export function GamesAdmin({
                 <select id="cg-status" name="status" className={`${formClass} mt-1 w-full`} defaultValue="SCHEDULED">
                   {GAME_STATUS_OPTIONS.map((s) => (
                     <option key={s} value={s}>
-                      {s}
+                      {publicGameStatusLabel(s)}
                     </option>
                   ))}
                 </select>
@@ -258,6 +259,7 @@ export function GamesAdmin({
 const GAME_STATUS_OPTIONS: GameStatus[] = [
   GameStatus.SCHEDULED,
   GameStatus.LIVE,
+  GameStatus.AWAITING_RESULTS,
   GameStatus.FINAL,
   GameStatus.POSTPONED,
   GameStatus.CANCELLED,
@@ -344,10 +346,12 @@ function GameCard({
                 ? "bg-red-100 text-red-800"
                 : game.status === "FINAL"
                   ? "bg-emerald-100 text-emerald-900"
-                  : "bg-zinc-200 text-zinc-800"
+                  : game.status === "AWAITING_RESULTS"
+                    ? "bg-amber-100 text-amber-950"
+                    : "bg-zinc-200 text-zinc-800"
             }`}
           >
-            {game.status}
+            {publicGameStatusLabel(game.status)}
           </span>
           {isAdmin ? (
             <ConfirmForm
@@ -453,7 +457,7 @@ function GameCard({
               <select name="status" defaultValue={game.status} className={`${formClass} mt-1 w-36`}>
                 {GAME_STATUS_OPTIONS.map((s) => (
                   <option key={s} value={s}>
-                    {s}
+                    {publicGameStatusLabel(s)}
                   </option>
                 ))}
               </select>

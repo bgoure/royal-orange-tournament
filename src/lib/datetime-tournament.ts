@@ -51,7 +51,11 @@ export function formatGameScheduledAt(d: Date, timeZone?: string | null): string
     hour: "numeric",
     minute: "2-digit",
   };
-  if (timeZone?.trim()) opts.timeZone = timeZone.trim();
+  if (timeZone?.trim()) {
+    opts.timeZone = timeZone.trim();
+  } else {
+    opts.timeZoneName = "short";
+  }
   return new Intl.DateTimeFormat(undefined, opts).format(d);
 }
 
@@ -62,7 +66,11 @@ export function formatGameScheduledAtShort(d: Date, timeZone?: string | null): s
     hour: "numeric",
     minute: "2-digit",
   };
-  if (timeZone?.trim()) opts.timeZone = timeZone.trim();
+  if (timeZone?.trim()) {
+    opts.timeZone = timeZone.trim();
+  } else {
+    opts.timeZoneName = "short";
+  }
   return new Intl.DateTimeFormat(undefined, opts).format(d);
 }
 

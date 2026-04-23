@@ -20,6 +20,26 @@ import type { QuickEditGamePayload } from "@/components/public-admin/PublicQuick
 import { usePublicQuickGameEdit } from "@/components/public-admin/PublicQuickGameProvider";
 import type { TeamWithPublicLogo } from "@/lib/team-logo";
 
+/** Public-facing status pill label (enum-safe for new Prisma values). */
+export function publicGameStatusLabel(status: string): string {
+  switch (status) {
+    case "LIVE":
+      return "LIVE";
+    case "AWAITING_RESULTS":
+      return "Awaiting results";
+    case "SCHEDULED":
+      return "Scheduled";
+    case "FINAL":
+      return "Final";
+    case "POSTPONED":
+      return "Postponed";
+    case "CANCELLED":
+      return "Cancelled";
+    default:
+      return status.replace(/_/g, " ");
+  }
+}
+
 function gameWithTeamsToQuickPayload(g: GameWithTeams): QuickEditGamePayload {
   return {
     id: g.id,
@@ -55,6 +75,7 @@ export const GAME_CARD_STATUS_STYLES: Record<string, string> = {
   SCHEDULED: "bg-royal text-white",
   LIVE:
     "bg-red-500 text-white shadow-[0_0_8px_rgba(239,68,68,0.7)] motion-safe:animate-pulse motion-reduce:animate-none",
+  AWAITING_RESULTS: "bg-amber-100 text-amber-950 ring-1 ring-amber-300/80",
   FINAL: "bg-royal-50 text-royal",
   POSTPONED: "bg-zinc-200 text-zinc-700",
   CANCELLED: "bg-zinc-200 text-zinc-600 line-through",
@@ -66,6 +87,27 @@ export function isLiveGameToday(g: GameWithTeams, timezone: string): boolean {
   if (!tz) return false;
   const now = new Date();
   return tournamentCalendarDayKey(g.scheduledAt, tz) === tournamentCalendarDayKey(now, tz);
+}
+
+/** Final / cancelled / awaiting results — same “not upcoming” set as home strips; shown last on the schedule page. */
+const SCHEDULE_PAGE_COMPLETED_STATUSES = new Set<string>(["FINAL", "CANCELLED", "AWAITING_RESULTS"]);
+
+function isSchedulePageCompletedGame(g: GameWithTeams): boolean {
+  return SCHEDULE_PAGE_COMPLETED_STATUSES.has(g.status);
+}
+
+function groupIndexedGamesByCalendarDay(
+  rows: { g: GameWithTeams; fallbackSeq: number }[],
+  tz: string,
+) {
+  const map = new Map<string, typeof rows>();
+  for (const row of rows) {
+    const key = tournamentCalendarDayKey(row.g.scheduledAt, tz);
+    const bucket = map.get(key);
+    if (bucket) bucket.push(row);
+    else map.set(key, [row]);
+  }
+  return [...map.entries()].sort(([a], [b]) => a.localeCompare(b));
 }
 
 /** Uses admin `gameNumber` when set; otherwise falls back to list position. */
@@ -92,6 +134,7 @@ function GameCardInner({
   fallbackSeq,
   showScores = true,
   scheduleCompactLayout = false,
+  muted = false,
 }: {
   g: GameWithTeams;
   compact?: boolean;
@@ -101,6 +144,8 @@ function GameCardInner({
   showScores?: boolean;
   /** Time + game ID top; pool/field bottom-right; status bottom-left when not SCHEDULED. Full-width schedule stays dense; horizontal strips keep compact min-height and two-line team rows. */
   scheduleCompactLayout?: boolean;
+  /** Muted palette for finished games at the bottom of the public schedule. */
+  muted?: boolean;
 }) {
   const quickEdit = usePublicQuickGameEdit();
   const quickOpen = quickEdit?.enabled
@@ -133,6 +178,7 @@ function GameCardInner({
   const leftBorder = isLive
     ? "border-l-2 border-l-red-500 shadow-[0_0_12px_rgba(239,68,68,0.35)]"
     : "border-l-2 border-l-royal/90";
+  const leftBorderResolved = muted ? "border-l-2 border-l-zinc-300" : leftBorder;
 
   const nameSize = liveProminent ? "text-base font-bold md:text-lg" : compact ? "text-xs font-bold" : "text-sm font-bold";
   const scoreNum = liveProminent ? "text-2xl" : compact ? "text-base" : "text-lg";
@@ -149,27 +195,44 @@ function GameCardInner({
   /** Width is set on horizontal row `<li>` so flex cannot under-size items and clip. */
   const compactShell = compact ? `w-full ${cardPadding}` : cardPadding;
   const surfaceGradient = brandCardGradientClass(g.id);
+  const surfaceResolved = muted
+    ? "bg-gradient-to-br from-zinc-50 to-zinc-100/85 shadow-[0_1px_2px_rgba(0,0,0,0.05)]"
+    : surfaceGradient;
+
+  const timeTone = muted ? "text-zinc-500" : "text-zinc-900";
+  const nameTone = muted ? "text-zinc-600" : "text-zinc-900";
+  const scoreTone = muted ? "text-zinc-600" : "text-zinc-900";
+  const metaTone = muted ? "text-zinc-400" : "text-zinc-500";
+  const vsTone = muted ? "text-zinc-400" : "text-accent";
+  const idBadgeCls = muted ? "bg-zinc-300 text-zinc-700" : "bg-accent text-white";
+  const logoTone = muted ? "opacity-80 saturate-[0.65]" : "";
 
   const scheduleCompactFooterStatus = scheduleCompactLayout && g.status !== "SCHEDULED";
 
   const bracketCaption = bracketCaptionForScheduleCard(g);
 
   const scheduleCompactPoolField = (
-    <div className="inline-flex min-w-0 max-w-full flex-wrap items-center justify-end gap-x-1.5 text-[10px] leading-tight text-zinc-500">
+    <div className={`inline-flex min-w-0 max-w-full flex-wrap items-center justify-end gap-x-1.5 text-[10px] leading-tight ${metaTone}`}>
       {g.pool ? (
         <>
-          <span className={`font-medium ${poolCardLabelTextClass(g.pool.cardLabelColor)}`}>{g.pool.name}</span>
-          <span className="text-zinc-400">·</span>
+          <span
+            className={`font-medium ${muted ? "opacity-80 " : ""}${poolCardLabelTextClass(g.pool.cardLabelColor)}`}
+          >
+            {g.pool.name}
+          </span>
+          <span className={muted ? "text-zinc-300" : "text-zinc-400"}>·</span>
         </>
       ) : g.gameKind === GameKind.CONSOLATION && g.division ? (
         <>
-          <span className="font-medium text-zinc-600">{g.division.name} · Consolation Game</span>
-          <span className="text-zinc-400">·</span>
+          <span className={`font-medium ${muted ? "text-zinc-500" : "text-zinc-600"}`}>
+            {g.division.name} · Consolation Game
+          </span>
+          <span className={muted ? "text-zinc-300" : "text-zinc-400"}>·</span>
         </>
       ) : bracketCaption ? (
         <>
-          <span className="font-medium text-zinc-600">{bracketCaption}</span>
-          <span className="text-zinc-400">·</span>
+          <span className={`font-medium ${muted ? "text-zinc-500" : "text-zinc-600"}`}>{bracketCaption}</span>
+          <span className={muted ? "text-zinc-300" : "text-zinc-400"}>·</span>
         </>
       ) : null}
       <span className="min-w-0 break-words text-right">{g.field.name}</span>
@@ -183,44 +246,48 @@ function GameCardInner({
 
     const matchupBlock = compact ? (
       <div className="mt-1.5 min-w-0 space-y-0.5">
-        <p className={`flex min-w-0 items-center gap-2 leading-snug text-zinc-900 ${nameSize}`}>
-          <TeamLogoMark team={g.awayTeam} sizeClass={logoSize} />
+        <p className={`flex min-w-0 items-center gap-2 leading-snug ${nameTone} ${nameSize}`}>
+          <TeamLogoMark team={g.awayTeam} sizeClass={logoSize} className={logoTone} />
           <span className="min-w-0 truncate">{g.awayTeam?.name ?? "TBD"}</span>
-          <span className="shrink-0 font-normal text-accent">vs</span>
+          <span className={`shrink-0 font-normal ${vsTone}`}>vs</span>
         </p>
-        <p className={`flex min-w-0 items-center gap-2 truncate leading-snug text-zinc-900 ${nameSize}`}>
-          <TeamLogoMark team={g.homeTeam} sizeClass={logoSize} />
+        <p className={`flex min-w-0 items-center gap-2 truncate leading-snug ${nameTone} ${nameSize}`}>
+          <TeamLogoMark team={g.homeTeam} sizeClass={logoSize} className={logoTone} />
           <span className="truncate">{g.homeTeam?.name ?? "TBD"}</span>
         </p>
       </div>
     ) : (
       <div className="mt-1.5 flex min-w-0 items-center gap-1.5 sm:gap-2">
         <div className="flex min-w-0 flex-1 items-center gap-1.5">
-          <TeamLogoMark team={g.awayTeam} sizeClass={scheduleLogoSize} />
-          <span className="min-w-0 flex-1 line-clamp-2 break-words text-sm font-bold leading-[1.15] text-zinc-900">
+          <TeamLogoMark team={g.awayTeam} sizeClass={scheduleLogoSize} className={logoTone} />
+          <span className={`min-w-0 flex-1 line-clamp-2 break-words text-sm font-bold leading-[1.15] ${nameTone}`}>
             {g.awayTeam?.name ?? "TBD"}
           </span>
         </div>
-        <span className="shrink-0 self-center text-sm font-normal text-accent">vs</span>
+        <span className={`shrink-0 self-center text-sm font-normal ${vsTone}`}>vs</span>
         <div className="flex min-w-0 flex-1 items-center justify-end gap-1.5 text-right">
-          <span className="min-w-0 flex-1 line-clamp-2 break-words text-sm font-bold leading-[1.15] text-zinc-900">
+          <span className={`min-w-0 flex-1 line-clamp-2 break-words text-sm font-bold leading-[1.15] ${nameTone}`}>
             {g.homeTeam?.name ?? "TBD"}
           </span>
-          <TeamLogoMark team={g.homeTeam} sizeClass={scheduleLogoSize} />
+          <TeamLogoMark team={g.homeTeam} sizeClass={scheduleLogoSize} className={logoTone} />
         </div>
       </div>
     );
 
     const footerGap = compact ? "mt-2" : "mt-1.5";
 
+    const cardShadow = muted ? "shadow-[0_1px_2px_rgba(0,0,0,0.05)]" : "shadow-[0_1px_3px_rgba(0,0,0,0.1)]";
+
     return (
       <div
-        className={`min-w-0 rounded-2xl border border-zinc-200 shadow-[0_1px_3px_rgba(0,0,0,0.1)] ${surfaceGradient} ${leftBorder} ${cardPadding}${quickShell}`}
+        className={`min-w-0 rounded-2xl border border-zinc-200 ${cardShadow} ${surfaceResolved} ${leftBorderResolved} ${cardPadding}${quickShell}`}
         {...quickInteract}
       >
         <div className="flex items-start justify-between gap-2">
-          <p className="min-w-0 flex-1 text-[13px] font-bold leading-snug text-zinc-900">{timeLine}</p>
-          <span className="inline-block shrink-0 rounded-md bg-accent px-2 py-0.5 text-[11px] font-bold tabular-nums text-white">
+          <p className={`min-w-0 flex-1 text-[13px] font-bold leading-snug ${timeTone}`}>{timeLine}</p>
+          <span
+            className={`inline-block shrink-0 rounded-md px-2 py-0.5 text-[11px] font-bold tabular-nums ${idBadgeCls}`}
+          >
             {gameIdDisplayLabel(g, fallbackSeq)}
           </span>
         </div>
@@ -241,7 +308,7 @@ function GameCardInner({
                     : ""
                 }`}
               >
-                {g.status === "LIVE" ? "LIVE" : g.status}
+                {publicGameStatusLabel(g.status)}
               </span>
             ) : null}
           </div>
@@ -251,13 +318,15 @@ function GameCardInner({
     );
   }
 
+  const cardShadowMain = muted ? "shadow-[0_1px_2px_rgba(0,0,0,0.05)]" : "shadow-[0_1px_3px_rgba(0,0,0,0.1)]";
+
   return (
     <div
-      className={`min-w-0 rounded-2xl border border-zinc-200 shadow-[0_1px_3px_rgba(0,0,0,0.1)] ${surfaceGradient} ${leftBorder} ${compactShell}${quickShell}`}
+      className={`min-w-0 rounded-2xl border border-zinc-200 ${cardShadowMain} ${surfaceResolved} ${leftBorderResolved} ${compactShell}${quickShell}`}
       {...quickInteract}
     >
       <div className="flex items-center justify-between gap-2">
-        <p className="text-[13px] font-bold leading-snug text-zinc-900">
+        <p className={`text-[13px] font-bold leading-snug ${timeTone}`}>
           {compact
             ? formatGameScheduledAtShort(g.scheduledAt, displayTimeZone)
             : formatGameScheduledAt(g.scheduledAt, displayTimeZone)}
@@ -267,7 +336,7 @@ function GameCardInner({
             isLive && liveProminent ? "ring-2 ring-red-400/60" : isLive ? "ring-2 ring-red-400/50" : ""
           }`}
         >
-          {g.status === "LIVE" ? "LIVE" : g.status}
+          {publicGameStatusLabel(g.status)}
         </span>
       </div>
 
@@ -275,59 +344,63 @@ function GameCardInner({
         <div className={`mt-1.5 space-y-1 ${liveProminent ? "text-lg" : ""}`}>
           <div className="flex min-w-0 items-center justify-between gap-2">
             <div className="flex min-w-0 items-center gap-2">
-              <TeamLogoMark team={g.awayTeam} sizeClass={logoSize} />
-              <p className={`min-w-0 truncate leading-snug text-zinc-900 ${nameSize}`}>
+              <TeamLogoMark team={g.awayTeam} sizeClass={logoSize} className={logoTone} />
+              <p className={`min-w-0 truncate leading-snug ${nameTone} ${nameSize}`}>
                 {g.awayTeam?.name ?? "TBD"}
               </p>
             </div>
-            <span className={`shrink-0 font-bold tabular-nums text-zinc-900 ${scoreNum}`}>{g.awayRuns}</span>
+            <span className={`shrink-0 font-bold tabular-nums ${scoreTone} ${scoreNum}`}>{g.awayRuns}</span>
           </div>
           <div className="flex min-w-0 items-center justify-between gap-2">
             <div className="flex min-w-0 items-center gap-2">
-              <TeamLogoMark team={g.homeTeam} sizeClass={logoSize} />
-              <p className={`min-w-0 truncate leading-snug text-zinc-900 ${nameSize}`}>
+              <TeamLogoMark team={g.homeTeam} sizeClass={logoSize} className={logoTone} />
+              <p className={`min-w-0 truncate leading-snug ${nameTone} ${nameSize}`}>
                 {g.homeTeam?.name ?? "TBD"}
               </p>
             </div>
-            <span className={`shrink-0 font-bold tabular-nums text-zinc-900 ${scoreNum}`}>{g.homeRuns}</span>
+            <span className={`shrink-0 font-bold tabular-nums ${scoreTone} ${scoreNum}`}>{g.homeRuns}</span>
           </div>
         </div>
       ) : (
         <div className="mt-1.5 min-w-0 space-y-0.5">
-          <p className={`flex min-w-0 items-center gap-2 leading-snug text-zinc-900 ${nameSize}`}>
-            <TeamLogoMark team={g.awayTeam} sizeClass={logoSize} />
+          <p className={`flex min-w-0 items-center gap-2 leading-snug ${nameTone} ${nameSize}`}>
+            <TeamLogoMark team={g.awayTeam} sizeClass={logoSize} className={logoTone} />
             <span className="min-w-0 truncate">{g.awayTeam?.name ?? "TBD"}</span>
-            <span className="shrink-0 font-normal text-accent">vs</span>
+            <span className={`shrink-0 font-normal ${vsTone}`}>vs</span>
           </p>
-          <p className={`flex min-w-0 items-center gap-2 truncate leading-snug text-zinc-900 ${nameSize}`}>
-            <TeamLogoMark team={g.homeTeam} sizeClass={logoSize} />
+          <p className={`flex min-w-0 items-center gap-2 truncate leading-snug ${nameTone} ${nameSize}`}>
+            <TeamLogoMark team={g.homeTeam} sizeClass={logoSize} className={logoTone} />
             <span className="truncate">{g.homeTeam?.name ?? "TBD"}</span>
           </p>
         </div>
       )}
 
-      <p className="mt-2 text-[10px] leading-tight text-zinc-500">
+      <p className={`mt-2 text-[10px] leading-tight ${metaTone}`}>
         {g.pool ? (
           <>
-            <span className={`font-medium ${poolCardLabelTextClass(g.pool.cardLabelColor)}`}>{g.pool.name}</span>
-            <span className="mx-1.5 text-zinc-400">·</span>
+            <span className={`font-medium ${muted ? "opacity-80 " : ""}${poolCardLabelTextClass(g.pool.cardLabelColor)}`}>
+              {g.pool.name}
+            </span>
+            <span className={`mx-1.5 ${muted ? "text-zinc-300" : "text-zinc-400"}`}>·</span>
           </>
         ) : g.gameKind === GameKind.CONSOLATION && g.division ? (
           <>
-            <span className="font-medium">
+            <span className={`font-medium ${muted ? "text-zinc-500" : ""}`}>
               {g.division.name} · Consolation Game
             </span>
-            <span className="mx-1.5 text-zinc-400">·</span>
+            <span className={`mx-1.5 ${muted ? "text-zinc-300" : "text-zinc-400"}`}>·</span>
           </>
         ) : bracketCaption ? (
           <>
-            <span className="font-medium text-zinc-600">{bracketCaption}</span>
-            <span className="mx-1.5 text-zinc-400">·</span>
+            <span className={`font-medium ${muted ? "text-zinc-500" : "text-zinc-600"}`}>{bracketCaption}</span>
+            <span className={`mx-1.5 ${muted ? "text-zinc-300" : "text-zinc-400"}`}>·</span>
           </>
         ) : null}
         {g.field.name}
-        <span className="mx-1.5 text-zinc-400">·</span>
-        <span className="inline-block rounded-md bg-accent px-2 py-0.5 text-[11px] font-bold tabular-nums text-white">
+        <span className={`mx-1.5 ${muted ? "text-zinc-300" : "text-zinc-400"}`}>·</span>
+        <span
+          className={`inline-block rounded-md px-2 py-0.5 text-[11px] font-bold tabular-nums ${idBadgeCls}`}
+        >
           {gameIdDisplayLabel(g, fallbackSeq)}
         </span>
       </p>
@@ -406,21 +479,31 @@ function HorizontalGameRow({
 export function GameList({
   games,
   timezone,
+  displayTimesInViewerTimezone = false,
   emptyMessage = "No games match your filters.",
   emptyHint,
   horizontal,
   showScores = true,
   animateStagger = false,
   scheduleCompactLayout = false,
+  scheduleDeprioritizeCompleted = false,
 }: {
   games: GameWithTeams[];
+  /** Tournament IANA zone for “Live today” and schedule day grouping. */
   timezone?: string;
+  /** When true, game times use the viewer’s local zone (and show a short TZ). */
+  displayTimesInViewerTimezone?: boolean;
   emptyMessage?: string;
   emptyHint?: string;
   horizontal?: boolean;
   showScores?: boolean;
   animateStagger?: boolean;
   scheduleCompactLayout?: boolean;
+  /**
+   * When true (public schedule), finished games (final / cancelled / awaiting results) render after
+   * all other games with a muted card treatment. Horizontal lists ignore this.
+   */
+  scheduleDeprioritizeCompleted?: boolean;
 }) {
   if (games.length === 0) {
     return (
@@ -439,6 +522,8 @@ export function GameList({
 
   const indexedGames = games.map((g, i) => ({ g, fallbackSeq: i + 1 }));
 
+  const formatWallTimeZone = displayTimesInViewerTimezone ? null : (timezone?.trim() || null);
+
   const liveToday =
     timezone != null && timezone !== ""
       ? indexedGames.filter(({ g }) => isLiveGameToday(g, timezone))
@@ -450,6 +535,14 @@ export function GameList({
 
   const liveIds = new Set(liveToday.map(({ g }) => g.id));
   const rest = indexedGames.filter(({ g }) => !liveIds.has(g.id));
+
+  const deprioritizeCompleted = scheduleDeprioritizeCompleted && !horizontal;
+  const activeRest = deprioritizeCompleted
+    ? rest.filter(({ g }) => !isSchedulePageCompletedGame(g))
+    : rest;
+  const completedRest = deprioritizeCompleted
+    ? rest.filter(({ g }) => isSchedulePageCompletedGame(g))
+    : [];
 
   const liveBlock =
     liveToday.length > 0 ? (
@@ -464,7 +557,7 @@ export function GameList({
           <HorizontalGameRow
             rows={liveToday}
             liveProminent
-            displayTimeZone={timezone}
+            displayTimeZone={formatWallTimeZone}
             showScores={showScores}
             animateStagger={animateStagger}
             staggerOffset={0}
@@ -477,7 +570,7 @@ export function GameList({
                 key={g.id}
                 g={g}
                 liveProminent
-                displayTimeZone={timezone}
+                displayTimeZone={formatWallTimeZone}
                 fallbackSeq={fallbackSeq}
                 showScores={showScores}
                 scheduleCompactLayout={scheduleCompactLayout}
@@ -495,7 +588,7 @@ export function GameList({
         {rest.length > 0 ? (
           <HorizontalGameRow
             rows={rest}
-            displayTimeZone={timezone}
+            displayTimeZone={formatWallTimeZone}
             showScores={showScores}
             animateStagger={animateStagger}
             staggerOffset={liveToday.length}
@@ -508,20 +601,11 @@ export function GameList({
 
   const tz = timezone?.trim() ?? "";
 
-  const restByCalendarDay = (() => {
-    if (!tz || rest.length === 0) return null;
-    const map = new Map<string, typeof rest>();
-    for (const row of rest) {
-      const key = tournamentCalendarDayKey(row.g.scheduledAt, tz);
-      const bucket = map.get(key);
-      if (bucket) bucket.push(row);
-      else map.set(key, [row]);
-    }
-    return [...map.entries()].sort(([a], [b]) => a.localeCompare(b));
-  })();
+  const activeByCalendarDay =
+    tz && activeRest.length > 0 ? groupIndexedGamesByCalendarDay(activeRest, tz) : null;
 
   const restGrouped =
-    restByCalendarDay?.map(([dayKey, rows]) => (
+    activeByCalendarDay?.map(([dayKey, rows]) => (
       <section key={dayKey} className="flex flex-col gap-2">
         <h2 className="sticky top-[4.75rem] z-30 -mx-1 border-b border-zinc-200/90 bg-white/90 px-1 py-2 text-sm font-bold text-zinc-900 backdrop-blur-md md:top-[5rem]">
           {formatScheduleDayGroupHeading(rows[0]!.g.scheduledAt, tz)}
@@ -531,7 +615,7 @@ export function GameList({
             <GameCard
               key={g.id}
               g={g}
-              displayTimeZone={timezone}
+              displayTimeZone={formatWallTimeZone}
               fallbackSeq={fallbackSeq}
               showScores={showScores}
               scheduleCompactLayout={scheduleCompactLayout}
@@ -541,19 +625,70 @@ export function GameList({
       </section>
     )) ?? null;
 
+  const completedByCalendarDay =
+    tz && completedRest.length > 0 ? groupIndexedGamesByCalendarDay(completedRest, tz) : null;
+
+  const completedGrouped =
+    completedByCalendarDay?.map(([dayKey, rows]) => (
+      <section key={`completed-${dayKey}`} className="flex flex-col gap-2">
+        <h3 className="sticky top-[4.75rem] z-30 -mx-1 border-b border-zinc-200/90 bg-white/90 px-1 py-2 text-sm font-bold text-zinc-500 backdrop-blur-md md:top-[5rem]">
+          {formatScheduleDayGroupHeading(rows[0]!.g.scheduledAt, tz)}
+        </h3>
+        <ul className="flex flex-col gap-2">
+          {rows.map(({ g, fallbackSeq }) => (
+            <GameCard
+              key={g.id}
+              g={g}
+              displayTimeZone={formatWallTimeZone}
+              fallbackSeq={fallbackSeq}
+              showScores={showScores}
+              scheduleCompactLayout={scheduleCompactLayout}
+              muted={true}
+            />
+          ))}
+        </ul>
+      </section>
+    )) ?? null;
+
+  const completedBlock =
+    completedRest.length === 0 ? null : (
+      <div className="mt-8 border-t border-zinc-200 pt-6">
+        <h2 className="mb-3 px-1 text-xs font-semibold uppercase tracking-wide text-zinc-500">
+          Completed
+        </h2>
+        {completedGrouped ? (
+          <div className="flex flex-col gap-6">{completedGrouped}</div>
+        ) : (
+          <ul className="flex flex-col gap-2">
+            {completedRest.map(({ g, fallbackSeq }) => (
+              <GameCard
+                key={g.id}
+                g={g}
+                displayTimeZone={formatWallTimeZone}
+                fallbackSeq={fallbackSeq}
+                showScores={showScores}
+                scheduleCompactLayout={scheduleCompactLayout}
+                muted={true}
+              />
+            ))}
+          </ul>
+        )}
+      </div>
+    );
+
   return (
     <div className="flex flex-col gap-4">
       {liveBlock}
-      {rest.length > 0 ? (
+      {activeRest.length > 0 ? (
         restGrouped ? (
           <div className="flex flex-col gap-6">{restGrouped}</div>
         ) : (
           <ul className="flex flex-col gap-2">
-            {rest.map(({ g, fallbackSeq }) => (
+            {activeRest.map(({ g, fallbackSeq }) => (
               <GameCard
                 key={g.id}
                 g={g}
-                displayTimeZone={timezone}
+                displayTimeZone={formatWallTimeZone}
                 fallbackSeq={fallbackSeq}
                 showScores={showScores}
                 scheduleCompactLayout={scheduleCompactLayout}
@@ -562,6 +697,7 @@ export function GameList({
           </ul>
         )
       ) : null}
+      {completedBlock}
     </div>
   );
 }

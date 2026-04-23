@@ -53,4 +53,11 @@ export const publicQuickGameUpdateSchema = z
         path: ["homeRuns"],
       });
     }
+    if (data.status === "AWAITING_RESULTS" && (data.homeRuns != null || data.awayRuns != null)) {
+      ctx.addIssue({
+        code: "custom",
+        message: "Clear runs before marking as awaiting results, or mark the game final with scores.",
+        path: ["status"],
+      });
+    }
   });

@@ -7,10 +7,13 @@ import { teamLogoUrl, type TeamWithPublicLogo } from "@/lib/team-logo";
 export function TeamLogoMark({
   team,
   sizeClass = "h-8 w-8",
+  className = "",
 }: {
   team: TeamWithPublicLogo | null;
   /** Tailwind size classes (default 32×32). */
   sizeClass?: string;
+  /** Extra classes (e.g. muted schedule cards). */
+  className?: string;
 }) {
   if (!team?.logo) return null;
   const src = teamLogoUrl(team.id, team.logo.updatedAt);
@@ -20,7 +23,7 @@ export function TeamLogoMark({
       key={src}
       src={src}
       alt=""
-      className={`${sizeClass} block shrink-0 rounded object-contain ring-1 ring-zinc-200/80`}
+      className={`${sizeClass} block shrink-0 rounded object-contain ring-1 ring-zinc-200/80 ${className}`.trim()}
       loading="lazy"
     />
   );
