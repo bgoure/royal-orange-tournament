@@ -18,6 +18,7 @@ import {
   type PublicQuickGameResult,
 } from "@/lib/actions/public-quick-game";
 import { formatJsDateAsDatetimeLocalInZone } from "@/lib/datetime-tournament";
+import { publicGameStatusLabel } from "@/components/schedule/GameList";
 
 export type QuickEditFieldOption = { id: string; label: string };
 
@@ -52,6 +53,7 @@ const initialAction: PublicQuickGameResult = { ok: false };
 const statusOptions: GameStatus[] = [
   GameStatus.SCHEDULED,
   GameStatus.LIVE,
+  GameStatus.AWAITING_RESULTS,
   GameStatus.FINAL,
   GameStatus.POSTPONED,
   GameStatus.CANCELLED,
@@ -182,7 +184,7 @@ function QuickGameModal({
             >
               {statusOptions.map((s) => (
                 <option key={s} value={s}>
-                  {s}
+                  {publicGameStatusLabel(s)}
                 </option>
               ))}
             </select>

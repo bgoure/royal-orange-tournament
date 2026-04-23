@@ -6,7 +6,7 @@ import { formatBracketGameScheduledAt } from "@/lib/datetime-tournament";
 import { brandCardGradientClass } from "@/lib/brand-card-gradient";
 import { poolCardLabelTextClass } from "@/lib/pool-card-label";
 import { TeamLogoMark } from "@/components/ui/TeamLogo";
-import { GAME_CARD_STATUS_STYLES } from "@/components/schedule/GameList";
+import { GAME_CARD_STATUS_STYLES, publicGameStatusLabel } from "@/components/schedule/GameList";
 import type { GameRow } from "@/components/brackets/bracket-types";
 import { getBracketSlotSources } from "@/lib/brackets/game-slot-sources";
 import { slotLines, slotLineTextClass } from "@/components/brackets/bracket-slot-lines";
@@ -128,7 +128,7 @@ export function BracketGameCard({
       ) : null}
       {showScheduleStatusPill ? (
         <span className={`shrink-0 rounded-full px-2 py-0.5 text-[10px] font-bold uppercase ${st}`}>
-          {game.status}
+          {publicGameStatusLabel(game.status)}
         </span>
       ) : null}
       <span className="inline-flex flex-wrap items-center justify-end gap-x-1.5">

@@ -20,6 +20,26 @@ import type { QuickEditGamePayload } from "@/components/public-admin/PublicQuick
 import { usePublicQuickGameEdit } from "@/components/public-admin/PublicQuickGameProvider";
 import type { TeamWithPublicLogo } from "@/lib/team-logo";
 
+/** Public-facing status pill label (enum-safe for new Prisma values). */
+export function publicGameStatusLabel(status: string): string {
+  switch (status) {
+    case "LIVE":
+      return "LIVE";
+    case "AWAITING_RESULTS":
+      return "Awaiting results";
+    case "SCHEDULED":
+      return "Scheduled";
+    case "FINAL":
+      return "Final";
+    case "POSTPONED":
+      return "Postponed";
+    case "CANCELLED":
+      return "Cancelled";
+    default:
+      return status.replace(/_/g, " ");
+  }
+}
+
 function gameWithTeamsToQuickPayload(g: GameWithTeams): QuickEditGamePayload {
   return {
     id: g.id,
@@ -55,6 +75,7 @@ export const GAME_CARD_STATUS_STYLES: Record<string, string> = {
   SCHEDULED: "bg-royal text-white",
   LIVE:
     "bg-red-500 text-white shadow-[0_0_8px_rgba(239,68,68,0.7)] motion-safe:animate-pulse motion-reduce:animate-none",
+  AWAITING_RESULTS: "bg-amber-100 text-amber-950 ring-1 ring-amber-300/80",
   FINAL: "bg-royal-50 text-royal",
   POSTPONED: "bg-zinc-200 text-zinc-700",
   CANCELLED: "bg-zinc-200 text-zinc-600 line-through",
@@ -241,7 +262,7 @@ function GameCardInner({
                     : ""
                 }`}
               >
-                {g.status === "LIVE" ? "LIVE" : g.status}
+                {publicGameStatusLabel(g.status)}
               </span>
             ) : null}
           </div>
@@ -267,7 +288,7 @@ function GameCardInner({
             isLive && liveProminent ? "ring-2 ring-red-400/60" : isLive ? "ring-2 ring-red-400/50" : ""
           }`}
         >
-          {g.status === "LIVE" ? "LIVE" : g.status}
+          {publicGameStatusLabel(g.status)}
         </span>
       </div>
 
@@ -406,6 +427,7 @@ function HorizontalGameRow({
 export function GameList({
   games,
   timezone,
+  displayTimesInViewerTimezone = false,
   emptyMessage = "No games match your filters.",
   emptyHint,
   horizontal,
@@ -414,7 +436,10 @@ export function GameList({
   scheduleCompactLayout = false,
 }: {
   games: GameWithTeams[];
+  /** Tournament IANA zone for “Live today” and schedule day grouping. */
   timezone?: string;
+  /** When true, game times use the viewer’s local zone (and show a short TZ). */
+  displayTimesInViewerTimezone?: boolean;
   emptyMessage?: string;
   emptyHint?: string;
   horizontal?: boolean;
@@ -438,6 +463,8 @@ export function GameList({
   }
 
   const indexedGames = games.map((g, i) => ({ g, fallbackSeq: i + 1 }));
+
+  const formatWallTimeZone = displayTimesInViewerTimezone ? null : (timezone?.trim() || null);
 
   const liveToday =
     timezone != null && timezone !== ""
@@ -464,7 +491,7 @@ export function GameList({
           <HorizontalGameRow
             rows={liveToday}
             liveProminent
-            displayTimeZone={timezone}
+            displayTimeZone={formatWallTimeZone}
             showScores={showScores}
             animateStagger={animateStagger}
             staggerOffset={0}
@@ -477,7 +504,7 @@ export function GameList({
                 key={g.id}
                 g={g}
                 liveProminent
-                displayTimeZone={timezone}
+                displayTimeZone={formatWallTimeZone}
                 fallbackSeq={fallbackSeq}
                 showScores={showScores}
                 scheduleCompactLayout={scheduleCompactLayout}
@@ -495,7 +522,7 @@ export function GameList({
         {rest.length > 0 ? (
           <HorizontalGameRow
             rows={rest}
-            displayTimeZone={timezone}
+            displayTimeZone={formatWallTimeZone}
             showScores={showScores}
             animateStagger={animateStagger}
             staggerOffset={liveToday.length}
@@ -531,7 +558,7 @@ export function GameList({
             <GameCard
               key={g.id}
               g={g}
-              displayTimeZone={timezone}
+              displayTimeZone={formatWallTimeZone}
               fallbackSeq={fallbackSeq}
               showScores={showScores}
               scheduleCompactLayout={scheduleCompactLayout}
@@ -553,7 +580,7 @@ export function GameList({
               <GameCard
                 key={g.id}
                 g={g}
-                displayTimeZone={timezone}
+                displayTimeZone={formatWallTimeZone}
                 fallbackSeq={fallbackSeq}
                 showScores={showScores}
                 scheduleCompactLayout={scheduleCompactLayout}

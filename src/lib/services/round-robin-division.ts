@@ -5,6 +5,7 @@ import { prisma } from "@/lib/db";
 const BLOCKING_POOL_STATUSES: GameStatus[] = [
   GameStatus.SCHEDULED,
   GameStatus.LIVE,
+  GameStatus.AWAITING_RESULTS,
   GameStatus.POSTPONED,
 ];
 
@@ -34,7 +35,7 @@ export async function isDivisionRoundRobinCompleteForSeeding(
 }
 
 /**
- * Throws when pool play still has games that are not FINAL or CANCELLED.
+ * Throws when pool play still has games that are not FINAL or CANCELLED (includes AWAITING_RESULTS).
  * Call before applying standings to playoff seeds.
  */
 export async function assertDivisionRoundRobinCompleteForSeeding(
@@ -44,7 +45,7 @@ export async function assertDivisionRoundRobinCompleteForSeeding(
   const open = await countIncompleteDivisionPoolGames(tournamentId, divisionId);
   if (open > 0) {
     throw new Error(
-      `Round robin is not finished: ${open} pool game(s) in this division are still scheduled, live, or postponed. Complete or cancel those games before seeding the playoff bracket from standings.`,
+      `Round robin is not finished: ${open} pool game(s) in this division are still scheduled, live, awaiting results, or postponed. Complete, cancel, or finalize those games before seeding the playoff bracket from standings.`,
     );
   }
 }

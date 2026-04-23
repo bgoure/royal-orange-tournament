@@ -275,6 +275,8 @@ model Field {
 enum GameStatus {
   SCHEDULED
   LIVE
+  /// Post-live or past slot; scores not yet recorded. Shown in Recent results with FINAL/CANCELLED.
+  AWAITING_RESULTS
   FINAL
   POSTPONED
   CANCELLED

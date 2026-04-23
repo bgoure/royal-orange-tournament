@@ -71,14 +71,31 @@ export const updateGameNumberSchema = z.object({
   gameNumber: gameNumberMeta,
 });
 
-export const updateGameScoringSchema = z.object({
-  id: z.string().min(1),
-  homeRuns: optionalInt,
-  awayRuns: optionalInt,
-  homeDefensiveInnings: optionalFloat,
-  awayDefensiveInnings: optionalFloat,
-  homeOffensiveInnings: optionalFloat,
-  awayOffensiveInnings: optionalFloat,
-  status: z.nativeEnum(GameStatus),
-  resultType: z.nativeEnum(GameResultType),
-});
+export const updateGameScoringSchema = z
+  .object({
+    id: z.string().min(1),
+    homeRuns: optionalInt,
+    awayRuns: optionalInt,
+    homeDefensiveInnings: optionalFloat,
+    awayDefensiveInnings: optionalFloat,
+    homeOffensiveInnings: optionalFloat,
+    awayOffensiveInnings: optionalFloat,
+    status: z.nativeEnum(GameStatus),
+    resultType: z.nativeEnum(GameResultType),
+  })
+  .superRefine((data, ctx) => {
+    if (data.status === "FINAL" && (data.homeRuns == null || data.awayRuns == null)) {
+      ctx.addIssue({
+        code: "custom",
+        message: "Final games need both teams’ runs.",
+        path: ["homeRuns"],
+      });
+    }
+    if (data.status === "AWAITING_RESULTS" && (data.homeRuns != null || data.awayRuns != null)) {
+      ctx.addIssue({
+        code: "custom",
+        message: "Awaiting results should not include scores; use Final or clear runs.",
+        path: ["status"],
+      });
+    }
+  });

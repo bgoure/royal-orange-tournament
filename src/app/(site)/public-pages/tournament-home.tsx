@@ -109,7 +109,7 @@ export async function TournamentHomePublic({
           <section>
             <SectionTitle className="mb-3">Upcoming games</SectionTitle>
             <div>
-              <UpcomingGamesWithDivisionTabs games={upcomingGames} timezone={tournament.timezone} />
+              <UpcomingGamesWithDivisionTabs games={upcomingGames} calendarTimezone={tournament.timezone} />
             </div>
           </section>
 
@@ -118,10 +118,11 @@ export async function TournamentHomePublic({
             <GameList
               games={recentGames}
               timezone={tournament.timezone}
+              displayTimesInViewerTimezone
               horizontal
               animateStagger
-              emptyMessage="No completed games for this division yet."
-              emptyHint="Finished games appear here after scores are recorded."
+              emptyMessage="No recent games for this division yet."
+              emptyHint="Final scores, cancelled games, and games awaiting results appear here."
             />
           </section>
 
