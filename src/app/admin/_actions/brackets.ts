@@ -327,6 +327,60 @@ export async function deleteConsolationGameAction(
   }
 }
 
+export async function resetPlayoffBracket(
+  _prev: BracketActionResult | undefined,
+  formData: FormData,
+): Promise<BracketActionResult> {
+  const ctx = await bracketContext();
+  if ("error" in ctx) return { ok: false, error: ctx.error };
+  if (!can(ctx.session.user.role, "bracket:configure")) return deny();
+
+  const parsed = deleteBracketSchema.safeParse({
+    bracketId: formData.get("bracketId"),
+  });
+  if (!parsed.success) {
+    return { ok: false, error: parsed.error.flatten().formErrors.join(", ") || "Invalid bracket" };
+  }
+
+  try {
+    const existing = await prisma.bracket.findFirst({
+      where: { id: parsed.data.bracketId, tournamentId: ctx.tournament.id },
+      select: { id: true },
+    });
+    if (!existing) return { ok: false, error: "Bracket not found" };
+
+    await prisma.$transaction(async (tx) => {
+      await tx.game.updateMany({
+        where: { bracketId: existing.id },
+        data: {
+          status: "SCHEDULED",
+          resultType: "REGULAR",
+          homeTeamId: null,
+          awayTeamId: null,
+          homeRuns: null,
+          awayRuns: null,
+          homeDefensiveInnings: null,
+          awayDefensiveInnings: null,
+          homeOffensiveInnings: null,
+          awayOffensiveInnings: null,
+        },
+      });
+      await tx.bracket.update({
+        where: { id: existing.id },
+        data: { needsResolutionRefresh: true },
+      });
+    });
+
+    revalidatePath("/admin/brackets");
+    revalidatePath("/admin/games");
+    await revalidatePublishedTournamentSites();
+    return { ok: true };
+  } catch (e) {
+    const msg = e instanceof Error ? e.message : "Failed to reset bracket";
+    return { ok: false, error: msg };
+  }
+}
+
 export async function deletePlayoffBracket(
   _prev: BracketActionResult | undefined,
   formData: FormData,

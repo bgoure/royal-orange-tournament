@@ -9,6 +9,7 @@ import {
   createDivisionPlayoffBracketAction,
   deleteConsolationGameAction,
   deletePlayoffBracket,
+  resetPlayoffBracket,
   toggleBracketPublished,
   updatePoolTeamsAdvancing,
   type BracketActionResult,
@@ -242,6 +243,10 @@ export function BracketsAdmin({
     deletePlayoffBracket,
     undefined as BracketActionResult | undefined,
   );
+  const [resetState, resetAction, resetPending] = useActionState(
+    resetPlayoffBracket,
+    undefined as BracketActionResult | undefined,
+  );
   const [consolationCreateState, consolationCreateAction, consolationCreatePending] = useActionState(
     createConsolationGameAction,
     undefined as BracketActionResult | undefined,
@@ -323,6 +328,7 @@ export function BracketsAdmin({
       <ActionMessage state={publishState} />
       <ActionMessage state={resolveState} />
       <ActionMessage state={deleteState} />
+      <ActionMessage state={resetState} />
       <ActionMessage state={consolationCreateState} />
       <ActionMessage state={consolationDeleteState} />
 
@@ -651,6 +657,8 @@ export function BracketsAdmin({
           <p className="mt-1 text-xs text-zinc-500">
             Unpublished brackets stay hidden on the public site. “Apply standings” only runs when every pool game
             in that division is final or cancelled (round robin finished). Use it after pool play changes.{" "}
+            <strong className="font-medium text-zinc-700">Reset bracket</strong> keeps the tree and games, clears teams/scores,
+            and sets all bracket games back to scheduled.{" "}
             <strong className="font-medium text-zinc-700">Delete bracket</strong> removes the playoff tree and all
             its games so you can run the create wizard again.
           </p>
@@ -688,6 +696,16 @@ export function BracketsAdmin({
                         {resolvePending ? "Applying…" : "Apply standings to seeds"}
                       </button>
                     </form>
+                    <ConfirmForm
+                      action={resetAction}
+                      message={`Reset “${b.name}” for ${b.division.name}? This keeps the bracket but clears teams, scores, and sets bracket game statuses to SCHEDULED.`}
+                      className="inline"
+                    >
+                      <input type="hidden" name="bracketId" value={b.id} />
+                      <button type="submit" disabled={resetPending} className={btnSecondary}>
+                        {resetPending ? "Resetting…" : "Reset bracket"}
+                      </button>
+                    </ConfirmForm>
                     <ConfirmForm
                       action={deleteAction}
                       message={`Delete “${b.name}” for ${b.division.name}? All playoff games for this bracket will be removed.`}
