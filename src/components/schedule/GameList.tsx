@@ -242,9 +242,9 @@ function GameCardInner({
   /** Full-width schedule list stays dense; horizontal (home upcoming) keeps the original compact card height. */
   const cardPadding =
     scheduleCompactLayout && !compact
-      ? "px-3 py-2"
+      ? "px-3 py-1.5"
       : compact
-        ? "min-h-[48px] px-3 py-3"
+        ? "min-h-[44px] px-3 py-2"
         : "p-3";
   /** Width is set on horizontal row `<li>` so flex cannot under-size items and clip. */
   const compactShell = compact ? `w-full ${cardPadding}` : cardPadding;
@@ -376,7 +376,7 @@ function GameCardInner({
       </div>
     );
 
-    const footerGap = compact ? "mt-2" : "mt-1.5";
+    const footerGap = "mt-1";
 
     const cardShadow = muted ? "shadow-[0_1px_2px_rgba(0,0,0,0.05)]" : "shadow-[0_1px_3px_rgba(0,0,0,0.1)]";
 
@@ -390,7 +390,7 @@ function GameCardInner({
         {...quickInteract}
       >
         <div className="flex items-start justify-between gap-2">
-          <p className={`min-w-0 flex-1 text-[13px] font-bold leading-snug ${timeTone}`}>{timeLine}</p>
+          <p className={`min-w-0 flex-1 text-[10px] font-bold leading-snug ${timeTone}`}>{timeLine}</p>
           <span
             className={`inline-block shrink-0 rounded-md px-2 py-0.5 text-[11px] font-bold tabular-nums ${idBadgeCls}`}
           >
@@ -401,7 +401,7 @@ function GameCardInner({
         {matchupBlock}
 
         <div
-          className={`${footerGap} flex ${compact ? "min-h-0" : "min-h-[1.25rem]"} items-end justify-between gap-2`}
+          className={`${footerGap} flex ${compact ? "min-h-0" : "min-h-0"} items-end justify-between gap-1.5`}
         >
           <div className="min-w-0 shrink-0">
             {scheduleCompactFooterStatus ? (

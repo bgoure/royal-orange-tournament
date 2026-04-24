@@ -43,7 +43,7 @@ export function WeatherInteractiveCard({
 
   const ariaHint =
     view === "daily"
-      ? "Weather at tournament headquarters. Five-day high and low temperatures. Press to show the next six hours."
+      ? "Weather at tournament headquarters. Five-day high temperatures. Press to show the next six hours."
       : "Weather at tournament headquarters. Next six hours forecast. Press to show five-day highs and lows.";
 
   return (
@@ -97,16 +97,17 @@ export function WeatherInteractiveCard({
               ? wx.daily.slice(0, 5).map((d) => (
                   <div
                     key={d.date}
-                    className="flex min-w-[2.8rem] flex-1 flex-col items-center rounded-lg bg-white/60 px-1 py-1 text-center dark:bg-zinc-800/50"
+                    className="flex min-w-[2.75rem] flex-1 flex-col items-center rounded-lg bg-white/60 px-0.5 py-1 text-center text-[10px] dark:bg-zinc-800/50"
                   >
-                    <p className="text-xs font-semibold text-royal dark:text-royal-100">
+                    <p className="font-semibold leading-none text-royal dark:text-royal-100">
                       {new Intl.DateTimeFormat(undefined, { weekday: "narrow" }).format(
                         new Date(`${d.date}T12:00:00`),
                       )}
                     </p>
-                    <p className="text-base font-medium tabular-nums leading-tight text-royal/90 dark:text-royal-100">
-                      {d.highC}°/{d.lowC}°
-                    </p>
+                    <span className="my-0.5 text-base leading-none" aria-hidden>
+                      {weatherEmojiForCode(d.code)}
+                    </span>
+                    <p className="tabular-nums font-semibold text-royal dark:text-royal-100">{d.highC}°</p>
                   </div>
                 ))
               : wx.hourly.slice(0, 6).map((h) => (
