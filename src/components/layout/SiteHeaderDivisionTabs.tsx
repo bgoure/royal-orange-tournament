@@ -90,7 +90,7 @@ export function SiteHeaderDivisionTabs({
 
   return (
     <div
-      className={`ml-auto w-fit min-w-0 max-w-full rounded-xl p-1.5 shadow-sm ring-1 ring-white/30 dark:bg-none dark:bg-zinc-800/90 dark:ring-zinc-600/40 ${brandCardGradientClass(`div-switcher-${tournamentSlug}`)}`}
+      className={`ml-auto w-fit min-w-0 max-w-full rounded-xl border border-white/45 p-1.5 shadow-[0_8px_30px_rgb(0,0,0,0.06)] backdrop-blur-md dark:border-zinc-600/50 dark:bg-none dark:bg-zinc-800/88 dark:shadow-[0_8px_30px_rgb(0,0,0,0.25)] ${brandCardGradientClass(`div-switcher-${tournamentSlug}`)}`}
     >
       <DivisionSwitcher
         divisions={tabs}

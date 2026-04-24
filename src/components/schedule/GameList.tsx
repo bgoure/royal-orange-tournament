@@ -11,7 +11,7 @@ import {
 } from "@/lib/datetime-tournament";
 import { playoffScheduleBracketCaption } from "@/lib/brackets/bracket-display";
 import { brandCardGradientClass } from "@/lib/brand-card-gradient";
-import { publicGlassCard2xl } from "@/lib/public-glass-card";
+import { publicGlassCardOverlay2xl } from "@/lib/public-glass-card";
 import { DIVISION_SWIPE_IGNORE } from "@/lib/division-swipe-ignore";
 import { gameDivisionIdForFavorites } from "@/lib/game-division-from-game";
 import { poolCardLabelTextClass } from "@/lib/pool-card-label";
@@ -384,7 +384,7 @@ function GameCardInner({
       <div
         className={
           glassVariant
-            ? `${publicGlassCard2xl} ${leftBorderResolved} ${cardPadding}${quickShell}`
+            ? `${publicGlassCardOverlay2xl} ${surfaceResolved} ${leftBorderResolved} ${cardPadding}${quickShell}`
             : `min-w-0 rounded-2xl border border-zinc-200 dark:border-zinc-700 ${cardShadow} ${surfaceResolved} ${leftBorderResolved} ${cardPadding}${quickShell}`
         }
         {...quickInteract}
@@ -430,7 +430,7 @@ function GameCardInner({
     <div
       className={
         glassVariant
-          ? `${publicGlassCard2xl} ${leftBorderResolved} ${compactShell}${quickShell}`
+          ? `${publicGlassCardOverlay2xl} ${surfaceResolved} ${leftBorderResolved} ${compactShell}${quickShell}`
           : `min-w-0 rounded-2xl border border-zinc-200 dark:border-zinc-700 ${cardShadowMain} ${surfaceResolved} ${leftBorderResolved} ${compactShell}${quickShell}`
       }
       {...quickInteract}
