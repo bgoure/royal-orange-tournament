@@ -1,34 +1,56 @@
 "use client";
 
+import { useEffect, useState } from "react";
+import { fetchGamesForFavoriteTeams } from "@/app/actions/favorite-teams-games";
 import { GameList, type GameWithTeams } from "@/components/schedule/GameList";
 import { SectionTitle } from "@/components/ui/PublicHeading";
 import { useFavorites } from "@/hooks/useFavorites";
 
-const UPCOMING_FOR_FAVORITES = new Set<string>(["SCHEDULED", "LIVE", "POSTPONED"]);
-
 export function FavoriteTeamsStrip({
   tournamentId,
-  games,
+  divisionTabId,
   timezone,
 }: {
   tournamentId: string;
-  games: GameWithTeams[];
+  /** Active public division tab (pool scope), same as schedule/results. */
+  divisionTabId: string | undefined;
   timezone?: string;
 }) {
   const { favorites, isLoaded } = useFavorites(tournamentId);
+  const [games, setGames] = useState<GameWithTeams[]>([]);
+  const [fetchDone, setFetchDone] = useState(false);
 
-  if (!isLoaded || favorites.length === 0) {
+  useEffect(() => {
+    if (!isLoaded || favorites.length === 0) {
+      setGames([]);
+      setFetchDone(true);
+      return;
+    }
+
+    let cancelled = false;
+    setFetchDone(false);
+
+    void (async () => {
+      try {
+        const rows = await fetchGamesForFavoriteTeams(tournamentId, divisionTabId ?? null, favorites);
+        if (!cancelled) setGames(rows as GameWithTeams[]);
+      } catch {
+        if (!cancelled) setGames([]);
+      } finally {
+        if (!cancelled) setFetchDone(true);
+      }
+    })();
+
+    return () => {
+      cancelled = true;
+    };
+  }, [isLoaded, tournamentId, divisionTabId, favorites]);
+
+  if (!isLoaded || !fetchDone || favorites.length === 0) {
     return null;
   }
 
-  const favSet = new Set(favorites);
-  const filteredGames = games.filter(
-    (g) =>
-      UPCOMING_FOR_FAVORITES.has(g.status) &&
-      ((g.homeTeamId != null && favSet.has(g.homeTeamId)) || (g.awayTeamId != null && favSet.has(g.awayTeamId))),
-  );
-
-  if (filteredGames.length === 0) {
+  if (games.length === 0) {
     return null;
   }
 
@@ -36,15 +58,15 @@ export function FavoriteTeamsStrip({
     <section aria-label="Your teams">
       <SectionTitle className="mb-3">Your teams</SectionTitle>
       <GameList
-        games={filteredGames}
+        games={games}
         timezone={timezone}
         displayTimesInViewerTimezone
         horizontal
         animateStagger
         tournamentId={tournamentId}
         glassVariant
-        emptyMessage="No upcoming games for your teams."
-        emptyHint="Favorite teams from the schedule or upcoming list."
+        emptyMessage="No games for your teams in this division yet."
+        emptyHint="Favorite teams from the schedule; their games appear here (all statuses)."
       />
     </section>
   );

@@ -265,6 +265,33 @@ export async function listUpcomingGamesForHome(
   return sorted.slice(0, UPCOMING_HOME_MAX);
 }
 
+/** All games in the division tab where home or away is one of the given teams (any status; no row cap). */
+export async function listGamesForFavoriteTeamIds(
+  tournamentId: string,
+  divisionTabId: string | undefined,
+  teamIds: string[],
+) {
+  const unique = [...new Set(teamIds.map((id) => id.trim()).filter(Boolean))];
+  if (unique.length === 0) return [];
+
+  const conditions: Prisma.GameWhereInput[] = [
+    { tournamentId },
+    publicConsolationVisibilityClause(),
+    {
+      OR: [{ homeTeamId: { in: unique } }, { awayTeamId: { in: unique } }],
+    },
+  ];
+  const divW = divisionTabGameWhere(divisionTabId);
+  if (divW) conditions.push(divW);
+
+  const rows = await prisma.game.findMany({
+    where: { AND: conditions },
+    orderBy: { scheduledAt: "asc" },
+    include: gameListInclude,
+  });
+  return sortGamesForScheduleList(rows);
+}
+
 /** Latest games for the home “Recent results” strip (final, cancelled, awaiting scores). */
 export async function listRecentGamesForHome(
   tournamentId: string,
