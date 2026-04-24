@@ -36,6 +36,13 @@ function confettiUnit(i: number, salt: number): number {
   return x - Math.floor(x);
 }
 
+/** Avoid "Name!!" when tournament label already ends with ! or ?. */
+function tournamentClosingPhrase(tournamentName: string): string {
+  const t = tournamentName.trim();
+  if (!t) return "";
+  return /[!?.]$/.test(t) ? t : `${t}!`;
+}
+
 function ConfettiLayer({ show }: { show: boolean }) {
   const pieces = useMemo((): ConfettiPiece[] => {
     return Array.from({ length: 28 }, (_, i) => ({
@@ -52,7 +59,7 @@ function ConfettiLayer({ show }: { show: boolean }) {
   if (!show) return null;
 
   return (
-    <div className="pointer-events-none absolute inset-x-0 top-0 z-0 h-[min(420px,55vh)] overflow-hidden" aria-hidden>
+    <div className="pointer-events-none absolute inset-0 z-0 overflow-hidden" aria-hidden>
       {pieces.map((p) => (
         <span
           key={p.id}
@@ -71,25 +78,6 @@ function ConfettiLayer({ show }: { show: boolean }) {
   );
 }
 
-function TrophyIcon({ className }: { className?: string }) {
-  return (
-    <svg
-      className={className}
-      viewBox="0 0 24 24"
-      fill="none"
-      stroke="currentColor"
-      strokeWidth={1.35}
-      strokeLinecap="round"
-      strokeLinejoin="round"
-      aria-hidden
-    >
-      <path d="M8 21h8M12 17v4M7 4h10v3a5 5 0 01-10 0V4z" />
-      <path d="M7 7H4a2 2 0 000 4h1.5M17 7h3a2 2 0 010 4h-1.5" />
-      <path d="M12 11v3" opacity={0.5} />
-    </svg>
-  );
-}
-
 export function ChampionCelebration({
   tournamentName,
   divisionName,
@@ -97,48 +85,50 @@ export function ChampionCelebration({
   className = "",
 }: ChampionCelebrationProps) {
   const reduceMotion = useReducedMotion();
+  const divisionTournamentBold = `${divisionName.trim()} ${tournamentClosingPhrase(tournamentName)}`.trim();
 
   return (
     <section
       className={`relative isolate overflow-hidden rounded-2xl border border-royal/25 bg-gradient-to-b from-royal-50/95 via-white to-amber-50/40 px-4 py-6 shadow-md sm:px-6 ${className}`.trim()}
       aria-label={`Champion: ${winnerTeam.name}`}
     >
-      <ConfettiLayer show={!reduceMotion} />
-
-      <div className="relative z-10 flex flex-col items-center text-center">
+      <div className="relative z-10 flex flex-col items-stretch">
         <motion.div
           initial={reduceMotion ? false : { y: -6, opacity: 0 }}
           animate={reduceMotion ? undefined : { y: 0, opacity: 1 }}
           transition={{ type: "spring", stiffness: 320, damping: 22 }}
-          className="mb-3 flex flex-col items-center gap-1"
+          className="relative min-h-[7.5rem] overflow-hidden rounded-xl border border-zinc-200/90 bg-zinc-50/90 px-3 py-3 sm:min-h-[8.5rem] sm:px-4 sm:py-4"
         >
-          <TrophyIcon className="size-14 text-amber-600 drop-shadow-sm sm:size-16" />
-          <p className="text-xs font-bold uppercase tracking-[0.14em] text-royal">Champions</p>
+          <ConfettiLayer show={!reduceMotion} />
+
+          <div className="relative z-10 flex h-full min-h-[6.5rem] flex-row items-center justify-between gap-3 sm:min-h-[7rem]">
+            <div className="flex min-w-0 max-w-[45%] flex-1 items-center justify-start sm:max-w-[48%]">
+              {winnerTeam.logo ? (
+                <TeamLogoMark
+                  team={winnerTeam}
+                  sizeClass="h-auto max-h-24 w-auto max-w-full sm:max-h-28"
+                  className="!h-auto max-h-24 object-contain object-left sm:max-h-28"
+                />
+              ) : (
+                <p className="line-clamp-3 text-left text-sm font-bold leading-tight text-royal sm:text-base">
+                  {winnerTeam.name}
+                </p>
+              )}
+            </div>
+            <div className="flex shrink-0 items-center justify-end">
+              {/* eslint-disable-next-line @next/next/no-img-element -- static public asset */}
+              <img
+                src="/championTrophy.png"
+                alt=""
+                className="h-[5.5rem] w-auto max-w-[min(160px,48%)] object-contain object-right sm:h-32 sm:max-w-[180px]"
+              />
+            </div>
+          </div>
         </motion.div>
 
-        <p className="text-base font-semibold text-zinc-800 sm:text-lg">Congratulations to</p>
-
-        <div className="my-4 flex w-full max-w-md justify-center sm:max-w-lg">
-          {winnerTeam.logo ? (
-            <TeamLogoMark
-              team={winnerTeam}
-              sizeClass="h-auto w-full max-h-40 sm:max-h-48"
-              className="!h-auto max-h-40 w-full max-w-full rounded-lg object-contain ring-2 ring-royal/20 sm:max-h-48"
-            />
-          ) : (
-            <div className="flex min-h-24 w-full max-w-xs items-center justify-center rounded-xl border-2 border-dashed border-royal/25 bg-white/80 px-4 py-6">
-              <span className="text-lg font-bold text-royal sm:text-xl">{winnerTeam.name}</span>
-            </div>
-          )}
-        </div>
-
-        {winnerTeam.logo ? (
-          <p className="mb-1 text-lg font-bold text-zinc-900 sm:text-xl">{winnerTeam.name}</p>
-        ) : null}
-
-        <p className="max-w-md text-sm leading-snug text-zinc-700 sm:text-base">
-          for winning the <span className="font-semibold text-zinc-900">{divisionName}</span>{" "}
-          <span className="font-semibold text-royal">{tournamentName}</span>
+        <p className="mx-auto mt-4 max-w-lg text-center text-sm leading-snug text-zinc-800 sm:text-base">
+          Congratulations to <strong className="font-bold text-zinc-900">{winnerTeam.name}</strong> for winning the{" "}
+          <strong className="font-bold text-royal">{divisionTournamentBold}</strong>
         </p>
       </div>
     </section>
