@@ -21,12 +21,7 @@ import {
 import { listLatestAnnouncementForHome } from "@/lib/services/announcements";
 import { formatHeadquartersHomeLabel } from "@/lib/headquarters-display";
 import { getHeadquartersLocation } from "@/lib/services/content";
-import { tournamentCalendarDayKey } from "@/lib/datetime-tournament";
-import {
-  hasFinalOrCancelledGameInDivisionTab,
-  listRecentGamesForHome,
-  listUpcomingGamesForHome,
-} from "@/lib/services/games";
+import { listRecentGamesForHome, listUpcomingGamesForHome } from "@/lib/services/games";
 import { getBracketChampionForDivisionTab } from "@/lib/brackets/bracket-champion";
 import { listPoolsForDivisionTabs } from "@/lib/services/pools";
 import { publicGlassLinkTile } from "@/lib/public-glass-card";
@@ -78,26 +73,16 @@ export async function TournamentHomePublic({
   );
 
   const showPublicAnnouncements = tournament.showPublicAnnouncements;
-  const [
-    latestAnnouncement,
-    upcomingGames,
-    recentGames,
-    hq,
-    champion,
-    hasFinalOrCancelled,
-  ] = await Promise.all([
+  const [latestAnnouncement, upcomingGames, recentGames, hq, champion] = await Promise.all([
     showPublicAnnouncements ? listLatestAnnouncementForHome(tournament.id) : Promise.resolve(null),
     listUpcomingGamesForHome(tournament.id, resolvedDivisionId || undefined),
     listRecentGamesForHome(tournament.id, resolvedDivisionId || undefined),
     getHeadquartersLocation(tournament.id),
     getBracketChampionForDivisionTab(tournament.id, resolvedDivisionId, poolsForTabs),
-    hasFinalOrCancelledGameInDivisionTab(tournament.id, resolvedDivisionId || undefined),
   ]);
 
-  const todayKey = tournamentCalendarDayKey(new Date(), tournament.timezone);
-  const startKey = tournamentCalendarDayKey(tournament.startDate, tournament.timezone);
-  const tournamentStarted = todayKey >= startKey;
-  const showRecentResultsSection = !tournamentStarted || hasFinalOrCancelled;
+  /** Hide until there is at least one result-row game (final, cancelled, or awaiting results) for this division. */
+  const showRecentResultsSection = recentGames.length > 0;
 
   const hqWeatherBlock = (
     <div className={`flex flex-col gap-1.5 ${hq ? "-my-2 sm:-my-1.5" : ""}`}>

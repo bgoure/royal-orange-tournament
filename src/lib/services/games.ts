@@ -313,26 +313,6 @@ export async function listRecentGamesForHome(
   });
 }
 
-/** True if the division has at least one final or cancelled game (for home “Recent results” visibility). */
-export async function hasFinalOrCancelledGameInDivisionTab(
-  tournamentId: string,
-  divisionTabId: string | undefined,
-): Promise<boolean> {
-  const conditions: Prisma.GameWhereInput[] = [
-    { tournamentId },
-    publicConsolationVisibilityClause(),
-    { status: { in: [GameStatus.FINAL, GameStatus.CANCELLED] } },
-  ];
-  const divW = divisionTabGameWhere(divisionTabId);
-  if (divW) conditions.push(divW);
-
-  const row = await prisma.game.findFirst({
-    where: { AND: conditions },
-    select: { id: true },
-  });
-  return row != null;
-}
-
 export async function listTodaysGames(tournamentId: string, timezone: string) {
   const now = new Date();
   const fmt = new Intl.DateTimeFormat("en-CA", {
