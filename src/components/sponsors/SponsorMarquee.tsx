@@ -8,7 +8,7 @@ const PLACEHOLDER_IDS = [0, 1, 2, 3, 4] as const;
 function PlaceholderSlot({ seed }: { seed: string }) {
   return (
     <div
-      className={`flex h-16 w-28 shrink-0 items-center justify-center rounded-xl border border-zinc-200 px-4 shadow-sm ${brandCardGradientClass(seed)}`}
+      className={`flex h-16 w-28 shrink-0 items-center justify-center rounded-xl border border-zinc-200 px-4 shadow-sm dark:border-zinc-700 ${brandCardGradientClass(seed)} dark:bg-none dark:bg-zinc-900/85`}
       aria-hidden
     >
       <span className="text-[2.5rem] leading-none select-none">⚾</span>
@@ -23,12 +23,12 @@ function SponsorMarqueeShell({
 }) {
   return (
     <section
-      className="border-t border-zinc-200/90 pt-5"
+      className="border-t border-zinc-200/90 pt-5 dark:border-zinc-800/90"
       aria-labelledby="sponsor-marquee-heading"
     >
       <h2
         id="sponsor-marquee-heading"
-        className="mb-3 text-center text-[11px] font-bold uppercase tracking-[0.12em] text-zinc-500"
+        className="mb-3 text-center text-[11px] font-bold uppercase tracking-[0.12em] text-zinc-500 dark:text-zinc-400"
       >
         Sponsors
       </h2>
@@ -57,7 +57,7 @@ function SponsorMarqueeImages({ sponsors }: { sponsors: { id: string; updatedAt:
       {loop.map((s, i) => (
         <div
           key={`${s.id}-${i}`}
-          className={`flex h-16 w-28 shrink-0 items-center justify-center rounded-xl border border-zinc-200 px-2 shadow-sm ${brandCardGradientClass(s.id)}`}
+          className={`flex h-16 w-28 shrink-0 items-center justify-center rounded-xl border border-zinc-200 px-2 shadow-sm dark:border-zinc-700 ${brandCardGradientClass(s.id)} dark:bg-none dark:bg-zinc-900/85`}
           aria-hidden
         >
           {/* eslint-disable-next-line @next/next/no-img-element -- API-served logo bytes */}

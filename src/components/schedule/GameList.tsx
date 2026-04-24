@@ -70,7 +70,7 @@ export function gameCardStatusPillText(
 
 function ahSuffix(which: "A" | "H") {
   return (
-    <span className="ml-1 text-[10px] font-medium text-zinc-400" aria-hidden>
+    <span className="ml-1 text-[10px] font-medium text-zinc-400 dark:text-zinc-500" aria-hidden>
       ({which})
     </span>
   );
@@ -114,10 +114,11 @@ export const GAME_CARD_STATUS_STYLES: Record<string, string> = {
   SCHEDULED: "bg-royal text-white",
   LIVE:
     "bg-red-500 text-white shadow-[0_0_8px_rgba(239,68,68,0.7)] motion-safe:animate-pulse motion-reduce:animate-none",
-  AWAITING_RESULTS: "bg-amber-100 text-amber-950 ring-1 ring-amber-300/80",
-  FINAL: "bg-royal-50 text-royal",
-  POSTPONED: "bg-zinc-200 text-zinc-700",
-  CANCELLED: "bg-zinc-200 text-zinc-600 line-through",
+  AWAITING_RESULTS:
+    "bg-amber-100 text-amber-950 ring-1 ring-amber-300/80 dark:bg-amber-900/50 dark:text-amber-100 dark:ring-amber-600/50",
+  FINAL: "bg-royal-50 text-royal dark:bg-royal-950/80 dark:text-royal-100",
+  POSTPONED: "bg-zinc-200 text-zinc-700 dark:bg-zinc-700 dark:text-zinc-200",
+  CANCELLED: "bg-zinc-200 text-zinc-600 line-through dark:bg-zinc-700 dark:text-zinc-300",
 };
 
 export function isLiveGameToday(g: GameWithTeams, timezone: string): boolean {
@@ -166,7 +167,7 @@ function bracketCaptionForScheduleCard(g: GameWithTeams): string | null {
 }
 
 const GLASS_CARD_CHROME =
-  "min-w-0 rounded-2xl border border-transparent bg-white/80 backdrop-blur-md shadow-[0_8px_30px_rgb(0,0,0,0.06)]";
+  "min-w-0 rounded-2xl border border-transparent bg-white/80 backdrop-blur-md shadow-[0_8px_30px_rgb(0,0,0,0.06)] dark:bg-zinc-900/75 dark:shadow-[0_8px_30px_rgb(0,0,0,0.25)]";
 
 function GameCardInner({
   g,
@@ -232,7 +233,7 @@ function GameCardInner({
   const leftBorder = isLive
     ? "border-l-2 border-l-red-500 shadow-[0_0_12px_rgba(239,68,68,0.35)]"
     : "border-l-2 border-l-royal/90";
-  const leftBorderResolved = muted ? "border-l-2 border-l-zinc-300" : leftBorder;
+  const leftBorderResolved = muted ? "border-l-2 border-l-zinc-300 dark:border-l-zinc-600" : leftBorder;
 
   const nameSize = liveProminent ? "text-base font-bold md:text-lg" : compact ? "text-xs font-bold" : "text-sm font-bold";
   const scoreNum = liveProminent ? "text-2xl" : compact ? "text-base" : "text-lg";
@@ -250,15 +251,17 @@ function GameCardInner({
   const compactShell = compact ? `w-full ${cardPadding}` : cardPadding;
   const surfaceGradient = brandCardGradientClass(g.id);
   const surfaceResolved = muted
-    ? "bg-gradient-to-br from-zinc-50 to-zinc-100/85 shadow-[0_1px_2px_rgba(0,0,0,0.05)]"
-    : surfaceGradient;
+    ? "bg-gradient-to-br from-zinc-50 to-zinc-100/85 shadow-[0_1px_2px_rgba(0,0,0,0.05)] dark:from-zinc-900 dark:to-zinc-900/90 dark:shadow-[0_1px_2px_rgba(0,0,0,0.2)]"
+    : `${surfaceGradient} dark:bg-none dark:bg-zinc-900/85`;
 
-  const timeTone = muted ? "text-zinc-500" : "text-zinc-900";
-  const nameTone = muted ? "text-zinc-600" : "text-zinc-900";
-  const scoreTone = muted ? "text-zinc-600" : "text-zinc-900";
-  const metaTone = muted ? "text-zinc-400" : "text-zinc-500";
-  const vsTone = muted ? "text-zinc-400" : "text-accent";
-  const idBadgeCls = muted ? "bg-zinc-300 text-zinc-700" : "bg-accent text-white";
+  const timeTone = muted ? "text-zinc-500 dark:text-zinc-400" : "text-zinc-900 dark:text-zinc-100";
+  const nameTone = muted ? "text-zinc-600 dark:text-zinc-400" : "text-zinc-900 dark:text-zinc-100";
+  const scoreTone = muted ? "text-zinc-600 dark:text-zinc-400" : "text-zinc-900 dark:text-zinc-100";
+  const metaTone = muted ? "text-zinc-400 dark:text-zinc-500" : "text-zinc-500 dark:text-zinc-400";
+  const vsTone = muted ? "text-zinc-400 dark:text-zinc-500" : "text-accent dark:text-accent-light";
+  const idBadgeCls = muted
+    ? "bg-zinc-300 text-zinc-700 dark:bg-zinc-600 dark:text-zinc-200"
+    : "bg-accent text-white";
   const logoTone = muted ? "opacity-80 saturate-[0.65]" : "";
 
   const scheduleCompactFooterStatus = scheduleCompactLayout && g.status !== "SCHEDULED";
@@ -274,19 +277,23 @@ function GameCardInner({
           >
             {g.pool.name}
           </span>
-          <span className={muted ? "text-zinc-300" : "text-zinc-400"}>·</span>
+          <span className={muted ? "text-zinc-300 dark:text-zinc-600" : "text-zinc-400 dark:text-zinc-500"}>·</span>
         </>
       ) : g.gameKind === GameKind.CONSOLATION && g.division ? (
         <>
-          <span className={`font-medium ${muted ? "text-zinc-500" : "text-zinc-600"}`}>
+          <span
+            className={`font-medium ${muted ? "text-zinc-500 dark:text-zinc-400" : "text-zinc-600 dark:text-zinc-400"}`}
+          >
             {g.division.name} · Consolation Game
           </span>
-          <span className={muted ? "text-zinc-300" : "text-zinc-400"}>·</span>
+          <span className={muted ? "text-zinc-300 dark:text-zinc-600" : "text-zinc-400 dark:text-zinc-500"}>·</span>
         </>
       ) : bracketCaption ? (
         <>
-          <span className={`font-medium ${muted ? "text-zinc-500" : "text-zinc-600"}`}>{bracketCaption}</span>
-          <span className={muted ? "text-zinc-300" : "text-zinc-400"}>·</span>
+          <span className={`font-medium ${muted ? "text-zinc-500 dark:text-zinc-400" : "text-zinc-600 dark:text-zinc-400"}`}>
+            {bracketCaption}
+          </span>
+          <span className={muted ? "text-zinc-300 dark:text-zinc-600" : "text-zinc-400 dark:text-zinc-500"}>·</span>
         </>
       ) : null}
       <span className="min-w-0 break-words text-right">{g.field.name}</span>
@@ -373,7 +380,7 @@ function GameCardInner({
         className={
           glassVariant
             ? `${GLASS_CARD_CHROME} ${leftBorderResolved} ${cardPadding}${quickShell}`
-            : `min-w-0 rounded-2xl border border-zinc-200 ${cardShadow} ${surfaceResolved} ${leftBorderResolved} ${cardPadding}${quickShell}`
+            : `min-w-0 rounded-2xl border border-zinc-200 dark:border-zinc-700 ${cardShadow} ${surfaceResolved} ${leftBorderResolved} ${cardPadding}${quickShell}`
         }
         {...quickInteract}
       >
@@ -419,7 +426,7 @@ function GameCardInner({
       className={
         glassVariant
           ? `${GLASS_CARD_CHROME} ${leftBorderResolved} ${compactShell}${quickShell}`
-          : `min-w-0 rounded-2xl border border-zinc-200 ${cardShadowMain} ${surfaceResolved} ${leftBorderResolved} ${compactShell}${quickShell}`
+          : `min-w-0 rounded-2xl border border-zinc-200 dark:border-zinc-700 ${cardShadowMain} ${surfaceResolved} ${leftBorderResolved} ${compactShell}${quickShell}`
       }
       {...quickInteract}
     >
@@ -515,23 +522,31 @@ function GameCardInner({
             <span className={`font-medium ${muted ? "opacity-80 " : ""}${poolCardLabelTextClass(g.pool.cardLabelColor)}`}>
               {g.pool.name}
             </span>
-            <span className={`mx-1.5 ${muted ? "text-zinc-300" : "text-zinc-400"}`}>·</span>
+            <span className={`mx-1.5 ${muted ? "text-zinc-300 dark:text-zinc-600" : "text-zinc-400 dark:text-zinc-500"}`}>
+              ·
+            </span>
           </>
         ) : g.gameKind === GameKind.CONSOLATION && g.division ? (
           <>
-            <span className={`font-medium ${muted ? "text-zinc-500" : ""}`}>
+            <span className={`font-medium ${muted ? "text-zinc-500 dark:text-zinc-400" : "text-zinc-600 dark:text-zinc-400"}`}>
               {g.division.name} · Consolation Game
             </span>
-            <span className={`mx-1.5 ${muted ? "text-zinc-300" : "text-zinc-400"}`}>·</span>
+            <span className={`mx-1.5 ${muted ? "text-zinc-300 dark:text-zinc-600" : "text-zinc-400 dark:text-zinc-500"}`}>
+              ·
+            </span>
           </>
         ) : bracketCaption ? (
           <>
-            <span className={`font-medium ${muted ? "text-zinc-500" : "text-zinc-600"}`}>{bracketCaption}</span>
-            <span className={`mx-1.5 ${muted ? "text-zinc-300" : "text-zinc-400"}`}>·</span>
+            <span className={`font-medium ${muted ? "text-zinc-500 dark:text-zinc-400" : "text-zinc-600 dark:text-zinc-400"}`}>
+              {bracketCaption}
+            </span>
+            <span className={`mx-1.5 ${muted ? "text-zinc-300 dark:text-zinc-600" : "text-zinc-400 dark:text-zinc-500"}`}>
+              ·
+            </span>
           </>
         ) : null}
         {g.field.name}
-        <span className={`mx-1.5 ${muted ? "text-zinc-300" : "text-zinc-400"}`}>·</span>
+        <span className={`mx-1.5 ${muted ? "text-zinc-300 dark:text-zinc-600" : "text-zinc-400 dark:text-zinc-500"}`}>·</span>
         <span
           className={`inline-block rounded-md px-2 py-0.5 text-[11px] font-bold tabular-nums ${idBadgeCls}`}
         >
@@ -771,7 +786,7 @@ export function GameList({
   const restGrouped =
     activeByCalendarDay?.map(([dayKey, rows]) => (
       <section key={dayKey} className="flex flex-col gap-2">
-        <h2 className="sticky top-[4.75rem] z-30 -mx-1 border-b border-zinc-200/90 bg-white/90 px-1 py-2 text-sm font-bold text-zinc-900 backdrop-blur-md md:top-[5rem]">
+        <h2 className="sticky top-[4.75rem] z-30 -mx-1 border-b border-zinc-200/90 bg-white/90 px-1 py-2 text-sm font-bold text-zinc-900 backdrop-blur-md dark:border-zinc-700/90 dark:bg-zinc-950/90 dark:text-zinc-100 md:top-[5rem]">
           {formatScheduleDayGroupHeading(rows[0]!.g.scheduledAt, tz)}
         </h2>
         <ul className="flex flex-col gap-2">
@@ -798,7 +813,7 @@ export function GameList({
   const completedGrouped =
     completedByCalendarDay?.map(([dayKey, rows]) => (
       <section key={`completed-${dayKey}`} className="flex flex-col gap-2">
-        <h3 className="sticky top-[4.75rem] z-30 -mx-1 border-b border-zinc-200/90 bg-white/90 px-1 py-2 text-sm font-bold text-zinc-500 backdrop-blur-md md:top-[5rem]">
+        <h3 className="sticky top-[4.75rem] z-30 -mx-1 border-b border-zinc-200/90 bg-white/90 px-1 py-2 text-sm font-bold text-zinc-500 backdrop-blur-md dark:border-zinc-700/90 dark:bg-zinc-950/90 dark:text-zinc-400 md:top-[5rem]">
           {formatScheduleDayGroupHeading(rows[0]!.g.scheduledAt, tz)}
         </h3>
         <ul className="flex flex-col gap-2">
@@ -822,8 +837,8 @@ export function GameList({
 
   const completedBlock =
     completedRest.length === 0 ? null : (
-      <div className="mt-8 border-t border-zinc-200 pt-6">
-        <h2 className="mb-3 px-1 text-xs font-semibold uppercase tracking-wide text-zinc-500">
+      <div className="mt-8 border-t border-zinc-200 pt-6 dark:border-zinc-800">
+        <h2 className="mb-3 px-1 text-xs font-semibold uppercase tracking-wide text-zinc-500 dark:text-zinc-400">
           Completed
         </h2>
         {completedGrouped ? (

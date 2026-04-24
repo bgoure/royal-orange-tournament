@@ -77,7 +77,7 @@ export function PwaInstallPrompt() {
   if (deferredPrompt) {
     return (
       <div
-        className="border-b border-royal-200 bg-royal-50 px-4 py-3 text-royal-900 shadow-sm"
+        className="border-b border-royal-200 bg-royal-50 px-4 py-3 text-royal-900 shadow-sm dark:border-royal-800 dark:bg-royal-950 dark:text-royal-100"
         role="region"
         aria-label="Install app"
       >
@@ -97,7 +97,7 @@ export function PwaInstallPrompt() {
             <button
               type="button"
               onClick={onDismiss}
-              className="min-h-10 min-w-10 rounded-lg p-2 text-royal-900/80 transition-colors hover:bg-royal-100"
+              className="min-h-10 min-w-10 rounded-lg p-2 text-royal-900/80 transition-colors hover:bg-royal-100 dark:text-royal-200/90 dark:hover:bg-royal-900"
               aria-label="Dismiss install prompt"
             >
               <span aria-hidden className="text-lg leading-none">
@@ -113,7 +113,7 @@ export function PwaInstallPrompt() {
   if (isIosLike()) {
     return (
       <div
-        className="border-b border-royal-200 bg-royal-50 px-4 py-3 text-royal-900 shadow-sm"
+        className="border-b border-royal-200 bg-royal-50 px-4 py-3 text-royal-900 shadow-sm dark:border-royal-800 dark:bg-royal-950 dark:text-royal-100"
         role="region"
         aria-label="Install app"
       >
@@ -125,7 +125,7 @@ export function PwaInstallPrompt() {
           <button
             type="button"
             onClick={onDismiss}
-            className="min-h-10 min-w-10 shrink-0 rounded-lg p-2 text-royal-900/80 transition-colors hover:bg-royal-100"
+            className="min-h-10 min-w-10 shrink-0 rounded-lg p-2 text-royal-900/80 transition-colors hover:bg-royal-100 dark:text-royal-200/90 dark:hover:bg-royal-900"
             aria-label="Dismiss install prompt"
           >
             <span aria-hidden className="text-lg leading-none">

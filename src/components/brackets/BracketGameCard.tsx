@@ -35,7 +35,7 @@ function gameRowToQuickPayload(game: GameRow): QuickEditGamePayload {
 
 function bracketAhTag(which: "A" | "H") {
   return (
-    <span className="ml-1 text-[10px] font-medium text-zinc-400" aria-hidden>
+    <span className="ml-1 text-[10px] font-medium text-zinc-400 dark:text-zinc-500" aria-hidden>
       ({which})
     </span>
   );
@@ -122,14 +122,14 @@ export function BracketGameCard({
     ? "border-l-2 border-l-red-500 shadow-[0_0_12px_rgba(239,68,68,0.35)]"
     : "border-l-2 border-l-royal/90";
 
-  const surfaceGradient = brandCardGradientClass(game.id);
+  const surfaceGradient = `${brandCardGradientClass(game.id)} dark:bg-none dark:bg-zinc-900/85`;
   const cardPadding = "px-3 py-2";
 
   const showScheduleStatusPill = game.status !== "SCHEDULED" && game.status !== "LIVE";
   const showLivePill = isLive;
 
   const metaTopRight = (
-    <div className="flex min-w-0 max-w-[min(100%,14rem)] flex-wrap items-center justify-end gap-x-1.5 gap-y-1 text-[10px] leading-tight text-zinc-500 sm:max-w-[55%]">
+    <div className="flex min-w-0 max-w-[min(100%,14rem)] flex-wrap items-center justify-end gap-x-1.5 gap-y-1 text-[10px] leading-tight text-zinc-500 dark:text-zinc-400 sm:max-w-[55%]">
       {showLivePill ? (
         <span
           className={`shrink-0 rounded-full px-2 py-0.5 text-[10px] font-bold uppercase ${st} ring-2 ring-red-400/50`}
@@ -146,18 +146,18 @@ export function BracketGameCard({
         {game.pool ? (
           <>
             <span className={`font-medium ${poolCardLabelTextClass(game.pool.cardLabelColor)}`}>{game.pool.name}</span>
-            <span className="text-zinc-400">·</span>
+            <span className="text-zinc-400 dark:text-zinc-500">·</span>
           </>
         ) : game.gameKind === GameKind.CONSOLATION && game.division ? (
           <>
-            <span className="font-medium text-zinc-600">
+            <span className="font-medium text-zinc-600 dark:text-zinc-400">
               {game.division.name} · Consolation Game
             </span>
-            <span className="text-zinc-400">·</span>
+            <span className="text-zinc-400 dark:text-zinc-500">·</span>
           </>
         ) : null}
         <span className="min-w-0 break-words text-right">{game.field.name}</span>
-        <span className="text-zinc-400">·</span>
+        <span className="text-zinc-400 dark:text-zinc-500">·</span>
         <span className="inline-block shrink-0 rounded-md bg-accent px-2 py-0.5 text-[11px] font-bold tabular-nums text-white">
           {bracketGameIdLabel(game, gChipIndex)}
         </span>
@@ -171,15 +171,15 @@ export function BracketGameCard({
 
   return (
     <article
-      className={`min-w-0 rounded-2xl border border-zinc-200 shadow-[0_1px_3px_rgba(0,0,0,0.1)] ${surfaceGradient} ${leftBorder} ${cardPadding}${quickShell}`}
+      className={`min-w-0 rounded-2xl border border-zinc-200 shadow-[0_1px_3px_rgba(0,0,0,0.1)] dark:border-zinc-700 dark:shadow-[0_1px_3px_rgba(0,0,0,0.25)] ${surfaceGradient} ${leftBorder} ${cardPadding}${quickShell}`}
       aria-label={`Bracket match ${gChipIndex + 1}`}
       {...quickInteract}
     >
       {roundLabel ? (
-        <p className="mb-1 text-[10px] font-bold uppercase tracking-[0.06em] text-royal">{roundLabel}</p>
+        <p className="mb-1 text-[10px] font-bold uppercase tracking-[0.06em] text-royal dark:text-royal-200">{roundLabel}</p>
       ) : null}
       <div className="flex items-start justify-between gap-2">
-        <p className="min-w-0 flex-1 text-[13px] font-bold leading-snug text-zinc-900">{timeLine}</p>
+        <p className="min-w-0 flex-1 text-[13px] font-bold leading-snug text-zinc-900 dark:text-zinc-100">{timeLine}</p>
         {metaTopRight}
       </div>
 
@@ -188,22 +188,26 @@ export function BracketGameCard({
           <div className="flex min-w-0 items-center justify-between gap-2">
             <div className="flex min-w-0 items-center gap-2">
               <TeamLogoMark team={away.team} sizeClass={scoredLogoSize} />
-              <p className={`min-w-0 truncate text-xs font-bold leading-snug text-zinc-900 ${slotLineTextClass(away)}`}>
+              <p
+                className={`min-w-0 truncate text-xs font-bold leading-snug text-zinc-900 dark:text-zinc-100 ${slotLineTextClass(away)}`}
+              >
                 {away.primary}
                 {bracketAhTag("A")}
               </p>
             </div>
-            <span className="shrink-0 text-base font-bold tabular-nums text-zinc-900">{game.awayRuns}</span>
+            <span className="shrink-0 text-base font-bold tabular-nums text-zinc-900 dark:text-zinc-100">{game.awayRuns}</span>
           </div>
           <div className="flex min-w-0 items-center justify-between gap-2">
             <div className="flex min-w-0 items-center gap-2">
               <TeamLogoMark team={home.team} sizeClass={scoredLogoSize} />
-              <p className={`min-w-0 truncate text-xs font-bold leading-snug text-zinc-900 ${slotLineTextClass(home)}`}>
+              <p
+                className={`min-w-0 truncate text-xs font-bold leading-snug text-zinc-900 dark:text-zinc-100 ${slotLineTextClass(home)}`}
+              >
                 {home.primary}
                 {bracketAhTag("H")}
               </p>
             </div>
-            <span className="shrink-0 text-base font-bold tabular-nums text-zinc-900">{game.homeRuns}</span>
+            <span className="shrink-0 text-base font-bold tabular-nums text-zinc-900 dark:text-zinc-100">{game.homeRuns}</span>
           </div>
         </div>
       ) : (
@@ -217,10 +221,10 @@ export function BracketGameCard({
                 {away.primary}
                 {bracketAhTag("A")}
               </p>
-              {away.secondary ? <p className="mt-0.5 text-xs text-zinc-500">{away.secondary}</p> : null}
+              {away.secondary ? <p className="mt-0.5 text-xs text-zinc-500 dark:text-zinc-400">{away.secondary}</p> : null}
             </div>
           </div>
-          <span className="shrink-0 self-center text-sm font-normal text-accent">vs</span>
+          <span className="shrink-0 self-center text-sm font-normal text-accent dark:text-accent-light">vs</span>
           <div className="flex min-w-0 flex-1 items-start justify-end gap-1.5">
             <div className="min-w-0 flex-1 text-right">
               <p
@@ -229,7 +233,7 @@ export function BracketGameCard({
                 {home.primary}
                 {bracketAhTag("H")}
               </p>
-              {home.secondary ? <p className="mt-0.5 text-xs text-zinc-500">{home.secondary}</p> : null}
+              {home.secondary ? <p className="mt-0.5 text-xs text-zinc-500 dark:text-zinc-400">{home.secondary}</p> : null}
             </div>
             <TeamLogoMark team={home.team} sizeClass={scheduleLogoSize} />
           </div>

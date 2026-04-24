@@ -121,14 +121,16 @@ export function BottomNav({
 
   const pillClass = (active: boolean) =>
     `flex min-h-[62px] min-w-[62px] flex-col items-center justify-center gap-0.5 rounded-xl px-2 py-1 text-[11px] font-semibold leading-tight transition-colors active:scale-[0.98] ${
-      active ? "bg-royal-50 text-royal ring-2 ring-royal/25" : "text-accent active:text-accent-700"
+      active
+        ? "bg-royal-50 text-royal ring-2 ring-royal/25 dark:bg-royal-900/40 dark:text-royal-100 dark:ring-royal-400/30"
+        : "text-accent active:text-accent-700 dark:text-accent-light dark:active:text-accent"
     }`;
 
   const closeMore = useCallback(() => setMoreOpen(false), [setMoreOpen]);
 
   return (
     <Drawer.Root open={moreOpen} onOpenChange={setMoreOpen}>
-        <nav className="fixed bottom-0 left-0 right-0 z-50 border-t border-zinc-200/80 bg-white/95 backdrop-blur-md pb-[env(safe-area-inset-bottom)] md:hidden">
+        <nav className="fixed bottom-0 left-0 right-0 z-50 border-t border-zinc-200/80 bg-white/95 backdrop-blur-md pb-[env(safe-area-inset-bottom)] dark:border-zinc-800/90 dark:bg-zinc-950/95 md:hidden">
           <div className="mx-auto flex min-h-[62px] max-w-lg items-center justify-around px-2 py-1">
             {tabs.map((t) => {
               let active = false;
@@ -165,18 +167,18 @@ export function BottomNav({
 
         <Drawer.Portal>
           <Drawer.Overlay className="fixed inset-0 z-[60] bg-black/40" />
-          <Drawer.Content className="fixed bottom-0 left-0 right-0 z-[60] mt-24 flex max-h-[85vh] flex-col rounded-t-2xl bg-white pb-[env(safe-area-inset-bottom)] outline-none">
+          <Drawer.Content className="fixed bottom-0 left-0 right-0 z-[60] mt-24 flex max-h-[85vh] flex-col rounded-t-2xl bg-white pb-[env(safe-area-inset-bottom)] outline-none dark:bg-zinc-950">
             <Drawer.Title className="sr-only">More</Drawer.Title>
             <div className="flex shrink-0 justify-center pt-3">
-              <Drawer.Handle className="h-1 w-10 rounded-full bg-zinc-300" />
+              <Drawer.Handle className="h-1 w-10 rounded-full bg-zinc-300 dark:bg-zinc-600" />
             </div>
             <ul className="min-h-0 flex-1 overflow-y-auto px-4 pb-4 pt-4">
               {moreLinks.map((item) => (
-                <li key={item.href} className="border-b border-zinc-100">
+                <li key={item.href} className="border-b border-zinc-100 dark:border-zinc-800">
                   <Link
                     href={item.href}
                     onClick={closeMore}
-                    className="flex min-h-[52px] items-start gap-3 py-3 text-accent active:bg-zinc-50"
+                    className="flex min-h-[52px] items-start gap-3 py-3 text-accent active:bg-zinc-50 dark:active:bg-zinc-900"
                   >
                     <span className="mt-0.5 text-accent" aria-hidden>
                       {item.icon}
@@ -190,11 +192,11 @@ export function BottomNav({
                   </Link>
                 </li>
               ))}
-              <li className="mt-2 border-t border-zinc-200 pt-2">
+              <li className="mt-2 border-t border-zinc-200 pt-2 dark:border-zinc-800">
                 <Link
                   href={tp("feedback")}
                   onClick={closeMore}
-                  className="flex min-h-[52px] items-start gap-3 py-3 text-accent active:bg-zinc-50"
+                  className="flex min-h-[52px] items-start gap-3 py-3 text-accent active:bg-zinc-50 dark:active:bg-zinc-900"
                 >
                   <span className="mt-0.5 text-accent" aria-hidden>
                     <MoreIconFeedback />

@@ -1,6 +1,6 @@
 import type { Tournament } from "@prisma/client";
 import { PageTitle } from "@/components/ui/PublicHeading";
-import { PublicSettingsStaffAuth } from "@/components/settings/PublicSettingsStaffAuth";
+import { PublicSettingsPortal } from "@/components/settings/PublicSettingsPortal";
 import { auth } from "@/auth";
 import { getRequestPublicOrigin } from "@/lib/request-public-origin";
 import { tournamentPathFromBase, tournamentPublicBasePath } from "@/lib/tournament-public-path";
@@ -19,12 +19,9 @@ export async function TournamentSettingsPublic({ tournament }: { tournament: Tou
 
   return (
     <div className="flex flex-col gap-4">
-      <div>
-        <PageTitle>Settings</PageTitle>
-        <p className="mt-2 text-sm text-zinc-600">Preferences for the tournament tracker app.</p>
-      </div>
+      <PageTitle>Settings</PageTitle>
 
-      <PublicSettingsStaffAuth
+      <PublicSettingsPortal
         settingsPath={settingsPath}
         requestOrigin={requestOrigin}
         googleAuthConfigured={googleAuthConfigured}

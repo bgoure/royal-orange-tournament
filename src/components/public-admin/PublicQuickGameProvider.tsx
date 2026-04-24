@@ -105,19 +105,19 @@ function QuickGameModal({
         onClick={onClose}
       />
       <div
-        className="relative max-h-[90vh] w-full max-w-lg overflow-y-auto rounded-t-2xl border border-zinc-200 bg-white shadow-2xl sm:rounded-2xl"
+        className="relative max-h-[90vh] w-full max-w-lg overflow-y-auto rounded-t-2xl border border-zinc-200 bg-white shadow-2xl dark:border-zinc-700 dark:bg-zinc-950 sm:rounded-2xl"
         role="dialog"
         aria-modal
         aria-labelledby="quick-game-title"
       >
-        <div className="sticky top-0 z-10 flex items-center justify-between border-b border-zinc-100 bg-white px-4 py-3">
-          <h2 id="quick-game-title" className="text-base font-bold text-zinc-900">
+        <div className="sticky top-0 z-10 flex items-center justify-between border-b border-zinc-100 bg-white px-4 py-3 dark:border-zinc-800 dark:bg-zinc-950">
+          <h2 id="quick-game-title" className="text-base font-bold text-zinc-900 dark:text-zinc-100">
             Edit game
           </h2>
           <button
             type="button"
             onClick={onClose}
-            className="rounded-lg p-2 text-zinc-500 hover:bg-zinc-100 hover:text-zinc-800"
+            className="rounded-lg p-2 text-zinc-500 hover:bg-zinc-100 hover:text-zinc-800 dark:text-zinc-400 dark:hover:bg-zinc-800 dark:hover:text-zinc-100"
             aria-label="Close"
           >
             <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} className="size-5">
@@ -144,16 +144,19 @@ function QuickGameModal({
             <p className="rounded-lg border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-800">{state.error}</p>
           ) : null}
 
-          <p className="text-sm text-zinc-600">
-            <span className="font-semibold text-zinc-900">{game.awayTeamName}</span>
-            <span className="ml-1 text-xs font-medium text-zinc-400">(A)</span>
-            <span className="mx-1 text-accent">vs</span>
-            <span className="font-semibold text-zinc-900">{game.homeTeamName}</span>
-            <span className="ml-1 text-xs font-medium text-zinc-400">(H)</span>
+          <p className="text-sm text-zinc-600 dark:text-zinc-400">
+            <span className="font-semibold text-zinc-900 dark:text-zinc-100">{game.awayTeamName}</span>
+            <span className="ml-1 text-xs font-medium text-zinc-400 dark:text-zinc-500">(A)</span>
+            <span className="mx-1 text-accent dark:text-accent-light">vs</span>
+            <span className="font-semibold text-zinc-900 dark:text-zinc-100">{game.homeTeamName}</span>
+            <span className="ml-1 text-xs font-medium text-zinc-400 dark:text-zinc-500">(H)</span>
           </p>
 
           <div>
-            <label htmlFor="qg-field" className="mb-1 block text-xs font-semibold uppercase tracking-wide text-zinc-500">
+            <label
+              htmlFor="qg-field"
+              className="mb-1 block text-xs font-semibold uppercase tracking-wide text-zinc-500 dark:text-zinc-400"
+            >
               Field
             </label>
             <select
@@ -161,7 +164,7 @@ function QuickGameModal({
               name="fieldId"
               required
               defaultValue={game.fieldId}
-              className="w-full rounded-xl border border-zinc-200 bg-white px-3 py-2.5 text-sm text-zinc-900 shadow-sm focus:border-royal focus:outline-none focus:ring-2 focus:ring-royal/20"
+              className="w-full rounded-xl border border-zinc-200 bg-white px-3 py-2.5 text-sm text-zinc-900 shadow-sm focus:border-royal focus:outline-none focus:ring-2 focus:ring-royal/20 dark:border-zinc-600 dark:bg-zinc-900 dark:text-zinc-100"
             >
               {fieldOptions.map((f) => (
                 <option key={f.id} value={f.id}>
@@ -172,7 +175,10 @@ function QuickGameModal({
           </div>
 
           <div>
-            <label htmlFor="qg-when" className="mb-1 block text-xs font-semibold uppercase tracking-wide text-zinc-500">
+            <label
+              htmlFor="qg-when"
+              className="mb-1 block text-xs font-semibold uppercase tracking-wide text-zinc-500 dark:text-zinc-400"
+            >
               Game time ({timezone})
             </label>
             <input
@@ -181,12 +187,15 @@ function QuickGameModal({
               type="datetime-local"
               required
               defaultValue={whenLocal}
-              className="w-full rounded-xl border border-zinc-200 bg-white px-3 py-2.5 text-sm text-zinc-900 shadow-sm focus:border-royal focus:outline-none focus:ring-2 focus:ring-royal/20"
+              className="w-full rounded-xl border border-zinc-200 bg-white px-3 py-2.5 text-sm text-zinc-900 shadow-sm focus:border-royal focus:outline-none focus:ring-2 focus:ring-royal/20 dark:border-zinc-600 dark:bg-zinc-900 dark:text-zinc-100"
             />
           </div>
 
           <div>
-            <label htmlFor="qg-status" className="mb-1 block text-xs font-semibold uppercase tracking-wide text-zinc-500">
+            <label
+              htmlFor="qg-status"
+              className="mb-1 block text-xs font-semibold uppercase tracking-wide text-zinc-500 dark:text-zinc-400"
+            >
               Status
             </label>
             <select
@@ -194,7 +203,7 @@ function QuickGameModal({
               name="status"
               required
               defaultValue={game.status}
-              className="w-full rounded-xl border border-zinc-200 bg-white px-3 py-2.5 text-sm text-zinc-900 shadow-sm focus:border-royal focus:outline-none focus:ring-2 focus:ring-royal/20"
+              className="w-full rounded-xl border border-zinc-200 bg-white px-3 py-2.5 text-sm text-zinc-900 shadow-sm focus:border-royal focus:outline-none focus:ring-2 focus:ring-royal/20 dark:border-zinc-600 dark:bg-zinc-900 dark:text-zinc-100"
             >
               {statusOptions.map((s) => (
                 <option key={s} value={s}>
@@ -205,12 +214,12 @@ function QuickGameModal({
           </div>
 
           {game.homeTeamId && game.awayTeamId ? (
-            <fieldset className="rounded-xl border border-zinc-200 bg-zinc-50/80 px-3 py-2">
-              <legend className="px-1 text-[10px] font-semibold uppercase tracking-wide text-zinc-500">
+            <fieldset className="rounded-xl border border-zinc-200 bg-zinc-50/80 px-3 py-2 dark:border-zinc-700 dark:bg-zinc-900/60">
+              <legend className="px-1 text-[10px] font-semibold uppercase tracking-wide text-zinc-500 dark:text-zinc-400">
                 Home Team
               </legend>
               <div className="flex flex-col gap-2 sm:flex-row sm:flex-wrap">
-                <label className="flex cursor-pointer items-center gap-2 text-sm text-zinc-800">
+                <label className="flex cursor-pointer items-center gap-2 text-sm text-zinc-800 dark:text-zinc-200">
                   <input
                     type="radio"
                     name="fieldHomeTeamId"
@@ -219,7 +228,7 @@ function QuickGameModal({
                   />
                   <span className="font-medium">{game.awayTeamName}</span>
                 </label>
-                <label className="flex cursor-pointer items-center gap-2 text-sm text-zinc-800">
+                <label className="flex cursor-pointer items-center gap-2 text-sm text-zinc-800 dark:text-zinc-200">
                   <input
                     type="radio"
                     name="fieldHomeTeamId"
@@ -237,9 +246,9 @@ function QuickGameModal({
 
           <div className="grid grid-cols-2 gap-3">
             <div>
-              <label htmlFor="qg-ar" className="mb-1 block text-xs font-semibold text-zinc-500">
+              <label htmlFor="qg-ar" className="mb-1 block text-xs font-semibold text-zinc-500 dark:text-zinc-400">
                 Runs — {game.awayTeamName}
-                <span className="ml-1 font-normal text-zinc-400">(A)</span>
+                <span className="ml-1 font-normal text-zinc-400 dark:text-zinc-500">(A)</span>
               </label>
               <input
                 id="qg-ar"
@@ -247,13 +256,13 @@ function QuickGameModal({
                 type="number"
                 min={0}
                 defaultValue={game.awayRuns ?? ""}
-                className="w-full rounded-xl border border-zinc-200 px-3 py-2 text-sm shadow-sm focus:border-royal focus:outline-none focus:ring-2 focus:ring-royal/20"
+                className="w-full rounded-xl border border-zinc-200 bg-white px-3 py-2 text-sm text-zinc-900 shadow-sm focus:border-royal focus:outline-none focus:ring-2 focus:ring-royal/20 dark:border-zinc-600 dark:bg-zinc-900 dark:text-zinc-100"
               />
             </div>
             <div>
-              <label htmlFor="qg-hr" className="mb-1 block text-xs font-semibold text-zinc-500">
+              <label htmlFor="qg-hr" className="mb-1 block text-xs font-semibold text-zinc-500 dark:text-zinc-400">
                 Runs — {game.homeTeamName}
-                <span className="ml-1 font-normal text-zinc-400">(H)</span>
+                <span className="ml-1 font-normal text-zinc-400 dark:text-zinc-500">(H)</span>
               </label>
               <input
                 id="qg-hr"
@@ -261,15 +270,15 @@ function QuickGameModal({
                 type="number"
                 min={0}
                 defaultValue={game.homeRuns ?? ""}
-                className="w-full rounded-xl border border-zinc-200 px-3 py-2 text-sm shadow-sm focus:border-royal focus:outline-none focus:ring-2 focus:ring-royal/20"
+                className="w-full rounded-xl border border-zinc-200 bg-white px-3 py-2 text-sm text-zinc-900 shadow-sm focus:border-royal focus:outline-none focus:ring-2 focus:ring-royal/20 dark:border-zinc-600 dark:bg-zinc-900 dark:text-zinc-100"
               />
             </div>
             {isPool ? (
               <>
                 <div>
-                  <label className="mb-1 block text-xs font-semibold text-zinc-500">
+                  <label className="mb-1 block text-xs font-semibold text-zinc-500 dark:text-zinc-400">
                     Def. innings — {game.awayTeamName}{" "}
-                    <span className="font-normal text-zinc-400">(A)</span>
+                    <span className="font-normal text-zinc-400 dark:text-zinc-500">(A)</span>
                   </label>
                   <input
                     name="awayDefensiveInnings"
@@ -277,13 +286,13 @@ function QuickGameModal({
                     step="any"
                     min={0}
                     defaultValue={game.awayDefensiveInnings ?? ""}
-                    className="w-full rounded-xl border border-zinc-200 px-3 py-2 text-sm shadow-sm focus:border-royal focus:outline-none focus:ring-2 focus:ring-royal/20"
+                    className="w-full rounded-xl border border-zinc-200 bg-white px-3 py-2 text-sm text-zinc-900 shadow-sm focus:border-royal focus:outline-none focus:ring-2 focus:ring-royal/20 dark:border-zinc-600 dark:bg-zinc-900 dark:text-zinc-100"
                   />
                 </div>
                 <div>
-                  <label className="mb-1 block text-xs font-semibold text-zinc-500">
+                  <label className="mb-1 block text-xs font-semibold text-zinc-500 dark:text-zinc-400">
                     Def. innings — {game.homeTeamName}{" "}
-                    <span className="font-normal text-zinc-400">(H)</span>
+                    <span className="font-normal text-zinc-400 dark:text-zinc-500">(H)</span>
                   </label>
                   <input
                     name="homeDefensiveInnings"
@@ -291,7 +300,7 @@ function QuickGameModal({
                     step="any"
                     min={0}
                     defaultValue={game.homeDefensiveInnings ?? ""}
-                    className="w-full rounded-xl border border-zinc-200 px-3 py-2 text-sm shadow-sm focus:border-royal focus:outline-none focus:ring-2 focus:ring-royal/20"
+                    className="w-full rounded-xl border border-zinc-200 bg-white px-3 py-2 text-sm text-zinc-900 shadow-sm focus:border-royal focus:outline-none focus:ring-2 focus:ring-royal/20 dark:border-zinc-600 dark:bg-zinc-900 dark:text-zinc-100"
                   />
                 </div>
               </>
@@ -309,7 +318,7 @@ function QuickGameModal({
             <button
               type="button"
               onClick={onClose}
-              className="min-h-11 rounded-xl border border-zinc-200 px-4 py-2.5 text-sm font-semibold text-zinc-700 hover:bg-zinc-50"
+              className="min-h-11 rounded-xl border border-zinc-200 px-4 py-2.5 text-sm font-semibold text-zinc-700 hover:bg-zinc-50 dark:border-zinc-600 dark:text-zinc-200 dark:hover:bg-zinc-800"
             >
               Cancel
             </button>
