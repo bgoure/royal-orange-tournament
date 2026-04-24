@@ -7,6 +7,7 @@ import {
   publicSocialSubtext,
   type SocialChannelKey,
 } from "@/lib/tournament-social-public";
+import { publicGlassLinkTile } from "@/lib/public-glass-card";
 
 const SOCIAL_DEFS: {
   key: SocialChannelKey;
@@ -93,7 +94,7 @@ export async function TournamentSocialPublic({ tournament }: { tournament: Tourn
                   href={s.href!}
                   target={external ? "_blank" : undefined}
                   rel={external ? "noopener noreferrer" : undefined}
-                  className="group flex min-h-[48px] items-start gap-3 rounded-2xl border border-zinc-200 border-l-2 border-l-royal/90 bg-white p-4 shadow-sm transition-all hover:border-royal-200 hover:shadow-md active:scale-[0.99]"
+                  className={`group flex min-h-[48px] items-start gap-3 p-4 transition-all hover:border-royal-200/50 hover:shadow-[0_10px_36px_rgba(30,58,138,0.12)] active:scale-[0.99] ${publicGlassLinkTile}`}
                 >
                   <span className="mt-0.5 text-royal">{s.icon}</span>
                   <span className="min-w-0">

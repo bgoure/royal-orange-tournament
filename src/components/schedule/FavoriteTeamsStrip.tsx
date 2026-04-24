@@ -68,7 +68,6 @@ export function FavoriteTeamsStrip({
         animateStagger
         scheduleCompactLayout
         tournamentId={tournamentId}
-        glassVariant
         emptyMessage="No games for My Team in this division yet."
         emptyHint="Games appear here for the team you follow in this division."
       />

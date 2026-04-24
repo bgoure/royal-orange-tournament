@@ -16,7 +16,7 @@ export function EmptyState({
 }) {
   return (
     <div
-      className={`flex flex-col items-center justify-center rounded-2xl border border-dashed border-zinc-200 bg-zinc-50/90 px-6 py-10 text-center dark:border-zinc-700 dark:bg-zinc-900/50 ${className}`}
+      className={`flex flex-col items-center justify-center rounded-2xl border border-dashed border-zinc-300/70 bg-zinc-50/75 px-6 py-10 text-center shadow-[0_8px_30px_rgb(0,0,0,0.04)] backdrop-blur-md dark:border-zinc-600 dark:bg-zinc-900/55 ${className}`}
       role="status"
       aria-live="polite"
     >

@@ -92,7 +92,7 @@ export function ChampionCelebration({
 
   return (
     <section
-      className={`relative isolate overflow-hidden rounded-2xl border border-royal/25 bg-gradient-to-b from-royal-50/95 via-white to-amber-50/40 px-4 py-6 shadow-md sm:px-6 ${className}`.trim()}
+      className={`relative isolate overflow-hidden rounded-2xl border border-royal/25 bg-gradient-to-b from-royal-50/90 via-white/92 to-amber-50/45 px-4 py-6 shadow-md backdrop-blur-md sm:px-6 dark:from-royal-950/55 dark:via-zinc-900/75 dark:to-amber-950/25 ${className}`.trim()}
       aria-label={`Champion: ${winnerTeam.name}`}
     >
       <div className="relative z-10 flex flex-col items-stretch">

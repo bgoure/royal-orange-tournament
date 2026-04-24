@@ -24,6 +24,7 @@ import { getHeadquartersLocation } from "@/lib/services/content";
 import { listRecentGamesForHome, listUpcomingGamesForHome } from "@/lib/services/games";
 import { getBracketChampionForDivisionTab } from "@/lib/brackets/bracket-champion";
 import { listPoolsForDivisionTabs } from "@/lib/services/pools";
+import { publicGlassLinkTile } from "@/lib/public-glass-card";
 import { tournamentPathFromBase, tournamentPublicBasePath } from "@/lib/tournament-public-path";
 
 function QuickLinkCard({
@@ -40,7 +41,7 @@ function QuickLinkCard({
   return (
     <Link
       href={href}
-      className="group flex min-h-[48px] flex-col items-center justify-center gap-1.5 rounded-2xl border border-zinc-200 border-l-2 border-l-royal/90 bg-white p-4 text-center shadow-sm transition-all hover:border-royal-200 hover:shadow-md active:scale-[0.98]"
+      className={`group flex min-h-[48px] flex-col items-center justify-center gap-1.5 p-4 text-center transition-all hover:border-royal-200/50 hover:shadow-[0_10px_36px_rgba(30,58,138,0.12)] active:scale-[0.98] ${publicGlassLinkTile}`}
     >
       <span className="text-royal [&_svg]:text-royal">{icon}</span>
       <span className="text-sm font-semibold text-zinc-900 group-hover:text-accent">{label}</span>
@@ -145,7 +146,6 @@ export async function TournamentHomePublic({
               displayTimesInViewerTimezone
               horizontal
               animateStagger
-              glassVariant
               tournamentId={tournament.id}
               emptyMessage="No recent games for this division yet."
               emptyHint="Final scores, cancelled games, and games awaiting results appear here."

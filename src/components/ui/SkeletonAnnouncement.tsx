@@ -1,8 +1,10 @@
+import { publicGlassCardXl } from "@/lib/public-glass-card";
+
 export function SkeletonAnnouncement({ className = "" }: { className?: string }) {
   const pulse = "motion-safe:animate-pulse motion-reduce:animate-none";
   return (
     <li
-      className={`rounded-xl border border-zinc-200 bg-white px-4 py-3 shadow-sm ${className}`.trim()}
+      className={`px-4 py-3 ${publicGlassCardXl} ${className}`.trim()}
       aria-hidden
     >
       <div className="flex flex-wrap items-baseline justify-between gap-2">

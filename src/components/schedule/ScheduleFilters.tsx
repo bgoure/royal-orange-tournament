@@ -17,7 +17,7 @@ type DrawerKind = "date" | "field" | "team";
 const drawerSectionTitle = "text-[11px] font-bold uppercase tracking-[0.12em] text-zinc-400";
 
 const filterChipRail =
-  "rounded-2xl border border-zinc-200/90 bg-gradient-to-b from-zinc-100/95 to-zinc-50/90 p-1 shadow-[inset_0_1px_0_rgba(255,255,255,0.85),0_1px_2px_rgba(15,23,42,0.04)] backdrop-blur-sm";
+  "rounded-2xl border border-white/50 bg-gradient-to-b from-zinc-100/80 to-zinc-50/75 p-1 shadow-[inset_0_1px_0_rgba(255,255,255,0.85),0_1px_2px_rgba(15,23,42,0.04)] backdrop-blur-md dark:border-zinc-600/45 dark:from-zinc-800/60 dark:to-zinc-900/55";
 
 const filterChipBase =
   "min-h-[48px] md:min-h-11 flex flex-1 min-w-0 items-center justify-center gap-2 rounded-xl px-3 py-2.5 text-sm font-semibold tracking-tight transition-all duration-200 ease-out focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-royal focus-visible:ring-offset-2 disabled:pointer-events-none disabled:opacity-50";
@@ -29,7 +29,7 @@ const filterChipActive =
   "bg-white text-royal shadow-[0_2px_10px_rgba(30,58,138,0.14),0_1px_2px_rgba(15,23,42,0.06)] ring-1 ring-zinc-200/70 ring-inset";
 
 const filterOptionBtn =
-  "group w-full rounded-xl border border-zinc-200/90 bg-white px-4 py-3.5 text-left text-sm font-medium text-zinc-800 shadow-[0_1px_2px_rgba(15,23,42,0.04)] transition-all duration-200 hover:border-royal/35 hover:shadow-[0_4px_14px_rgba(30,58,138,0.08)] active:scale-[0.995]";
+  "group w-full rounded-xl border border-white/45 bg-white/82 px-4 py-3.5 text-left text-sm font-medium text-zinc-800 shadow-[0_1px_2px_rgba(15,23,42,0.04)] backdrop-blur-md transition-all duration-200 hover:border-royal/35 hover:shadow-[0_4px_14px_rgba(30,58,138,0.08)] active:scale-[0.995] dark:border-zinc-600/50 dark:bg-zinc-900/72";
 
 const filterOptionBtnActive =
   "border-royal/45 bg-gradient-to-br from-royal-50/90 via-white to-white font-semibold text-royal shadow-[0_4px_16px_rgba(30,58,138,0.12)] ring-2 ring-royal/20";

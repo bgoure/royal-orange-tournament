@@ -1,6 +1,7 @@
 import type { Tournament } from "@prisma/client";
 import { FeedbackForm } from "@/components/feedback/FeedbackForm";
 import { PageTitle } from "@/components/ui/PublicHeading";
+import { publicGlassCard2xl } from "@/lib/public-glass-card";
 import { tournamentPathFromBase, tournamentPublicBasePath } from "@/lib/tournament-public-path";
 
 export async function TournamentFeedbackPublic({ tournament }: { tournament: Tournament }) {
@@ -16,7 +17,7 @@ export async function TournamentFeedbackPublic({ tournament }: { tournament: Tou
         </p>
       </div>
 
-      <section className="rounded-2xl border border-zinc-200 bg-white p-4 shadow-sm sm:p-6">
+      <section className={`p-4 sm:p-6 ${publicGlassCard2xl}`}>
         <FeedbackForm tournamentSlug={tournament.slug} sourcePath={sourcePath} />
       </section>
     </div>

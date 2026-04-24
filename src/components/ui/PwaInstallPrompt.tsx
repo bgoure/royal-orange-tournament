@@ -77,7 +77,7 @@ export function PwaInstallPrompt() {
   if (deferredPrompt) {
     return (
       <div
-        className="border-b border-royal-200 bg-royal-50 px-4 py-3 text-royal-900 shadow-sm dark:border-royal-800 dark:bg-royal-950 dark:text-royal-100"
+        className="border-b border-royal-200/80 bg-royal-50/90 px-4 py-3 text-royal-900 shadow-sm backdrop-blur-md dark:border-royal-800 dark:bg-royal-950/90 dark:text-royal-100"
         role="region"
         aria-label="Install app"
       >
@@ -113,7 +113,7 @@ export function PwaInstallPrompt() {
   if (isIosLike()) {
     return (
       <div
-        className="border-b border-royal-200 bg-royal-50 px-4 py-3 text-royal-900 shadow-sm dark:border-royal-800 dark:bg-royal-950 dark:text-royal-100"
+        className="border-b border-royal-200/80 bg-royal-50/90 px-4 py-3 text-royal-900 shadow-sm backdrop-blur-md dark:border-royal-800 dark:bg-royal-950/90 dark:text-royal-100"
         role="region"
         aria-label="Install app"
       >

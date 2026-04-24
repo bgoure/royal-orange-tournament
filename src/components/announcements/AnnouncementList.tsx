@@ -6,6 +6,7 @@ import { useCallback, useState, type KeyboardEvent } from "react";
 import { AnimatedListItem } from "@/components/ui/AnimatedListItem";
 import { formatAnnouncementPublishedLabel } from "@/lib/announcement-display";
 import { PublicAnnouncementEditModal } from "@/components/announcements/PublicAnnouncementEditModal";
+import { publicGlassCardXl } from "@/lib/public-glass-card";
 
 const metaSm = "text-[10px] leading-tight text-zinc-500";
 const metaDefault = "text-xs text-zinc-500";
@@ -39,9 +40,9 @@ export function AnnouncementList({
     <>
       <ul className="flex flex-col gap-3">
         {items.map((a, i) => {
-          const shell = `rounded-xl border px-4 py-3 ${
-            a.priority ? "border-amber-200 bg-amber-50/80" : "border-zinc-200 bg-white shadow-sm"
-          }`;
+          const shell = a.priority
+            ? "rounded-xl border border-amber-200/60 bg-amber-50/75 px-4 py-3 backdrop-blur-md shadow-[0_8px_30px_rgb(0,0,0,0.06)] dark:border-amber-700/45 dark:bg-amber-950/35 dark:shadow-[0_8px_30px_rgb(0,0,0,0.25)]"
+            : `px-4 py-3 ${publicGlassCardXl}`;
 
           const content = (
             <>

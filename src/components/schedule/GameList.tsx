@@ -11,6 +11,7 @@ import {
 } from "@/lib/datetime-tournament";
 import { playoffScheduleBracketCaption } from "@/lib/brackets/bracket-display";
 import { brandCardGradientClass } from "@/lib/brand-card-gradient";
+import { publicGlassCard2xl } from "@/lib/public-glass-card";
 import { DIVISION_SWIPE_IGNORE } from "@/lib/division-swipe-ignore";
 import { gameDivisionIdForFavorites } from "@/lib/game-division-from-game";
 import { poolCardLabelTextClass } from "@/lib/pool-card-label";
@@ -167,9 +168,6 @@ function bracketCaptionForScheduleCard(g: GameWithTeams): string | null {
   });
 }
 
-const GLASS_CARD_CHROME =
-  "min-w-0 rounded-2xl border border-transparent bg-white/80 backdrop-blur-md shadow-[0_8px_30px_rgb(0,0,0,0.06)] dark:bg-zinc-900/75 dark:shadow-[0_8px_30px_rgb(0,0,0,0.25)]";
-
 function GameCardInner({
   g,
   compact,
@@ -181,7 +179,7 @@ function GameCardInner({
   muted = false,
   resultsFinalInningsBadge = false,
   tournamentId,
-  glassVariant = false,
+  glassVariant = true,
 }: {
   g: GameWithTeams;
   compact?: boolean;
@@ -386,7 +384,7 @@ function GameCardInner({
       <div
         className={
           glassVariant
-            ? `${GLASS_CARD_CHROME} ${leftBorderResolved} ${cardPadding}${quickShell}`
+            ? `${publicGlassCard2xl} ${leftBorderResolved} ${cardPadding}${quickShell}`
             : `min-w-0 rounded-2xl border border-zinc-200 dark:border-zinc-700 ${cardShadow} ${surfaceResolved} ${leftBorderResolved} ${cardPadding}${quickShell}`
         }
         {...quickInteract}
@@ -432,7 +430,7 @@ function GameCardInner({
     <div
       className={
         glassVariant
-          ? `${GLASS_CARD_CHROME} ${leftBorderResolved} ${compactShell}${quickShell}`
+          ? `${publicGlassCard2xl} ${leftBorderResolved} ${compactShell}${quickShell}`
           : `min-w-0 rounded-2xl border border-zinc-200 dark:border-zinc-700 ${cardShadowMain} ${surfaceResolved} ${leftBorderResolved} ${compactShell}${quickShell}`
       }
       {...quickInteract}
@@ -593,7 +591,7 @@ function HorizontalGameRow({
   scheduleCompactLayout = false,
   resultsFinalInningsBadge = false,
   tournamentId,
-  glassVariant = false,
+  glassVariant = true,
 }: {
   rows: { g: GameWithTeams; fallbackSeq: number }[];
   liveProminent?: boolean;
@@ -661,7 +659,7 @@ export function GameList({
   scheduleDeprioritizeCompleted = false,
   resultsFinalInningsBadge = false,
   tournamentId,
-  glassVariant = false,
+  glassVariant = true,
 }: {
   games: GameWithTeams[];
   /** Tournament IANA zone for “Live today” and schedule day grouping. */

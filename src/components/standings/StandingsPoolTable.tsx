@@ -10,6 +10,7 @@ import {
   poolStandingsTableHeaderClass,
 } from "@/lib/pool-card-label";
 import type { TeamWithPublicLogo } from "@/lib/team-logo";
+import { publicGlassCardXl } from "@/lib/public-glass-card";
 
 type Row = PoolStanding & { team: TeamWithPublicLogo };
 type PoolWith = Pool & {
@@ -65,7 +66,7 @@ export function StandingsPoolTable({
 
   return (
     <div
-      className={`flex overflow-hidden rounded-xl border border-zinc-200 bg-white shadow-sm ${
+      className={`flex overflow-hidden ${publicGlassCardXl} ${
         expanded ? "ring-2 ring-royal/20" : ""
       }`}
     >

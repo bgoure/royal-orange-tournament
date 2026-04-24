@@ -64,7 +64,7 @@ export function FeedbackForm({
             rows={6}
             maxLength={8000}
             placeholder="What worked well, what didn’t, or what you’d like to see…"
-            className="w-full rounded-xl border border-zinc-200 bg-white px-3 py-2.5 text-sm text-zinc-900 shadow-sm outline-none transition-colors placeholder:text-zinc-400 focus:border-royal focus:ring-2 focus:ring-royal/20"
+            className="w-full rounded-xl border border-white/50 bg-white/85 px-3 py-2.5 text-sm text-zinc-900 shadow-sm outline-none backdrop-blur-sm transition-colors placeholder:text-zinc-400 focus:border-royal focus:ring-2 focus:ring-royal/20 dark:border-zinc-600/60 dark:bg-zinc-900/70"
           />
           {fieldErrors?.message ? (
             <p className="mt-1 text-xs text-red-600">{fieldErrors.message}</p>
@@ -81,7 +81,7 @@ export function FeedbackForm({
             type="email"
             autoComplete="email"
             placeholder="you@example.com"
-            className="w-full rounded-xl border border-zinc-200 bg-white px-3 py-2.5 text-sm text-zinc-900 shadow-sm outline-none transition-colors placeholder:text-zinc-400 focus:border-royal focus:ring-2 focus:ring-royal/20"
+            className="w-full rounded-xl border border-white/50 bg-white/85 px-3 py-2.5 text-sm text-zinc-900 shadow-sm outline-none backdrop-blur-sm transition-colors placeholder:text-zinc-400 focus:border-royal focus:ring-2 focus:ring-royal/20 dark:border-zinc-600/60 dark:bg-zinc-900/70"
           />
           {fieldErrors?.contactEmail ? (
             <p className="mt-1 text-xs text-red-600">{fieldErrors.contactEmail}</p>

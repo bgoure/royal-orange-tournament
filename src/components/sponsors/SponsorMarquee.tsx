@@ -8,7 +8,7 @@ const PLACEHOLDER_IDS = [0, 1, 2, 3, 4] as const;
 function PlaceholderSlot({ seed }: { seed: string }) {
   return (
     <div
-      className={`flex h-16 w-28 shrink-0 items-center justify-center rounded-xl border border-zinc-200 px-4 shadow-sm dark:border-zinc-700 ${brandCardGradientClass(seed)} dark:bg-none dark:bg-zinc-900/85`}
+      className={`flex h-16 w-28 shrink-0 items-center justify-center rounded-xl border border-white/35 px-4 shadow-[0_8px_30px_rgb(0,0,0,0.06)] backdrop-blur-md dark:border-zinc-600/50 ${brandCardGradientClass(seed)} dark:bg-none dark:bg-zinc-900/75 dark:shadow-[0_8px_30px_rgb(0,0,0,0.25)]`}
       aria-hidden
     >
       <span className="text-[2.5rem] leading-none select-none">⚾</span>
@@ -57,7 +57,7 @@ function SponsorMarqueeImages({ sponsors }: { sponsors: { id: string; updatedAt:
       {loop.map((s, i) => (
         <div
           key={`${s.id}-${i}`}
-          className={`flex h-16 w-28 shrink-0 items-center justify-center rounded-xl border border-zinc-200 px-2 shadow-sm dark:border-zinc-700 ${brandCardGradientClass(s.id)} dark:bg-none dark:bg-zinc-900/85`}
+          className={`flex h-16 w-28 shrink-0 items-center justify-center rounded-xl border border-white/35 px-2 shadow-[0_8px_30px_rgb(0,0,0,0.06)] backdrop-blur-md dark:border-zinc-600/50 ${brandCardGradientClass(s.id)} dark:bg-none dark:bg-zinc-900/75 dark:shadow-[0_8px_30px_rgb(0,0,0,0.25)]`}
           aria-hidden
         >
           {/* eslint-disable-next-line @next/next/no-img-element -- API-served logo bytes */}

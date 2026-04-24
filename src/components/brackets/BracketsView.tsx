@@ -108,7 +108,7 @@ function MobileBracketRoundNav({
       <div className="flex items-center justify-between gap-3">
         <button
           type="button"
-          className="min-h-11 shrink-0 rounded-lg border-2 border-zinc-200 bg-zinc-100 px-3 py-2 text-sm font-semibold text-zinc-800 shadow-sm transition-colors hover:border-zinc-300 hover:bg-zinc-200 disabled:opacity-40"
+          className="min-h-11 shrink-0 rounded-lg border-2 border-white/50 bg-white/70 px-3 py-2 text-sm font-semibold text-zinc-800 shadow-[0_4px_16px_rgba(0,0,0,0.06)] backdrop-blur-md transition-colors hover:border-royal/25 hover:bg-white/92 disabled:opacity-40 dark:border-zinc-600/50 dark:bg-zinc-900/65 dark:hover:bg-zinc-900/85"
           disabled={safeIdx <= 0}
           onClick={() => setRoundIdx((i) => Math.max(0, i - 1))}
           aria-label="Previous round"
@@ -121,7 +121,7 @@ function MobileBracketRoundNav({
         </div>
         <button
           type="button"
-          className="min-h-11 shrink-0 rounded-lg border-2 border-zinc-200 bg-zinc-100 px-3 py-2 text-sm font-semibold text-zinc-800 shadow-sm transition-colors hover:border-zinc-300 hover:bg-zinc-200 disabled:opacity-40"
+          className="min-h-11 shrink-0 rounded-lg border-2 border-white/50 bg-white/70 px-3 py-2 text-sm font-semibold text-zinc-800 shadow-[0_4px_16px_rgba(0,0,0,0.06)] backdrop-blur-md transition-colors hover:border-royal/25 hover:bg-white/92 disabled:opacity-40 dark:border-zinc-600/50 dark:bg-zinc-900/65 dark:hover:bg-zinc-900/85"
           disabled={safeIdx >= visibleRounds.length - 1}
           onClick={() => setRoundIdx((i) => Math.min(visibleRounds.length - 1, i + 1))}
           aria-label="Next round"
@@ -299,7 +299,7 @@ function BracketSection({
             className={`${scopeBtn} ${
               scope === "all"
                 ? "border-royal bg-royal text-white shadow-sm"
-                : "border-zinc-200 bg-zinc-100 text-zinc-800 hover:border-zinc-300 hover:bg-zinc-200"
+                : "border-zinc-200/70 bg-white/55 text-zinc-800 backdrop-blur-md hover:border-royal/30 hover:bg-white/85 dark:border-zinc-600/50 dark:bg-zinc-900/55 dark:hover:bg-zinc-900/75"
             }`}
             onClick={() => setScope("all")}
           >
@@ -312,7 +312,7 @@ function BracketSection({
             className={`${scopeBtn} ${
               scope === "main"
                 ? "border-royal bg-royal text-white shadow-sm"
-                : "border-zinc-200 bg-zinc-100 text-zinc-800 hover:border-zinc-300 hover:bg-zinc-200"
+                : "border-zinc-200/70 bg-white/55 text-zinc-800 backdrop-blur-md hover:border-royal/30 hover:bg-white/85 dark:border-zinc-600/50 dark:bg-zinc-900/55 dark:hover:bg-zinc-900/75"
             }`}
             onClick={() => setScope("main")}
           >
@@ -325,7 +325,7 @@ function BracketSection({
             className={`${scopeBtn} ${
               scope === "consolation"
                 ? "border-royal bg-royal text-white shadow-sm"
-                : "border-zinc-200 bg-zinc-100 text-zinc-800 hover:border-zinc-300 hover:bg-zinc-200"
+                : "border-zinc-200/70 bg-white/55 text-zinc-800 backdrop-blur-md hover:border-royal/30 hover:bg-white/85 dark:border-zinc-600/50 dark:bg-zinc-900/55 dark:hover:bg-zinc-900/75"
             }`}
             onClick={() => setScope("consolation")}
           >
@@ -336,7 +336,7 @@ function BracketSection({
 
       <div className="mt-4 flex md:hidden">
         <div
-          className="inline-flex rounded-xl border border-zinc-200 bg-zinc-100/80 p-1 shadow-sm"
+          className="inline-flex rounded-xl border border-white/45 bg-white/55 p-1 shadow-[0_8px_24px_rgba(0,0,0,0.06)] backdrop-blur-md dark:border-zinc-600/50 dark:bg-zinc-900/55"
           role="group"
           aria-label="Mobile bracket view"
         >

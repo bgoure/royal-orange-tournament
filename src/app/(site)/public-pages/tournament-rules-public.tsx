@@ -1,5 +1,6 @@
 import type { Tournament } from "@prisma/client";
 import { RoyalOrangeClassicRules } from "@/components/content/RoyalOrangeClassicRules";
+import { publicGlassCard2xl } from "@/lib/public-glass-card";
 import { PageTitle, SectionTitle } from "@/components/ui/PublicHeading";
 import { listFaqItems } from "@/lib/services/content";
 
@@ -17,10 +18,7 @@ export async function TournamentRulesPublic({ tournament }: { tournament: Tourna
           <SectionTitle className="mb-4">FAQ</SectionTitle>
           <dl className="flex flex-col gap-4">
             {faqItems.map((item) => (
-              <div
-                key={item.id}
-                className="rounded-2xl border border-zinc-200 bg-white p-4 shadow-sm"
-              >
+              <div key={item.id} className={`p-4 ${publicGlassCard2xl}`}>
                 <dt className="font-semibold text-zinc-900">{item.question}</dt>
                 <dd className="mt-2 whitespace-pre-wrap text-sm leading-relaxed text-zinc-700">{item.answer}</dd>
               </div>

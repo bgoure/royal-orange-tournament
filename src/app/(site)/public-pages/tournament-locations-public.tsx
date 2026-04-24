@@ -3,6 +3,7 @@ import { EmptyState } from "@/components/ui/EmptyState";
 import { SectionTitle } from "@/components/ui/PublicHeading";
 import { formatLocationAddress } from "@/lib/location-utils";
 import { appleMapsUrl, googleMapsUrl, wazeUrl } from "@/lib/maps-links";
+import { publicGlassCardXl } from "@/lib/public-glass-card";
 import { listLocations } from "@/lib/services/content";
 
 function MapLinks({
@@ -43,7 +44,7 @@ function MapLinks({
         href={w}
         target="_blank"
         rel="noopener noreferrer"
-        className="rounded-full border border-zinc-200 bg-white px-4 py-2.5 text-xs font-semibold text-zinc-800 hover:bg-zinc-50 active:opacity-90"
+        className="rounded-full border border-white/45 bg-white/80 px-4 py-2.5 text-xs font-semibold text-zinc-800 shadow-[0_4px_20px_rgba(0,0,0,0.06)] backdrop-blur-md hover:bg-white/95 active:opacity-90 dark:border-zinc-600/50 dark:bg-zinc-900/70 dark:hover:bg-zinc-900/85"
       >
         Waze
       </a>
@@ -51,7 +52,7 @@ function MapLinks({
         href={a}
         target="_blank"
         rel="noopener noreferrer"
-        className="rounded-full border border-zinc-200 bg-white px-4 py-2.5 text-xs font-semibold text-zinc-800 hover:bg-zinc-50 active:opacity-90"
+        className="rounded-full border border-white/45 bg-white/80 px-4 py-2.5 text-xs font-semibold text-zinc-800 shadow-[0_4px_20px_rgba(0,0,0,0.06)] backdrop-blur-md hover:bg-white/95 active:opacity-90 dark:border-zinc-600/50 dark:bg-zinc-900/70 dark:hover:bg-zinc-900/85"
       >
         Apple Maps
       </a>
@@ -85,7 +86,7 @@ export async function TournamentLocationsPublic({ tournament }: { tournament: To
               const address = formatLocationAddress(loc);
               const query = address || loc.name;
               return (
-                <li key={loc.id} className="rounded-xl border border-zinc-200 bg-white px-4 py-3 shadow-sm">
+                <li key={loc.id} className={`px-4 py-3 ${publicGlassCardXl}`}>
                   <p className="font-medium text-zinc-900">
                     {loc.name}
                     {loc.isHeadquarters ? (

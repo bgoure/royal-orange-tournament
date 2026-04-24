@@ -45,7 +45,7 @@ export function ResultsPageHeading() {
         onClick={(e) => {
           if (e.target === e.currentTarget) close();
         }}
-        className="fixed left-1/2 top-1/2 z-[100] m-0 max-h-[min(90dvh,100%)] w-[min(calc(100vw-2rem),28rem)] -translate-x-1/2 -translate-y-1/2 rounded-2xl border border-zinc-200 bg-white p-0 text-zinc-900 shadow-xl [&::backdrop]:bg-zinc-900/40"
+        className="fixed left-1/2 top-1/2 z-[100] m-0 max-h-[min(90dvh,100%)] w-[min(calc(100vw-2rem),28rem)] -translate-x-1/2 -translate-y-1/2 rounded-2xl border border-white/50 bg-white/92 p-0 text-zinc-900 shadow-xl backdrop-blur-xl dark:border-zinc-600/50 dark:bg-zinc-900/90 [&::backdrop]:bg-zinc-900/40"
       >
         <div className="p-5">
           <h2 id="standings-glossary-title" className="text-base font-semibold text-zinc-900">

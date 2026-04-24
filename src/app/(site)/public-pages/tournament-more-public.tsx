@@ -10,6 +10,7 @@ import {
   MoreIconSocial,
 } from "@/components/icons/MoreMenuIcons";
 import { PageTitle } from "@/components/ui/PublicHeading";
+import { publicGlassLinkTile } from "@/lib/public-glass-card";
 import { tournamentPathFromBase, tournamentPublicBasePath } from "@/lib/tournament-public-path";
 
 export async function TournamentMorePublic({ tournament }: { tournament: Tournament }) {
@@ -43,8 +44,7 @@ export async function TournamentMorePublic({ tournament }: { tournament: Tournam
     { href: tp("settings"), label: "Settings", description: "Admin items", icon: <MoreIconSettings /> },
   ];
 
-  const cardClass =
-    "group flex min-h-[48px] items-start gap-3 rounded-2xl border border-zinc-200 border-l-2 border-l-royal/90 bg-white px-4 py-3 text-accent shadow-sm transition-all active:scale-[0.99] hover:border-royal-200 hover:shadow-md";
+  const cardClass = `group flex min-h-[48px] items-start gap-3 px-4 py-3 text-accent transition-all active:scale-[0.99] hover:border-royal-200/50 hover:shadow-[0_10px_36px_rgba(30,58,138,0.12)] ${publicGlassLinkTile}`;
 
   return (
     <div className="flex flex-col gap-4">

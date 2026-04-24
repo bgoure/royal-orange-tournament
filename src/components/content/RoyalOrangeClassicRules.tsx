@@ -22,7 +22,7 @@ const EXTERNAL_RESOURCES: { label: string; href: string }[] = [
 
 function SectionShell({ title, children }: { title: string; children: ReactNode }) {
   return (
-    <section className="overflow-hidden rounded-2xl border border-zinc-200 bg-white shadow-sm">
+    <section className="overflow-hidden rounded-2xl border border-white/40 bg-white/78 shadow-[0_8px_30px_rgb(0,0,0,0.06)] backdrop-blur-md dark:border-zinc-600/50 dark:bg-zinc-900/72 dark:shadow-[0_8px_30px_rgb(0,0,0,0.25)]">
       <h2 className="border-b border-royal/20 bg-royal px-4 py-3 text-xs font-bold uppercase tracking-[0.08em] text-white sm:text-sm">
         {title}
       </h2>
@@ -45,7 +45,7 @@ function SubRules({ children }: { children: ReactNode }) {
 export function RoyalOrangeClassicRules({ tournamentName }: { tournamentName: string }) {
   return (
     <div className="flex flex-col gap-5 pb-4">
-      <div className="rounded-2xl border border-accent/30 bg-gradient-to-br from-royal-50 via-white to-accent-50/40 p-4 shadow-sm sm:p-5">
+      <div className="rounded-2xl border border-accent/25 bg-gradient-to-br from-royal-50/88 via-white/82 to-accent-50/45 p-4 shadow-[0_8px_30px_rgb(0,0,0,0.06)] backdrop-blur-md sm:p-5 dark:border-accent/20 dark:from-royal-950/50 dark:via-zinc-900/72 dark:to-accent-950/25">
         <p className="text-sm font-semibold text-royal">External Resources</p>
         <div className="mt-3 flex flex-col gap-2 sm:flex-row sm:flex-wrap">
           {EXTERNAL_RESOURCES.map((item, i) => {
@@ -69,7 +69,7 @@ export function RoyalOrangeClassicRules({ tournamentName }: { tournamentName: st
         </div>
       </div>
 
-      <div className="min-w-0 overflow-hidden rounded-2xl border border-royal/20 border-l-4 border-l-accent bg-gradient-to-r from-royal-50/90 to-white px-3 py-3 shadow-md sm:px-6 sm:py-4">
+      <div className="min-w-0 overflow-hidden rounded-2xl border border-royal/20 border-l-4 border-l-accent bg-gradient-to-r from-royal-50/88 to-white/88 px-3 py-3 shadow-md backdrop-blur-md sm:px-6 sm:py-4 dark:from-royal-950/45 dark:to-zinc-900/70">
         <p className="whitespace-nowrap text-[clamp(0.5625rem,2.95vw,1.125rem)] font-bold leading-none tracking-tight text-royal">
           {tournamentName} Rules.
         </p>
@@ -265,7 +265,7 @@ export function RoyalOrangeClassicRules({ tournamentName }: { tournamentName: st
           <span className="font-semibold text-royal">r)</span> If teams are tied in standings after round robin play,
           OBA tiebreaker rules RP 7.3 (a) and (b) will apply as follows:
         </P>
-        <div className="space-y-3 rounded-xl border border-zinc-100 bg-zinc-50/80 p-3 sm:p-4">
+        <div className="space-y-3 rounded-xl border border-zinc-200/40 bg-zinc-50/65 p-3 backdrop-blur-sm sm:p-4 dark:border-zinc-600/40 dark:bg-zinc-800/50">
           <p className="font-bold text-royal">RP7.3(a)</p>
           <SubRules>
             <P>
@@ -297,7 +297,7 @@ export function RoyalOrangeClassicRules({ tournamentName }: { tournamentName: st
             </P>
           </SubRules>
         </div>
-        <div className="space-y-3 rounded-xl border border-zinc-100 bg-zinc-50/80 p-3 sm:p-4">
+        <div className="space-y-3 rounded-xl border border-zinc-200/40 bg-zinc-50/65 p-3 backdrop-blur-sm sm:p-4 dark:border-zinc-600/40 dark:bg-zinc-800/50">
           <p className="font-bold text-royal">
             RP7.3(b) In all other circumstances (3 or more teams), the following will be utilized:
           </p>

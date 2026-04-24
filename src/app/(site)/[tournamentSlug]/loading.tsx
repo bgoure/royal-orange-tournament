@@ -3,6 +3,7 @@ import { SectionTitle } from "@/components/ui/PublicHeading";
 import { PullToRefresh } from "@/components/ui/PullToRefresh";
 import { SkeletonAnnouncement } from "@/components/ui/SkeletonAnnouncement";
 import { SkeletonGameCard } from "@/components/ui/SkeletonGameCard";
+import { publicGlassCardXl, publicGlassLinkTile } from "@/lib/public-glass-card";
 
 const horizontalRowItemClass =
   "flex-none shrink-0 snap-start w-[min(200px,calc(100vw-2rem))] max-[374px]:w-[min(180px,calc(100vw-2.5rem))]";
@@ -10,7 +11,7 @@ const horizontalRowItemClass =
 function QuickLinkSkeleton() {
   return (
     <div
-      className="flex min-h-[48px] flex-col items-center justify-center gap-1.5 rounded-2xl border border-zinc-200 border-l-2 border-l-royal/90 bg-white p-4 text-center shadow-sm motion-safe:animate-pulse motion-reduce:animate-none"
+      className={`flex min-h-[48px] flex-col items-center justify-center gap-1.5 p-4 text-center motion-safe:animate-pulse motion-reduce:animate-none ${publicGlassLinkTile}`}
       aria-hidden
     >
       <span className="size-7 rounded-full bg-zinc-200" />
@@ -76,7 +77,7 @@ export default function TournamentHomeLoading() {
               {[0, 1, 2, 3, 4].map((i) => (
                 <div
                   key={i}
-                  className="h-16 w-28 shrink-0 rounded-xl border border-zinc-200 bg-zinc-100"
+                  className={`h-16 w-28 shrink-0 motion-safe:animate-pulse motion-reduce:animate-none ${publicGlassCardXl}`}
                 />
               ))}
             </div>

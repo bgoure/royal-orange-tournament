@@ -171,7 +171,7 @@ export function BracketGameCard({
 
   return (
     <article
-      className={`min-w-0 rounded-2xl border border-zinc-200 shadow-[0_1px_3px_rgba(0,0,0,0.1)] dark:border-zinc-700 dark:shadow-[0_1px_3px_rgba(0,0,0,0.25)] ${surfaceGradient} ${leftBorder} ${cardPadding}${quickShell}`}
+      className={`min-w-0 rounded-2xl border border-white/45 shadow-[0_8px_30px_rgb(0,0,0,0.06)] backdrop-blur-md dark:border-zinc-600/55 dark:shadow-[0_8px_30px_rgb(0,0,0,0.25)] ${surfaceGradient} ${leftBorder} ${cardPadding}${quickShell}`}
       aria-label={`Bracket match ${gChipIndex + 1}`}
       {...quickInteract}
     >

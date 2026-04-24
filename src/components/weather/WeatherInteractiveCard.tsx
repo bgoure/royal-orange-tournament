@@ -48,7 +48,7 @@ export function WeatherInteractiveCard({
 
   return (
     <section
-      className={`rounded-2xl border border-royal-200 bg-gradient-to-r from-royal-50 via-white to-accent-50 px-4 py-3 shadow-sm ${
+      className={`rounded-2xl border border-royal-200/80 bg-gradient-to-r from-royal-50/90 via-white/85 to-accent-50/90 px-4 py-3 shadow-[0_8px_30px_rgb(0,0,0,0.06)] backdrop-blur-md dark:border-royal-700/45 dark:from-royal-950/45 dark:via-zinc-900/70 dark:to-zinc-900/55 ${
         canToggle ? "cursor-pointer transition-[border-color,box-shadow] hover:border-royal-300 hover:shadow-md" : ""
       }`}
       title={locationLabel}

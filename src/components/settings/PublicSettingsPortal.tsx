@@ -3,9 +3,9 @@
 import type { Role } from "@prisma/client";
 import { signIn, signOut } from "next-auth/react";
 import { usePublicSiteTheme } from "@/components/theme/public-site-theme";
+import { publicGlassCard2xl } from "@/lib/public-glass-card";
 
-const cardClass =
-  "rounded-2xl border border-zinc-200/90 bg-white/90 p-4 shadow-sm dark:border-zinc-700/90 dark:bg-zinc-900/60";
+const cardClass = `${publicGlassCard2xl} p-4`;
 
 const btnPrimary =
   "inline-flex min-h-[40px] items-center justify-center rounded-lg border border-zinc-300 bg-white px-3 py-2 text-sm font-medium text-zinc-800 shadow-sm transition-colors hover:bg-zinc-50 active:opacity-90 dark:border-zinc-600 dark:bg-zinc-800 dark:text-zinc-100 dark:hover:bg-zinc-700";

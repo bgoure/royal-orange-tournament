@@ -2,6 +2,7 @@ import { PageTitle } from "@/components/ui/PublicHeading";
 import { SectionTitle } from "@/components/ui/PublicHeading";
 import { PullToRefresh } from "@/components/ui/PullToRefresh";
 import { SkeletonGameCardRow } from "@/components/ui/SkeletonGameCard";
+import { publicGlassCardXl } from "@/lib/public-glass-card";
 
 export default function ResultsLoading() {
   return (
@@ -9,7 +10,7 @@ export default function ResultsLoading() {
       <div className="flex flex-col gap-4">
         <PageTitle>Results</PageTitle>
         <div
-          className="min-h-[14rem] w-full rounded-xl border border-zinc-200 bg-zinc-50 motion-safe:animate-pulse motion-reduce:animate-none"
+          className={`min-h-[14rem] w-full motion-safe:animate-pulse motion-reduce:animate-none ${publicGlassCardXl}`}
           aria-hidden
         />
         <section className="flex flex-col gap-3">

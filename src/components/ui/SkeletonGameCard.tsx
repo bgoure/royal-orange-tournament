@@ -1,9 +1,11 @@
+import { publicGlassCard2xl, publicGlassLinkTile } from "@/lib/public-glass-card";
+
 /** Loading placeholder matching compact horizontal `GameCardInner` layout (parent sets width). */
 export function SkeletonGameCard({ className = "" }: { className?: string }) {
   const pulse = "motion-safe:animate-pulse motion-reduce:animate-none";
   return (
     <div
-      className={`min-h-[48px] w-full shrink-0 rounded-2xl border border-zinc-200 bg-white p-3 shadow-[0_1px_3px_rgba(0,0,0,0.1)] ${className}`.trim()}
+      className={`min-h-[48px] w-full shrink-0 p-3 ${publicGlassCard2xl} ${className}`.trim()}
       aria-hidden
     >
       <div className="flex items-center justify-between gap-2">
@@ -33,7 +35,7 @@ export function SkeletonGameCardRow({ className = "" }: { className?: string }) 
   const pulse = "motion-safe:animate-pulse motion-reduce:animate-none";
   return (
     <div
-      className={`rounded-2xl border border-zinc-200 border-l-2 border-l-royal/90 bg-white p-3 shadow-[0_1px_3px_rgba(0,0,0,0.1)] ${className}`.trim()}
+      className={`p-3 ${publicGlassLinkTile} ${className}`.trim()}
       aria-hidden
     >
       <div className="flex items-center justify-between gap-2">

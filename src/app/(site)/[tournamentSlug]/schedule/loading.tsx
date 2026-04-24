@@ -1,6 +1,7 @@
 import { PageTitle } from "@/components/ui/PublicHeading";
 import { PullToRefresh } from "@/components/ui/PullToRefresh";
 import { SkeletonGameCardRow } from "@/components/ui/SkeletonGameCard";
+import { publicGlassCardXl } from "@/lib/public-glass-card";
 
 export default function ScheduleLoading() {
   return (
@@ -8,7 +9,7 @@ export default function ScheduleLoading() {
       <div className="flex flex-col gap-4">
         <PageTitle>Schedule</PageTitle>
         <div
-          className="h-24 rounded-xl bg-zinc-100 motion-safe:animate-pulse motion-reduce:animate-none"
+          className={`h-24 motion-safe:animate-pulse motion-reduce:animate-none ${publicGlassCardXl}`}
           aria-hidden
         />
         <ul className="flex flex-col gap-3">
