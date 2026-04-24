@@ -84,7 +84,7 @@ export async function TournamentHomePublic({
   const hqWeatherBlock = (
     <div className="flex flex-col gap-3">
       {hq ? (
-        <p className="text-sm font-semibold text-accent">
+        <p className="text-center text-sm font-semibold text-accent">
           {formatHeadquartersHomeLabel(hq, tournament.locationLabel)}
         </p>
       ) : null}

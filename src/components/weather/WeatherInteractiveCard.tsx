@@ -90,14 +90,14 @@ export function WeatherInteractiveCard({
               ? wx.daily.slice(0, 5).map((d) => (
                   <div
                     key={d.date}
-                    className="flex min-w-[2.8rem] flex-1 flex-col items-center rounded-lg bg-white/60 px-1 py-1 text-center text-[10px]"
+                    className="flex min-w-[2.8rem] flex-1 flex-col items-center rounded-lg bg-white/60 px-1 py-1 text-center text-xs text-royal dark:text-royal-100"
                   >
-                    <p className="font-semibold text-zinc-700">
+                    <p className="font-semibold text-royal dark:text-royal-100">
                       {new Intl.DateTimeFormat(undefined, { weekday: "narrow" }).format(
                         new Date(`${d.date}T12:00:00`),
                       )}
                     </p>
-                    <p className="tabular-nums text-zinc-500">
+                    <p className="tabular-nums text-royal/85 dark:text-royal-200/90">
                       {d.highC}°/{d.lowC}°
                     </p>
                   </div>
