@@ -33,6 +33,7 @@ export type GameRow = Game & {
 };
 
 export type BracketWith = Bracket & {
+  division: { id: string; name: string };
   rounds: BracketRound[];
   games: GameRow[];
 };

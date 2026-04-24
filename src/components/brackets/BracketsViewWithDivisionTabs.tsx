@@ -30,12 +30,14 @@ export function BracketsViewWithDivisionTabs({
   brackets,
   consolationGames = [],
   initialResolvedDivisionId,
+  tournamentName,
   tournamentTimezone,
 }: {
   poolsForTabs: PoolForDivisionTabs[];
   brackets: BracketWith[];
   consolationGames?: GameRow[];
   initialResolvedDivisionId: string;
+  tournamentName: string;
   tournamentTimezone?: string | null;
 }) {
   const searchParams = useSearchParams();
@@ -77,6 +79,7 @@ export function BracketsViewWithDivisionTabs({
         <BracketsView
           brackets={visibleBrackets}
           consolationGames={visibleConsolation}
+          tournamentName={tournamentName}
           tournamentTimezone={tournamentTimezone}
         />
       )}

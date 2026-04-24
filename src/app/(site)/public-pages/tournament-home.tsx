@@ -5,6 +5,7 @@ import { AnnouncementList } from "@/components/announcements/AnnouncementList";
 import { DivisionSwipeBoundary } from "@/components/layout/DivisionSwipeBoundary";
 import { GameList } from "@/components/schedule/GameList";
 import { UpcomingGamesWithDivisionTabs } from "@/components/schedule/UpcomingGamesWithDivisionTabs";
+import { ChampionCelebration } from "@/components/brackets/ChampionCelebration";
 import { SponsorMarquee } from "@/components/sponsors/SponsorMarquee";
 import { PullToRefresh } from "@/components/ui/PullToRefresh";
 import { SectionTitle } from "@/components/ui/PublicHeading";
@@ -20,6 +21,7 @@ import { listLatestAnnouncementForHome } from "@/lib/services/announcements";
 import { formatHeadquartersHomeLabel } from "@/lib/headquarters-display";
 import { getHeadquartersLocation } from "@/lib/services/content";
 import { listRecentGamesForHome, listUpcomingGamesForHome } from "@/lib/services/games";
+import { getBracketChampionForDivisionTab } from "@/lib/brackets/bracket-champion";
 import { listPoolsForDivisionTabs } from "@/lib/services/pools";
 import { tournamentPathFromBase, tournamentPublicBasePath } from "@/lib/tournament-public-path";
 
@@ -69,12 +71,24 @@ export async function TournamentHomePublic({
   );
 
   const showPublicAnnouncements = tournament.showPublicAnnouncements;
-  const [latestAnnouncement, upcomingGames, recentGames, hq] = await Promise.all([
+  const [latestAnnouncement, upcomingGames, recentGames, hq, champion] = await Promise.all([
     showPublicAnnouncements ? listLatestAnnouncementForHome(tournament.id) : Promise.resolve(null),
     listUpcomingGamesForHome(tournament.id, resolvedDivisionId || undefined),
     listRecentGamesForHome(tournament.id, resolvedDivisionId || undefined),
     getHeadquartersLocation(tournament.id),
+    getBracketChampionForDivisionTab(tournament.id, resolvedDivisionId, poolsForTabs),
   ]);
+
+  const hqWeatherBlock = (
+    <div className="flex flex-col gap-3">
+      {hq ? (
+        <p className="text-sm font-semibold text-accent">
+          {formatHeadquartersHomeLabel(hq, tournament.locationLabel)}
+        </p>
+      ) : null}
+      <WeatherSection tournamentId={tournament.id} />
+    </div>
+  );
 
   return (
     <PullToRefresh>
@@ -84,16 +98,15 @@ export async function TournamentHomePublic({
         defaultDivisionId={defaultDivisionTabId(divisionDescriptors)}
       >
         <div className="flex flex-col gap-4">
-          <div className="flex flex-col gap-3">
-            {hq ? (
-              <p className="text-sm font-semibold text-accent">
-                {formatHeadquartersHomeLabel(hq, tournament.locationLabel)}
-              </p>
-            ) : null}
-            <WeatherSection tournamentId={tournament.id} />
-          </div>
+          {champion ? (
+            <ChampionCelebration
+              tournamentName={tournament.name}
+              divisionName={champion.divisionName}
+              winnerTeam={champion.winnerTeam}
+            />
+          ) : null}
 
-          {showPublicAnnouncements ? (
+          {!champion && showPublicAnnouncements ? (
             <section>
               <SectionTitle className="mb-3">Announcements</SectionTitle>
               <div>
@@ -106,12 +119,14 @@ export async function TournamentHomePublic({
             </section>
           ) : null}
 
-          <section>
-            <SectionTitle className="mb-3">Upcoming games</SectionTitle>
-            <div>
-              <UpcomingGamesWithDivisionTabs games={upcomingGames} calendarTimezone={tournament.timezone} />
-            </div>
-          </section>
+          {!champion ? (
+            <section>
+              <SectionTitle className="mb-3">Upcoming games</SectionTitle>
+              <div>
+                <UpcomingGamesWithDivisionTabs games={upcomingGames} calendarTimezone={tournament.timezone} />
+              </div>
+            </section>
+          ) : null}
 
           <section>
             <SectionTitle className="mb-3">Recent results</SectionTitle>
@@ -170,6 +185,8 @@ export async function TournamentHomePublic({
               }
             />
           </div>
+
+          {hqWeatherBlock}
 
           {tournament.showPublicSponsorsSection ? <SponsorMarquee tournamentId={tournament.id} /> : null}
         </div>

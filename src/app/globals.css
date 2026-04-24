@@ -59,3 +59,17 @@ body {
     animation: none;
   }
 }
+
+@keyframes champion-confetti-fall {
+  0% {
+    transform: translateY(-8px) translateX(0) rotate(0deg);
+    opacity: 0;
+  }
+  10% {
+    opacity: 1;
+  }
+  100% {
+    transform: translateY(400px) translateX(var(--champion-drift, 0px)) rotate(720deg);
+    opacity: 0.65;
+  }
+}

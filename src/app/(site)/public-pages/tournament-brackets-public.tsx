@@ -50,6 +50,7 @@ export async function TournamentBracketsPublic({
           brackets={brackets}
           consolationGames={consolationGames}
           initialResolvedDivisionId={resolvedDivisionId}
+          tournamentName={tournament.name}
           tournamentTimezone={tournament.timezone}
         />
       </div>

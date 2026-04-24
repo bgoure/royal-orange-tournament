@@ -6,8 +6,10 @@ import type { BracketRound } from "@prisma/client";
 import { EmptyState } from "@/components/ui/EmptyState";
 import { SectionTitle } from "@/components/ui/PublicHeading";
 import { BracketGameCard } from "@/components/brackets/BracketGameCard";
+import { ChampionCelebration } from "@/components/brackets/ChampionCelebration";
 import type { BracketWith, GameRow } from "@/components/brackets/bracket-types";
 import { matchSortIndex, prevRoundNameForGame } from "@/components/brackets/bracket-slot-lines";
+import { resolveChampionFromBracket } from "@/lib/brackets/bracket-champion";
 import {
   filterRoundsForScope,
   hasConsolationRounds,
@@ -221,12 +223,14 @@ const scopeBtn =
 
 function BracketSection({
   b,
+  tournamentName,
   tournamentTimezone,
   mobileView,
   setMobileView,
   consolationGames,
 }: {
   b: BracketWith;
+  tournamentName: string;
   tournamentTimezone?: string | null;
   mobileView: "list" | "bracket";
   setMobileView: Dispatch<SetStateAction<"list" | "bracket">>;
@@ -266,8 +270,18 @@ function BracketSection({
 
   const visibleRoundsKey = useMemo(() => visibleRounds.map((r) => r.id).join("|"), [visibleRounds]);
 
+  const champion = useMemo(() => resolveChampionFromBracket(b), [b]);
+
   return (
     <section className="min-w-0" aria-labelledby={`bracket-heading-${b.id}`}>
+      {champion ? (
+        <ChampionCelebration
+          tournamentName={tournamentName}
+          divisionName={champion.divisionName}
+          winnerTeam={champion.winnerTeam}
+          className="mb-4"
+        />
+      ) : null}
       <SectionTitle id={`bracket-heading-${b.id}`} className="normal-case tracking-normal">
         {b.name}
       </SectionTitle>
@@ -453,11 +467,14 @@ function ConsolationGamesSection({
 export function BracketsView({
   brackets,
   consolationGames = [],
+  tournamentName,
   tournamentTimezone,
 }: {
   brackets: BracketWith[];
   /** Consolation games for this tournament (parent filters by division tab). */
   consolationGames?: GameRow[];
+  /** Public tournament title for champion banner copy. */
+  tournamentName: string;
   /** IANA zone from `tournament.timezone` — venue wall-clock for game times. */
   tournamentTimezone?: string | null;
 }) {
@@ -494,6 +511,7 @@ export function BracketsView({
         <BracketSection
           key={b.id}
           b={b}
+          tournamentName={tournamentName}
           tournamentTimezone={tournamentTimezone}
           mobileView={mobileView}
           setMobileView={setMobileView}
