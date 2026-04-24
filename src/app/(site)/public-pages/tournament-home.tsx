@@ -107,9 +107,9 @@ export async function TournamentHomePublic({
             />
           ) : null}
 
-          <FavoriteTeamsStrip tournamentId={tournament.id} games={upcomingGames} timezone={tournament.timezone} />
-
           {!champion ? hqWeatherBlock : null}
+
+          <FavoriteTeamsStrip tournamentId={tournament.id} games={upcomingGames} timezone={tournament.timezone} />
 
           {!champion && showPublicAnnouncements ? (
             <section>
