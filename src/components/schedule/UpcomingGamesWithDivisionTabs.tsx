@@ -7,6 +7,8 @@ export function UpcomingGamesWithDivisionTabs({
   calendarTimezone,
   displayTimesInViewerTimezone = true,
   tournamentId,
+  emptyMessage = "No upcoming games scheduled for this division.",
+  emptyHint = "Check another division or open the full schedule.",
 }: {
   games: GameWithTeams[];
   /** Tournament zone for “Live today” and ordering; wall times can still use viewer local. */
@@ -14,6 +16,8 @@ export function UpcomingGamesWithDivisionTabs({
   displayTimesInViewerTimezone?: boolean;
   /** Enables favorite stars on cards when set. */
   tournamentId?: string;
+  emptyMessage?: string;
+  emptyHint?: string;
 }) {
   return (
     <div className="flex flex-col gap-3">
@@ -21,8 +25,8 @@ export function UpcomingGamesWithDivisionTabs({
         games={games}
         timezone={calendarTimezone}
         displayTimesInViewerTimezone={displayTimesInViewerTimezone}
-        emptyMessage="No upcoming games scheduled for this division."
-        emptyHint="Check another division or open the full schedule."
+        emptyMessage={emptyMessage}
+        emptyHint={emptyHint}
         horizontal
         animateStagger
         scheduleCompactLayout

@@ -12,16 +12,22 @@ export function FavoriteTeamsStrip({
   timezone,
 }: {
   tournamentId: string;
-  /** Active public division tab (pool scope), same as schedule/results. */
   divisionTabId: string | undefined;
   timezone?: string;
 }) {
-  const { favorites, isLoaded } = useFavorites(tournamentId);
+  const { isLoaded, getFavoriteTeamIdForDivision, tournamentId: ctxId } = useFavorites();
   const [games, setGames] = useState<GameWithTeams[]>([]);
   const [fetchDone, setFetchDone] = useState(false);
 
+  const myTeamId = divisionTabId ? getFavoriteTeamIdForDivision(divisionTabId) : undefined;
+
   useEffect(() => {
-    if (!isLoaded || favorites.length === 0) {
+    if (ctxId !== tournamentId) {
+      setGames([]);
+      setFetchDone(true);
+      return;
+    }
+    if (!isLoaded || !myTeamId) {
       setGames([]);
       setFetchDone(true);
       return;
@@ -32,7 +38,7 @@ export function FavoriteTeamsStrip({
 
     void (async () => {
       try {
-        const rows = await fetchGamesForFavoriteTeams(tournamentId, divisionTabId ?? null, favorites);
+        const rows = await fetchGamesForFavoriteTeams(tournamentId, divisionTabId ?? null, [myTeamId]);
         if (!cancelled) setGames(rows as GameWithTeams[]);
       } catch {
         if (!cancelled) setGames([]);
@@ -44,29 +50,27 @@ export function FavoriteTeamsStrip({
     return () => {
       cancelled = true;
     };
-  }, [isLoaded, tournamentId, divisionTabId, favorites]);
+  }, [isLoaded, tournamentId, divisionTabId, myTeamId, ctxId]);
 
-  if (!isLoaded || !fetchDone || favorites.length === 0) {
-    return null;
-  }
-
-  if (games.length === 0) {
+  if (ctxId !== tournamentId) return null;
+  if (!isLoaded || !fetchDone || !myTeamId) {
     return null;
   }
 
   return (
-    <section aria-label="Your teams">
-      <SectionTitle className="mb-3">Your teams</SectionTitle>
+    <section aria-label="My Team">
+      <SectionTitle className="mb-3">My Team</SectionTitle>
       <GameList
         games={games}
         timezone={timezone}
         displayTimesInViewerTimezone
         horizontal
         animateStagger
+        scheduleCompactLayout
         tournamentId={tournamentId}
         glassVariant
-        emptyMessage="No games for your teams in this division yet."
-        emptyHint="Favorite teams from the schedule; their games appear here (all statuses)."
+        emptyMessage="No games for My Team in this division yet."
+        emptyHint="Games appear here for the team you follow in this division."
       />
     </section>
   );

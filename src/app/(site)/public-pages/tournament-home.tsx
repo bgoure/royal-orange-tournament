@@ -5,7 +5,7 @@ import { AnnouncementList } from "@/components/announcements/AnnouncementList";
 import { DivisionSwipeBoundary } from "@/components/layout/DivisionSwipeBoundary";
 import { FavoriteTeamsStrip } from "@/components/schedule/FavoriteTeamsStrip";
 import { GameList } from "@/components/schedule/GameList";
-import { UpcomingGamesWithDivisionTabs } from "@/components/schedule/UpcomingGamesWithDivisionTabs";
+import { HomeUpcomingGamesSection } from "@/app/(site)/public-pages/home-upcoming-games";
 import { ChampionCelebration } from "@/components/brackets/ChampionCelebration";
 import { SponsorMarquee } from "@/components/sponsors/SponsorMarquee";
 import { PullToRefresh } from "@/components/ui/PullToRefresh";
@@ -129,16 +129,12 @@ export async function TournamentHomePublic({
           ) : null}
 
           {!champion ? (
-            <section>
-              <SectionTitle className="mb-3">Upcoming games</SectionTitle>
-              <div>
-                <UpcomingGamesWithDivisionTabs
-                  games={upcomingGames}
-                  calendarTimezone={tournament.timezone}
-                  tournamentId={tournament.id}
-                />
-              </div>
-            </section>
+            <HomeUpcomingGamesSection
+              tournamentId={tournament.id}
+              divisionTabId={resolvedDivisionId || undefined}
+              games={upcomingGames}
+              timezone={tournament.timezone}
+            />
           ) : null}
 
           <section>

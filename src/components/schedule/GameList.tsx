@@ -12,6 +12,7 @@ import {
 import { playoffScheduleBracketCaption } from "@/lib/brackets/bracket-display";
 import { brandCardGradientClass } from "@/lib/brand-card-gradient";
 import { DIVISION_SWIPE_IGNORE } from "@/lib/division-swipe-ignore";
+import { gameDivisionIdForFavorites } from "@/lib/game-division-from-game";
 import { poolCardLabelTextClass } from "@/lib/pool-card-label";
 import { EmptyState } from "@/components/ui/EmptyState";
 import { FavoriteTeamButton } from "@/components/ui/FavoriteTeamButton";
@@ -264,6 +265,8 @@ function GameCardInner({
     : "bg-accent text-white";
   const logoTone = muted ? "opacity-80 saturate-[0.65]" : "";
 
+  const divisionIdForFavorite = gameDivisionIdForFavorites(g);
+
   const scheduleCompactFooterStatus = scheduleCompactLayout && g.status !== "SCHEDULED";
 
   const bracketCaption = bracketCaptionForScheduleCard(g);
@@ -318,6 +321,7 @@ function GameCardInner({
               tournamentId={tournamentId}
               teamId={g.awayTeamId}
               teamName={g.awayTeam?.name ?? undefined}
+              divisionId={divisionIdForFavorite}
             />
           ) : null}
           <span className={`shrink-0 font-normal ${vsTone}`}>vs</span>
@@ -333,6 +337,7 @@ function GameCardInner({
               tournamentId={tournamentId}
               teamId={g.homeTeamId}
               teamName={g.homeTeam?.name ?? undefined}
+              divisionId={divisionIdForFavorite}
             />
           ) : null}
         </p>
@@ -350,6 +355,7 @@ function GameCardInner({
               tournamentId={tournamentId}
               teamId={g.awayTeamId}
               teamName={g.awayTeam?.name ?? undefined}
+              divisionId={divisionIdForFavorite}
             />
           ) : null}
         </div>
@@ -364,6 +370,7 @@ function GameCardInner({
               tournamentId={tournamentId}
               teamId={g.homeTeamId}
               teamName={g.homeTeam?.name ?? undefined}
+              divisionId={divisionIdForFavorite}
             />
           ) : null}
           <TeamLogoMark team={g.homeTeam} sizeClass={scheduleLogoSize} className={logoTone} />
@@ -459,6 +466,7 @@ function GameCardInner({
                   tournamentId={tournamentId}
                   teamId={g.awayTeamId}
                   teamName={g.awayTeam?.name ?? undefined}
+                  divisionId={divisionIdForFavorite}
                 />
               ) : null}
             </div>
@@ -476,6 +484,7 @@ function GameCardInner({
                   tournamentId={tournamentId}
                   teamId={g.homeTeamId}
                   teamName={g.homeTeam?.name ?? undefined}
+                  divisionId={divisionIdForFavorite}
                 />
               ) : null}
             </div>
@@ -495,6 +504,7 @@ function GameCardInner({
                 tournamentId={tournamentId}
                 teamId={g.awayTeamId}
                 teamName={g.awayTeam?.name ?? undefined}
+                divisionId={divisionIdForFavorite}
               />
             ) : null}
             <span className={`shrink-0 font-normal ${vsTone}`}>vs</span>
@@ -510,6 +520,7 @@ function GameCardInner({
                 tournamentId={tournamentId}
                 teamId={g.homeTeamId}
                 teamName={g.homeTeam?.name ?? undefined}
+                divisionId={divisionIdForFavorite}
               />
             ) : null}
           </p>

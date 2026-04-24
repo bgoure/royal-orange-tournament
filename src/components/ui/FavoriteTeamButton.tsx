@@ -8,20 +8,32 @@ export function FavoriteTeamButton({
   tournamentId,
   teamId,
   teamName,
+  divisionId,
   className = "",
 }: {
   tournamentId: string;
   teamId: string;
   teamName?: string;
+  /** Division tab scope for “My Team” (one favorite per division). Omit to hide control. */
+  divisionId?: string | null;
   className?: string;
 }) {
-  const { favorites, toggleFavorite, isLoaded } = useFavorites(tournamentId);
+  const { tournamentId: ctxTournamentId, getFavoriteTeamIdForDivision, toggleFavorite, isLoaded } = useFavorites();
+
+  if (ctxTournamentId !== tournamentId) {
+    return <div className={`h-5 w-5 shrink-0 ${className || ""}`.trim()} aria-hidden />;
+  }
 
   if (!isLoaded) {
     return <div className={`h-5 w-5 shrink-0 ${className || ""}`.trim()} aria-hidden />;
   }
 
-  const isFavorited = favorites.includes(teamId);
+  const div = divisionId?.trim() ?? "";
+  if (!div) {
+    return <div className={`h-5 w-5 shrink-0 ${className || ""}`.trim()} aria-hidden />;
+  }
+
+  const isFavorited = getFavoriteTeamIdForDivision(div) === teamId;
   const label = teamName?.trim() || "team";
 
   return (
@@ -35,13 +47,13 @@ export function FavoriteTeamButton({
       onClick={(e) => {
         e.preventDefault();
         e.stopPropagation();
-        toggleFavorite(teamId);
+        toggleFavorite(teamId, div, label);
       }}
       onKeyDown={(e: KeyboardEvent) => {
         if (e.key === "Enter" || e.key === " ") {
           e.preventDefault();
           e.stopPropagation();
-          toggleFavorite(teamId);
+          toggleFavorite(teamId, div, label);
         }
       }}
     >
