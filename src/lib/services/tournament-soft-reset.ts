@@ -1,5 +1,6 @@
-import { GameResultType, GameStatus } from "@prisma/client";
+import { GameKind, GameStatus } from "@prisma/client";
 import { prisma } from "@/lib/db";
+import { gameCompetitiveResetData } from "@/lib/services/game-competitive-reset";
 import { recomputeAllPoolsForTournament } from "@/lib/services/standings";
 import {
   clearConsolationGameTeamSlots,
@@ -7,14 +8,16 @@ import {
   resolveBracketTeamsFromStandingsAllowIncomplete,
 } from "@/lib/services/bracket-resolution";
 
-const SCORE_RESET = {
+/** Score-only reset for all games (keeps pool and seeded playoff slot assignments until later steps). */
+const SCORE_RESET_FOR_ALL_GAMES = {
+  status: GameStatus.SCHEDULED,
   homeRuns: null as number | null,
   awayRuns: null as number | null,
   homeDefensiveInnings: null as number | null,
   awayDefensiveInnings: null as number | null,
   homeOffensiveInnings: null as number | null,
   awayOffensiveInnings: null as number | null,
-  resultType: GameResultType.REGULAR,
+  resultType: gameCompetitiveResetData.resultType,
 };
 
 /**
@@ -25,10 +28,12 @@ const SCORE_RESET = {
 export async function softResetTournamentProgressForId(tournamentId: string): Promise<void> {
   await prisma.game.updateMany({
     where: { tournamentId },
-    data: {
-      status: GameStatus.SCHEDULED,
-      ...SCORE_RESET,
-    },
+    data: SCORE_RESET_FOR_ALL_GAMES,
+  });
+
+  await prisma.game.updateMany({
+    where: { tournamentId, gameKind: GameKind.CONSOLATION },
+    data: { ...gameCompetitiveResetData },
   });
 
   await clearLaterBracketRoundTeamSlots(tournamentId);

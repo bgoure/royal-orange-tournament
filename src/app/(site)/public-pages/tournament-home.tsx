@@ -109,6 +109,8 @@ export async function TournamentHomePublic({
 
           <FavoriteTeamsStrip tournamentId={tournament.id} games={upcomingGames} timezone={tournament.timezone} />
 
+          {!champion ? hqWeatherBlock : null}
+
           {!champion && showPublicAnnouncements ? (
             <section>
               <SectionTitle className="mb-3">Announcements</SectionTitle>
@@ -194,7 +196,7 @@ export async function TournamentHomePublic({
             />
           </div>
 
-          {hqWeatherBlock}
+          {champion ? hqWeatherBlock : null}
 
           {tournament.showPublicSponsorsSection ? <SponsorMarquee tournamentId={tournament.id} /> : null}
         </div>

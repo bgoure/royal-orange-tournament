@@ -1,7 +1,7 @@
 import "dotenv/config";
 import assert from "node:assert/strict";
 import { describe, it } from "node:test";
-import { GameResultType, GameStatus } from "@prisma/client";
+import { GameKind, GameResultType, GameStatus } from "@prisma/client";
 import { prisma } from "@/lib/db";
 import { createDivisionPlayoffBracket } from "@/lib/services/bracket-division-build";
 import { softResetTournamentProgressForId } from "@/lib/services/tournament-soft-reset";
@@ -223,6 +223,76 @@ describe("softResetTournamentProgressForId", () => {
       assert.equal(p!.status, GameStatus.SCHEDULED);
       assert.equal(p!.homeRuns, null);
       assert.equal(p!.awayRuns, null);
+    } finally {
+      await prisma.tournament.delete({ where: { id: tournamentId } });
+    }
+  });
+
+  it("clears consolation games to scheduled with no scores", async (t) => {
+    if (!run) {
+      t.skip("DATABASE_URL not set");
+      return;
+    }
+
+    const slug = `soft-reset-consolation-${Date.now()}`;
+    const tourn = await prisma.tournament.create({
+      data: {
+        name: "Soft reset consolation",
+        slug,
+        shortLabel: "C",
+        startDate: new Date(2026, 5, 1),
+        endDate: new Date(2026, 5, 3),
+        timezone: "America/Chicago",
+        locationLabel: "Test",
+        isPublished: false,
+      },
+    });
+    const tournamentId = tourn.id;
+
+    try {
+      const loc = await prisma.location.create({
+        data: { tournamentId, name: "L", isHeadquarters: true, sortOrder: 0 },
+      });
+      const field = await prisma.field.create({
+        data: { tournamentId, locationId: loc.id, name: "F1", sortOrder: 0 },
+      });
+      const div = await prisma.division.create({
+        data: { tournamentId, name: "D", sortOrder: 0 },
+      });
+      const pool = await prisma.pool.create({
+        data: { divisionId: div.id, name: "P", sortOrder: 0, teamsAdvancing: 2 },
+      });
+      const [h, a] = await Promise.all([
+        prisma.team.create({ data: { poolId: pool.id, name: "H", seed: 1 } }),
+        prisma.team.create({ data: { poolId: pool.id, name: "A", seed: 2 } }),
+      ]);
+      const sched = new Date(2026, 5, 1, 9, 0, 0);
+      const consolation = await prisma.game.create({
+        data: {
+          tournamentId,
+          gameKind: GameKind.CONSOLATION,
+          divisionId: div.id,
+          fieldId: field.id,
+          scheduledAt: sched,
+          status: GameStatus.FINAL,
+          homeRuns: 5,
+          awayRuns: 3,
+          homeTeamId: h.id,
+          awayTeamId: a.id,
+          consolationHomePoolId: pool.id,
+          consolationHomeRank: 1,
+          consolationAwayPoolId: pool.id,
+          consolationAwayRank: 2,
+        },
+      });
+
+      await softResetTournamentProgressForId(tournamentId);
+
+      const after = await prisma.game.findUnique({ where: { id: consolation.id } });
+      assert.equal(after!.status, GameStatus.SCHEDULED);
+      assert.equal(after!.homeRuns, null);
+      assert.equal(after!.awayRuns, null);
+      assert.equal(after!.resultType, GameResultType.REGULAR);
     } finally {
       await prisma.tournament.delete({ where: { id: tournamentId } });
     }

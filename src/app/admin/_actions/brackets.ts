@@ -10,6 +10,7 @@ import { assertFieldInTournament } from "@/lib/services/admin-games";
 import { assertPoolInTournament } from "@/lib/services/admin-structure";
 import { assertConsolationSlotsAvailable } from "@/lib/services/consolation-slots";
 import { createDivisionPlayoffBracket } from "@/lib/services/bracket-division-build";
+import { gameCompetitiveResetData } from "@/lib/services/game-competitive-reset";
 import { resolveBracketTeamsFromStandings } from "@/lib/services/bracket-resolution";
 import { parseDatetimeLocalInTimeZone } from "@/lib/datetime-tournament";
 import { getTournamentForRequest } from "@/lib/tournament-context";
@@ -345,25 +346,22 @@ export async function resetPlayoffBracket(
   try {
     const existing = await prisma.bracket.findFirst({
       where: { id: parsed.data.bracketId, tournamentId: ctx.tournament.id },
-      select: { id: true },
+      select: { id: true, divisionId: true },
     });
     if (!existing) return { ok: false, error: "Bracket not found" };
 
     await prisma.$transaction(async (tx) => {
       await tx.game.updateMany({
         where: { bracketId: existing.id },
-        data: {
-          status: "SCHEDULED",
-          resultType: "REGULAR",
-          homeTeamId: null,
-          awayTeamId: null,
-          homeRuns: null,
-          awayRuns: null,
-          homeDefensiveInnings: null,
-          awayDefensiveInnings: null,
-          homeOffensiveInnings: null,
-          awayOffensiveInnings: null,
+        data: { ...gameCompetitiveResetData },
+      });
+      await tx.game.updateMany({
+        where: {
+          tournamentId: ctx.tournament.id,
+          divisionId: existing.divisionId,
+          gameKind: GameKind.CONSOLATION,
         },
+        data: { ...gameCompetitiveResetData },
       });
       await tx.bracket.update({
         where: { id: existing.id },
