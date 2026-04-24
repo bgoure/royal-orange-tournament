@@ -145,6 +145,7 @@ export async function TournamentHomePublic({
               displayTimesInViewerTimezone
               horizontal
               animateStagger
+              glassVariant
               tournamentId={tournament.id}
               emptyMessage="No recent games for this division yet."
               emptyHint="Final scores, cancelled games, and games awaiting results appear here."

@@ -31,6 +31,7 @@ export function UpcomingGamesWithDivisionTabs({
         animateStagger
         scheduleCompactLayout
         tournamentId={tournamentId}
+        glassVariant
       />
     </div>
   );
