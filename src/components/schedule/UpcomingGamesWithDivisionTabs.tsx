@@ -6,11 +6,14 @@ export function UpcomingGamesWithDivisionTabs({
   games,
   calendarTimezone,
   displayTimesInViewerTimezone = true,
+  tournamentId,
 }: {
   games: GameWithTeams[];
   /** Tournament zone for “Live today” and ordering; wall times can still use viewer local. */
   calendarTimezone: string;
   displayTimesInViewerTimezone?: boolean;
+  /** Enables favorite stars on cards when set. */
+  tournamentId?: string;
 }) {
   return (
     <div className="flex flex-col gap-3">
@@ -23,6 +26,7 @@ export function UpcomingGamesWithDivisionTabs({
         horizontal
         animateStagger
         scheduleCompactLayout
+        tournamentId={tournamentId}
       />
     </div>
   );

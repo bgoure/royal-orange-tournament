@@ -14,6 +14,7 @@ import { brandCardGradientClass } from "@/lib/brand-card-gradient";
 import { DIVISION_SWIPE_IGNORE } from "@/lib/division-swipe-ignore";
 import { poolCardLabelTextClass } from "@/lib/pool-card-label";
 import { EmptyState } from "@/components/ui/EmptyState";
+import { FavoriteTeamButton } from "@/components/ui/FavoriteTeamButton";
 import { TeamLogoMark } from "@/components/ui/TeamLogo";
 import { AnimatedListItem } from "@/components/ui/AnimatedListItem";
 import type { QuickEditGamePayload } from "@/components/public-admin/PublicQuickGameProvider";
@@ -164,6 +165,9 @@ function bracketCaptionForScheduleCard(g: GameWithTeams): string | null {
   });
 }
 
+const GLASS_CARD_CHROME =
+  "min-w-0 rounded-2xl border border-transparent bg-white/80 backdrop-blur-md shadow-[0_8px_30px_rgb(0,0,0,0.06)]";
+
 function GameCardInner({
   g,
   compact,
@@ -174,6 +178,8 @@ function GameCardInner({
   scheduleCompactLayout = false,
   muted = false,
   resultsFinalInningsBadge = false,
+  tournamentId,
+  glassVariant = false,
 }: {
   g: GameWithTeams;
   compact?: boolean;
@@ -187,6 +193,8 @@ function GameCardInner({
   muted?: boolean;
   /** Public results: show "FINAL - N innings" from home defensive innings when scored. */
   resultsFinalInningsBadge?: boolean;
+  tournamentId?: string;
+  glassVariant?: boolean;
 }) {
   const quickEdit = usePublicQuickGameEdit();
   const quickOpen = quickEdit?.enabled
@@ -298,6 +306,13 @@ function GameCardInner({
             {g.awayTeam?.name ?? "TBD"}
             {ahSuffix("A")}
           </span>
+          {tournamentId && g.awayTeamId ? (
+            <FavoriteTeamButton
+              tournamentId={tournamentId}
+              teamId={g.awayTeamId}
+              teamName={g.awayTeam?.name ?? undefined}
+            />
+          ) : null}
           <span className={`shrink-0 font-normal ${vsTone}`}>vs</span>
         </p>
         <p className={`flex min-w-0 items-center gap-2 truncate leading-snug ${nameTone} ${nameSize}`}>
@@ -306,6 +321,13 @@ function GameCardInner({
             {g.homeTeam?.name ?? "TBD"}
             {ahSuffix("H")}
           </span>
+          {tournamentId && g.homeTeamId ? (
+            <FavoriteTeamButton
+              tournamentId={tournamentId}
+              teamId={g.homeTeamId}
+              teamName={g.homeTeam?.name ?? undefined}
+            />
+          ) : null}
         </p>
       </div>
     ) : (
@@ -316,6 +338,13 @@ function GameCardInner({
             {g.awayTeam?.name ?? "TBD"}
             {ahSuffix("A")}
           </span>
+          {tournamentId && g.awayTeamId ? (
+            <FavoriteTeamButton
+              tournamentId={tournamentId}
+              teamId={g.awayTeamId}
+              teamName={g.awayTeam?.name ?? undefined}
+            />
+          ) : null}
         </div>
         <span className={`shrink-0 self-center text-sm font-normal ${vsTone}`}>vs</span>
         <div className="flex min-w-0 flex-1 items-center justify-end gap-1.5 text-right">
@@ -323,6 +352,13 @@ function GameCardInner({
             {g.homeTeam?.name ?? "TBD"}
             {ahSuffix("H")}
           </span>
+          {tournamentId && g.homeTeamId ? (
+            <FavoriteTeamButton
+              tournamentId={tournamentId}
+              teamId={g.homeTeamId}
+              teamName={g.homeTeam?.name ?? undefined}
+            />
+          ) : null}
           <TeamLogoMark team={g.homeTeam} sizeClass={scheduleLogoSize} className={logoTone} />
         </div>
       </div>
@@ -334,7 +370,11 @@ function GameCardInner({
 
     return (
       <div
-        className={`min-w-0 rounded-2xl border border-zinc-200 ${cardShadow} ${surfaceResolved} ${leftBorderResolved} ${cardPadding}${quickShell}`}
+        className={
+          glassVariant
+            ? `${GLASS_CARD_CHROME} ${leftBorderResolved} ${cardPadding}${quickShell}`
+            : `min-w-0 rounded-2xl border border-zinc-200 ${cardShadow} ${surfaceResolved} ${leftBorderResolved} ${cardPadding}${quickShell}`
+        }
         {...quickInteract}
       >
         <div className="flex items-start justify-between gap-2">
@@ -376,7 +416,11 @@ function GameCardInner({
 
   return (
     <div
-      className={`min-w-0 rounded-2xl border border-zinc-200 ${cardShadowMain} ${surfaceResolved} ${leftBorderResolved} ${compactShell}${quickShell}`}
+      className={
+        glassVariant
+          ? `${GLASS_CARD_CHROME} ${leftBorderResolved} ${compactShell}${quickShell}`
+          : `min-w-0 rounded-2xl border border-zinc-200 ${cardShadowMain} ${surfaceResolved} ${leftBorderResolved} ${compactShell}${quickShell}`
+      }
       {...quickInteract}
     >
       <div className="flex items-center justify-between gap-2">
@@ -403,6 +447,13 @@ function GameCardInner({
                 {g.awayTeam?.name ?? "TBD"}
                 {ahSuffix("A")}
               </p>
+              {tournamentId && g.awayTeamId ? (
+                <FavoriteTeamButton
+                  tournamentId={tournamentId}
+                  teamId={g.awayTeamId}
+                  teamName={g.awayTeam?.name ?? undefined}
+                />
+              ) : null}
             </div>
             <span className={`shrink-0 font-bold tabular-nums ${scoreTone} ${scoreNum}`}>{g.awayRuns}</span>
           </div>
@@ -413,6 +464,13 @@ function GameCardInner({
                 {g.homeTeam?.name ?? "TBD"}
                 {ahSuffix("H")}
               </p>
+              {tournamentId && g.homeTeamId ? (
+                <FavoriteTeamButton
+                  tournamentId={tournamentId}
+                  teamId={g.homeTeamId}
+                  teamName={g.homeTeam?.name ?? undefined}
+                />
+              ) : null}
             </div>
             <span className={`shrink-0 font-bold tabular-nums ${scoreTone} ${scoreNum}`}>{g.homeRuns}</span>
           </div>
@@ -425,6 +483,13 @@ function GameCardInner({
               {g.awayTeam?.name ?? "TBD"}
               {ahSuffix("A")}
             </span>
+            {tournamentId && g.awayTeamId ? (
+              <FavoriteTeamButton
+                tournamentId={tournamentId}
+                teamId={g.awayTeamId}
+                teamName={g.awayTeam?.name ?? undefined}
+              />
+            ) : null}
             <span className={`shrink-0 font-normal ${vsTone}`}>vs</span>
           </p>
           <p className={`flex min-w-0 items-center gap-2 truncate leading-snug ${nameTone} ${nameSize}`}>
@@ -433,6 +498,13 @@ function GameCardInner({
               {g.homeTeam?.name ?? "TBD"}
               {ahSuffix("H")}
             </span>
+            {tournamentId && g.homeTeamId ? (
+              <FavoriteTeamButton
+                tournamentId={tournamentId}
+                teamId={g.homeTeamId}
+                teamName={g.homeTeam?.name ?? undefined}
+              />
+            ) : null}
           </p>
         </div>
       )}
@@ -494,6 +566,8 @@ function HorizontalGameRow({
   staggerOffset = 0,
   scheduleCompactLayout = false,
   resultsFinalInningsBadge = false,
+  tournamentId,
+  glassVariant = false,
 }: {
   rows: { g: GameWithTeams; fallbackSeq: number }[];
   liveProminent?: boolean;
@@ -503,6 +577,8 @@ function HorizontalGameRow({
   staggerOffset?: number;
   scheduleCompactLayout?: boolean;
   resultsFinalInningsBadge?: boolean;
+  tournamentId?: string;
+  glassVariant?: boolean;
 }) {
   return (
     <ul
@@ -521,6 +597,8 @@ function HorizontalGameRow({
               showScores={showScores}
               scheduleCompactLayout={scheduleCompactLayout}
               resultsFinalInningsBadge={resultsFinalInningsBadge}
+              tournamentId={tournamentId}
+              glassVariant={glassVariant}
             />
           </AnimatedListItem>
         ) : (
@@ -535,6 +613,8 @@ function HorizontalGameRow({
             showScores={showScores}
             scheduleCompactLayout={scheduleCompactLayout}
             resultsFinalInningsBadge={resultsFinalInningsBadge}
+            tournamentId={tournamentId}
+            glassVariant={glassVariant}
           />
         ),
       )}
@@ -554,6 +634,8 @@ export function GameList({
   scheduleCompactLayout = false,
   scheduleDeprioritizeCompleted = false,
   resultsFinalInningsBadge = false,
+  tournamentId,
+  glassVariant = false,
 }: {
   games: GameWithTeams[];
   /** Tournament IANA zone for “Live today” and schedule day grouping. */
@@ -573,6 +655,10 @@ export function GameList({
   scheduleDeprioritizeCompleted?: boolean;
   /** Public results page: status pill shows FINAL + home defensive innings when scored. */
   resultsFinalInningsBadge?: boolean;
+  /** Enables favorite-star controls scoped to this tournament. */
+  tournamentId?: string;
+  /** Glass card treatment (e.g. favorites strip only); omit gradients when true. */
+  glassVariant?: boolean;
 }) {
   if (games.length === 0) {
     return (
@@ -632,6 +718,8 @@ export function GameList({
             staggerOffset={0}
             scheduleCompactLayout={scheduleCompactLayout}
             resultsFinalInningsBadge={resultsFinalInningsBadge}
+            tournamentId={tournamentId}
+            glassVariant={glassVariant}
           />
         ) : (
           <ul className="flex flex-col gap-2">
@@ -645,6 +733,8 @@ export function GameList({
                 showScores={showScores}
                 scheduleCompactLayout={scheduleCompactLayout}
                 resultsFinalInningsBadge={resultsFinalInningsBadge}
+                tournamentId={tournamentId}
+                glassVariant={glassVariant}
               />
             ))}
           </ul>
@@ -665,6 +755,8 @@ export function GameList({
             staggerOffset={liveToday.length}
             scheduleCompactLayout={scheduleCompactLayout}
             resultsFinalInningsBadge={resultsFinalInningsBadge}
+            tournamentId={tournamentId}
+            glassVariant={glassVariant}
           />
         ) : null}
       </div>
@@ -692,6 +784,8 @@ export function GameList({
               showScores={showScores}
               scheduleCompactLayout={scheduleCompactLayout}
               resultsFinalInningsBadge={resultsFinalInningsBadge}
+              tournamentId={tournamentId}
+              glassVariant={glassVariant}
             />
           ))}
         </ul>
@@ -718,6 +812,8 @@ export function GameList({
               scheduleCompactLayout={scheduleCompactLayout}
               muted={true}
               resultsFinalInningsBadge={resultsFinalInningsBadge}
+              tournamentId={tournamentId}
+              glassVariant={glassVariant}
             />
           ))}
         </ul>
@@ -744,6 +840,8 @@ export function GameList({
                 scheduleCompactLayout={scheduleCompactLayout}
                 muted={true}
                 resultsFinalInningsBadge={resultsFinalInningsBadge}
+                tournamentId={tournamentId}
+                glassVariant={glassVariant}
               />
             ))}
           </ul>
@@ -768,6 +866,8 @@ export function GameList({
                 showScores={showScores}
                 scheduleCompactLayout={scheduleCompactLayout}
                 resultsFinalInningsBadge={resultsFinalInningsBadge}
+                tournamentId={tournamentId}
+                glassVariant={glassVariant}
               />
             ))}
           </ul>

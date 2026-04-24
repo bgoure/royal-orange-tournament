@@ -111,6 +111,7 @@ export async function TournamentResultsPublic({
               emptyMessage="No result games for this division yet."
               emptyHint="Final scores, cancelled games, and games awaiting results appear here. Try another filter."
               resultsFinalInningsBadge
+              tournamentId={tournament.id}
             />
           </section>
         </div>

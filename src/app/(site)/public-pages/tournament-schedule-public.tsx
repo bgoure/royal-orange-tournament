@@ -92,6 +92,7 @@ export async function TournamentSchedulePublic({
             showScores={false}
             scheduleCompactLayout
             scheduleDeprioritizeCompleted
+            tournamentId={tournament.id}
           />
         </div>
       </DivisionSwipeBoundary>

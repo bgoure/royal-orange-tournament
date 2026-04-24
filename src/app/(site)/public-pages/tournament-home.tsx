@@ -3,6 +3,7 @@ import Link from "next/link";
 import type { Tournament } from "@prisma/client";
 import { AnnouncementList } from "@/components/announcements/AnnouncementList";
 import { DivisionSwipeBoundary } from "@/components/layout/DivisionSwipeBoundary";
+import { FavoriteTeamsStrip } from "@/components/schedule/FavoriteTeamsStrip";
 import { GameList } from "@/components/schedule/GameList";
 import { UpcomingGamesWithDivisionTabs } from "@/components/schedule/UpcomingGamesWithDivisionTabs";
 import { ChampionCelebration } from "@/components/brackets/ChampionCelebration";
@@ -106,6 +107,8 @@ export async function TournamentHomePublic({
             />
           ) : null}
 
+          <FavoriteTeamsStrip tournamentId={tournament.id} games={upcomingGames} timezone={tournament.timezone} />
+
           {!champion && showPublicAnnouncements ? (
             <section>
               <SectionTitle className="mb-3">Announcements</SectionTitle>
@@ -123,7 +126,11 @@ export async function TournamentHomePublic({
             <section>
               <SectionTitle className="mb-3">Upcoming games</SectionTitle>
               <div>
-                <UpcomingGamesWithDivisionTabs games={upcomingGames} calendarTimezone={tournament.timezone} />
+                <UpcomingGamesWithDivisionTabs
+                  games={upcomingGames}
+                  calendarTimezone={tournament.timezone}
+                  tournamentId={tournament.id}
+                />
               </div>
             </section>
           ) : null}
@@ -136,6 +143,7 @@ export async function TournamentHomePublic({
               displayTimesInViewerTimezone
               horizontal
               animateStagger
+              tournamentId={tournament.id}
               emptyMessage="No recent games for this division yet."
               emptyHint="Final scores, cancelled games, and games awaiting results appear here."
             />
