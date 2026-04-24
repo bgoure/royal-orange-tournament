@@ -100,9 +100,9 @@ export async function TournamentHomePublic({
   const showRecentResultsSection = !tournamentStarted || hasFinalOrCancelled;
 
   const hqWeatherBlock = (
-    <div className="flex flex-col gap-3">
+    <div className={`flex flex-col gap-1.5 ${hq ? "-my-2 sm:-my-1.5" : ""}`}>
       {hq ? (
-        <p className="text-center text-sm font-semibold text-accent">
+        <p className="text-center text-sm font-semibold leading-tight text-accent">
           {formatHeadquartersHomeLabel(hq, tournament.locationLabel)}
         </p>
       ) : null}

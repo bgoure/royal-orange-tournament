@@ -53,6 +53,8 @@ export async function SiteShell({
           publicBasePath={publicBasePath}
           divisionTabDescriptors={divisionTabDescriptors}
           cookieDivision={cookieDivision}
+          tournamentName={tournament.name}
+          tournamentShortLabel={tournament.shortLabel}
         />
         <PwaInstallPrompt />
         <PublicQuickGameProvider
