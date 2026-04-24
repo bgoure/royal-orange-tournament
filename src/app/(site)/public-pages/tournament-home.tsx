@@ -107,13 +107,13 @@ export async function TournamentHomePublic({
             />
           ) : null}
 
-          {!champion ? hqWeatherBlock : null}
-
           <FavoriteTeamsStrip
             tournamentId={tournament.id}
             divisionTabId={resolvedDivisionId || undefined}
             timezone={tournament.timezone}
           />
+
+          {!champion ? hqWeatherBlock : null}
 
           {!champion && showPublicAnnouncements ? (
             <section>
