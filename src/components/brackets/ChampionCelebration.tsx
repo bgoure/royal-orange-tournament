@@ -30,6 +30,9 @@ const CONFETTI_COLORS = [
   "oklch(0.55 0.08 250)",
 ];
 
+/** ~20% taller than previous max-h-24 / sm:max-h-28; shared by logo + trophy for equal visual height. */
+const HERO_ASSET_MAX_H = "max-h-[7.2rem] sm:max-h-[8.4rem]";
+
 /** Deterministic 0..1 from index (stable across re-renders). */
 function confettiUnit(i: number, salt: number): number {
   const x = Math.sin(i * 12.9898 + salt * 78.233) * 43758.5453;
@@ -97,38 +100,39 @@ export function ChampionCelebration({
           initial={reduceMotion ? false : { y: -6, opacity: 0 }}
           animate={reduceMotion ? undefined : { y: 0, opacity: 1 }}
           transition={{ type: "spring", stiffness: 320, damping: 22 }}
-          className="relative min-h-[7.5rem] overflow-hidden rounded-xl border border-zinc-200/90 bg-zinc-50/90 px-3 py-3 sm:min-h-[8.5rem] sm:px-4 sm:py-4"
+          className="relative min-h-[8.5rem] overflow-hidden rounded-xl border border-zinc-200/90 bg-zinc-50/90 px-3 py-3 sm:min-h-[9.5rem] sm:px-4 sm:py-4"
         >
           <ConfettiLayer show={!reduceMotion} />
 
-          <div className="relative z-10 flex h-full min-h-[6.5rem] flex-row items-center justify-between gap-3 sm:min-h-[7rem]">
-            <div className="flex min-w-0 max-w-[45%] flex-1 items-center justify-start sm:max-w-[48%]">
+          <div className="relative z-10 flex min-h-[7.5rem] flex-row flex-wrap items-center justify-center gap-4 sm:min-h-[8.25rem] sm:gap-6">
+            <div className="flex min-w-0 max-w-[min(100%,14rem)] items-center justify-center sm:max-w-[min(100%,16rem)]">
               {winnerTeam.logo ? (
                 <TeamLogoMark
                   team={winnerTeam}
-                  sizeClass="h-auto max-h-24 w-auto max-w-full sm:max-h-28"
-                  className="!h-auto max-h-24 object-contain object-left sm:max-h-28"
+                  sizeClass={`h-auto w-auto max-w-full ${HERO_ASSET_MAX_H}`}
+                  className={`!h-auto object-contain ${HERO_ASSET_MAX_H}`}
                 />
               ) : (
-                <p className="line-clamp-3 text-left text-sm font-bold leading-tight text-royal sm:text-base">
+                <p className="line-clamp-3 text-center text-sm font-bold leading-tight text-royal sm:text-base">
                   {winnerTeam.name}
                 </p>
               )}
             </div>
-            <div className="flex shrink-0 items-center justify-end">
+            <div className="flex shrink-0 items-center justify-center">
               {/* eslint-disable-next-line @next/next/no-img-element -- static public asset */}
               <img
                 src="/championTrophy.png"
                 alt=""
-                className="h-[5.5rem] w-auto max-w-[min(160px,48%)] object-contain object-right sm:h-32 sm:max-w-[180px]"
+                className="h-[7.2rem] w-auto max-w-[min(220px,45vw)] object-contain sm:h-[8.4rem]"
               />
             </div>
           </div>
         </motion.div>
 
         <p className="mx-auto mt-4 max-w-lg text-center text-sm leading-snug text-zinc-800 sm:text-base">
-          Congratulations to <strong className="font-bold text-zinc-900">{winnerTeam.name}</strong> for winning the{" "}
-          <strong className="font-bold text-royal">{divisionTournamentBold}</strong>
+          Congratulations to <strong className="font-bold text-zinc-900">{winnerTeam.name}</strong> for
+          <br />
+          winning the <strong className="font-bold text-royal">{divisionTournamentBold}</strong>
         </p>
       </div>
     </section>
