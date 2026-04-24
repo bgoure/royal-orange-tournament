@@ -21,7 +21,12 @@ import {
 import { listLatestAnnouncementForHome } from "@/lib/services/announcements";
 import { formatHeadquartersHomeLabel } from "@/lib/headquarters-display";
 import { getHeadquartersLocation } from "@/lib/services/content";
-import { listRecentGamesForHome, listUpcomingGamesForHome } from "@/lib/services/games";
+import { tournamentCalendarDayKey } from "@/lib/datetime-tournament";
+import {
+  hasFinalOrCancelledGameInDivisionTab,
+  listRecentGamesForHome,
+  listUpcomingGamesForHome,
+} from "@/lib/services/games";
 import { getBracketChampionForDivisionTab } from "@/lib/brackets/bracket-champion";
 import { listPoolsForDivisionTabs } from "@/lib/services/pools";
 import { publicGlassLinkTile } from "@/lib/public-glass-card";
@@ -73,13 +78,26 @@ export async function TournamentHomePublic({
   );
 
   const showPublicAnnouncements = tournament.showPublicAnnouncements;
-  const [latestAnnouncement, upcomingGames, recentGames, hq, champion] = await Promise.all([
+  const [
+    latestAnnouncement,
+    upcomingGames,
+    recentGames,
+    hq,
+    champion,
+    hasFinalOrCancelled,
+  ] = await Promise.all([
     showPublicAnnouncements ? listLatestAnnouncementForHome(tournament.id) : Promise.resolve(null),
     listUpcomingGamesForHome(tournament.id, resolvedDivisionId || undefined),
     listRecentGamesForHome(tournament.id, resolvedDivisionId || undefined),
     getHeadquartersLocation(tournament.id),
     getBracketChampionForDivisionTab(tournament.id, resolvedDivisionId, poolsForTabs),
+    hasFinalOrCancelledGameInDivisionTab(tournament.id, resolvedDivisionId || undefined),
   ]);
+
+  const todayKey = tournamentCalendarDayKey(new Date(), tournament.timezone);
+  const startKey = tournamentCalendarDayKey(tournament.startDate, tournament.timezone);
+  const tournamentStarted = todayKey >= startKey;
+  const showRecentResultsSection = !tournamentStarted || hasFinalOrCancelled;
 
   const hqWeatherBlock = (
     <div className="flex flex-col gap-3">
@@ -138,19 +156,21 @@ export async function TournamentHomePublic({
             />
           ) : null}
 
-          <section>
-            <SectionTitle className="mb-3">Recent results</SectionTitle>
-            <GameList
-              games={recentGames}
-              timezone={tournament.timezone}
-              displayTimesInViewerTimezone
-              horizontal
-              animateStagger
-              tournamentId={tournament.id}
-              emptyMessage="No recent games for this division yet."
-              emptyHint="Final scores, cancelled games, and games awaiting results appear here."
-            />
-          </section>
+          {showRecentResultsSection ? (
+            <section>
+              <SectionTitle className="mb-3">Recent results</SectionTitle>
+              <GameList
+                games={recentGames}
+                timezone={tournament.timezone}
+                displayTimesInViewerTimezone
+                horizontal
+                animateStagger
+                tournamentId={tournament.id}
+                emptyMessage="No recent games for this division yet."
+                emptyHint="Final scores, cancelled games, and games awaiting results appear here."
+              />
+            </section>
+          ) : null}
 
           <div className="hidden grid-cols-2 gap-3 md:grid">
             <QuickLinkCard

@@ -42,12 +42,12 @@ export function AnnouncementList({
         {items.map((a, i) => {
           const isPriority = a.priority;
           const shell = isPriority
-            ? "rounded-xl border border-orange-200/60 bg-orange-50/80 px-4 py-3 backdrop-blur-md shadow-[0_8px_30px_rgb(0,0,0,0.06)] dark:border-orange-800/45 dark:bg-orange-950/30 dark:shadow-[0_8px_30px_rgb(0,0,0,0.25)]"
+            ? "rounded-xl border-2 border-orange-300/95 bg-white px-4 py-3 shadow-[0_8px_30px_rgb(0,0,0,0.06)] dark:border-orange-400/85 dark:bg-white dark:shadow-[0_8px_30px_rgb(0,0,0,0.25)]"
             : `px-4 py-3 ${publicGlassCardXl}`;
 
           const metaPriority = compactMeta
-            ? "text-[10px] leading-tight text-royal/65 dark:text-royal-200/70"
-            : "text-xs text-royal/65 dark:text-royal-200/70";
+            ? "text-[10px] leading-tight text-royal dark:text-royal-100"
+            : "text-xs text-royal dark:text-royal-100";
           const metaResolved = isPriority ? metaPriority : metaClass;
           const seeMoreResolved = isPriority
             ? `${metaResolved} font-semibold text-royal underline-offset-2 hover:underline dark:text-royal-100`
