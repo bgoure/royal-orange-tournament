@@ -38,6 +38,8 @@ export function HeaderDivisionPills({
   const mobileTapCooldownRef = useRef(false);
   const mobileCooldownTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const [mobileTapCoolingDown, setMobileTapCoolingDown] = useState(false);
+  /** Each mobile tap flips pill: white + blue text ↔ orange + white text */
+  const [mobilePillOrange, setMobilePillOrange] = useState(false);
 
   const tabs = useMemo(() => {
     if (divisionDescriptors.length <= 1) return [];
@@ -112,6 +114,8 @@ export function HeaderDivisionPills({
       mobileCooldownTimerRef.current = null;
     }, MOBILE_DIVISION_TAP_COOLDOWN_MS);
 
+    setMobilePillOrange((prev) => !prev);
+
     const cur = tabs.findIndex((t) => t.id === selectedDivision);
     const base = cur >= 0 ? cur : 0;
     const next = (base + 1) % tabs.length;
@@ -156,10 +160,14 @@ export function HeaderDivisionPills({
         >
           <div
             ref={pillWindowRef}
-            className="pointer-events-none absolute left-1/2 top-0 h-full w-[5.5rem] -translate-x-1/2 rounded-lg bg-white shadow-sm"
+            className={`pointer-events-none absolute left-1/2 top-0 h-full w-[5.5rem] -translate-x-1/2 rounded-lg shadow-sm transition-colors duration-200 ${
+              mobilePillOrange ? "bg-accent" : "bg-white"
+            }`}
           />
           <span
-            className="relative z-10 max-w-full truncate px-1 text-center text-[1.53rem] font-bold leading-none text-royal"
+            className={`relative z-10 max-w-full truncate px-1 text-center text-[1.53rem] font-bold leading-none transition-colors duration-200 ${
+              mobilePillOrange ? "text-white" : "text-royal"
+            }`}
           >
             {selectedLabel}
           </span>
