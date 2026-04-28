@@ -36,6 +36,7 @@ export function HeaderDivisionPills({
   const scrollRef = useRef<HTMLDivElement>(null);
   const lastSnappedIdx = useRef(-1);
   const isUserScrolling = useRef(false);
+  const isTapScrolling = useRef(false);
   const scrollTimeout = useRef<ReturnType<typeof setTimeout> | null>(null);
   const displayedIdRef = useRef<string | null>(null);
   const dotContainerRef = useRef<HTMLDivElement>(null);
@@ -181,28 +182,31 @@ export function HeaderDivisionPills({
       }
     }
 
-    if (scrollTimeout.current) clearTimeout(scrollTimeout.current);
-    scrollTimeout.current = setTimeout(() => {
-      isUserScrolling.current = false;
-      const finalCenter = el.scrollLeft + el.clientWidth / 2;
-      let finalIdx = 0;
-      let finalDist = Infinity;
-      for (let i = 0; i < el.children.length; i++) {
-        const child = el.children[i] as HTMLElement;
-        const childCenter = child.offsetLeft + child.offsetWidth / 2;
-        const dist = Math.abs(finalCenter - childCenter);
-        if (dist < finalDist) {
-          finalDist = dist;
-          finalIdx = i;
+    if (!isTapScrolling.current) {
+      if (scrollTimeout.current) clearTimeout(scrollTimeout.current);
+      scrollTimeout.current = setTimeout(() => {
+        isUserScrolling.current = false;
+        if (isTapScrolling.current) return;
+        const finalCenter = el.scrollLeft + el.clientWidth / 2;
+        let finalIdx = 0;
+        let finalDist = Infinity;
+        for (let i = 0; i < el.children.length; i++) {
+          const child = el.children[i] as HTMLElement;
+          const childCenter = child.offsetLeft + child.offsetWidth / 2;
+          const dist = Math.abs(finalCenter - childCenter);
+          if (dist < finalDist) {
+            finalDist = dist;
+            finalIdx = i;
+          }
         }
-      }
-      const finalRealIdx = finalIdx % tabs.length;
-      scrollToRealIndex(finalRealIdx, "instant");
-      const divId = tabs[finalRealIdx]!.id;
-      if (divId !== selectedDivision) {
-        onDivisionChange(divId);
-      }
-    }, 150);
+        const finalRealIdx = finalIdx % tabs.length;
+        scrollToRealIndex(finalRealIdx, "instant");
+        const divId = tabs[finalRealIdx]!.id;
+        if (divId !== selectedDivision) {
+          onDivisionChange(divId);
+        }
+      }, 150);
+    }
   }, [tabs, selectedDivision, scrollToRealIndex, onDivisionChange, updateVisuals]);
 
   useEffect(() => {
@@ -216,25 +220,37 @@ export function HeaderDivisionPills({
     const el = scrollRef.current;
     if (!el || tabs.length === 0) return;
 
-    const center = el.scrollLeft + el.clientWidth / 2;
-    let closestIdx = 0;
-    let closestDist = Infinity;
-    for (let i = 0; i < el.children.length; i++) {
-      const child = el.children[i] as HTMLElement;
-      const childCenter = child.offsetLeft + child.offsetWidth / 2;
-      const dist = Math.abs(center - childCenter);
-      if (dist < closestDist) {
-        closestDist = dist;
-        closestIdx = i;
-      }
-    }
+    isTapScrolling.current = true;
+    if (scrollTimeout.current) clearTimeout(scrollTimeout.current);
 
-    const nextIdx = closestIdx + 1;
-    if (nextIdx >= el.children.length) return;
-    const nextChild = el.children[nextIdx] as HTMLElement;
-    const offset = nextChild.offsetLeft - (el.clientWidth - nextChild.offsetWidth) / 2;
-    el.scrollTo({ left: offset, behavior: "smooth" });
-  }, [tabs]);
+    const itemWidth = (el.children[0] as HTMLElement)?.offsetWidth ?? 0;
+    if (itemWidth === 0) return;
+
+    el.scrollBy({ left: itemWidth, behavior: "smooth" });
+
+    scrollTimeout.current = setTimeout(() => {
+      isTapScrolling.current = false;
+
+      const center = el.scrollLeft + el.clientWidth / 2;
+      let closestIdx = 0;
+      let closestDist = Infinity;
+      for (let i = 0; i < el.children.length; i++) {
+        const child = el.children[i] as HTMLElement;
+        const childCenter = child.offsetLeft + child.offsetWidth / 2;
+        const dist = Math.abs(center - childCenter);
+        if (dist < closestDist) {
+          closestDist = dist;
+          closestIdx = i;
+        }
+      }
+      const realIdx = closestIdx % tabs.length;
+      const divId = tabs[realIdx]!.id;
+      scrollToRealIndex(realIdx, "instant");
+      if (divId !== selectedDivision) {
+        onDivisionChange(divId);
+      }
+    }, 350);
+  }, [tabs, selectedDivision, scrollToRealIndex, onDivisionChange]);
 
   if (!showPills) return null;
 
