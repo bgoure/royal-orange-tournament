@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo, useRef, useTransition } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState, useTransition } from "react";
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import { setSelectedDivisionTabId } from "@/app/actions/tournament";
 import type { DivisionTabDescriptor } from "@/lib/division-tabs";
@@ -85,6 +85,28 @@ export function HeaderDivisionPills({
     el?.scrollIntoView({ behavior: "smooth", inline: "center", block: "nearest" });
   }, [tabs, selectedDivision]);
 
+  const [canScrollRight, setCanScrollRight] = useState(false);
+
+  const checkOverflow = useCallback(() => {
+    const el = scrollRef.current;
+    if (!el) return;
+    const hasMore = el.scrollWidth > el.clientWidth + el.scrollLeft + 2;
+    setCanScrollRight(hasMore);
+  }, []);
+
+  useEffect(() => {
+    checkOverflow();
+    const el = scrollRef.current;
+    if (!el) return;
+    el.addEventListener("scroll", checkOverflow, { passive: true });
+    const ro = new ResizeObserver(checkOverflow);
+    ro.observe(el);
+    return () => {
+      el.removeEventListener("scroll", checkOverflow);
+      ro.disconnect();
+    };
+  }, [checkOverflow, tabs]);
+
   if (!showPills) return null;
 
   const onDivisionChange = (id: string) => {
@@ -98,30 +120,43 @@ export function HeaderDivisionPills({
   };
 
   return (
-    <div
-      ref={scrollRef}
-      {...{ [DIVISION_SWIPE_IGNORE]: "" }}
-      className="no-scrollbar flex max-w-[7rem] gap-1.5 overflow-x-auto scroll-smooth snap-x snap-mandatory sm:max-w-[12rem] md:max-w-none md:overflow-x-visible md:snap-none"
-      role="radiogroup"
-      aria-label="Division"
-    >
-      {tabs.map((d, index) => {
-        const active = d.id === selectedDivision;
-        return (
-          <button
-            key={d.id}
-            ref={(el) => { pillRefs.current[index] = el; }}
-            type="button"
-            role="radio"
-            disabled={pending}
-            aria-checked={active}
-            onClick={() => onDivisionChange(d.id)}
-            className={`${pillBase} ${active ? pillActive : pillInactive}`}
-          >
-            {d.name}
-          </button>
-        );
-      })}
+    <div className="relative max-w-[7rem] sm:max-w-[12rem] md:max-w-none">
+      <div
+        ref={scrollRef}
+        {...{ [DIVISION_SWIPE_IGNORE]: "" }}
+        className="no-scrollbar flex gap-1.5 overflow-x-auto scroll-smooth snap-x snap-mandatory md:overflow-x-visible md:snap-none"
+        role="radiogroup"
+        aria-label="Division"
+      >
+        {tabs.map((d, index) => {
+          const active = d.id === selectedDivision;
+          return (
+            <button
+              key={d.id}
+              ref={(el) => { pillRefs.current[index] = el; }}
+              type="button"
+              role="radio"
+              disabled={pending}
+              aria-checked={active}
+              onClick={() => onDivisionChange(d.id)}
+              className={`${pillBase} ${active ? pillActive : pillInactive}`}
+            >
+              {d.name}
+            </button>
+          );
+        })}
+      </div>
+      {/* Fade + chevron hint when more pills are off-screen */}
+      {canScrollRight ? (
+        <div className="pointer-events-none absolute right-0 top-0 flex h-full items-center md:hidden">
+          <div className="h-full w-8 bg-gradient-to-l from-royal-900/90 to-transparent" />
+          <span className="mr-0.5 text-white/70 animate-pulse" aria-hidden>
+            <svg viewBox="0 0 20 20" fill="currentColor" className="size-4">
+              <path fillRule="evenodd" d="M7.21 14.77a.75.75 0 01.02-1.06L11.168 10 7.23 6.29a.75.75 0 111.04-1.08l4.5 4.25a.75.75 0 010 1.08l-4.5 4.25a.75.75 0 01-1.06-.02z" clipRule="evenodd" />
+            </svg>
+          </span>
+        </div>
+      ) : null}
     </div>
   );
 }
