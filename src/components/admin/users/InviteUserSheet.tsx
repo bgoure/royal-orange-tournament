@@ -15,7 +15,7 @@ const btnSecondary =
 
 type DivisionOpt = { id: string; name: string };
 
-const INVITE_DRAWER_AUTO_CLOSE_MS = 5000;
+const INVITE_DRAWER_AUTO_CLOSE_MS = 30_000;
 
 export function InviteUserSheet({
   canInvite,
@@ -80,7 +80,7 @@ export function InviteUserSheet({
                 the same address. Delivery requires{" "}
                 <code className="rounded bg-zinc-100 px-1 text-xs">RESEND_API_KEY</code> and usually a verified{" "}
                 <code className="rounded bg-zinc-100 px-1 text-xs">RESEND_FROM</code> domain; otherwise Resend’s test
-                check the notice after you tap save (it stays open several seconds). If email still doesn’t arrive,
+                check the notice after you tap save (the sheet stays open about 30 seconds). If email still doesn’t arrive,
                 copy the Resend message id from the notice into Resend → Emails.
               </p>
               {state && !state.ok ? (
