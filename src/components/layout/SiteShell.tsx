@@ -1,7 +1,6 @@
 import type { Tournament } from "@prisma/client";
 import { auth } from "@/auth";
 import { SiteHeader } from "@/components/layout/SiteHeader";
-import { HeaderContainer } from "@/components/layout/HeaderContainer";
 import { BottomNav } from "@/components/layout/BottomNav";
 import { PublicQuickGameProvider } from "@/components/public-admin/PublicQuickGameProvider";
 import { PublicSiteThemeRoot } from "@/components/theme/public-site-theme";
@@ -49,15 +48,13 @@ export async function SiteShell({
   return (
     <PublicSiteThemeRoot>
       <div className="flex min-h-dvh flex-col bg-zinc-50 text-zinc-900 dark:bg-zinc-950 dark:text-zinc-100">
-        <HeaderContainer>
-          <SiteHeader
-            publicBasePath={publicBasePath}
-            tournamentName={tournament.name}
-            tournamentShortLabel={tournament.shortLabel}
-            divisionDescriptors={divisionTabDescriptors}
-            cookieDivision={cookieDivision}
-          />
-        </HeaderContainer>
+        <SiteHeader
+          publicBasePath={publicBasePath}
+          tournamentName={tournament.name}
+          tournamentShortLabel={tournament.shortLabel}
+          divisionDescriptors={divisionTabDescriptors}
+          cookieDivision={cookieDivision}
+        />
         <PwaInstallPrompt />
         <PublicQuickGameProvider
           isAdmin={isAdmin}
