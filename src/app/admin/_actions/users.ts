@@ -5,7 +5,7 @@ import type { Role } from "@prisma/client";
 import { auth } from "@/auth";
 import { prisma } from "@/lib/db";
 import { can } from "@/lib/rbac/permissions";
-import { countAdmins } from "@/lib/services/users-admin";
+import { countAdmins, setUserDivisionAssignments } from "@/lib/services/users-admin";
 import { sendStaffInviteEmail } from "@/lib/email/user-invite-email";
 import { inviteUserSchema, removeUserSchema, updateUserRoleSchema } from "@/lib/validations/users-admin";
 
@@ -58,9 +58,12 @@ export async function updateUserRole(
   const parsed = updateUserRoleSchema.safeParse({
     userId: formData.get("userId"),
     role: formData.get("role"),
+    divisionIds: formData.get("divisionIds"),
   });
   if (!parsed.success) {
-    return { ok: false, error: parsed.error.flatten().formErrors.join(", ") || "Invalid input" };
+    const fieldErrors = parsed.error.flatten().fieldErrors;
+    const msg = fieldErrors.divisionIds?.join(", ") || parsed.error.flatten().formErrors.join(", ") || "Invalid input";
+    return { ok: false, error: msg };
   }
 
   const target = await prisma.user.findUnique({
@@ -68,7 +71,6 @@ export async function updateUserRole(
     select: { id: true, role: true },
   });
   if (!target) return { ok: false, error: "User not found" };
-  if (target.role === parsed.data.role) return { ok: true };
 
   const block = await assertKeepsAtLeastOneAdmin({
     targetCurrentRole: target.role,
@@ -82,6 +84,11 @@ export async function updateUserRole(
       where: { id: target.id },
       data: { role: parsed.data.role },
     });
+    if (parsed.data.role === "POWER_USER") {
+      await setUserDivisionAssignments(target.id, parsed.data.divisionIds);
+    } else {
+      await setUserDivisionAssignments(target.id, []);
+    }
     revalidatePath("/admin/users");
     return { ok: true, notice: "Role updated." };
   } catch (e) {
@@ -114,9 +121,12 @@ export async function inviteUser(
     email: formData.get("email"),
     name: formData.get("name"),
     role: formData.get("role"),
+    divisionIds: formData.get("divisionIds"),
   });
   if (!parsed.success) {
-    return { ok: false, error: parsed.error.flatten().formErrors.join(", ") || "Invalid input" };
+    const fieldErrors = parsed.error.flatten().fieldErrors;
+    const msg = fieldErrors.divisionIds?.join(", ") || parsed.error.flatten().formErrors.join(", ") || "Invalid input";
+    return { ok: false, error: msg };
   }
 
   const email = parsed.data.email.toLowerCase();
@@ -125,16 +135,22 @@ export async function inviteUser(
     return { ok: false, error: "A user with this email already exists." };
   }
 
+  let userId: string;
   try {
-    await prisma.user.create({
+    const user = await prisma.user.create({
       data: {
         email,
         name: parsed.data.name ?? null,
         role: parsed.data.role,
       },
     });
+    userId = user.id;
   } catch (e) {
     return { ok: false, error: e instanceof Error ? e.message : "Failed to create user" };
+  }
+
+  if (parsed.data.role === "POWER_USER" && parsed.data.divisionIds.length > 0) {
+    await setUserDivisionAssignments(userId, parsed.data.divisionIds);
   }
 
   const base =

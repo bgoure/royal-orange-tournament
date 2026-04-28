@@ -2,6 +2,8 @@ import { auth } from "@/auth";
 import { UsersAdmin } from "@/components/admin/users/UsersAdmin";
 import { can } from "@/lib/rbac/permissions";
 import { listUsersForAdmin } from "@/lib/services/users-admin";
+import { getTournamentForRequest } from "@/lib/tournament-context";
+import { prisma } from "@/lib/db";
 
 export default async function AdminUsersPage() {
   const session = await auth();
@@ -17,9 +19,27 @@ export default async function AdminUsersPage() {
     );
   }
 
-  const users = await listUsersForAdmin();
+  const tournament = await getTournamentForRequest();
+  const [users, divisions] = await Promise.all([
+    listUsersForAdmin(),
+    tournament
+      ? prisma.division.findMany({
+          where: { tournamentId: tournament.id },
+          orderBy: { sortOrder: "asc" },
+          select: { id: true, name: true },
+        })
+      : Promise.resolve([]),
+  ]);
+
   const canManage = can(role, "user:manageRoles");
   const actorId = session?.user?.id ?? "";
 
-  return <UsersAdmin users={users} actorUserId={actorId} canManage={canManage} />;
+  return (
+    <UsersAdmin
+      users={users}
+      actorUserId={actorId}
+      canManage={canManage}
+      divisionOptions={divisions}
+    />
+  );
 }

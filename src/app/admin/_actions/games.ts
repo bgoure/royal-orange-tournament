@@ -5,6 +5,7 @@ import { revalidatePublishedTournamentSites } from "@/lib/revalidate-public-tour
 import { auth } from "@/auth";
 import { prisma } from "@/lib/db";
 import { can } from "@/lib/rbac/permissions";
+import { assertGameDivisionScope } from "@/lib/rbac/division-scope";
 import {
   assertFieldInTournament,
   assertGameInTournament,
@@ -145,6 +146,9 @@ export async function updateGameScoring(
       parsed.error.issues.map((i) => i.message).join(", ") || "Invalid scoring input";
     return { ok: false, error: msg };
   }
+
+  const gameScopeErr = await assertGameDivisionScope(ctx.session.user.id, ctx.session.user.role, parsed.data.id);
+  if (gameScopeErr) return { ok: false, error: gameScopeErr };
 
   try {
     const existing = await assertGameInTournament(parsed.data.id, ctx.tournament.id);
@@ -331,6 +335,9 @@ export async function updateGameMeta(
   if (!parsed.success) {
     return { ok: false, error: "Invalid schedule or matchup input" };
   }
+
+  const metaScopeErr = await assertGameDivisionScope(ctx.session.user.id, ctx.session.user.role, parsed.data.id);
+  if (metaScopeErr) return { ok: false, error: metaScopeErr };
 
   try {
     const existing = await assertGameInTournament(parsed.data.id, ctx.tournament.id);

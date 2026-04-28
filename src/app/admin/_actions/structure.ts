@@ -6,6 +6,11 @@ import { auth } from "@/auth";
 import { prisma } from "@/lib/db";
 import { can } from "@/lib/rbac/permissions";
 import {
+  assertDivisionScope,
+  assertPoolDivisionScope,
+  assertTeamDivisionScope,
+} from "@/lib/rbac/division-scope";
+import {
   assertDivisionInTournament,
   assertPoolInTournament,
   assertTeamInTournament,
@@ -93,6 +98,8 @@ export async function updateDivision(_prev: ActionResult | undefined, formData: 
   }
 
   await assertDivisionInTournament(parsed.data.id, ctx.tournament.id);
+  const scopeErr = await assertDivisionScope(ctx.session.user.id, ctx.session.user.role, parsed.data.id);
+  if (scopeErr) return { ok: false, error: scopeErr };
   await prisma.division.update({
     where: { id: parsed.data.id },
     data: { name: parsed.data.name, sortOrder: parsed.data.sortOrder },
@@ -133,6 +140,8 @@ export async function createPool(_prev: ActionResult | undefined, formData: Form
   }
 
   await assertDivisionInTournament(parsed.data.divisionId, ctx.tournament.id);
+  const scopeErr = await assertDivisionScope(ctx.session.user.id, ctx.session.user.role, parsed.data.divisionId);
+  if (scopeErr) return { ok: false, error: scopeErr };
   const maxOrder = await prisma.pool.aggregate({
     where: { divisionId: parsed.data.divisionId },
     _max: { sortOrder: true },
@@ -233,6 +242,8 @@ export async function createTeam(_prev: ActionResult | undefined, formData: Form
   }
 
   await assertPoolInTournament(parsed.data.poolId, ctx.tournament.id);
+  const scopeErrTeam = await assertPoolDivisionScope(ctx.session.user.id, ctx.session.user.role, parsed.data.poolId);
+  if (scopeErrTeam) return { ok: false, error: scopeErrTeam };
   await prisma.team.create({
     data: {
       poolId: parsed.data.poolId,
@@ -265,6 +276,8 @@ export async function updateTeam(_prev: ActionResult | undefined, formData: Form
 
   await assertTeamInTournament(parsed.data.id, ctx.tournament.id);
   await assertPoolInTournament(parsed.data.poolId, ctx.tournament.id);
+  const teamScopeErr = await assertTeamDivisionScope(ctx.session.user.id, ctx.session.user.role, parsed.data.id);
+  if (teamScopeErr) return { ok: false, error: teamScopeErr };
   const existingTeam = await prisma.team.findFirst({
     where: { id: parsed.data.id, pool: { division: { tournamentId: ctx.tournament.id } } },
     select: { poolId: true },
