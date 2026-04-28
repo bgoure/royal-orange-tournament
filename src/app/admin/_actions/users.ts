@@ -9,7 +9,9 @@ import { countAdmins, setUserDivisionAssignments } from "@/lib/services/users-ad
 import { sendStaffInviteEmail } from "@/lib/email/user-invite-email";
 import { inviteUserSchema, removeUserSchema, updateUserRoleSchema } from "@/lib/validations/users-admin";
 
-export type UserAdminActionResult = { ok: true; notice?: string } | { ok: false; error: string };
+export type UserAdminActionResult =
+  | { ok: true; notice?: string; noticeTone?: "success" | "warning" }
+  | { ok: false; error: string };
 
 function deny(): UserAdminActionResult {
   return { ok: false, error: "You don’t have permission to manage users." };
@@ -157,7 +159,10 @@ export async function inviteUser(
     process.env.NEXTAUTH_URL?.trim() ||
     process.env.AUTH_URL?.trim() ||
     (process.env.VERCEL_URL ? `https://${process.env.VERCEL_URL}` : "");
-  const signInUrl = base ? `${base.replace(/\/$/, "")}/login` : "/login";
+  let signInUrl = base ? `${base.replace(/\/$/, "")}/login` : "/login";
+  if (!signInUrl.startsWith("http") && process.env.VERCEL_URL?.trim()) {
+    signInUrl = `https://${process.env.VERCEL_URL.trim()}/login`;
+  }
 
   const sent = await sendStaffInviteEmail({
     to: email,
@@ -170,16 +175,19 @@ export async function inviteUser(
   if (!sent.ok) {
     return {
       ok: true,
-      notice: `User added. Invite email was not sent: ${sent.error} They can still sign in with Google using this email once configured.`,
+      noticeTone: "warning",
+      notice: `User added, but the invite email was not sent: ${sent.error} They can still sign in with Google using this email once email is configured correctly.`,
     };
   }
 
+  const resendRef = sent.resendEmailId ? ` Resend message id: ${sent.resendEmailId} (search in Resend → Emails).` : "";
   const deliverabilityHint = sent.usingResendTestDomain
-    ? " If they don’t see it: check spam, Resend → Emails for errors, and add their address as a verified recipient—or set RESEND_FROM to your verified domain."
-    : "";
+    ? " If they don’t see it: check spam, Resend → Emails for that id, and add their address as a verified recipient—or set RESEND_FROM to your verified domain."
+    : " If they don’t see it, check spam and the Resend dashboard for that message id.";
   return {
     ok: true,
-    notice: `User added and invite email sent.${deliverabilityHint}`,
+    noticeTone: "success",
+    notice: `User added and invite email sent.${resendRef}${deliverabilityHint}`,
   };
 }
 

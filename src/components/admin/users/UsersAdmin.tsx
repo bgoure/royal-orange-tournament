@@ -48,7 +48,8 @@ function ErrorLine({ state }: { state: UserAdminActionResult | undefined }) {
 
 function SuccessLine({ state }: { state: UserAdminActionResult | undefined }) {
   if (!state || !state.ok || !state.notice) return null;
-  return <p className="text-xs text-emerald-800">{state.notice}</p>;
+  const warn = state.noticeTone === "warning";
+  return <p className={warn ? "text-xs text-amber-900" : "text-xs text-emerald-800"}>{state.notice}</p>;
 }
 
 function DivisionCheckboxes({

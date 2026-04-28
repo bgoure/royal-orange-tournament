@@ -1,6 +1,6 @@
 "use client";
 
-import { useActionState, useEffect, useState } from "react";
+import { useActionState, useEffect, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import { Drawer } from "vaul";
 import { inviteUser, type UserAdminActionResult } from "@/app/admin/_actions/users";
@@ -14,6 +14,8 @@ const btnSecondary =
   "rounded-md border border-zinc-300 bg-white px-4 py-2 text-sm font-medium text-zinc-800 hover:bg-zinc-50";
 
 type DivisionOpt = { id: string; name: string };
+
+const INVITE_DRAWER_AUTO_CLOSE_MS = 5000;
 
 export function InviteUserSheet({
   canInvite,
@@ -30,16 +32,28 @@ export function InviteUserSheet({
     inviteUser,
     undefined as UserAdminActionResult | undefined,
   );
+  const wasPendingRef = useRef(false);
 
   useEffect(() => {
-    if (!state?.ok) return;
-    router.refresh();
-    const id = window.setTimeout(() => {
-      setOpen(false);
-      setSelectedDivisions(new Set());
-    }, 0);
-    return () => window.clearTimeout(id);
-  }, [state?.ok, router]);
+    const finishedSubmit = wasPendingRef.current && !pending;
+    wasPendingRef.current = pending;
+
+    if (!finishedSubmit || !open) return;
+
+    if (state?.ok && state.notice) {
+      router.refresh();
+      const id = window.setTimeout(() => {
+        setOpen(false);
+        setSelectedDivisions(new Set());
+      }, INVITE_DRAWER_AUTO_CLOSE_MS);
+      return () => window.clearTimeout(id);
+    }
+
+    if (state && !state.ok) {
+      router.refresh();
+    }
+    return undefined;
+  }, [pending, state, open, router]);
 
   if (!canInvite) return null;
 
@@ -66,7 +80,8 @@ export function InviteUserSheet({
                 the same address. Delivery requires{" "}
                 <code className="rounded bg-zinc-100 px-1 text-xs">RESEND_API_KEY</code> and usually a verified{" "}
                 <code className="rounded bg-zinc-100 px-1 text-xs">RESEND_FROM</code> domain; otherwise Resend’s test
-                sender may not reach every inbox—check the green notice after save for details.
+                check the notice after you tap save (it stays open several seconds). If email still doesn’t arrive,
+                copy the Resend message id from the notice into Resend → Emails.
               </p>
               {state && !state.ok ? (
                 <p className="mt-3 rounded-md bg-red-50 px-3 py-2 text-sm text-red-800 ring-1 ring-red-200" role="alert">
@@ -74,7 +89,14 @@ export function InviteUserSheet({
                 </p>
               ) : null}
               {state?.ok && state.notice ? (
-                <p className="mt-3 rounded-md bg-emerald-50 px-3 py-2 text-sm text-emerald-900 ring-1 ring-emerald-200">
+                <p
+                  className={`mt-3 rounded-md px-3 py-2 text-sm ring-1 ${
+                    state.noticeTone === "warning"
+                      ? "bg-amber-50 text-amber-950 ring-amber-200"
+                      : "bg-emerald-50 text-emerald-900 ring-emerald-200"
+                  }`}
+                  role="status"
+                >
                   {state.notice}
                 </p>
               ) : null}

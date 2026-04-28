@@ -25,12 +25,12 @@ function PillChevron({ dir, className }: { dir: "prev" | "next"; className?: str
   return (
     <svg
       className={className}
-      width="13"
-      height="13"
+      width="26"
+      height="26"
       viewBox="0 0 24 24"
       fill="none"
       stroke="currentColor"
-      strokeWidth="2.25"
+      strokeWidth="2"
       strokeLinecap="round"
       strokeLinejoin="round"
       aria-hidden
@@ -179,11 +179,11 @@ export function HeaderDivisionPills({
         >
           <div
             ref={pillWindowRef}
-            className={`pointer-events-none absolute left-1/2 top-0 h-full w-[7rem] -translate-x-1/2 rounded-lg shadow-sm transition-colors duration-200 ${
+            className={`pointer-events-none absolute left-1/2 top-0 h-full w-[8.25rem] -translate-x-1/2 rounded-lg shadow-sm transition-colors duration-200 ${
               mobilePillOrange ? "bg-accent" : "bg-white"
             }`}
           />
-          <div className="relative z-10 flex h-full w-[7rem] items-center justify-center gap-0.5 px-0.5">
+          <div className="relative z-10 flex h-full w-[8.25rem] items-center justify-center gap-0.5 px-0.5">
             <PillChevron
               dir="prev"
               className={`shrink-0 transition-colors duration-200 ${

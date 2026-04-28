@@ -2,7 +2,7 @@ import { Resend } from "resend";
 import { getResendFromAddress } from "@/lib/email/resend";
 
 export type StaffInviteEmailResult =
-  | { ok: true; usingResendTestDomain: boolean }
+  | { ok: true; usingResendTestDomain: boolean; resendEmailId: string | null }
   | { ok: false; error: string };
 
 export async function sendStaffInviteEmail(opts: {
@@ -42,7 +42,7 @@ export async function sendStaffInviteEmail(opts: {
 <p><a href="${escapeHtml(opts.signInUrl)}">Open sign-in</a></p>
 <p style="color:#71717a;font-size:12px">If you did not expect this message, you can ignore it.</p>`;
 
-  const { error } = await resend.emails.send({
+  const { data, error } = await resend.emails.send({
     from,
     to: opts.to,
     subject: "You're invited to Tournament Hub",
@@ -60,7 +60,11 @@ export async function sendStaffInviteEmail(opts: {
       : "";
     return { ok: false, error: msg + hint };
   }
-  return { ok: true, usingResendTestDomain };
+  const resendEmailId =
+    data && typeof data === "object" && "id" in data && typeof (data as { id: unknown }).id === "string"
+      ? (data as { id: string }).id
+      : null;
+  return { ok: true, usingResendTestDomain, resendEmailId };
 }
 
 function escapeHtml(s: string): string {
