@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useEffect, useMemo, useRef, useState, useTransition } from "react";
+import { useCallback, useEffect, useMemo, useRef, useTransition } from "react";
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import { setSelectedDivisionTabId } from "@/app/actions/tournament";
 import type { DivisionTabDescriptor } from "@/lib/division-tabs";
@@ -18,8 +18,6 @@ function triggerHaptic() {
   }
 }
 
-const REPEAT_COUNT = 20;
-
 export function HeaderDivisionPills({
   publicBasePath,
   divisionDescriptors,
@@ -33,13 +31,7 @@ export function HeaderDivisionPills({
   const pathname = usePathname();
   const searchParams = useSearchParams();
   const [pending, startTransition] = useTransition();
-  const scrollRef = useRef<HTMLDivElement>(null);
-  const lastSnappedIdx = useRef(-1);
-  const programmaticScrollRef = useRef(false);
-  const scrollTimeout = useRef<ReturnType<typeof setTimeout> | null>(null);
   const pillWindowRef = useRef<HTMLDivElement>(null);
-
-  const [visualDivisionId, setVisualDivisionId] = useState<string | null>(null);
 
   const tabs = useMemo(() => {
     if (divisionDescriptors.length <= 1) return [];
@@ -72,7 +64,8 @@ export function HeaderDivisionPills({
     ? effectiveId
     : defaultId;
 
-  const mobileDisplayId = visualDivisionId ?? selectedDivision;
+  const selectedTab = tabs.find((t) => t.id === selectedDivision);
+  const selectedLabel = selectedTab?.name ?? "";
 
   useEffect(() => {
     if (!showPills || validIds.size <= 1) return;
@@ -85,36 +78,6 @@ export function HeaderDivisionPills({
     router.replace(qs ? `${pathname}?${qs}` : pathname, { scroll: false });
   }, [pathname, showPills, validIds.size, effectiveId, searchParams, router]);
 
-  const repeatedTabs = useMemo(() => {
-    if (tabs.length === 0) return [];
-    const arr: (DivisionTabDescriptor & { realIndex: number })[] = [];
-    for (let r = 0; r < REPEAT_COUNT; r++) {
-      for (let i = 0; i < tabs.length; i++) {
-        arr.push({ ...tabs[i]!, realIndex: i });
-      }
-    }
-    return arr;
-  }, [tabs]);
-
-  const scrollToRealIndex = useCallback((realIndex: number, behavior: ScrollBehavior = "instant") => {
-    const el = scrollRef.current;
-    if (!el || tabs.length === 0) return;
-    const midRepeat = Math.floor(REPEAT_COUNT / 2);
-    const targetIdx = midRepeat * tabs.length + realIndex;
-    const child = el.children[targetIdx] as HTMLElement | undefined;
-    if (!child) return;
-    const offset = child.offsetLeft - (el.clientWidth - child.offsetWidth) / 2;
-    el.scrollTo({ left: offset, behavior });
-  }, [tabs]);
-
-  const endProgrammaticScroll = useCallback(() => {
-    requestAnimationFrame(() => {
-      requestAnimationFrame(() => {
-        programmaticScrollRef.current = false;
-      });
-    });
-  }, []);
-
   const onDivisionChange = useCallback((id: string) => {
     startTransition(async () => {
       await setSelectedDivisionTabId(id, publicBasePath);
@@ -125,110 +88,12 @@ export function HeaderDivisionPills({
     });
   }, [publicBasePath, searchParams, pathname, router]);
 
-  useEffect(() => {
-    if (!showPills || tabs.length === 0) return;
-    const idx = tabs.findIndex((t) => t.id === selectedDivision);
-    if (idx < 0) return;
-    lastSnappedIdx.current = idx;
-    requestAnimationFrame(() => {
-      setVisualDivisionId(selectedDivision);
-      programmaticScrollRef.current = true;
-      scrollToRealIndex(idx, "instant");
-      endProgrammaticScroll();
-    });
-  }, [showPills, tabs, selectedDivision, scrollToRealIndex, endProgrammaticScroll]);
-
-  const runScrollSettle = useCallback(() => {
-    const el = scrollRef.current;
-    if (!el || tabs.length === 0) return;
-
-    const finalCenter = el.scrollLeft + el.clientWidth / 2;
-    let finalIdx = 0;
-    let finalDist = Infinity;
-    for (let i = 0; i < el.children.length; i++) {
-      const child = el.children[i] as HTMLElement;
-      const childCenter = child.offsetLeft + child.offsetWidth / 2;
-      const dist = Math.abs(finalCenter - childCenter);
-      if (dist < finalDist) {
-        finalDist = dist;
-        finalIdx = i;
-      }
-    }
-    const finalRealIdx = finalIdx % tabs.length;
-    programmaticScrollRef.current = true;
-    scrollToRealIndex(finalRealIdx, "instant");
-    lastSnappedIdx.current = finalRealIdx;
-    const divId = tabs[finalRealIdx]!.id;
-    setVisualDivisionId(divId);
-    endProgrammaticScroll();
-    if (divId !== selectedDivision) {
-      onDivisionChange(divId);
-    }
-  }, [tabs, selectedDivision, scrollToRealIndex, onDivisionChange, endProgrammaticScroll]);
-
-  const onScroll = useCallback(() => {
-    const el = scrollRef.current;
-    if (!el || tabs.length === 0) return;
-    if (programmaticScrollRef.current) return;
-
-    const center = el.scrollLeft + el.clientWidth / 2;
-    let closestIdx = 0;
-    let closestDist = Infinity;
-    for (let i = 0; i < el.children.length; i++) {
-      const child = el.children[i] as HTMLElement;
-      const childCenter = child.offsetLeft + child.offsetWidth / 2;
-      const dist = Math.abs(center - childCenter);
-      if (dist < closestDist) {
-        closestDist = dist;
-        closestIdx = i;
-      }
-    }
-
-    const realIdx = closestIdx % tabs.length;
-
-    if (realIdx !== lastSnappedIdx.current) {
-      lastSnappedIdx.current = realIdx;
-      const id = tabs[realIdx]!.id;
-      setVisualDivisionId(id);
-      triggerHaptic();
-      const pw = pillWindowRef.current;
-      if (pw) {
-        pw.classList.remove("division-snap-animate");
-        void pw.offsetWidth;
-        pw.classList.add("division-snap-animate");
-      }
-    }
-
-    if (scrollTimeout.current) clearTimeout(scrollTimeout.current);
-    scrollTimeout.current = setTimeout(() => {
-      if (programmaticScrollRef.current) return;
-      runScrollSettle();
-    }, 150);
-  }, [tabs, runScrollSettle]);
-
-  useEffect(() => {
-    const el = scrollRef.current;
-    if (!el) return;
-    el.addEventListener("scroll", onScroll, { passive: true });
-    return () => el.removeEventListener("scroll", onScroll);
-  }, [onScroll]);
-
   const advanceToNext = useCallback(() => {
-    if (tabs.length === 0) return;
-    if (scrollTimeout.current) {
-      clearTimeout(scrollTimeout.current);
-      scrollTimeout.current = null;
-    }
-
+    if (tabs.length === 0 || pending) return;
     const cur = tabs.findIndex((t) => t.id === selectedDivision);
     const base = cur >= 0 ? cur : 0;
     const next = (base + 1) % tabs.length;
     const nextId = tabs[next]!.id;
-
-    programmaticScrollRef.current = true;
-    scrollToRealIndex(next, "instant");
-    lastSnappedIdx.current = next;
-    setVisualDivisionId(nextId);
 
     const pw = pillWindowRef.current;
     if (pw) {
@@ -237,62 +102,46 @@ export function HeaderDivisionPills({
       pw.classList.add("division-snap-animate");
     }
     triggerHaptic();
-    endProgrammaticScroll();
 
     if (nextId !== selectedDivision) {
       onDivisionChange(nextId);
     }
-  }, [tabs, selectedDivision, scrollToRealIndex, onDivisionChange, endProgrammaticScroll]);
+  }, [tabs, selectedDivision, pending, onDivisionChange]);
 
   if (!showPills) return null;
 
   return (
     <div className="flex items-center md:gap-1.5">
-      {/* Mobile: carousel picker with wider invisible touch zone */}
+      {/* Mobile: tap pill to cycle divisions (no horizontal scroll) */}
       <div className="relative flex flex-col items-center gap-1 md:hidden">
-        {/* Dot indicator — above the pill */}
-        <div className="flex gap-1.5">
+        <div className="flex gap-1.5" aria-hidden="true">
           {tabs.map((t) => (
             <span
               key={t.id}
               className="size-1.5 rounded-full bg-white transition-opacity duration-200"
-              style={{ opacity: t.id === mobileDisplayId ? 1 : 0.3 }}
+              style={{ opacity: t.id === selectedDivision ? 1 : 0.3 }}
             />
           ))}
         </div>
 
-        <div
-          className="relative cursor-pointer touch-manipulation"
-          style={{ width: "8.25rem" }}
+        <button
+          type="button"
+          {...{ [DIVISION_SWIPE_IGNORE]: "" }}
+          className="relative flex h-10 w-[8.25rem] shrink-0 cursor-pointer touch-manipulation items-center justify-center rounded-lg border-0 bg-transparent p-0 outline-none focus-visible:ring-2 focus-visible:ring-white focus-visible:ring-offset-2 focus-visible:ring-offset-royal-900 disabled:opacity-50"
           onClick={advanceToNext}
+          disabled={pending}
+          aria-label={`${selectedLabel}. Tap to switch division.`}
         >
-          {/* Visible white pill window — centered */}
           <div
             ref={pillWindowRef}
-            className="pointer-events-none absolute left-1/2 top-0 h-full -translate-x-1/2 rounded-lg bg-white shadow-sm"
-            style={{ width: "5.5rem" }}
+            className="pointer-events-none absolute left-1/2 top-0 h-full w-[5.5rem] -translate-x-1/2 rounded-lg bg-white shadow-sm"
           />
-          {/* Scroll container — no scroll-smooth: avoids fighting snap + programmatic scroll */}
-          <div
-            ref={scrollRef}
-            {...{ [DIVISION_SWIPE_IGNORE]: "" }}
-            className="no-scrollbar relative flex snap-x snap-mandatory overflow-x-auto"
-            style={{ height: "2.5rem" }}
+          <span
+            className="relative z-10 max-w-full truncate px-1 text-center text-[1.53rem] font-bold leading-none text-royal"
           >
-            {repeatedTabs.map((d, i) => (
-              <div
-                key={`${d.id}-${i}`}
-                data-division-id={d.id}
-                className={`division-carousel-item flex h-full shrink-0 snap-center items-center justify-center font-bold transition-colors duration-150 ${
-                  d.id === mobileDisplayId ? "text-royal" : "text-white/50"
-                }`}
-                style={{ width: "8.25rem", fontSize: "1.53rem" }}
-              >
-                {d.name}
-              </div>
-            ))}
-          </div>
-        </div>
+            {selectedLabel}
+          </span>
+        </button>
       </div>
 
       {/* Desktop: all pills inline */}
@@ -307,7 +156,7 @@ export function HeaderDivisionPills({
               disabled={pending}
               aria-checked={active}
               onClick={() => onDivisionChange(d.id)}
-              className={`shrink-0 whitespace-nowrap rounded-lg px-4 py-2 text-sm font-semibold transition-colors duration-200 min-h-[40px] ${
+              className={`min-h-[40px] shrink-0 whitespace-nowrap rounded-lg px-4 py-2 text-sm font-semibold transition-colors duration-200 ${
                 active ? "bg-white text-royal shadow-sm" : "bg-white/15 text-white/80 hover:bg-white/25 hover:text-white"
               }`}
             >
