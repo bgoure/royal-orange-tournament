@@ -101,7 +101,7 @@ export function PublicSettingsPortal({
               <span className="font-medium text-royal dark:text-royal-200">{role}</span>). Quick edit is enabled on game
               cards.
             </p>
-            <button type="button" className={btnSecondary} onClick={() => void signOut({ callbackUrl: settingsAbsolute })}>
+            <button type="button" className={btnSecondary} onClick={() => void signOut({ callbackUrl: "/" })}>
               Sign out
             </button>
           </div>
@@ -111,7 +111,7 @@ export function PublicSettingsPortal({
               Signed in as <span className="font-medium text-zinc-900 dark:text-zinc-100">{userLabel}</span>. Your role is{" "}
               <span className="font-medium">{role}</span> — quick edit on game cards stays disabled.
             </p>
-            <button type="button" className={btnSecondary} onClick={() => void signOut({ callbackUrl: settingsAbsolute })}>
+            <button type="button" className={btnSecondary} onClick={() => void signOut({ callbackUrl: "/" })}>
               Sign out
             </button>
           </div>
