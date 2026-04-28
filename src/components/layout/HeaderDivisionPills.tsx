@@ -229,6 +229,17 @@ export function HeaderDivisionPills({
     <div className="flex items-center md:gap-1.5">
       {/* Mobile: carousel picker with wider invisible touch zone */}
       <div className="relative flex flex-col items-center gap-1 md:hidden">
+        {/* Dot indicator — above the pill */}
+        <div ref={dotContainerRef} className="flex gap-1.5">
+          {tabs.map((t) => (
+            <span
+              key={t.id}
+              className="size-1.5 rounded-full bg-white transition-opacity duration-200"
+              style={{ opacity: t.id === selectedDivision ? 1 : 0.3 }}
+            />
+          ))}
+        </div>
+
         <div
           className="relative cursor-pointer"
           style={{ width: "8.25rem" }}
@@ -258,17 +269,6 @@ export function HeaderDivisionPills({
               </div>
             ))}
           </div>
-        </div>
-
-        {/* Dot indicator — below the pill */}
-        <div ref={dotContainerRef} className="flex gap-1.5">
-          {tabs.map((t) => (
-            <span
-              key={t.id}
-              className="size-1.5 rounded-full bg-white transition-opacity duration-200"
-              style={{ opacity: t.id === selectedDivision ? 1 : 0.3 }}
-            />
-          ))}
         </div>
       </div>
 
