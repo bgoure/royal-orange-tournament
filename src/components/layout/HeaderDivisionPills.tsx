@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useEffect, useMemo, useRef, useState, useTransition } from "react";
+import { useCallback, useEffect, useMemo, useRef, useTransition } from "react";
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import { setSelectedDivisionTabId } from "@/app/actions/tournament";
 import type { DivisionTabDescriptor } from "@/lib/division-tabs";
@@ -12,12 +12,13 @@ import {
 import { isDivisionTabBasePath } from "@/lib/tournament-public-path";
 import { DIVISION_SWIPE_IGNORE } from "@/lib/division-swipe-ignore";
 
-const pillBase =
-  "shrink-0 whitespace-nowrap rounded-lg px-4 py-2 text-sm font-semibold transition-colors duration-200 snap-start min-h-[40px]";
-const pillActive =
-  "bg-white text-royal shadow-sm";
-const pillInactive =
-  "bg-white/15 text-white/80 hover:bg-white/25 hover:text-white";
+function triggerHaptic() {
+  if (typeof navigator !== "undefined" && "vibrate" in navigator) {
+    navigator.vibrate(8);
+  }
+}
+
+const REPEAT_COUNT = 20;
 
 export function HeaderDivisionPills({
   publicBasePath,
@@ -33,7 +34,11 @@ export function HeaderDivisionPills({
   const searchParams = useSearchParams();
   const [pending, startTransition] = useTransition();
   const scrollRef = useRef<HTMLDivElement>(null);
-  const pillRefs = useRef<(HTMLButtonElement | null)[]>([]);
+  const lastSnappedIdx = useRef(-1);
+  const isUserScrolling = useRef(false);
+  const scrollTimeout = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const displayedIdRef = useRef<string | null>(null);
+  const dotContainerRef = useRef<HTMLDivElement>(null);
 
   const tabs = useMemo(() => {
     if (divisionDescriptors.length <= 1) return [];
@@ -77,39 +82,39 @@ export function HeaderDivisionPills({
     router.replace(qs ? `${pathname}?${qs}` : pathname, { scroll: false });
   }, [pathname, showPills, validIds.size, effectiveId, searchParams, router]);
 
-  useEffect(() => {
-    if (tabs.length < 2) return;
-    const idx = tabs.findIndex((d) => d.id === selectedDivision);
-    if (idx < 0) return;
-    const el = pillRefs.current[idx];
-    el?.scrollIntoView({ behavior: "smooth", inline: "center", block: "nearest" });
-  }, [tabs, selectedDivision]);
+  const repeatedTabs = useMemo(() => {
+    if (tabs.length === 0) return [];
+    const arr: (DivisionTabDescriptor & { realIndex: number })[] = [];
+    for (let r = 0; r < REPEAT_COUNT; r++) {
+      for (let i = 0; i < tabs.length; i++) {
+        arr.push({ ...tabs[i]!, realIndex: i });
+      }
+    }
+    return arr;
+  }, [tabs]);
 
-  const [canScrollRight, setCanScrollRight] = useState(false);
-
-  const checkOverflow = useCallback(() => {
+  const scrollToRealIndex = useCallback((realIndex: number, behavior: ScrollBehavior = "instant") => {
     const el = scrollRef.current;
-    if (!el) return;
-    const hasMore = el.scrollWidth > el.clientWidth + el.scrollLeft + 2;
-    setCanScrollRight(hasMore);
-  }, []);
+    if (!el || tabs.length === 0) return;
+    const midRepeat = Math.floor(REPEAT_COUNT / 2);
+    const targetIdx = midRepeat * tabs.length + realIndex;
+    const child = el.children[targetIdx] as HTMLElement | undefined;
+    if (!child) return;
+    const offset = child.offsetLeft - (el.clientWidth - child.offsetWidth) / 2;
+    el.scrollTo({ left: offset, behavior });
+  }, [tabs]);
 
   useEffect(() => {
-    checkOverflow();
-    const el = scrollRef.current;
-    if (!el) return;
-    el.addEventListener("scroll", checkOverflow, { passive: true });
-    const ro = new ResizeObserver(checkOverflow);
-    ro.observe(el);
-    return () => {
-      el.removeEventListener("scroll", checkOverflow);
-      ro.disconnect();
-    };
-  }, [checkOverflow, tabs]);
+    if (!showPills || tabs.length === 0) return;
+    const idx = tabs.findIndex((t) => t.id === selectedDivision);
+    if (idx >= 0) {
+      lastSnappedIdx.current = idx;
+      displayedIdRef.current = selectedDivision;
+      requestAnimationFrame(() => scrollToRealIndex(idx, "instant"));
+    }
+  }, [showPills, tabs, selectedDivision, scrollToRealIndex]);
 
-  if (!showPills) return null;
-
-  const onDivisionChange = (id: string) => {
+  const onDivisionChange = useCallback((id: string) => {
     startTransition(async () => {
       await setSelectedDivisionTabId(id, publicBasePath);
       const p = new URLSearchParams(searchParams.toString());
@@ -117,46 +122,140 @@ export function HeaderDivisionPills({
       const qs = p.toString();
       router.replace(qs ? `${pathname}?${qs}` : pathname, { scroll: false });
     });
-  };
+  }, [publicBasePath, searchParams, pathname, router]);
+
+  const updateDots = useCallback(() => {
+    if (!dotContainerRef.current || tabs.length === 0) return;
+    const dots = dotContainerRef.current.children;
+    for (let i = 0; i < dots.length; i++) {
+      const dot = dots[i] as HTMLElement;
+      dot.style.opacity = tabs[i]!.id === displayedIdRef.current ? "1" : "0.3";
+    }
+  }, [tabs]);
+
+  const onScroll = useCallback(() => {
+    const el = scrollRef.current;
+    if (!el || tabs.length === 0) return;
+
+    isUserScrolling.current = true;
+
+    const center = el.scrollLeft + el.clientWidth / 2;
+    let closestIdx = 0;
+    let closestDist = Infinity;
+    for (let i = 0; i < el.children.length; i++) {
+      const child = el.children[i] as HTMLElement;
+      const childCenter = child.offsetLeft + child.offsetWidth / 2;
+      const dist = Math.abs(center - childCenter);
+      if (dist < closestDist) {
+        closestDist = dist;
+        closestIdx = i;
+      }
+    }
+
+    const realIdx = closestIdx % tabs.length;
+
+    if (realIdx !== lastSnappedIdx.current) {
+      lastSnappedIdx.current = realIdx;
+      displayedIdRef.current = tabs[realIdx]!.id;
+      updateDots();
+      triggerHaptic();
+    }
+
+    if (scrollTimeout.current) clearTimeout(scrollTimeout.current);
+    scrollTimeout.current = setTimeout(() => {
+      isUserScrolling.current = false;
+      const finalCenter = el.scrollLeft + el.clientWidth / 2;
+      let finalIdx = 0;
+      let finalDist = Infinity;
+      for (let i = 0; i < el.children.length; i++) {
+        const child = el.children[i] as HTMLElement;
+        const childCenter = child.offsetLeft + child.offsetWidth / 2;
+        const dist = Math.abs(finalCenter - childCenter);
+        if (dist < finalDist) {
+          finalDist = dist;
+          finalIdx = i;
+        }
+      }
+      const finalRealIdx = finalIdx % tabs.length;
+      scrollToRealIndex(finalRealIdx, "instant");
+      const divId = tabs[finalRealIdx]!.id;
+      if (divId !== selectedDivision) {
+        onDivisionChange(divId);
+      }
+    }, 150);
+  }, [tabs, selectedDivision, scrollToRealIndex, onDivisionChange, updateDots]);
+
+  useEffect(() => {
+    const el = scrollRef.current;
+    if (!el) return;
+    el.addEventListener("scroll", onScroll, { passive: true });
+    return () => el.removeEventListener("scroll", onScroll);
+  }, [onScroll]);
+
+  if (!showPills) return null;
+
+  if (displayedIdRef.current === null) {
+    displayedIdRef.current = selectedDivision;
+  }
 
   return (
-    <div className="relative max-w-[7rem] sm:max-w-[12rem] md:max-w-none">
+    <div className="flex items-center gap-2 md:gap-1.5">
+      {/* Carousel picker — white pill window on mobile */}
       <div
-        ref={scrollRef}
-        {...{ [DIVISION_SWIPE_IGNORE]: "" }}
-        className="no-scrollbar flex gap-1.5 overflow-x-auto scroll-smooth snap-x snap-mandatory md:overflow-x-visible md:snap-none"
-        role="radiogroup"
-        aria-label="Division"
+        className="relative overflow-hidden rounded-lg bg-white shadow-sm md:hidden"
+        style={{ width: "5.5rem", height: "2.5rem" }}
       >
-        {tabs.map((d, index) => {
+        <div
+          ref={scrollRef}
+          {...{ [DIVISION_SWIPE_IGNORE]: "" }}
+          className="no-scrollbar flex h-full snap-x snap-mandatory overflow-x-auto scroll-smooth"
+        >
+          {repeatedTabs.map((d, i) => (
+            <div
+              key={`${d.id}-${i}`}
+              className="flex h-full w-[5.5rem] shrink-0 snap-center items-center justify-center text-sm font-bold text-royal"
+            >
+              {d.name}
+            </div>
+          ))}
+        </div>
+        {/* Soft edge fades */}
+        <div className="pointer-events-none absolute inset-y-0 left-0 w-4 bg-gradient-to-r from-white/80 to-transparent" />
+        <div className="pointer-events-none absolute inset-y-0 right-0 w-4 bg-gradient-to-l from-white/80 to-transparent" />
+      </div>
+
+      {/* Dot indicator */}
+      <div ref={dotContainerRef} className="flex gap-1 md:hidden">
+        {tabs.map((t) => (
+          <span
+            key={t.id}
+            className="size-1.5 rounded-full bg-white transition-opacity duration-200"
+            style={{ opacity: t.id === selectedDivision ? 1 : 0.3 }}
+          />
+        ))}
+      </div>
+
+      {/* Desktop: all pills inline */}
+      <div className="hidden gap-1.5 md:flex" role="radiogroup" aria-label="Division">
+        {tabs.map((d) => {
           const active = d.id === selectedDivision;
           return (
             <button
               key={d.id}
-              ref={(el) => { pillRefs.current[index] = el; }}
               type="button"
               role="radio"
               disabled={pending}
               aria-checked={active}
               onClick={() => onDivisionChange(d.id)}
-              className={`${pillBase} ${active ? pillActive : pillInactive}`}
+              className={`shrink-0 whitespace-nowrap rounded-lg px-4 py-2 text-sm font-semibold transition-colors duration-200 min-h-[40px] ${
+                active ? "bg-white text-royal shadow-sm" : "bg-white/15 text-white/80 hover:bg-white/25 hover:text-white"
+              }`}
             >
               {d.name}
             </button>
           );
         })}
       </div>
-      {/* Fade + chevron hint when more pills are off-screen */}
-      {canScrollRight ? (
-        <div className="pointer-events-none absolute right-0 top-0 flex h-full items-center md:hidden">
-          <div className="h-full w-8 bg-gradient-to-l from-royal-900/90 to-transparent" />
-          <span className="mr-0.5 text-white/70 animate-pulse" aria-hidden>
-            <svg viewBox="0 0 20 20" fill="currentColor" className="size-4">
-              <path fillRule="evenodd" d="M7.21 14.77a.75.75 0 01.02-1.06L11.168 10 7.23 6.29a.75.75 0 111.04-1.08l4.5 4.25a.75.75 0 010 1.08l-4.5 4.25a.75.75 0 01-1.06-.02z" clipRule="evenodd" />
-            </svg>
-          </span>
-        </div>
-      ) : null}
     </div>
   );
 }
