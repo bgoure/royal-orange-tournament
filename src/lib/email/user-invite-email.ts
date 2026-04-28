@@ -1,17 +1,27 @@
 import { Resend } from "resend";
 import { getResendFromAddress } from "@/lib/email/resend";
 
+export type StaffInviteEmailResult =
+  | { ok: true; usingResendTestDomain: boolean }
+  | { ok: false; error: string };
+
 export async function sendStaffInviteEmail(opts: {
   to: string;
   displayName: string | null;
   roleLabel: string;
   signInUrl: string;
-}): Promise<{ ok: true } | { ok: false; error: string }> {
+}): Promise<StaffInviteEmailResult> {
   const apiKey = process.env.RESEND_API_KEY?.trim();
   const from = getResendFromAddress();
   if (!apiKey || !from) {
-    return { ok: false, error: "RESEND_API_KEY or RESEND_FROM not configured" };
+    return {
+      ok: false,
+      error:
+        "RESEND_API_KEY or RESEND_FROM not configured. Add RESEND_API_KEY; set RESEND_FROM to an address on a domain you verified in Resend.",
+    };
   }
+
+  const usingResendTestDomain = from.includes("resend.dev");
 
   const resend = new Resend(apiKey);
   const greeting = opts.displayName?.trim() ? `Hi ${opts.displayName.trim()},` : "Hi,";
@@ -45,9 +55,12 @@ export async function sendStaffInviteEmail(opts: {
       typeof error === "object" && error !== null && "message" in error
         ? String((error as { message: unknown }).message)
         : "Resend send failed";
-    return { ok: false, error: msg };
+    const hint = usingResendTestDomain
+      ? " With onboarding@resend.dev, Resend often only delivers to addresses you add as verified recipients in the Resend dashboard (or use a verified domain in RESEND_FROM)."
+      : "";
+    return { ok: false, error: msg + hint };
   }
-  return { ok: true };
+  return { ok: true, usingResendTestDomain };
 }
 
 function escapeHtml(s: string): string {

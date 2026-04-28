@@ -63,7 +63,10 @@ export function InviteUserSheet({
               <h2 className="text-lg font-semibold text-zinc-900">Add user</h2>
               <p className="mt-1 text-sm text-zinc-600">
                 Creates the account for this Google email and sends a short invite. They must sign in with Google using
-                the same address.
+                the same address. Delivery requires{" "}
+                <code className="rounded bg-zinc-100 px-1 text-xs">RESEND_API_KEY</code> and usually a verified{" "}
+                <code className="rounded bg-zinc-100 px-1 text-xs">RESEND_FROM</code> domain; otherwise Resend’s test
+                sender may not reach every inbox—check the green notice after save for details.
               </p>
               {state && !state.ok ? (
                 <p className="mt-3 rounded-md bg-red-50 px-3 py-2 text-sm text-red-800 ring-1 ring-red-200" role="alert">

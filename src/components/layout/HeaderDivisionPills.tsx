@@ -21,6 +21,25 @@ function triggerHaptic() {
 /** Mobile tap-to-cycle only: ignore further taps this soon to limit server action + navigation churn. */
 const MOBILE_DIVISION_TAP_COOLDOWN_MS = 500;
 
+function PillChevron({ dir, className }: { dir: "prev" | "next"; className?: string }) {
+  return (
+    <svg
+      className={className}
+      width="13"
+      height="13"
+      viewBox="0 0 24 24"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="2.25"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+      aria-hidden
+    >
+      {dir === "prev" ? <path d="M15 18l-6-6 6-6" /> : <path d="M9 18l6-6-6-6" />}
+    </svg>
+  );
+}
+
 export function HeaderDivisionPills({
   publicBasePath,
   divisionDescriptors,
@@ -160,17 +179,31 @@ export function HeaderDivisionPills({
         >
           <div
             ref={pillWindowRef}
-            className={`pointer-events-none absolute left-1/2 top-0 h-full w-[5.5rem] -translate-x-1/2 rounded-lg shadow-sm transition-colors duration-200 ${
+            className={`pointer-events-none absolute left-1/2 top-0 h-full w-[7rem] -translate-x-1/2 rounded-lg shadow-sm transition-colors duration-200 ${
               mobilePillOrange ? "bg-accent" : "bg-white"
             }`}
           />
-          <span
-            className={`relative z-10 max-w-full truncate px-1 text-center text-[1.53rem] font-bold leading-none transition-colors duration-200 ${
-              mobilePillOrange ? "text-white" : "text-royal"
-            }`}
-          >
-            {selectedLabel}
-          </span>
+          <div className="relative z-10 flex h-full w-[7rem] items-center justify-center gap-0.5 px-0.5">
+            <PillChevron
+              dir="prev"
+              className={`shrink-0 transition-colors duration-200 ${
+                mobilePillOrange ? "text-white/55" : "text-royal/45"
+              }`}
+            />
+            <span
+              className={`min-w-0 flex-1 truncate text-center text-[1.53rem] font-bold leading-none transition-colors duration-200 ${
+                mobilePillOrange ? "text-white" : "text-royal"
+              }`}
+            >
+              {selectedLabel}
+            </span>
+            <PillChevron
+              dir="next"
+              className={`shrink-0 transition-colors duration-200 ${
+                mobilePillOrange ? "text-white/55" : "text-royal/45"
+              }`}
+            />
+          </div>
         </button>
       </div>
 

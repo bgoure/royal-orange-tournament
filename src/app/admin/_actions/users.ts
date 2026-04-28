@@ -170,10 +170,17 @@ export async function inviteUser(
   if (!sent.ok) {
     return {
       ok: true,
-      notice: `User added. Invite email was not sent (${sent.error}). They can still sign in with Google using this email.`,
+      notice: `User added. Invite email was not sent: ${sent.error} They can still sign in with Google using this email once configured.`,
     };
   }
-  return { ok: true, notice: "User added and invite email sent." };
+
+  const deliverabilityHint = sent.usingResendTestDomain
+    ? " If they don’t see it: check spam, Resend → Emails for errors, and add their address as a verified recipient—or set RESEND_FROM to your verified domain."
+    : "";
+  return {
+    ok: true,
+    notice: `User added and invite email sent.${deliverabilityHint}`,
+  };
 }
 
 export async function removeUserAccess(
