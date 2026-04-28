@@ -212,6 +212,13 @@ export function HeaderDivisionPills({
     return () => el.removeEventListener("scroll", onScroll);
   }, [onScroll]);
 
+  const advanceToNext = useCallback(() => {
+    if (tabs.length === 0) return;
+    const currentIdx = lastSnappedIdx.current;
+    const nextIdx = (currentIdx + 1) % tabs.length;
+    scrollToRealIndex(nextIdx, "smooth");
+  }, [tabs, scrollToRealIndex]);
+
   if (!showPills) return null;
 
   if (displayedIdRef.current === null) {
@@ -222,18 +229,18 @@ export function HeaderDivisionPills({
     <div className="flex items-center md:gap-1.5">
       {/* Mobile: carousel picker with wider invisible touch zone */}
       <div className="relative flex flex-col items-center gap-1 md:hidden">
-        {/* Invisible wider scroll zone — 50% padding on each side */}
         <div
-          className="relative"
+          className="relative cursor-pointer"
           style={{ width: "8.25rem" }}
+          onClick={advanceToNext}
         >
-          {/* Visible white pill window — centered within the wider zone */}
+          {/* Visible white pill window — centered */}
           <div
             ref={pillWindowRef}
             className="pointer-events-none absolute left-1/2 top-0 h-full -translate-x-1/2 rounded-lg bg-white shadow-sm"
             style={{ width: "5.5rem" }}
           />
-          {/* Scroll container — fills the full wider zone */}
+          {/* Scroll container — fills the wider touch zone */}
           <div
             ref={scrollRef}
             {...{ [DIVISION_SWIPE_IGNORE]: "" }}
@@ -244,8 +251,8 @@ export function HeaderDivisionPills({
               <div
                 key={`${d.id}-${i}`}
                 data-division-id={d.id}
-                className="division-carousel-item flex h-full shrink-0 snap-center items-center justify-center text-sm font-bold text-white/50 transition-colors duration-150"
-                style={{ width: "8.25rem" }}
+                className="division-carousel-item flex h-full shrink-0 snap-center items-center justify-center font-bold text-white/50 transition-colors duration-150"
+                style={{ width: "8.25rem", fontSize: "1.15rem" }}
               >
                 {d.name}
               </div>
