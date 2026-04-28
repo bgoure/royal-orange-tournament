@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useEffect, useMemo, useRef, useTransition } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState, useTransition } from "react";
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import { setSelectedDivisionTabId } from "@/app/actions/tournament";
 import type { DivisionTabDescriptor } from "@/lib/division-tabs";
@@ -35,12 +35,11 @@ export function HeaderDivisionPills({
   const [pending, startTransition] = useTransition();
   const scrollRef = useRef<HTMLDivElement>(null);
   const lastSnappedIdx = useRef(-1);
-  const isUserScrolling = useRef(false);
-  const isTapScrolling = useRef(false);
+  const programmaticScrollRef = useRef(false);
   const scrollTimeout = useRef<ReturnType<typeof setTimeout> | null>(null);
-  const displayedIdRef = useRef<string | null>(null);
-  const dotContainerRef = useRef<HTMLDivElement>(null);
   const pillWindowRef = useRef<HTMLDivElement>(null);
+
+  const [visualDivisionId, setVisualDivisionId] = useState<string | null>(null);
 
   const tabs = useMemo(() => {
     if (divisionDescriptors.length <= 1) return [];
@@ -72,6 +71,8 @@ export function HeaderDivisionPills({
   const selectedDivision = tabs.some((t) => t.id === effectiveId)
     ? effectiveId
     : defaultId;
+
+  const mobileDisplayId = visualDivisionId ?? selectedDivision;
 
   useEffect(() => {
     if (!showPills || validIds.size <= 1) return;
@@ -106,6 +107,14 @@ export function HeaderDivisionPills({
     el.scrollTo({ left: offset, behavior });
   }, [tabs]);
 
+  const endProgrammaticScroll = useCallback(() => {
+    requestAnimationFrame(() => {
+      requestAnimationFrame(() => {
+        programmaticScrollRef.current = false;
+      });
+    });
+  }, []);
+
   const onDivisionChange = useCallback((id: string) => {
     startTransition(async () => {
       await setSelectedDivisionTabId(id, publicBasePath);
@@ -116,43 +125,51 @@ export function HeaderDivisionPills({
     });
   }, [publicBasePath, searchParams, pathname, router]);
 
-  const updateVisuals = useCallback(() => {
-    if (tabs.length === 0) return;
-    if (dotContainerRef.current) {
-      const dots = dotContainerRef.current.children;
-      for (let i = 0; i < dots.length; i++) {
-        const dot = dots[i] as HTMLElement;
-        dot.style.opacity = tabs[i]!.id === displayedIdRef.current ? "1" : "0.3";
-      }
-    }
-    if (scrollRef.current) {
-      const items = scrollRef.current.querySelectorAll(".division-carousel-item");
-      items.forEach((item) => {
-        const el = item as HTMLElement;
-        const isActive = el.dataset.divisionId === displayedIdRef.current;
-        el.style.color = isActive ? "var(--color-royal)" : "rgba(255,255,255,0.5)";
-      });
-    }
-  }, [tabs]);
-
   useEffect(() => {
     if (!showPills || tabs.length === 0) return;
     const idx = tabs.findIndex((t) => t.id === selectedDivision);
-    if (idx >= 0) {
-      lastSnappedIdx.current = idx;
-      displayedIdRef.current = selectedDivision;
-      requestAnimationFrame(() => {
-        scrollToRealIndex(idx, "instant");
-        updateVisuals();
-      });
+    if (idx < 0) return;
+    lastSnappedIdx.current = idx;
+    requestAnimationFrame(() => {
+      setVisualDivisionId(selectedDivision);
+      programmaticScrollRef.current = true;
+      scrollToRealIndex(idx, "instant");
+      endProgrammaticScroll();
+    });
+  }, [showPills, tabs, selectedDivision, scrollToRealIndex, endProgrammaticScroll]);
+
+  const runScrollSettle = useCallback(() => {
+    const el = scrollRef.current;
+    if (!el || tabs.length === 0) return;
+
+    const finalCenter = el.scrollLeft + el.clientWidth / 2;
+    let finalIdx = 0;
+    let finalDist = Infinity;
+    for (let i = 0; i < el.children.length; i++) {
+      const child = el.children[i] as HTMLElement;
+      const childCenter = child.offsetLeft + child.offsetWidth / 2;
+      const dist = Math.abs(finalCenter - childCenter);
+      if (dist < finalDist) {
+        finalDist = dist;
+        finalIdx = i;
+      }
     }
-  }, [showPills, tabs, selectedDivision, scrollToRealIndex, updateVisuals]);
+    const finalRealIdx = finalIdx % tabs.length;
+    programmaticScrollRef.current = true;
+    scrollToRealIndex(finalRealIdx, "instant");
+    lastSnappedIdx.current = finalRealIdx;
+    const divId = tabs[finalRealIdx]!.id;
+    setVisualDivisionId(divId);
+    endProgrammaticScroll();
+    if (divId !== selectedDivision) {
+      onDivisionChange(divId);
+    }
+  }, [tabs, selectedDivision, scrollToRealIndex, onDivisionChange, endProgrammaticScroll]);
 
   const onScroll = useCallback(() => {
     const el = scrollRef.current;
     if (!el || tabs.length === 0) return;
-
-    isUserScrolling.current = true;
+    if (programmaticScrollRef.current) return;
 
     const center = el.scrollLeft + el.clientWidth / 2;
     let closestIdx = 0;
@@ -171,8 +188,8 @@ export function HeaderDivisionPills({
 
     if (realIdx !== lastSnappedIdx.current) {
       lastSnappedIdx.current = realIdx;
-      displayedIdRef.current = tabs[realIdx]!.id;
-      updateVisuals();
+      const id = tabs[realIdx]!.id;
+      setVisualDivisionId(id);
       triggerHaptic();
       const pw = pillWindowRef.current;
       if (pw) {
@@ -182,32 +199,12 @@ export function HeaderDivisionPills({
       }
     }
 
-    if (!isTapScrolling.current) {
-      if (scrollTimeout.current) clearTimeout(scrollTimeout.current);
-      scrollTimeout.current = setTimeout(() => {
-        isUserScrolling.current = false;
-        if (isTapScrolling.current) return;
-        const finalCenter = el.scrollLeft + el.clientWidth / 2;
-        let finalIdx = 0;
-        let finalDist = Infinity;
-        for (let i = 0; i < el.children.length; i++) {
-          const child = el.children[i] as HTMLElement;
-          const childCenter = child.offsetLeft + child.offsetWidth / 2;
-          const dist = Math.abs(finalCenter - childCenter);
-          if (dist < finalDist) {
-            finalDist = dist;
-            finalIdx = i;
-          }
-        }
-        const finalRealIdx = finalIdx % tabs.length;
-        scrollToRealIndex(finalRealIdx, "instant");
-        const divId = tabs[finalRealIdx]!.id;
-        if (divId !== selectedDivision) {
-          onDivisionChange(divId);
-        }
-      }, 150);
-    }
-  }, [tabs, selectedDivision, scrollToRealIndex, onDivisionChange, updateVisuals]);
+    if (scrollTimeout.current) clearTimeout(scrollTimeout.current);
+    scrollTimeout.current = setTimeout(() => {
+      if (programmaticScrollRef.current) return;
+      runScrollSettle();
+    }, 150);
+  }, [tabs, runScrollSettle]);
 
   useEffect(() => {
     const el = scrollRef.current;
@@ -217,64 +214,55 @@ export function HeaderDivisionPills({
   }, [onScroll]);
 
   const advanceToNext = useCallback(() => {
-    const el = scrollRef.current;
-    if (!el || tabs.length === 0) return;
+    if (tabs.length === 0) return;
+    if (scrollTimeout.current) {
+      clearTimeout(scrollTimeout.current);
+      scrollTimeout.current = null;
+    }
 
-    isTapScrolling.current = true;
-    if (scrollTimeout.current) clearTimeout(scrollTimeout.current);
+    const cur = tabs.findIndex((t) => t.id === selectedDivision);
+    const base = cur >= 0 ? cur : 0;
+    const next = (base + 1) % tabs.length;
+    const nextId = tabs[next]!.id;
 
-    const itemWidth = (el.children[0] as HTMLElement)?.offsetWidth ?? 0;
-    if (itemWidth === 0) return;
+    programmaticScrollRef.current = true;
+    scrollToRealIndex(next, "instant");
+    lastSnappedIdx.current = next;
+    setVisualDivisionId(nextId);
 
-    el.scrollBy({ left: itemWidth, behavior: "smooth" });
+    const pw = pillWindowRef.current;
+    if (pw) {
+      pw.classList.remove("division-snap-animate");
+      void pw.offsetWidth;
+      pw.classList.add("division-snap-animate");
+    }
+    triggerHaptic();
+    endProgrammaticScroll();
 
-    scrollTimeout.current = setTimeout(() => {
-      isTapScrolling.current = false;
-
-      const center = el.scrollLeft + el.clientWidth / 2;
-      let closestIdx = 0;
-      let closestDist = Infinity;
-      for (let i = 0; i < el.children.length; i++) {
-        const child = el.children[i] as HTMLElement;
-        const childCenter = child.offsetLeft + child.offsetWidth / 2;
-        const dist = Math.abs(center - childCenter);
-        if (dist < closestDist) {
-          closestDist = dist;
-          closestIdx = i;
-        }
-      }
-      const realIdx = closestIdx % tabs.length;
-      const divId = tabs[realIdx]!.id;
-      scrollToRealIndex(realIdx, "instant");
-      if (divId !== selectedDivision) {
-        onDivisionChange(divId);
-      }
-    }, 350);
-  }, [tabs, selectedDivision, scrollToRealIndex, onDivisionChange]);
+    if (nextId !== selectedDivision) {
+      onDivisionChange(nextId);
+    }
+  }, [tabs, selectedDivision, scrollToRealIndex, onDivisionChange, endProgrammaticScroll]);
 
   if (!showPills) return null;
-
-  if (displayedIdRef.current === null) {
-    displayedIdRef.current = selectedDivision;
-  }
 
   return (
     <div className="flex items-center md:gap-1.5">
       {/* Mobile: carousel picker with wider invisible touch zone */}
       <div className="relative flex flex-col items-center gap-1 md:hidden">
         {/* Dot indicator — above the pill */}
-        <div ref={dotContainerRef} className="flex gap-1.5">
+        <div className="flex gap-1.5">
           {tabs.map((t) => (
             <span
               key={t.id}
               className="size-1.5 rounded-full bg-white transition-opacity duration-200"
-              style={{ opacity: t.id === selectedDivision ? 1 : 0.3 }}
+              style={{ opacity: t.id === mobileDisplayId ? 1 : 0.3 }}
             />
           ))}
         </div>
 
         <div
-          className="relative cursor-pointer"
+          className="relative cursor-pointer touch-manipulation"
           style={{ width: "8.25rem" }}
           onClick={advanceToNext}
         >
@@ -284,18 +272,20 @@ export function HeaderDivisionPills({
             className="pointer-events-none absolute left-1/2 top-0 h-full -translate-x-1/2 rounded-lg bg-white shadow-sm"
             style={{ width: "5.5rem" }}
           />
-          {/* Scroll container — fills the wider touch zone */}
+          {/* Scroll container — no scroll-smooth: avoids fighting snap + programmatic scroll */}
           <div
             ref={scrollRef}
             {...{ [DIVISION_SWIPE_IGNORE]: "" }}
-            className="no-scrollbar relative flex snap-x snap-mandatory overflow-x-auto scroll-smooth"
+            className="no-scrollbar relative flex snap-x snap-mandatory overflow-x-auto"
             style={{ height: "2.5rem" }}
           >
             {repeatedTabs.map((d, i) => (
               <div
                 key={`${d.id}-${i}`}
                 data-division-id={d.id}
-                className="division-carousel-item flex h-full shrink-0 snap-center items-center justify-center font-bold text-white/50 transition-colors duration-150"
+                className={`division-carousel-item flex h-full shrink-0 snap-center items-center justify-center font-bold transition-colors duration-150 ${
+                  d.id === mobileDisplayId ? "text-royal" : "text-white/50"
+                }`}
                 style={{ width: "8.25rem", fontSize: "1.53rem" }}
               >
                 {d.name}
