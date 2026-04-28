@@ -213,11 +213,28 @@ export function HeaderDivisionPills({
   }, [onScroll]);
 
   const advanceToNext = useCallback(() => {
-    if (tabs.length === 0) return;
-    const currentIdx = lastSnappedIdx.current;
-    const nextIdx = (currentIdx + 1) % tabs.length;
-    scrollToRealIndex(nextIdx, "smooth");
-  }, [tabs, scrollToRealIndex]);
+    const el = scrollRef.current;
+    if (!el || tabs.length === 0) return;
+
+    const center = el.scrollLeft + el.clientWidth / 2;
+    let closestIdx = 0;
+    let closestDist = Infinity;
+    for (let i = 0; i < el.children.length; i++) {
+      const child = el.children[i] as HTMLElement;
+      const childCenter = child.offsetLeft + child.offsetWidth / 2;
+      const dist = Math.abs(center - childCenter);
+      if (dist < closestDist) {
+        closestDist = dist;
+        closestIdx = i;
+      }
+    }
+
+    const nextIdx = closestIdx + 1;
+    if (nextIdx >= el.children.length) return;
+    const nextChild = el.children[nextIdx] as HTMLElement;
+    const offset = nextChild.offsetLeft - (el.clientWidth - nextChild.offsetWidth) / 2;
+    el.scrollTo({ left: offset, behavior: "smooth" });
+  }, [tabs]);
 
   if (!showPills) return null;
 
@@ -263,7 +280,7 @@ export function HeaderDivisionPills({
                 key={`${d.id}-${i}`}
                 data-division-id={d.id}
                 className="division-carousel-item flex h-full shrink-0 snap-center items-center justify-center font-bold text-white/50 transition-colors duration-150"
-                style={{ width: "8.25rem", fontSize: "1.15rem" }}
+                style={{ width: "8.25rem", fontSize: "1.53rem" }}
               >
                 {d.name}
               </div>
