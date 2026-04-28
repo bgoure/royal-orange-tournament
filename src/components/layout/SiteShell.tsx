@@ -2,7 +2,6 @@ import type { Tournament } from "@prisma/client";
 import { auth } from "@/auth";
 import { SiteHeader } from "@/components/layout/SiteHeader";
 import { HeaderContainer } from "@/components/layout/HeaderContainer";
-import { DivisionPillBar } from "@/components/layout/DivisionPillBar";
 import { BottomNav } from "@/components/layout/BottomNav";
 import { PublicQuickGameProvider } from "@/components/public-admin/PublicQuickGameProvider";
 import { PublicSiteThemeRoot } from "@/components/theme/public-site-theme";
@@ -55,9 +54,6 @@ export async function SiteShell({
             publicBasePath={publicBasePath}
             tournamentName={tournament.name}
             tournamentShortLabel={tournament.shortLabel}
-          />
-          <DivisionPillBar
-            publicBasePath={publicBasePath}
             divisionDescriptors={divisionTabDescriptors}
             cookieDivision={cookieDivision}
           />
