@@ -13,9 +13,19 @@ const btnPrimary =
 const btnSecondary =
   "rounded-md border border-zinc-300 bg-white px-4 py-2 text-sm font-medium text-zinc-800 hover:bg-zinc-50";
 
-export function InviteUserSheet({ canInvite }: { canInvite: boolean }) {
+type DivisionOpt = { id: string; name: string };
+
+export function InviteUserSheet({
+  canInvite,
+  divisionOptions,
+}: {
+  canInvite: boolean;
+  divisionOptions: DivisionOpt[];
+}) {
   const router = useRouter();
   const [open, setOpen] = useState(false);
+  const [selectedRole, setSelectedRole] = useState<string>("POWER_USER");
+  const [selectedDivisions, setSelectedDivisions] = useState<Set<string>>(new Set());
   const [state, action, pending] = useActionState(
     inviteUser,
     undefined as UserAdminActionResult | undefined,
@@ -24,11 +34,17 @@ export function InviteUserSheet({ canInvite }: { canInvite: boolean }) {
   useEffect(() => {
     if (!state?.ok) return;
     router.refresh();
-    const id = window.setTimeout(() => setOpen(false), 0);
+    const id = window.setTimeout(() => {
+      setOpen(false);
+      setSelectedDivisions(new Set());
+    }, 0);
     return () => window.clearTimeout(id);
   }, [state?.ok, router]);
 
   if (!canInvite) return null;
+
+  const isPowerUser = selectedRole === "POWER_USER";
+  const canSubmit = !isPowerUser || selectedDivisions.size > 0;
 
   return (
     <>
@@ -84,14 +100,65 @@ export function InviteUserSheet({ canInvite }: { canInvite: boolean }) {
                   <label htmlFor="invite-role" className={labelClass}>
                     Role
                   </label>
-                  <select id="invite-role" name="role" required className={formClass} defaultValue="POWER_USER">
+                  <select
+                    id="invite-role"
+                    name="role"
+                    required
+                    className={formClass}
+                    value={selectedRole}
+                    onChange={(e) => {
+                      setSelectedRole(e.target.value);
+                      if (e.target.value !== "POWER_USER") setSelectedDivisions(new Set());
+                    }}
+                  >
                     <option value="POWER_USER">Power user</option>
                     <option value="ADMIN">Admin</option>
                     <option value="PUBLIC">Public</option>
                   </select>
                 </div>
+
+                {isPowerUser ? (
+                  <fieldset className="flex flex-col gap-2">
+                    <legend className={labelClass}>
+                      Assigned divisions <span className="text-red-500">*</span>
+                    </legend>
+                    <p className="text-xs text-zinc-500">
+                      Power users can only manage games, teams, and content within their assigned divisions.
+                    </p>
+                    {divisionOptions.length === 0 ? (
+                      <p className="rounded-md bg-amber-50 px-3 py-2 text-xs text-amber-800 ring-1 ring-amber-200">
+                        No divisions exist yet. Create divisions first before inviting power users.
+                      </p>
+                    ) : (
+                      <div className="flex flex-col gap-1.5">
+                        {divisionOptions.map((d) => (
+                          <label key={d.id} className="flex items-center gap-2 text-sm text-zinc-800">
+                            <input
+                              type="checkbox"
+                              checked={selectedDivisions.has(d.id)}
+                              onChange={(e) => {
+                                const next = new Set(selectedDivisions);
+                                if (e.target.checked) next.add(d.id);
+                                else next.delete(d.id);
+                                setSelectedDivisions(next);
+                              }}
+                              className="size-4 rounded border-zinc-300 text-royal focus:ring-royal"
+                            />
+                            {d.name}
+                          </label>
+                        ))}
+                      </div>
+                    )}
+                    {isPowerUser && selectedDivisions.size === 0 && divisionOptions.length > 0 ? (
+                      <p className="text-xs text-red-600">Select at least one division.</p>
+                    ) : null}
+                  </fieldset>
+                ) : null}
+
+                <input type="hidden" name="divisionIds" value={Array.from(selectedDivisions).join(",")} />
+
                 <div className="flex flex-wrap gap-2 pt-2">
-                  <button type="submit" disabled={pending} className={btnPrimary}>
+                  <button type="submit" disabled={pending || !canSubmit} className={btnPrimary}>
                     {pending ? "Saving…" : "Save & send invite"}
                   </button>
                   <button type="button" onClick={() => setOpen(false)} className={btnSecondary}>

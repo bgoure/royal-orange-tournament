@@ -92,3 +92,17 @@ export function assertCan(role: Role, permission: Permission): void {
     throw err;
   }
 }
+
+/**
+ * For POWER_USER: check that the target division is in their assigned set.
+ * ADMINs always pass. Returns false for POWER_USER with no matching assignment.
+ */
+export function canAccessDivision(
+  role: Role,
+  assignedDivisionIds: ReadonlySet<string>,
+  targetDivisionId: string,
+): boolean {
+  if (role === "ADMIN") return true;
+  if (role !== "POWER_USER") return false;
+  return assignedDivisionIds.has(targetDivisionId);
+}

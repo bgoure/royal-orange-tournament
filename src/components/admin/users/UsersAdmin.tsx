@@ -1,6 +1,6 @@
 "use client";
 
-import { useActionState } from "react";
+import { useActionState, useState } from "react";
 import type { Role } from "@prisma/client";
 import { removeUserAccess, updateUserRole, type UserAdminActionResult } from "@/app/admin/_actions/users";
 import { ConfirmForm } from "@/components/admin/structure/ConfirmForm";
@@ -13,11 +13,19 @@ const btnSecondary =
 const btnDanger =
   "rounded-md border border-red-200 bg-red-50 px-2 py-1.5 text-xs font-medium text-red-800 hover:bg-red-100 disabled:opacity-50";
 
+type DivisionOpt = { id: string; name: string };
+
+type DivisionAssignment = {
+  divisionId: string;
+  division: { id: string; name: string; tournament: { name: string } };
+};
+
 export type UserRow = {
   id: string;
   email: string | null;
   name: string | null;
   role: Role;
+  divisionAssignments: DivisionAssignment[];
 };
 
 function roleLabel(role: Role): string {
@@ -43,7 +51,54 @@ function SuccessLine({ state }: { state: UserAdminActionResult | undefined }) {
   return <p className="text-xs text-emerald-800">{state.notice}</p>;
 }
 
-function UserTableRow({ user, actorUserId, canManage }: { user: UserRow; actorUserId: string; canManage: boolean }) {
+function DivisionCheckboxes({
+  divisions,
+  selected,
+  onChange,
+}: {
+  divisions: DivisionOpt[];
+  selected: Set<string>;
+  onChange: (ids: Set<string>) => void;
+}) {
+  if (divisions.length === 0) {
+    return <p className="text-xs text-zinc-500">No divisions available. Create divisions first.</p>;
+  }
+  return (
+    <fieldset className="mt-2 flex flex-col gap-1.5">
+      <legend className="text-[10px] font-semibold uppercase tracking-wide text-zinc-500">
+        Assigned divisions
+      </legend>
+      {divisions.map((d) => (
+        <label key={d.id} className="flex items-center gap-2 text-sm text-zinc-800">
+          <input
+            type="checkbox"
+            checked={selected.has(d.id)}
+            onChange={(e) => {
+              const next = new Set(selected);
+              if (e.target.checked) next.add(d.id);
+              else next.delete(d.id);
+              onChange(next);
+            }}
+            className="size-4 rounded border-zinc-300 text-royal focus:ring-royal"
+          />
+          {d.name}
+        </label>
+      ))}
+    </fieldset>
+  );
+}
+
+function UserTableRow({
+  user,
+  actorUserId,
+  canManage,
+  divisionOptions,
+}: {
+  user: UserRow;
+  actorUserId: string;
+  canManage: boolean;
+  divisionOptions: DivisionOpt[];
+}) {
   const [roleState, roleAction, rolePending] = useActionState(
     updateUserRole,
     undefined as UserAdminActionResult | undefined,
@@ -52,6 +107,13 @@ function UserTableRow({ user, actorUserId, canManage }: { user: UserRow; actorUs
     removeUserAccess,
     undefined as UserAdminActionResult | undefined,
   );
+
+  const [selectedRole, setSelectedRole] = useState<string>(user.role);
+  const [selectedDivisions, setSelectedDivisions] = useState<Set<string>>(
+    new Set(user.divisionAssignments.map((a) => a.divisionId)),
+  );
+
+  const isPowerUser = selectedRole === "POWER_USER";
 
   return (
     <tr className="border-b border-zinc-100 last:border-0">
@@ -68,6 +130,18 @@ function UserTableRow({ user, actorUserId, canManage }: { user: UserRow; actorUs
         <span className="inline-flex rounded-full bg-zinc-100 px-2.5 py-0.5 text-xs font-medium text-zinc-800">
           {roleLabel(user.role)}
         </span>
+        {user.role === "POWER_USER" && user.divisionAssignments.length > 0 ? (
+          <div className="mt-1 flex flex-wrap gap-1">
+            {user.divisionAssignments.map((a) => (
+              <span
+                key={a.divisionId}
+                className="inline-flex rounded-md bg-royal-50 px-2 py-0.5 text-[10px] font-medium text-royal"
+              >
+                {a.division.name}
+              </span>
+            ))}
+          </div>
+        ) : null}
       </td>
       <td className="px-3 py-3 align-top">
         {!canManage ? (
@@ -77,24 +151,39 @@ function UserTableRow({ user, actorUserId, canManage }: { user: UserRow; actorUs
             <ErrorLine state={roleState ?? delState} />
             <SuccessLine state={roleState} />
             <SuccessLine state={delState} />
-            <form action={roleAction} className="flex flex-wrap items-center gap-2">
+            <form action={roleAction} className="flex flex-col gap-2">
               <input type="hidden" name="userId" value={user.id} />
-              <label htmlFor={`role-${user.id}`} className="sr-only">
-                Role for {user.email ?? user.id}
-              </label>
-              <select
-                id={`role-${user.id}`}
-                name="role"
-                defaultValue={user.role}
-                className={`${formClass} min-w-[10rem]`}
-              >
-                <option value="PUBLIC">Public</option>
-                <option value="POWER_USER">Power user</option>
-                <option value="ADMIN">Admin</option>
-              </select>
-              <button type="submit" disabled={rolePending} className={btnSecondary}>
-                {rolePending ? "Saving…" : "Update role"}
-              </button>
+              <input type="hidden" name="divisionIds" value={Array.from(selectedDivisions).join(",")} />
+              <div className="flex flex-wrap items-center gap-2">
+                <label htmlFor={`role-${user.id}`} className="sr-only">
+                  Role for {user.email ?? user.id}
+                </label>
+                <select
+                  id={`role-${user.id}`}
+                  name="role"
+                  value={selectedRole}
+                  onChange={(e) => setSelectedRole(e.target.value)}
+                  className={`${formClass} min-w-[10rem]`}
+                >
+                  <option value="PUBLIC">Public</option>
+                  <option value="POWER_USER">Power user</option>
+                  <option value="ADMIN">Admin</option>
+                </select>
+                <button
+                  type="submit"
+                  disabled={rolePending || (isPowerUser && selectedDivisions.size === 0)}
+                  className={btnSecondary}
+                >
+                  {rolePending ? "Saving…" : "Update role"}
+                </button>
+              </div>
+              {isPowerUser ? (
+                <DivisionCheckboxes
+                  divisions={divisionOptions}
+                  selected={selectedDivisions}
+                  onChange={setSelectedDivisions}
+                />
+              ) : null}
             </form>
             <ConfirmForm
               message={`Remove access for ${user.email ?? "this user"}? They will no longer be able to sign in.`}
@@ -117,10 +206,12 @@ export function UsersAdmin({
   users,
   actorUserId,
   canManage,
+  divisionOptions,
 }: {
   users: UserRow[];
   actorUserId: string;
   canManage: boolean;
+  divisionOptions: DivisionOpt[];
 }) {
   return (
     <div className="flex flex-col gap-6">
@@ -128,11 +219,11 @@ export function UsersAdmin({
         <div>
           <h1 className="text-2xl font-semibold tracking-tight text-zinc-900">Users</h1>
           <p className="mt-2 max-w-2xl text-sm text-zinc-600">
-            Invite people by email (Google sign-in), then adjust roles here. At least one admin must always remain; the
-            sole admin cannot demote or delete themselves.
+            Invite people by email (Google sign-in), then adjust roles here. Power users are scoped to assigned
+            divisions only.
           </p>
         </div>
-        <InviteUserSheet canInvite={canManage} />
+        <InviteUserSheet canInvite={canManage} divisionOptions={divisionOptions} />
       </header>
 
       <div className="overflow-x-auto rounded-xl border border-zinc-200 bg-white shadow-sm">
@@ -153,7 +244,13 @@ export function UsersAdmin({
               </tr>
             ) : (
               users.map((u) => (
-                <UserTableRow key={u.id} user={u} actorUserId={actorUserId} canManage={canManage} />
+                <UserTableRow
+                  key={u.id}
+                  user={u}
+                  actorUserId={actorUserId}
+                  canManage={canManage}
+                  divisionOptions={divisionOptions}
+                />
               ))
             )}
           </tbody>
