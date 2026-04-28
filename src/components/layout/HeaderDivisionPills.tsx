@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useEffect, useMemo, useRef, useTransition } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState, useTransition } from "react";
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import { setSelectedDivisionTabId } from "@/app/actions/tournament";
 import type { DivisionTabDescriptor } from "@/lib/division-tabs";
@@ -18,6 +18,9 @@ function triggerHaptic() {
   }
 }
 
+/** Mobile tap-to-cycle only: ignore further taps this soon to limit server action + navigation churn. */
+const MOBILE_DIVISION_TAP_COOLDOWN_MS = 500;
+
 export function HeaderDivisionPills({
   publicBasePath,
   divisionDescriptors,
@@ -32,6 +35,9 @@ export function HeaderDivisionPills({
   const searchParams = useSearchParams();
   const [pending, startTransition] = useTransition();
   const pillWindowRef = useRef<HTMLDivElement>(null);
+  const mobileTapCooldownRef = useRef(false);
+  const mobileCooldownTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const [mobileTapCoolingDown, setMobileTapCoolingDown] = useState(false);
 
   const tabs = useMemo(() => {
     if (divisionDescriptors.length <= 1) return [];
@@ -78,6 +84,12 @@ export function HeaderDivisionPills({
     router.replace(qs ? `${pathname}?${qs}` : pathname, { scroll: false });
   }, [pathname, showPills, validIds.size, effectiveId, searchParams, router]);
 
+  useEffect(() => {
+    return () => {
+      if (mobileCooldownTimerRef.current) clearTimeout(mobileCooldownTimerRef.current);
+    };
+  }, []);
+
   const onDivisionChange = useCallback((id: string) => {
     startTransition(async () => {
       await setSelectedDivisionTabId(id, publicBasePath);
@@ -90,6 +102,16 @@ export function HeaderDivisionPills({
 
   const advanceToNext = useCallback(() => {
     if (tabs.length === 0 || pending) return;
+    if (mobileTapCooldownRef.current) return;
+    mobileTapCooldownRef.current = true;
+    setMobileTapCoolingDown(true);
+    if (mobileCooldownTimerRef.current) clearTimeout(mobileCooldownTimerRef.current);
+    mobileCooldownTimerRef.current = setTimeout(() => {
+      mobileTapCooldownRef.current = false;
+      setMobileTapCoolingDown(false);
+      mobileCooldownTimerRef.current = null;
+    }, MOBILE_DIVISION_TAP_COOLDOWN_MS);
+
     const cur = tabs.findIndex((t) => t.id === selectedDivision);
     const base = cur >= 0 ? cur : 0;
     const next = (base + 1) % tabs.length;
@@ -129,7 +151,7 @@ export function HeaderDivisionPills({
           {...{ [DIVISION_SWIPE_IGNORE]: "" }}
           className="relative flex h-10 w-[8.25rem] shrink-0 cursor-pointer touch-manipulation items-center justify-center rounded-lg border-0 bg-transparent p-0 outline-none focus-visible:ring-2 focus-visible:ring-white focus-visible:ring-offset-2 focus-visible:ring-offset-royal-900 disabled:opacity-50"
           onClick={advanceToNext}
-          disabled={pending}
+          disabled={pending || mobileTapCoolingDown}
           aria-label={`${selectedLabel}. Tap to switch division.`}
         >
           <div
