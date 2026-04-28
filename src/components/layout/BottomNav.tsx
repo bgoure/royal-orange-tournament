@@ -120,7 +120,7 @@ export function BottomNav({
     underTournamentBase && matchPrefixes.some((p) => pathname === p || pathname.startsWith(`${p}/`));
 
   const pillClass = (active: boolean) =>
-    `flex min-h-[62px] min-w-[62px] flex-col items-center justify-center gap-0.5 rounded-xl px-2 py-1 text-[11px] font-semibold leading-tight transition-colors active:scale-[0.98] ${
+    `flex min-h-[62px] min-w-[62px] flex-col items-center justify-center gap-0.5 rounded-xl px-2 py-1 text-xs font-semibold leading-tight transition-colors active:scale-[0.98] ${
       active
         ? "bg-royal-50 text-royal ring-2 ring-royal/25 dark:bg-royal-900/40 dark:text-royal-100 dark:ring-royal-400/30"
         : "text-accent active:text-accent-700 dark:text-accent-light dark:active:text-accent"

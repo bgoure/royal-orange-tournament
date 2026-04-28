@@ -31,6 +31,7 @@ model User {
   role          Role      @default(PUBLIC)
   accounts      Account[]
   sessions      Session[]
+  divisionAssignments UserDivisionAssignment[]
   createdAt     DateTime  @default(now())
   updatedAt     DateTime  @updatedAt
 }
@@ -192,8 +193,23 @@ model Division {
   pools        Pool[]
   brackets     Bracket[]
   consolationGames Game[]
+  userAssignments UserDivisionAssignment[]
 
   @@index([tournamentId])
+}
+
+/// Links a POWER_USER to the divisions they are allowed to manage.
+model UserDivisionAssignment {
+  id         String   @id @default(cuid())
+  userId     String
+  user       User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  divisionId String
+  division   Division @relation(fields: [divisionId], references: [id], onDelete: Cascade)
+  createdAt  DateTime @default(now())
+
+  @@unique([userId, divisionId])
+  @@index([userId])
+  @@index([divisionId])
 }
 
 /// Accent for pool name on public schedule/results/upcoming cards (optional; default grey).
