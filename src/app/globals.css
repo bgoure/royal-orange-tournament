@@ -51,6 +51,15 @@ body {
   display: none;
 }
 
+@keyframes division-snap {
+  0% { transform: scale(1); }
+  40% { transform: scale(1.08); }
+  100% { transform: scale(1); }
+}
+.division-snap-animate {
+  animation: division-snap 180ms ease-out;
+}
+
 @keyframes sponsor-marquee {
   from {
     transform: translateX(0);

@@ -39,6 +39,7 @@ export function HeaderDivisionPills({
   const scrollTimeout = useRef<ReturnType<typeof setTimeout> | null>(null);
   const displayedIdRef = useRef<string | null>(null);
   const dotContainerRef = useRef<HTMLDivElement>(null);
+  const pillWindowRef = useRef<HTMLDivElement>(null);
 
   const tabs = useMemo(() => {
     if (divisionDescriptors.length <= 1) return [];
@@ -104,16 +105,6 @@ export function HeaderDivisionPills({
     el.scrollTo({ left: offset, behavior });
   }, [tabs]);
 
-  useEffect(() => {
-    if (!showPills || tabs.length === 0) return;
-    const idx = tabs.findIndex((t) => t.id === selectedDivision);
-    if (idx >= 0) {
-      lastSnappedIdx.current = idx;
-      displayedIdRef.current = selectedDivision;
-      requestAnimationFrame(() => scrollToRealIndex(idx, "instant"));
-    }
-  }, [showPills, tabs, selectedDivision, scrollToRealIndex]);
-
   const onDivisionChange = useCallback((id: string) => {
     startTransition(async () => {
       await setSelectedDivisionTabId(id, publicBasePath);
@@ -124,14 +115,37 @@ export function HeaderDivisionPills({
     });
   }, [publicBasePath, searchParams, pathname, router]);
 
-  const updateDots = useCallback(() => {
-    if (!dotContainerRef.current || tabs.length === 0) return;
-    const dots = dotContainerRef.current.children;
-    for (let i = 0; i < dots.length; i++) {
-      const dot = dots[i] as HTMLElement;
-      dot.style.opacity = tabs[i]!.id === displayedIdRef.current ? "1" : "0.3";
+  const updateVisuals = useCallback(() => {
+    if (tabs.length === 0) return;
+    if (dotContainerRef.current) {
+      const dots = dotContainerRef.current.children;
+      for (let i = 0; i < dots.length; i++) {
+        const dot = dots[i] as HTMLElement;
+        dot.style.opacity = tabs[i]!.id === displayedIdRef.current ? "1" : "0.3";
+      }
+    }
+    if (scrollRef.current) {
+      const items = scrollRef.current.querySelectorAll(".division-carousel-item");
+      items.forEach((item) => {
+        const el = item as HTMLElement;
+        const isActive = el.dataset.divisionId === displayedIdRef.current;
+        el.style.color = isActive ? "var(--color-royal)" : "rgba(255,255,255,0.5)";
+      });
     }
   }, [tabs]);
+
+  useEffect(() => {
+    if (!showPills || tabs.length === 0) return;
+    const idx = tabs.findIndex((t) => t.id === selectedDivision);
+    if (idx >= 0) {
+      lastSnappedIdx.current = idx;
+      displayedIdRef.current = selectedDivision;
+      requestAnimationFrame(() => {
+        scrollToRealIndex(idx, "instant");
+        updateVisuals();
+      });
+    }
+  }, [showPills, tabs, selectedDivision, scrollToRealIndex, updateVisuals]);
 
   const onScroll = useCallback(() => {
     const el = scrollRef.current;
@@ -157,8 +171,14 @@ export function HeaderDivisionPills({
     if (realIdx !== lastSnappedIdx.current) {
       lastSnappedIdx.current = realIdx;
       displayedIdRef.current = tabs[realIdx]!.id;
-      updateDots();
+      updateVisuals();
       triggerHaptic();
+      const pw = pillWindowRef.current;
+      if (pw) {
+        pw.classList.remove("division-snap-animate");
+        void pw.offsetWidth;
+        pw.classList.add("division-snap-animate");
+      }
     }
 
     if (scrollTimeout.current) clearTimeout(scrollTimeout.current);
@@ -183,7 +203,7 @@ export function HeaderDivisionPills({
         onDivisionChange(divId);
       }
     }, 150);
-  }, [tabs, selectedDivision, scrollToRealIndex, onDivisionChange, updateDots]);
+  }, [tabs, selectedDivision, scrollToRealIndex, onDivisionChange, updateVisuals]);
 
   useEffect(() => {
     const el = scrollRef.current;
@@ -199,40 +219,50 @@ export function HeaderDivisionPills({
   }
 
   return (
-    <div className="flex items-center gap-2 md:gap-1.5">
-      {/* Carousel picker — white pill window on mobile */}
-      <div
-        className="relative overflow-hidden rounded-lg bg-white shadow-sm md:hidden"
-        style={{ width: "5.5rem", height: "2.5rem" }}
-      >
+    <div className="flex items-center md:gap-1.5">
+      {/* Mobile: carousel picker with wider invisible touch zone */}
+      <div className="relative flex flex-col items-center gap-1 md:hidden">
+        {/* Invisible wider scroll zone — 50% padding on each side */}
         <div
-          ref={scrollRef}
-          {...{ [DIVISION_SWIPE_IGNORE]: "" }}
-          className="no-scrollbar flex h-full snap-x snap-mandatory overflow-x-auto scroll-smooth"
+          className="relative"
+          style={{ width: "8.25rem" }}
         >
-          {repeatedTabs.map((d, i) => (
-            <div
-              key={`${d.id}-${i}`}
-              className="flex h-full w-[5.5rem] shrink-0 snap-center items-center justify-center text-sm font-bold text-royal"
-            >
-              {d.name}
-            </div>
+          {/* Visible white pill window — centered within the wider zone */}
+          <div
+            ref={pillWindowRef}
+            className="pointer-events-none absolute left-1/2 top-0 h-full -translate-x-1/2 rounded-lg bg-white shadow-sm"
+            style={{ width: "5.5rem" }}
+          />
+          {/* Scroll container — fills the full wider zone */}
+          <div
+            ref={scrollRef}
+            {...{ [DIVISION_SWIPE_IGNORE]: "" }}
+            className="no-scrollbar relative flex snap-x snap-mandatory overflow-x-auto scroll-smooth"
+            style={{ height: "2.5rem" }}
+          >
+            {repeatedTabs.map((d, i) => (
+              <div
+                key={`${d.id}-${i}`}
+                data-division-id={d.id}
+                className="division-carousel-item flex h-full shrink-0 snap-center items-center justify-center text-sm font-bold text-white/50 transition-colors duration-150"
+                style={{ width: "8.25rem" }}
+              >
+                {d.name}
+              </div>
+            ))}
+          </div>
+        </div>
+
+        {/* Dot indicator — below the pill */}
+        <div ref={dotContainerRef} className="flex gap-1.5">
+          {tabs.map((t) => (
+            <span
+              key={t.id}
+              className="size-1.5 rounded-full bg-white transition-opacity duration-200"
+              style={{ opacity: t.id === selectedDivision ? 1 : 0.3 }}
+            />
           ))}
         </div>
-        {/* Soft edge fades */}
-        <div className="pointer-events-none absolute inset-y-0 left-0 w-4 bg-gradient-to-r from-white/80 to-transparent" />
-        <div className="pointer-events-none absolute inset-y-0 right-0 w-4 bg-gradient-to-l from-white/80 to-transparent" />
-      </div>
-
-      {/* Dot indicator */}
-      <div ref={dotContainerRef} className="flex gap-1 md:hidden">
-        {tabs.map((t) => (
-          <span
-            key={t.id}
-            className="size-1.5 rounded-full bg-white transition-opacity duration-200"
-            style={{ opacity: t.id === selectedDivision ? 1 : 0.3 }}
-          />
-        ))}
       </div>
 
       {/* Desktop: all pills inline */}
