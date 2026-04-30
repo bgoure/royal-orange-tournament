@@ -1,6 +1,9 @@
 import { redirect } from "next/navigation";
 import { getDefaultPublicTournamentSlug } from "@/lib/tournament-context";
 
+/** Default tournament comes from DB (`publicSwitcherOrder`); must not use a build-time frozen redirect. */
+export const dynamic = "force-dynamic";
+
 export default async function SiteRootPage() {
   const slug = await getDefaultPublicTournamentSlug();
   if (!slug) {
