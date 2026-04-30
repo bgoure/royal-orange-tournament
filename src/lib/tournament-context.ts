@@ -19,7 +19,11 @@ function switcherListWhere() {
   };
 }
 
-const switcherListOrderBy = [{ startDate: "desc" as const }, { slug: "asc" as const }];
+const switcherListOrderBy = [
+  { publicSwitcherOrder: "asc" as const },
+  { startDate: "asc" as const },
+  { slug: "asc" as const },
+];
 
 /** Single-segment public URLs: active tournaments only. */
 function publishedActiveSlugWhere(slug: string) {

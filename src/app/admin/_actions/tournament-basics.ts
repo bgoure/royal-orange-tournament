@@ -3,7 +3,7 @@
 import { revalidatePath } from "next/cache";
 import { prisma } from "@/lib/db";
 import { revalidatePublishedTournamentSites } from "@/lib/revalidate-public-tournament-site";
-import { tournamentRenameSchema } from "@/lib/validations/content-admin";
+import { tournamentRenameSchema, tournamentPublicSwitcherOrderSchema } from "@/lib/validations/content-admin";
 import { assertContentManage, contentCtx, contentDeny, type ContentActionResult } from "./content-shared";
 
 export async function updateTournamentName(
@@ -33,6 +33,39 @@ export async function updateTournamentName(
     return { ok: true, notice: "Tournament name updated." };
   } catch (e) {
     return { ok: false, error: e instanceof Error ? e.message : "Failed to update name" };
+  }
+}
+
+export async function updateTournamentPublicSwitcherOrder(
+  _prev: ContentActionResult | undefined,
+  formData: FormData,
+): Promise<ContentActionResult> {
+  const c = await contentCtx();
+  if ("error" in c) return { ok: false, error: c.error };
+  if (!assertContentManage(c.session.user.role)) return contentDeny();
+
+  const parsed = tournamentPublicSwitcherOrderSchema.safeParse({
+    publicSwitcherOrder: formData.get("publicSwitcherOrder"),
+  });
+  if (!parsed.success) {
+    return {
+      ok: false,
+      error: parsed.error.flatten().formErrors.join(", ") || "Invalid order",
+    };
+  }
+
+  try {
+    await prisma.tournament.update({
+      where: { id: c.tournament.id },
+      data: { publicSwitcherOrder: parsed.data.publicSwitcherOrder },
+    });
+    revalidatePath("/", "layout");
+    await revalidatePublishedTournamentSites();
+    revalidatePath("/admin", "layout");
+    revalidatePath("/admin/tournament-settings");
+    return { ok: true, notice: "Public switcher order saved." };
+  } catch (e) {
+    return { ok: false, error: e instanceof Error ? e.message : "Failed to save" };
   }
 }
 

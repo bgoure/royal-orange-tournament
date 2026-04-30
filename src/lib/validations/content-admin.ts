@@ -48,6 +48,10 @@ export const tournamentRenameSchema = z.object({
   name: z.string().trim().min(1, "Name is required").max(200),
 });
 
+export const tournamentPublicSwitcherOrderSchema = z.object({
+  publicSwitcherOrder: z.coerce.number().int().min(0).max(999_999),
+});
+
 export const tournamentHeadquartersSchema = z.object({
   headquartersLocationId: z.string().min(1),
   headquartersName: z.string().trim().max(200).optional(),

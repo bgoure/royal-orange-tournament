@@ -159,6 +159,8 @@ async function main() {
           slug: targetSlug,
           archivedAt: null,
           archiveFolder: null,
+          /** List after the source tournament in the public switcher unless admins change it. */
+          publicSwitcherOrder: source.publicSwitcherOrder + 10,
         },
       });
 

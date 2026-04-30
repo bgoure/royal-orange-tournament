@@ -7,6 +7,7 @@ import {
 } from "@/components/admin/tournament/TournamentHeadquartersForm";
 import { TournamentDangerZoneForm } from "@/components/admin/tournament/TournamentDangerZoneForm";
 import { TournamentRenameForm } from "@/components/admin/tournament/TournamentRenameForm";
+import { TournamentPublicSwitcherOrderForm } from "@/components/admin/tournament/TournamentPublicSwitcherOrderForm";
 import { TournamentBrandingForm } from "@/components/admin/tournament/TournamentBrandingForm";
 import { TournamentPublicAnnouncementsForm } from "@/components/admin/tournament/TournamentPublicAnnouncementsForm";
 import { can } from "@/lib/rbac/permissions";
@@ -88,6 +89,11 @@ export default async function AdminTournamentSettingsPage() {
           </p>
         </header>
         <TournamentRenameForm tournamentName={tournament.name} canManage={canManage} />
+        <TournamentPublicSwitcherOrderForm
+          publicSwitcherOrder={tournament.publicSwitcherOrder}
+          tournamentSlug={tournament.slug}
+          canManage={canManage}
+        />
         <TournamentPublicAnnouncementsForm
           showPublicAnnouncements={tournament.showPublicAnnouncements}
           tournamentName={tournament.name}
@@ -127,6 +133,11 @@ export default async function AdminTournamentSettingsPage() {
         </p>
       </header>
       <TournamentRenameForm tournamentName={tournament.name} canManage={canManage} />
+      <TournamentPublicSwitcherOrderForm
+        publicSwitcherOrder={tournament.publicSwitcherOrder}
+        tournamentSlug={tournament.slug}
+        canManage={canManage}
+      />
       <TournamentPublicAnnouncementsForm
         showPublicAnnouncements={tournament.showPublicAnnouncements}
         tournamentName={tournament.name}
