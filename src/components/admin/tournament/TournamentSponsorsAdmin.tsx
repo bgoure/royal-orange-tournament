@@ -4,6 +4,7 @@ import { useActionState } from "react";
 import { updateShowPublicSponsorsSection } from "@/app/admin/_actions/tournament-public-sections";
 import {
   deleteTournamentSponsor,
+  updateSponsorDivisionAssignments,
   uploadTournamentSponsorLogo,
 } from "@/app/admin/_actions/sponsors";
 import type { ContentActionResult } from "@/app/admin/_actions/content-shared";
@@ -11,7 +12,11 @@ import { ActionMessage } from "@/components/admin/structure/ActionMessage";
 import { sponsorLogoUrl } from "@/lib/sponsor-logo";
 import { MAX_TOURNAMENT_SPONSORS } from "@/lib/sponsors-constants";
 
-export type SponsorRow = { id: string; updatedAt: Date };
+export type SponsorAdminRow = {
+  id: string;
+  updatedAt: Date;
+  divisionIds: string[];
+};
 
 const labelClass = "block text-xs font-medium uppercase tracking-wide text-zinc-500";
 const btnSecondary =
@@ -20,7 +25,8 @@ const btnDanger =
   "rounded-md border border-red-200 bg-red-50 px-3 py-2 text-sm font-medium text-red-800 hover:bg-red-100 disabled:opacity-50";
 
 type Props = {
-  sponsors: SponsorRow[];
+  sponsors: SponsorAdminRow[];
+  divisions: { id: string; name: string }[];
   canManage: boolean;
   showPublicSponsorsSection: boolean;
 };
@@ -30,7 +36,12 @@ const segBtn = (active: boolean) =>
     active ? "bg-emerald-600 text-white shadow-sm" : "bg-zinc-100 text-zinc-700 hover:bg-zinc-200"
   }`;
 
-export function TournamentSponsorsAdmin({ sponsors, canManage, showPublicSponsorsSection }: Props) {
+export function TournamentSponsorsAdmin({
+  sponsors,
+  divisions,
+  canManage,
+  showPublicSponsorsSection,
+}: Props) {
   const [visibilityState, visibilityAction, visibilityPending] = useActionState(
     updateShowPublicSponsorsSection,
     undefined as ContentActionResult | undefined,
@@ -41,6 +52,10 @@ export function TournamentSponsorsAdmin({ sponsors, canManage, showPublicSponsor
   );
   const [deleteState, deleteAction, deletePending] = useActionState(
     deleteTournamentSponsor,
+    undefined as ContentActionResult | undefined,
+  );
+  const [assignState, assignAction, assignPending] = useActionState(
+    updateSponsorDivisionAssignments,
     undefined as ContentActionResult | undefined,
   );
 
@@ -77,14 +92,16 @@ export function TournamentSponsorsAdmin({ sponsors, canManage, showPublicSponsor
       <div>
         <h2 className="text-lg font-semibold text-zinc-900">Sponsor logos</h2>
         <p className="mt-1 text-sm text-zinc-600">
-          When the section is visible, logos appear in a scrolling row on the public home page. Up to{" "}
-          {MAX_TOURNAMENT_SPONSORS} images (PNG, JPEG, or WebP, max 400KB each). With no logos, visitors see
-          placeholders.
+          When the section is visible, logos appear in a scrolling row on the public home page for the visitor’s
+          selected division. Up to {MAX_TOURNAMENT_SPONSORS} images (PNG, JPEG, or WebP, max 400KB each). With no logos
+          uploaded yet, visitors see baseball placeholders. With no division checkboxes selected for a sponsor, it appears
+          on every division; select divisions to limit it.
         </p>
       </div>
 
       <ActionMessage state={uploadState} />
       <ActionMessage state={deleteState} />
+      <ActionMessage state={assignState} />
 
       {canManage && !atLimit ? (
         <form action={uploadAction} encType="multipart/form-data" className="flex flex-wrap items-end gap-3">
@@ -127,6 +144,34 @@ export function TournamentSponsorsAdmin({ sponsors, canManage, showPublicSponsor
                   className="max-h-full max-w-full object-contain"
                 />
               </div>
+              {canManage && divisions.length > 0 ? (
+                <form action={assignAction} className="flex flex-col gap-2 border-t border-zinc-200 pt-3">
+                  <input type="hidden" name="sponsorId" value={s.id} />
+                  <span className={labelClass}>Divisions (public home)</span>
+                  <p className="text-[11px] text-zinc-500">
+                    No checkboxes: all divisions see this sponsor. Select divisions to restrict visibility.
+                  </p>
+                  <ul className="flex flex-col gap-1.5">
+                    {divisions.map((d) => (
+                      <li key={d.id}>
+                        <label className="flex cursor-pointer items-center gap-2 text-sm text-zinc-800">
+                          <input
+                            type="checkbox"
+                            name="divisionId"
+                            value={d.id}
+                            defaultChecked={s.divisionIds.includes(d.id)}
+                            className="rounded border-zinc-300"
+                          />
+                          <span>{d.name}</span>
+                        </label>
+                      </li>
+                    ))}
+                  </ul>
+                  <button type="submit" disabled={assignPending} className={`${btnSecondary} w-full`}>
+                    {assignPending ? "Saving…" : "Save divisions"}
+                  </button>
+                </form>
+              ) : null}
               {canManage ? (
                 <form action={deleteAction}>
                   <input type="hidden" name="sponsorId" value={s.id} />

@@ -96,3 +96,45 @@ export async function deleteTournamentSponsor(
   await revalidatePublishedTournamentSites();
   return { ok: true };
 }
+
+export async function updateSponsorDivisionAssignments(
+  _prev: ContentActionResult | undefined,
+  formData: FormData,
+): Promise<ContentActionResult> {
+  const c = await contentCtx();
+  if ("error" in c) return { ok: false, error: c.error };
+  if (!assertContentManage(c.session.user.role)) return contentDeny();
+
+  const sponsorId = formData.get("sponsorId")?.toString();
+  if (!sponsorId) return { ok: false, error: "Missing sponsor." };
+
+  const bad = await assertSponsorInTournament(sponsorId, c.tournament.id);
+  if (bad) return bad;
+
+  const divisionIdsRaw = formData.getAll("divisionId").map((v) => v.toString()).filter(Boolean);
+  const divisionIds = [...new Set(divisionIdsRaw)];
+
+  if (divisionIds.length > 0) {
+    const count = await prisma.division.count({
+      where: { tournamentId: c.tournament.id, id: { in: divisionIds } },
+    });
+    if (count !== divisionIds.length) {
+      return { ok: false, error: "Invalid division selection." };
+    }
+  }
+
+  await prisma.$transaction([
+    prisma.tournamentSponsorDivision.deleteMany({ where: { sponsorId } }),
+    ...(divisionIds.length > 0
+      ? [
+          prisma.tournamentSponsorDivision.createMany({
+            data: divisionIds.map((divisionId) => ({ sponsorId, divisionId })),
+          }),
+        ]
+      : []),
+  ]);
+
+  revalidatePath("/admin/sponsors");
+  await revalidatePublishedTournamentSites();
+  return { ok: true };
+}

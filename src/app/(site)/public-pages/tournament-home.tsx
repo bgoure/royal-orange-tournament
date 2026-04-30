@@ -204,7 +204,13 @@ export async function TournamentHomePublic({
 
           {champion ? hqWeatherBlock : null}
 
-          {tournament.showPublicSponsorsSection ? <SponsorMarquee tournamentId={tournament.id} /> : null}
+          {tournament.showPublicSponsorsSection ? (
+            <SponsorMarquee
+              tournamentId={tournament.id}
+              divisionTabId={resolvedDivisionId ?? ""}
+              poolsForTabs={poolsForTabs}
+            />
+          ) : null}
         </div>
       </DivisionSwipeBoundary>
     </PullToRefresh>

@@ -161,8 +161,22 @@ model TournamentSponsor {
   mimeType     String
   data         Bytes
   updatedAt    DateTime   @updatedAt
+  /// When empty, this sponsor appears on every division tab; otherwise only on these divisions.
+  divisionAssignments TournamentSponsorDivision[]
 
   @@index([tournamentId])
+}
+
+model TournamentSponsorDivision {
+  id         String            @id @default(cuid())
+  sponsorId  String
+  sponsor    TournamentSponsor @relation(fields: [sponsorId], references: [id], onDelete: Cascade)
+  divisionId String
+  division   Division          @relation(fields: [divisionId], references: [id], onDelete: Cascade)
+
+  @@unique([sponsorId, divisionId])
+  @@index([sponsorId])
+  @@index([divisionId])
 }
 
 /// Physical site / park. At most one row per tournament may have `isHeadquarters = true`
@@ -193,7 +207,8 @@ model Division {
   pools        Pool[]
   brackets     Bracket[]
   consolationGames Game[]
-  userAssignments UserDivisionAssignment[]
+  userAssignments     UserDivisionAssignment[]
+  sponsorAssignments  TournamentSponsorDivision[]
 
   @@index([tournamentId])
 }

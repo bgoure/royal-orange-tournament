@@ -1,6 +1,7 @@
 import type { ReactNode } from "react";
 import { brandCardGradientClass } from "@/lib/brand-card-gradient";
-import { listSponsorsForMarquee } from "@/lib/services/sponsors";
+import type { PoolForDivisionTabs } from "@/lib/division-tabs";
+import { countSponsorsForTournament, listSponsorsForMarquee } from "@/lib/services/sponsors";
 import { sponsorLogoUrl } from "@/lib/sponsor-logo";
 
 const PLACEHOLDER_IDS = [0, 1, 2, 3, 4] as const;
@@ -72,11 +73,24 @@ function SponsorMarqueeImages({ sponsors }: { sponsors: { id: string; updatedAt:
   );
 }
 
-/** Home page sponsor strip: real logos from admin, or placeholder baseball marks until the first upload. */
-export async function SponsorMarquee({ tournamentId }: { tournamentId: string }) {
-  const sponsors = await listSponsorsForMarquee(tournamentId);
+/** Home page sponsor strip: logos for the active division (or all), placeholders only when the tournament has no sponsors. */
+export async function SponsorMarquee({
+  tournamentId,
+  divisionTabId,
+  poolsForTabs,
+}: {
+  tournamentId: string;
+  divisionTabId: string;
+  poolsForTabs: PoolForDivisionTabs[];
+}) {
+  const sponsors = await listSponsorsForMarquee(tournamentId, {
+    divisionTabId,
+    poolsForTabs,
+  });
   if (sponsors.length === 0) {
-    return <SponsorMarqueePlaceholders />;
+    const total = await countSponsorsForTournament(tournamentId);
+    if (total === 0) return <SponsorMarqueePlaceholders />;
+    return null;
   }
   return <SponsorMarqueeImages sponsors={sponsors} />;
 }
