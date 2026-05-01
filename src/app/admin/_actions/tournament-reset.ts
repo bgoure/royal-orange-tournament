@@ -4,7 +4,7 @@ import { Role } from "@prisma/client";
 import { revalidatePath } from "next/cache";
 import { revalidatePublishedTournamentSites } from "@/lib/revalidate-public-tournament-site";
 import { prisma } from "@/lib/db";
-import { TOURNAMENT_SLUG_COOKIE } from "@/lib/tournament-context";
+import { ADMIN_TOURNAMENT_SLUG_COOKIE, TOURNAMENT_SLUG_COOKIE } from "@/lib/tournament-context";
 import { tournamentPublicBasePath } from "@/lib/tournament-public-path";
 import { cookies } from "next/headers";
 import {
@@ -122,12 +122,17 @@ export async function archiveTournament(
     revalidatePath(prevPath, "layout");
     revalidatePath(nextPath, "layout");
     revalidatePath("/admin/tournament-settings");
+    revalidatePath("/admin", "layout");
     await revalidatePublishedTournamentSites();
 
     const jar = await cookies();
     const selected = jar.get(TOURNAMENT_SLUG_COOKIE)?.value;
     if (selected && selected.toLowerCase() === c.tournament.slug.toLowerCase()) {
       jar.delete(TOURNAMENT_SLUG_COOKIE);
+    }
+    const adminSel = jar.get(ADMIN_TOURNAMENT_SLUG_COOKIE)?.value;
+    if (adminSel && adminSel.toLowerCase() === c.tournament.slug.toLowerCase()) {
+      jar.delete(ADMIN_TOURNAMENT_SLUG_COOKIE);
     }
 
     return {
@@ -222,7 +227,14 @@ export async function hardDeleteTournament(
     await prisma.tournament.delete({ where: { id: tournamentId } });
 
     const jar = await cookies();
-    jar.delete(TOURNAMENT_SLUG_COOKIE);
+    const selected = jar.get(TOURNAMENT_SLUG_COOKIE)?.value;
+    if (selected && selected.toLowerCase() === slug.toLowerCase()) {
+      jar.delete(TOURNAMENT_SLUG_COOKIE);
+    }
+    const adminSel = jar.get(ADMIN_TOURNAMENT_SLUG_COOKIE)?.value;
+    if (adminSel && adminSel.toLowerCase() === slug.toLowerCase()) {
+      jar.delete(ADMIN_TOURNAMENT_SLUG_COOKIE);
+    }
 
     revalidatePath("/", "layout");
     revalidatePath(publicPath, "layout");

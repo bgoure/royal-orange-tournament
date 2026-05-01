@@ -12,7 +12,7 @@ export async function contentCtx(): Promise<{ session: Session; tournament: Tour
   const tournament = await getTournamentForRequest();
   if (!tournament) {
     return {
-      error: "Select a tournament on the public site (tournament switcher), then return here.",
+      error: "Open All tournaments in the admin sidebar, pick an event, or use the public site switcher.",
     };
   }
   return { session, tournament };

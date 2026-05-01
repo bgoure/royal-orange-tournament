@@ -9,7 +9,7 @@ import { can } from "@/lib/rbac/permissions";
 import { slugifyTournamentName } from "@/lib/slug";
 import { recomputeAllPoolsForTournament } from "@/lib/services/standings";
 import { revalidatePublishedTournamentSites } from "@/lib/revalidate-public-tournament-site";
-import { TOURNAMENT_SLUG_COOKIE } from "@/lib/tournament-context";
+import { ADMIN_TOURNAMENT_SLUG_COOKIE, TOURNAMENT_SLUG_COOKIE } from "@/lib/tournament-context";
 import { tournamentWizardSchema, type TournamentWizardInput } from "@/lib/validations/tournament-wizard";
 
 export type TournamentWizardResult =
@@ -137,12 +137,15 @@ export async function createTournamentFromWizard(input: unknown): Promise<Tourna
     const { id, slug } = await persistSkeleton(parsed.data);
     await recomputeAllPoolsForTournament(id);
 
-    (await cookies()).set(TOURNAMENT_SLUG_COOKIE, slug, {
+    const jar = await cookies();
+    const opts = {
       path: "/",
       maxAge: 60 * 60 * 24 * 400,
-      sameSite: "lax",
+      sameSite: "lax" as const,
       secure: process.env.NODE_ENV === "production",
-    });
+    };
+    jar.set(TOURNAMENT_SLUG_COOKIE, slug, opts);
+    jar.set(ADMIN_TOURNAMENT_SLUG_COOKIE, slug, opts);
 
     revalidatePath("/", "layout");
     await revalidatePublishedTournamentSites();

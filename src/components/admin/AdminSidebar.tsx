@@ -6,8 +6,11 @@ import { signOut } from "next-auth/react";
 import { adminNavItems } from "@/components/admin/admin-nav";
 
 function navItemIsActive(pathname: string, href: string, segment: string): boolean {
+  if (segment === "hub") {
+    return pathname === "/admin" || pathname === "/admin/";
+  }
   if (segment === "tournament-settings") {
-    return pathname === href || pathname === "/admin" || pathname === "/admin/";
+    return pathname === href || pathname.startsWith(`${href}/`);
   }
   return pathname === href || pathname.startsWith(`${href}/`);
 }
@@ -18,7 +21,7 @@ export function AdminSidebar() {
   return (
     <aside className="flex w-60 shrink-0 flex-col border-r border-zinc-200 bg-zinc-900 text-zinc-100">
       <div className="border-b border-zinc-700/80 px-5 py-5">
-        <Link href="/admin/tournament-settings" className="block text-lg font-semibold tracking-tight text-white">
+        <Link href="/admin" className="block text-lg font-semibold tracking-tight text-white">
           Tournament Hub
         </Link>
         <p className="mt-0.5 text-xs font-medium uppercase tracking-wider text-emerald-400/90">

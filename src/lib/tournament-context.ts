@@ -2,6 +2,8 @@ import { cookies } from "next/headers";
 import { prisma } from "@/lib/db";
 
 export const TOURNAMENT_SLUG_COOKIE = "tournament_slug";
+/** Preferred context for /admin when set (via /admin/select/…). Overrides public-site `tournament_slug`. */
+export const ADMIN_TOURNAMENT_SLUG_COOKIE = "admin_tournament_slug";
 
 /** Hide switcher entries for events whose first day is more than this many calendar months after today. */
 const SWITCHER_MAX_LEAD_MONTHS = 2;
@@ -37,6 +39,11 @@ function publishedActiveSlugWhere(slug: string) {
 export async function getSelectedTournamentSlug(): Promise<string | null> {
   const c = await cookies();
   return c.get(TOURNAMENT_SLUG_COOKIE)?.value ?? null;
+}
+
+export async function getAdminSelectedTournamentSlug(): Promise<string | null> {
+  const c = await cookies();
+  return c.get(ADMIN_TOURNAMENT_SLUG_COOKIE)?.value ?? null;
 }
 
 /** Active (non-archived) published tournament for `/{slug}` routes. */
@@ -97,20 +104,27 @@ export async function getDefaultPublicTournamentSlug(): Promise<string | null> {
 }
 
 /**
- * Tournament for admin + cookie context: any published row (live or archived) matching the slug cookie,
- * else first live tournament in the switcher window, else any live published tournament.
+ * Tournament for admin + cookie context: any published row (live or archived) matching
+ * `admin_tournament_slug` first, then public `tournament_slug`, else first live tournament
+ * in the switcher window, else any live published tournament.
  */
 export async function getTournamentForRequest() {
-  const slug = await getSelectedTournamentSlug();
-  if (slug) {
-    const t = await prisma.tournament.findFirst({
+  const trySlug = async (slug: string | null) => {
+    if (!slug) return null;
+    return prisma.tournament.findFirst({
       where: {
         slug: { equals: slug, mode: "insensitive" },
         isPublished: true,
       },
     });
-    if (t) return t;
-  }
+  };
+
+  const fromAdmin = await trySlug(await getAdminSelectedTournamentSlug());
+  if (fromAdmin) return fromAdmin;
+
+  const fromPublic = await trySlug(await getSelectedTournamentSlug());
+  if (fromPublic) return fromPublic;
+
   const withinSwitcherWindow = await prisma.tournament.findFirst({
     where: switcherListWhere(),
     orderBy: switcherListOrderBy,
@@ -119,6 +133,29 @@ export async function getTournamentForRequest() {
   return prisma.tournament.findFirst({
     where: { isPublished: true, archivedAt: null },
     orderBy: switcherListOrderBy,
+  });
+}
+
+/** All published tournaments for the admin hub (live + archived). */
+export async function listTournamentsForAdminHub() {
+  return prisma.tournament.findMany({
+    where: { isPublished: true },
+    orderBy: [
+      { publicSwitcherOrder: "asc" },
+      { startDate: "asc" },
+      { slug: "asc" },
+    ],
+    select: {
+      id: true,
+      name: true,
+      slug: true,
+      publicSwitcherOrder: true,
+      archivedAt: true,
+      archiveFolder: true,
+      startDate: true,
+      endDate: true,
+      locationLabel: true,
+    },
   });
 }
 

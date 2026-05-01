@@ -1,4 +1,5 @@
 export const adminNavItems = [
+  { href: "/admin", label: "All tournaments", segment: "hub" },
   { href: "/admin/tournament-settings", label: "Tournament Admin", segment: "tournament-settings" },
   { href: "/admin/teams", label: "Teams", segment: "teams" },
   { href: "/admin/divisions", label: "Divisions & Pools", segment: "divisions" },

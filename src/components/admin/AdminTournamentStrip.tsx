@@ -22,8 +22,11 @@ export function AdminTournamentStrip({ currentTournamentName, currentTournamentS
           </>
         ) : (
           <span className="text-amber-900">
-            No tournament selected — use <strong>Create tournament</strong> or choose one on the public
-            site.
+            No tournament selected — open{" "}
+            <Link href="/admin" className="font-semibold text-emerald-800 underline">
+              All tournaments
+            </Link>
+            , use <strong>Create tournament</strong>, or pick one on the public site.
           </span>
         )}
       </div>
@@ -38,6 +41,14 @@ export function AdminTournamentStrip({ currentTournamentName, currentTournamentS
             <span aria-hidden>+</span>
             <span className="ml-1.5 sm:inline">Create</span>
           </button>
+        ) : null}
+        {currentTournamentSlug ? (
+          <Link
+            href="/admin"
+            className="rounded-lg px-3 py-2 text-sm font-medium text-zinc-700 hover:bg-zinc-100 hover:underline"
+          >
+            All tournaments
+          </Link>
         ) : null}
         <Link
           href="/"

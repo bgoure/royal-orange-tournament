@@ -1,5 +1,6 @@
 "use client";
 
+import { usePathname } from "next/navigation";
 import { AdminSidebar } from "@/components/admin/AdminSidebar";
 import { AdminTournamentStrip } from "@/components/admin/AdminTournamentStrip";
 import { CreateTournamentWizardProvider } from "@/components/admin/tournament/CreateTournamentWizardContext";
@@ -19,12 +20,16 @@ export function CreateTournamentWizardRoot({
   currentTournamentName,
   currentTournamentSlug,
 }: Props) {
+  const pathname = usePathname() ?? "";
+  const onHub = pathname === "/admin" || pathname === "/admin/";
+  const showStrip = showTournamentStrip && !onHub;
+
   return (
     <CreateTournamentWizardProvider canCreateTournament={canCreateTournament}>
       <div className="flex min-h-full bg-zinc-100">
         <AdminSidebar />
         <div className="flex min-h-full min-w-0 flex-1 flex-col">
-          {showTournamentStrip ? (
+          {showStrip ? (
             <AdminTournamentStrip
               currentTournamentName={currentTournamentName}
               currentTournamentSlug={currentTournamentSlug}
