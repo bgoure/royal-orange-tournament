@@ -24,13 +24,13 @@ function HeaderLogoSlot({ url, label }: { url?: string | null; label: string }) 
       <img
         src={url}
         alt=""
-        className="h-11 max-h-11 w-auto max-w-[4.25rem] shrink-0 object-contain object-center print:h-7 print:max-h-7 print:max-w-[2.65rem]"
+        className="h-12 max-h-12 w-auto max-w-[4.75rem] shrink-0 object-contain object-center print:h-8 print:max-h-8 print:max-w-[3rem]"
       />
     );
   }
   return (
     <div
-      className="flex h-11 w-[3.35rem] shrink-0 items-center justify-center rounded border border-dashed border-slate-300 bg-slate-50 text-[8px] font-medium uppercase tracking-wide text-slate-500 print:h-7 print:w-[2.65rem] print:text-[6px]"
+      className="flex h-12 w-[3.6rem] shrink-0 items-center justify-center rounded border border-dashed border-slate-300 bg-slate-50 text-[8px] font-medium uppercase tracking-wide text-slate-500 print:h-8 print:w-[3rem] print:text-[7px]"
       aria-hidden
     >
       {label}
@@ -42,7 +42,7 @@ function TeamLogoMark({ url }: { url?: string | null }) {
   if (!url) {
     return (
       <span
-        className="inline-block h-14 w-14 shrink-0 rounded border border-dashed border-slate-300 bg-white print:h-12 print:w-12"
+        className="inline-block h-12 w-12 shrink-0 rounded border border-dashed border-slate-300 bg-white print:h-10 print:w-10"
         aria-hidden
       />
     );
@@ -51,7 +51,7 @@ function TeamLogoMark({ url }: { url?: string | null }) {
     <img
       src={url}
       alt=""
-      className="h-14 w-14 shrink-0 rounded-sm border border-slate-200 bg-white object-contain p-0.5 print:h-12 print:w-12"
+      className="h-12 w-12 shrink-0 rounded-sm border border-slate-200 bg-white object-contain p-0.5 print:h-10 print:w-10"
     />
   );
 }
@@ -77,15 +77,15 @@ export function GameSheetTemplate({
 
   return (
     <article className="print-sheet-column box-border flex min-w-0 max-w-full flex-col gap-3 border border-slate-300 bg-white text-slate-800 shadow-sm print:gap-2 print:border print:border-slate-400 print:shadow-none">
-      <header className="border-b border-amber-900/20 bg-white px-1 py-1.5 print:px-0.5 print:py-1">
-        <div className="flex items-start justify-between gap-1 print:gap-0.5">
+      <header className="border-b border-amber-900/20 bg-white px-1 py-2 print:px-0.5 print:py-1.5">
+        <div className="flex items-start justify-between gap-1.5 print:gap-0.5">
           <HeaderLogoSlot url={sheetHeaderLeftLogoUrl} label="Logo" />
           <div className="min-w-0 max-w-full flex-1 px-0.5 text-center">
-            <p className="text-[11px] font-semibold leading-snug text-royal sm:text-[13px] print:text-xs">
+            <p className="text-xs font-semibold leading-snug text-royal sm:text-sm print:text-xs">
               {associationName}
             </p>
-            <div className="mt-1 max-w-full leading-tight break-words print:mt-0.5">{eventTitle}</div>
-            <p className="mt-1 text-xs font-bold uppercase leading-snug tracking-wide text-royal sm:text-sm print:mt-0.5 print:text-xs">
+            <div className="mt-1.5 max-w-full leading-tight break-words print:mt-1">{eventTitle}</div>
+            <p className="mt-1.5 text-sm font-bold uppercase leading-snug tracking-wide text-royal sm:text-base print:mt-1 print:text-sm">
               {division} — Game results
             </p>
           </div>
@@ -94,20 +94,22 @@ export function GameSheetTemplate({
       </header>
 
       <div className="border border-royal/20 bg-royal-50/90 px-1 py-2 print:px-0.5 print:py-1.5">
-        <div className="flex flex-wrap items-center justify-center gap-x-2 gap-y-1 text-xl font-extrabold uppercase leading-snug tracking-wide text-royal print:text-[20px] sm:text-2xl md:text-3xl">
-          <div className="flex min-w-0 max-w-full items-center gap-2 print:gap-1">
-            <TeamLogoMark url={homeTeamLogoUrl} />
-            <span className="min-w-0 break-words">{homeTeam.toUpperCase()}</span>
+        <div className="flex flex-col items-center gap-1 print:gap-0.5">
+          <div className="flex w-full min-w-0 flex-wrap items-center justify-center gap-x-2 gap-y-0.5 text-lg font-extrabold uppercase leading-snug tracking-wide text-royal print:text-[17px] sm:text-xl md:text-2xl">
+            <div className="flex min-w-0 max-w-full items-center justify-center gap-2 print:gap-1.5">
+              <TeamLogoMark url={homeTeamLogoUrl} />
+              <span className="min-w-0 break-words">{homeTeam.toUpperCase()}</span>
+            </div>
+            <span className="shrink-0 text-xs font-semibold normal-case text-sky-600 print:text-[13px] sm:text-sm">
+              vs
+            </span>
           </div>
-          <span className="shrink-0 text-sm font-semibold normal-case text-sky-600 print:text-[18px] sm:text-lg">
-            vs
-          </span>
-          <div className="flex min-w-0 max-w-full items-center gap-2 print:gap-1">
+          <div className="flex w-full min-w-0 items-center justify-center gap-2 print:gap-1.5 text-lg font-extrabold uppercase leading-snug tracking-wide text-royal print:text-[17px] sm:text-xl md:text-2xl">
             <TeamLogoMark url={awayTeamLogoUrl} />
             <span className="min-w-0 break-words">{awayTeam.toUpperCase()}</span>
           </div>
         </div>
-        <p className="mt-1.5 text-center text-lg font-semibold text-royal print:text-[20px] sm:text-xl">
+        <p className="mt-2 text-center text-base font-semibold text-royal print:mt-1.5 print:text-[17px] sm:text-lg">
           Game {gameLabel}
         </p>
       </div>

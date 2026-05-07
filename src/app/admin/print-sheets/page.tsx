@@ -47,13 +47,15 @@ function buildEventTitle(tournamentName: string, tournamentStart: Date, timeZone
   const parts = core.split("&");
 
   const lineClass =
-    "text-lg font-bold leading-snug print:text-base sm:text-xl md:text-2xl";
+    "text-xl font-bold leading-snug print:text-lg sm:text-2xl md:text-3xl";
   const yearClass = `text-royal ${lineClass}`;
   const ampClass = `text-royal ${lineClass}`;
 
   if (parts.length >= 2) {
-    const left = parts[0]!.trim();
-    const right = parts.slice(1).join("&").trim();
+    let left = parts[0]!.trim();
+    let right = parts.slice(1).join("&").trim();
+    left = left.replace(new RegExp(`\\s+${year}$`, "i"), "").trim();
+    right = right.replace(new RegExp(`\\s+${year}$`, "i"), "").trim();
     const leftSep = left.endsWith("&") ? "" : " ";
     return (
       <span className="inline-block max-w-full break-words text-center">
@@ -63,8 +65,7 @@ function buildEventTitle(tournamentName: string, tournamentStart: Date, timeZone
           {leftSep}
         </span>
         <span className={ampClass}>&</span>{" "}
-        <span className={`text-accent ${lineClass}`}>{right}</span>{" "}
-        <span className={yearClass}>{year}</span>
+        <span className={`text-accent ${lineClass}`}>{right}</span>
       </span>
     );
   }
@@ -72,8 +73,7 @@ function buildEventTitle(tournamentName: string, tournamentStart: Date, timeZone
   return (
     <span className="inline-block max-w-full break-words text-center">
       <span className={yearClass}>{year}</span>{" "}
-      <span className={`text-accent ${lineClass}`}>{core}</span>{" "}
-      <span className={yearClass}>{year}</span>
+      <span className={`text-accent ${lineClass}`}>{core}</span>
     </span>
   );
 }
