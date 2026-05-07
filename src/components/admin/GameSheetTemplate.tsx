@@ -42,7 +42,7 @@ function TeamLogoMark({ url }: { url?: string | null }) {
   if (!url) {
     return (
       <span
-        className="inline-block h-7 w-7 shrink-0 rounded border border-dashed border-slate-300 bg-white print:h-6 print:w-6"
+        className="inline-block h-14 w-14 shrink-0 rounded border border-dashed border-slate-300 bg-white print:h-12 print:w-12"
         aria-hidden
       />
     );
@@ -51,7 +51,7 @@ function TeamLogoMark({ url }: { url?: string | null }) {
     <img
       src={url}
       alt=""
-      className="h-7 w-7 shrink-0 rounded-sm border border-slate-200 bg-white object-contain p-0.5 print:h-6 print:w-6"
+      className="h-14 w-14 shrink-0 rounded-sm border border-slate-200 bg-white object-contain p-0.5 print:h-12 print:w-12"
     />
   );
 }
@@ -93,21 +93,21 @@ export function GameSheetTemplate({
         </div>
       </header>
 
-      <div className="border border-royal/20 bg-royal-50/90 px-1 py-1.5 print:px-0.5 print:py-1">
-        <div className="flex flex-wrap items-center justify-center gap-x-1 gap-y-0.5 text-sm font-extrabold uppercase leading-snug tracking-wide text-royal print:text-[10px] sm:text-base md:text-lg">
-          <div className="flex min-w-0 max-w-full items-center gap-1 print:gap-0.5">
+      <div className="border border-royal/20 bg-royal-50/90 px-1 py-2 print:px-0.5 print:py-1.5">
+        <div className="flex flex-wrap items-center justify-center gap-x-2 gap-y-1 text-xl font-extrabold uppercase leading-snug tracking-wide text-royal print:text-[20px] sm:text-2xl md:text-3xl">
+          <div className="flex min-w-0 max-w-full items-center gap-2 print:gap-1">
             <TeamLogoMark url={homeTeamLogoUrl} />
             <span className="min-w-0 break-words">{homeTeam.toUpperCase()}</span>
           </div>
-          <span className="shrink-0 text-xs font-semibold normal-case text-sky-600 print:text-[9px] sm:text-sm">
+          <span className="shrink-0 text-sm font-semibold normal-case text-sky-600 print:text-[18px] sm:text-lg">
             vs
           </span>
-          <div className="flex min-w-0 max-w-full items-center gap-1 print:gap-0.5">
+          <div className="flex min-w-0 max-w-full items-center gap-2 print:gap-1">
             <TeamLogoMark url={awayTeamLogoUrl} />
             <span className="min-w-0 break-words">{awayTeam.toUpperCase()}</span>
           </div>
         </div>
-        <p className="mt-1 text-center text-xs font-semibold text-royal print:text-[10px] sm:text-sm">
+        <p className="mt-1.5 text-center text-lg font-semibold text-royal print:text-[20px] sm:text-xl">
           Game {gameLabel}
         </p>
       </div>
