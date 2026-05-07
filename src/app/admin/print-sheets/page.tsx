@@ -47,7 +47,7 @@ function buildEventTitle(tournamentName: string, tournamentStart: Date, timeZone
   const parts = core.split("&");
 
   const lineClass =
-    "text-lg font-bold leading-snug print:text-[13px] sm:text-xl md:text-2xl";
+    "text-lg font-bold leading-snug print:text-xl sm:text-xl md:text-2xl";
   const yearClass = `text-royal ${lineClass}`;
   const ampClass = `text-royal ${lineClass}`;
 
@@ -56,7 +56,7 @@ function buildEventTitle(tournamentName: string, tournamentStart: Date, timeZone
     const right = parts.slice(1).join("&").trim();
     const leftSep = left.endsWith("&") ? "" : " ";
     return (
-      <span className="inline-block text-center">
+      <span className="inline-block max-w-full break-words text-center">
         <span className={yearClass}>{year}</span>{" "}
         <span className={`text-royal ${lineClass}`}>
           {left}
@@ -70,7 +70,7 @@ function buildEventTitle(tournamentName: string, tournamentStart: Date, timeZone
   }
 
   return (
-    <span className="inline-block text-center">
+    <span className="inline-block max-w-full break-words text-center">
       <span className={yearClass}>{year}</span>{" "}
       <span className={`text-accent ${lineClass}`}>{core}</span>{" "}
       <span className={yearClass}>{year}</span>
@@ -167,11 +167,15 @@ export default async function AdminPrintSheetsPage() {
           {pairs.map(([left, right], pageIndex) => (
             <div
               key={pageIndex}
-              className="grid grid-cols-1 gap-8 md:grid-cols-2 print:grid-cols-2 print:gap-3 print:break-after-page last:print:break-after-auto"
+              className="grid grid-cols-1 gap-8 md:grid-cols-2 print:grid-cols-2 print:gap-2 print:break-after-page last:print:break-after-auto"
             >
-              <GameSheetTemplate {...left} />
+              <div className="min-w-0 max-w-full">
+                <GameSheetTemplate {...left} />
+              </div>
               {right ? (
-                <GameSheetTemplate {...right} />
+                <div className="min-w-0 max-w-full">
+                  <GameSheetTemplate {...right} />
+                </div>
               ) : (
                 <div
                   className="hidden min-h-[20rem] rounded border border-dashed border-slate-200 bg-slate-50/80 md:block print:block print:min-h-0"

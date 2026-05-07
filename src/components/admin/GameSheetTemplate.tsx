@@ -24,13 +24,13 @@ function HeaderLogoSlot({ url, label }: { url?: string | null; label: string }) 
       <img
         src={url}
         alt=""
-        className="h-11 max-h-11 w-auto max-w-[5.25rem] shrink-0 object-contain object-center print:h-9 print:max-h-9 print:max-w-[4.5rem]"
+        className="h-11 max-h-11 w-auto max-w-[4.75rem] shrink-0 object-contain object-center print:h-8 print:max-h-8 print:max-w-[3.25rem]"
       />
     );
   }
   return (
     <div
-      className="flex h-11 w-16 shrink-0 items-center justify-center rounded border border-dashed border-slate-300 bg-slate-50 text-[8px] font-medium uppercase tracking-wide text-slate-500 print:h-9 print:w-14 print:text-[7px]"
+      className="flex h-11 w-[3.75rem] shrink-0 items-center justify-center rounded border border-dashed border-slate-300 bg-slate-50 text-[8px] font-medium uppercase tracking-wide text-slate-500 print:h-8 print:w-[3.25rem] print:text-[7px]"
       aria-hidden
     >
       {label}
@@ -42,7 +42,7 @@ function TeamLogoMark({ url }: { url?: string | null }) {
   if (!url) {
     return (
       <span
-        className="inline-block h-8 w-8 shrink-0 rounded border border-dashed border-slate-300 bg-white print:h-7 print:w-7"
+        className="inline-block h-7 w-7 shrink-0 rounded border border-dashed border-slate-300 bg-white print:h-6 print:w-6"
         aria-hidden
       />
     );
@@ -51,7 +51,7 @@ function TeamLogoMark({ url }: { url?: string | null }) {
     <img
       src={url}
       alt=""
-      className="h-8 w-8 shrink-0 rounded-sm border border-slate-200 bg-white object-contain p-0.5 print:h-7 print:w-7"
+      className="h-7 w-7 shrink-0 rounded-sm border border-slate-200 bg-white object-contain p-0.5 print:h-6 print:w-6"
     />
   );
 }
@@ -76,16 +76,16 @@ export function GameSheetTemplate({
   const gameLabel = num ? `#${num}` : "#—";
 
   return (
-    <article className="flex h-full min-h-0 flex-col gap-3 border border-slate-300 bg-white text-slate-800 shadow-sm print:gap-2.5 print:border-slate-400 print:shadow-none">
-      <header className="border-b border-amber-900/20 bg-white px-2 py-2 print:px-1.5 print:py-1.5">
-        <div className="flex items-start justify-between gap-2 print:gap-1.5">
+    <article className="print-sheet-column flex min-w-0 max-w-full flex-col gap-3 border border-slate-300 bg-white text-slate-800 shadow-sm print:gap-2.5 print:border-slate-400 print:shadow-none">
+      <header className="border-b border-amber-900/20 bg-white px-1.5 py-2 print:px-1 print:py-1.5">
+        <div className="flex items-start justify-between gap-1.5 print:gap-1">
           <HeaderLogoSlot url={sheetHeaderLeftLogoUrl} label="Logo" />
-          <div className="min-w-0 flex-1 px-0.5 text-center">
-            <p className="text-[11px] font-semibold leading-snug text-royal sm:text-[13px] print:text-[10px]">
+          <div className="min-w-0 max-w-full flex-1 px-0.5 text-center">
+            <p className="text-[11px] font-semibold leading-snug text-royal sm:text-[13px] print:text-xs">
               {associationName}
             </p>
-            <div className="mt-1 leading-tight print:mt-0.5">{eventTitle}</div>
-            <p className="mt-1 text-xs font-bold uppercase leading-snug tracking-wide text-royal sm:text-sm print:mt-0.5 print:text-[11px]">
+            <div className="mt-1 max-w-full leading-tight break-words print:mt-0.5">{eventTitle}</div>
+            <p className="mt-1 text-xs font-bold uppercase leading-snug tracking-wide text-royal sm:text-sm print:mt-0.5 print:text-xs">
               {division} — Game results
             </p>
           </div>
@@ -93,26 +93,26 @@ export function GameSheetTemplate({
         </div>
       </header>
 
-      <div className="border border-royal/20 bg-royal-50/90 px-2 py-2 print:px-1.5 print:py-1.5">
-        <div className="flex flex-wrap items-center justify-center gap-x-2 gap-y-1 text-sm font-extrabold uppercase leading-snug tracking-wide text-royal print:gap-x-1.5 print:text-[12px] sm:text-base md:text-lg">
-          <div className="flex min-w-0 items-center gap-1.5 print:gap-1">
+      <div className="border border-royal/20 bg-royal-50/90 px-1.5 py-2 print:px-1 print:py-1.5">
+        <div className="flex flex-wrap items-center justify-center gap-x-1.5 gap-y-0.5 text-sm font-extrabold uppercase leading-snug tracking-wide text-royal print:gap-x-1 print:text-xs sm:text-base md:text-lg">
+          <div className="flex min-w-0 max-w-full items-center gap-1 print:gap-0.5">
             <TeamLogoMark url={homeTeamLogoUrl} />
-            <span className="min-w-0">{homeTeam.toUpperCase()}</span>
+            <span className="min-w-0 break-words">{homeTeam.toUpperCase()}</span>
           </div>
-          <span className="text-xs font-semibold normal-case text-sky-600 print:text-[11px] sm:text-sm">
+          <span className="shrink-0 text-xs font-semibold normal-case text-sky-600 print:text-[10px] sm:text-sm">
             vs
           </span>
-          <div className="flex min-w-0 items-center gap-1.5 print:gap-1">
+          <div className="flex min-w-0 max-w-full items-center gap-1 print:gap-0.5">
             <TeamLogoMark url={awayTeamLogoUrl} />
-            <span className="min-w-0">{awayTeam.toUpperCase()}</span>
+            <span className="min-w-0 break-words">{awayTeam.toUpperCase()}</span>
           </div>
         </div>
-        <p className="mt-1.5 text-center text-xs font-semibold text-royal print:mt-1 print:text-[11px] sm:text-sm">
+        <p className="mt-1.5 text-center text-xs font-semibold text-royal print:mt-1 print:text-xs sm:text-sm">
           Game {gameLabel}
         </p>
       </div>
 
-      <div className="border border-royal/15 bg-amber-50/95 px-2 py-2 print:px-1.5 print:py-1.5">
+      <div className="border border-royal/15 bg-amber-50/95 px-1.5 py-2 print:px-1 print:py-1.5">
         <div className="flex flex-col gap-2 print:gap-1.5">
           <div>
             <p className="text-[11px] font-bold uppercase tracking-wide text-royal print:text-[10px] sm:text-xs">
@@ -129,8 +129,8 @@ export function GameSheetTemplate({
         </div>
       </div>
 
-      <div className="flex flex-wrap items-baseline justify-between gap-x-3 gap-y-0.5 border border-royal/25 bg-amber-50/90 px-2 py-2 text-[11px] text-slate-800 print:px-1.5 print:py-1.5 print:text-[10px] sm:text-xs">
-        <span>
+      <div className="flex flex-wrap items-baseline justify-between gap-x-2 gap-y-0.5 border border-royal/25 bg-amber-50/90 px-1.5 py-2 text-[11px] text-slate-800 print:px-1 print:py-1.5 print:text-[10px] sm:text-xs">
+        <span className="min-w-0">
           <span className="font-bold text-royal">Date:</span> {date}
         </span>
         <span className="min-w-0 text-right">
@@ -144,12 +144,12 @@ export function GameSheetTemplate({
         </span>
       </div>
 
-      <div className="flex min-h-0 flex-1 flex-col gap-4 p-2 print:gap-3 print:p-1.5">
+      <div className="flex min-h-0 flex-1 flex-col gap-4 px-0.5 print:gap-3 print:px-0 print:pb-0.5">
         <TeamBlock variant="home" />
         <TeamBlock variant="away" />
       </div>
 
-      <footer className="mt-auto border-t border-slate-200 px-2 pb-1.5 pt-1 print:px-1.5 print:pb-1 print:pt-0.5">
+      <footer className="mt-auto border-t border-slate-200 px-1.5 pb-1.5 pt-1 print:px-1 print:pb-1 print:pt-0.5">
         <p className="text-[9px] font-medium leading-snug text-red-700 print:text-[8px] sm:text-[10px]">
           Completed and signed game results sheets must be hand delivered to the game convenor or the concession
           stand at Lions Park 1 by the <strong className="font-bold">home team</strong> immediately following the
@@ -171,45 +171,37 @@ function TeamBlock({ variant }: { variant: "home" | "away" }) {
   const headerLabel = isHome ? "Home team" : "Away team";
   const coachSigLabel = isHome ? "Home team coach signature" : "Away team coach signature";
   const statLabelClass = isHome
-    ? "text-[10px] font-bold uppercase leading-tight text-accent-800 print:text-[9px] sm:text-xs"
-    : "text-[10px] font-bold uppercase leading-tight text-royal print:text-[9px] sm:text-xs";
+    ? "mb-1 text-[10px] font-bold uppercase leading-tight text-accent-800 print:text-[9px] sm:text-xs"
+    : "mb-1 text-[10px] font-bold uppercase leading-tight text-royal print:text-[9px] sm:text-xs";
+  const titleInBoxClass = isHome
+    ? "text-xs font-bold uppercase tracking-wide text-accent-800 print:text-[11px] sm:text-sm"
+    : "text-xs font-bold uppercase tracking-wide text-royal-900 print:text-[11px] sm:text-sm";
 
   const shell =
-    "rounded-md border-2 print:rounded-sm " +
+    "overflow-hidden rounded-md border-2 print:rounded-sm " +
     (isHome ? "border-accent-700/50 bg-accent-50/90" : "border-royal-700/50 bg-royal-50/90");
-  const headerRow = isHome ? "bg-accent-100/90 text-accent-800" : "bg-royal-100/95 text-royal-900";
 
   return (
-    <section className={`flex flex-col overflow-hidden ${shell}`}>
-      <div
-        className={`px-2 py-1.5 text-xs font-bold uppercase tracking-wide print:px-1.5 print:py-1 print:text-[11px] sm:text-sm ${headerRow}`}
-      >
-        {headerLabel}:
-      </div>
-      <div className="border-t border-white/60 bg-white/90 px-2 py-1.5 print:px-1.5 print:py-1">
-        <div className="relative min-h-11 rounded-md border border-slate-300 bg-white px-2 py-1.5 print:min-h-9 sm:min-h-12">
-          <span className="pointer-events-none select-none text-[10px] text-zinc-400 print:text-[9px] sm:text-xs">
-            Write team name here
-          </span>
-        </div>
-      </div>
-      <div className="grid grid-cols-[1fr_1fr_1.35fr] gap-1 border-t border-white/60 bg-white/90 p-1.5 print:gap-0.5 print:p-1 sm:grid-cols-[1fr_1fr_1.45fr]">
-        <div className="min-w-0 rounded-md border border-slate-300 bg-white p-1.5 print:p-1">
-          <p className={statLabelClass}>Runs scored</p>
-          <div className="relative mt-1 min-h-14 rounded border border-slate-200 bg-white print:min-h-11 sm:min-h-16">
-            <span className="pointer-events-none absolute left-1 top-0.5 text-base text-zinc-300 print:text-sm">#</span>
+    <section className={shell}>
+      <div className="p-0.5 print:p-px">
+        <div className="flex flex-col bg-white">
+          <div className="border-b border-slate-200 px-2 py-1.5 print:px-1.5 print:py-1">
+            <p className={titleInBoxClass}>{headerLabel}:</p>
+            <div className="mt-1 min-h-11 print:min-h-9 sm:min-h-12" />
           </div>
-        </div>
-        <div className="min-w-0 rounded-md border border-slate-300 bg-white p-1.5 print:p-1">
-          <p className={statLabelClass}>Defensive innings</p>
-          <div className="relative mt-1 min-h-14 rounded border border-slate-200 bg-white print:min-h-11 sm:min-h-16">
-            <span className="pointer-events-none absolute left-1 top-0.5 text-base text-zinc-300 print:text-sm">#</span>
-          </div>
-        </div>
-        <div className="min-w-0 rounded-md border border-slate-300 bg-white p-1.5 print:p-1">
-          <p className={statLabelClass}>{coachSigLabel}</p>
-          <div className="relative mt-1 flex min-h-14 flex-col justify-end rounded border border-slate-200 bg-white print:min-h-11 sm:min-h-16">
-            <div className="mx-1 mb-1 border-b border-sky-200/90 print:mb-1" />
+          <div className="grid grid-cols-[1fr_1fr_1.35fr] divide-x divide-slate-200 border-slate-200 sm:grid-cols-[1fr_1fr_1.45fr]">
+            <div className="min-w-0 px-1.5 py-1.5 print:px-1 print:py-1">
+              <p className={statLabelClass}>Runs scored</p>
+              <div className="min-h-14 bg-white print:min-h-11 sm:min-h-16" />
+            </div>
+            <div className="min-w-0 px-1.5 py-1.5 print:px-1 print:py-1">
+              <p className={statLabelClass}>Defensive innings</p>
+              <div className="min-h-14 bg-white print:min-h-11 sm:min-h-16" />
+            </div>
+            <div className="min-w-0 px-1.5 py-1.5 print:px-1 print:py-1">
+              <p className={statLabelClass}>{coachSigLabel}</p>
+              <div className="min-h-14 bg-white print:min-h-11 sm:min-h-16" />
+            </div>
           </div>
         </div>
       </div>

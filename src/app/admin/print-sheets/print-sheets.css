@@ -2,6 +2,12 @@
 @media print {
   @page {
     size: landscape;
-    margin: 0.22in;
+    /* Slightly wider printable area; pair grid uses minmax(0,1fr) to avoid horizontal clip */
+    margin: 0.18in;
+  }
+
+  .print-sheet-column {
+    -webkit-print-color-adjust: exact;
+    print-color-adjust: exact;
   }
 }
