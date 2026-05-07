@@ -85,22 +85,19 @@ export function GameSheetTemplate({
 
   return (
     <article className="print-sheet-column box-border flex min-w-0 max-w-full flex-col gap-3 border border-slate-300 bg-white text-slate-800 shadow-sm print:gap-3 print:border print:border-slate-400 print:px-0 print:shadow-none">
-      <header className="border-b border-amber-900/20 bg-white px-1 py-2 sm:px-2 print:px-2.5 print:py-2">
-        <div className="flex items-stretch justify-between gap-2 print:gap-1.5">
-          <div className="w-[7.25rem] min-w-[4.5rem] shrink-0 print:w-[6rem]" aria-hidden />
-          <div className="min-w-0 flex-1 px-1 print:px-1.5">
-            <div className="flex h-full flex-col items-center justify-start text-center">
-              <p className="text-xs font-semibold leading-snug text-royal sm:text-sm print:text-xs">
-                {associationName}
-              </p>
-              <div className="mt-1.5 max-w-full leading-tight break-words print:mt-1">{eventTitle}</div>
-              <p className="mt-1.5 text-sm font-bold italic leading-snug tracking-wide text-royal sm:text-base print:mt-1 print:text-sm">
-                {division} — Game {gameLabel}
-              </p>
-            </div>
+      <header className="border-b border-amber-900/20 bg-white px-1 pb-0 pt-0.5 sm:px-2 print:px-2.5 print:pb-0 print:pt-0">
+        <div className="flex items-stretch gap-2 print:gap-1.5">
+          <div className="flex min-w-0 flex-1 flex-col items-center justify-center text-center">
+            <p className="text-xs font-semibold leading-tight text-royal sm:text-sm print:text-xs">
+              {associationName}
+            </p>
+            <div className="mt-0.5 max-w-full leading-tight break-words print:mt-0.5">{eventTitle}</div>
+            <p className="mt-0.5 text-sm font-bold italic leading-tight tracking-wide text-royal sm:text-base print:mt-0.5 print:text-sm">
+              {division} — Game {gameLabel}
+            </p>
           </div>
           <div className="flex shrink-0 items-stretch">
-            <div className="flex h-full items-center justify-end pl-0.5">
+            <div className="flex h-full items-center justify-end">
               <HeaderLogoSlot url={sheetHeaderRightLogoUrl} label="Logo" />
             </div>
           </div>
@@ -194,22 +191,22 @@ function TeamBlock({ variant }: { variant: "home" | "away" }) {
     <section className={shell}>
       <div className="p-0.5 print:p-1">
         <div className="flex flex-col bg-white">
-          <div className="border-b border-slate-200 px-2 py-2 print:px-2.5 print:py-1.5">
+          <div className="border-b border-slate-200 px-2 py-1.5 print:px-2.5 print:py-1">
             <p className={titleInBoxClass}>{headerLabel}:</p>
-            <div className="mt-1 min-h-11 print:min-h-9 sm:min-h-12" />
+            <div className="mt-1 min-h-[2.2rem] print:min-h-[1.8rem] sm:min-h-[2.4rem]" />
           </div>
           <div className="grid grid-cols-[1fr_1fr_1.35fr] divide-x divide-slate-200 border-slate-200 sm:grid-cols-[1fr_1fr_1.45fr]">
-            <div className="min-w-0 px-2 py-2 print:px-2 print:py-1.5">
+            <div className="min-w-0 px-2 py-1.5 print:px-2 print:py-1">
               <p className={statLabelClass}>Runs scored</p>
-              <div className="min-h-14 bg-white print:min-h-11 sm:min-h-16" />
+              <div className="min-h-[2.8rem] bg-white print:min-h-[2.2rem] sm:min-h-[3.2rem]" />
             </div>
-            <div className="min-w-0 px-2 py-2 print:px-2 print:py-1.5">
+            <div className="min-w-0 px-2 py-1.5 print:px-2 print:py-1">
               <p className={statLabelClass}>Defensive innings</p>
-              <div className="min-h-14 bg-white print:min-h-11 sm:min-h-16" />
+              <div className="min-h-[2.8rem] bg-white print:min-h-[2.2rem] sm:min-h-[3.2rem]" />
             </div>
-            <div className="min-w-0 px-2 py-2 print:px-2 print:py-1.5">
+            <div className="min-w-0 px-2 py-1.5 print:px-2 print:py-1">
               <p className={statLabelClass}>{coachSigLabel}</p>
-              <div className="min-h-14 bg-white print:min-h-11 sm:min-h-16" />
+              <div className="min-h-[2.8rem] bg-white print:min-h-[2.2rem] sm:min-h-[3.2rem]" />
             </div>
           </div>
         </div>
