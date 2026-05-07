@@ -7,6 +7,7 @@ import { PrintSheetsToolbar } from "@/components/admin/PrintSheetsToolbar";
 import { AdminNoTournamentPlaceholder } from "@/components/admin/AdminNoTournamentPlaceholder";
 import { formatFieldWithLocation } from "@/lib/field-display";
 import { listGamesAdmin } from "@/lib/services/admin-games";
+import { teamLogoUrl } from "@/lib/team-logo";
 import { getTournamentForRequest } from "@/lib/tournament-context";
 import "./print-sheets.css";
 
@@ -17,7 +18,10 @@ export const metadata: Metadata = {
 const ASSOCIATION_NAME = "Milton Minor Baseball Association";
 
 type GameRow = Awaited<ReturnType<typeof listGamesAdmin>>[number];
-type SheetFields = Omit<GameSheetTemplateProps, "associationName" | "eventTitle">;
+type SheetFields = Omit<
+  GameSheetTemplateProps,
+  "associationName" | "eventTitle" | "sheetHeaderLeftLogoUrl" | "sheetHeaderRightLogoUrl"
+>;
 
 function chunkPairs<T>(items: T[]): [T, T | undefined][] {
   const out: [T, T | undefined][] = [];
@@ -89,10 +93,19 @@ function gameToSheetFields(
   const rawNum = g.gameNumber?.trim();
   const gameNumber = rawNum || String(displayIndex);
 
+  const homeTeamLogoUrl = g.homeTeam?.logo
+    ? teamLogoUrl(g.homeTeam.id, g.homeTeam.logo.updatedAt)
+    : null;
+  const awayTeamLogoUrl = g.awayTeam?.logo
+    ? teamLogoUrl(g.awayTeam.id, g.awayTeam.logo.updatedAt)
+    : null;
+
   return {
     gameNumber,
     homeTeam,
     awayTeam,
+    homeTeamLogoUrl,
+    awayTeamLogoUrl,
     division: division.toUpperCase(),
     date: formatSheetDate(g.scheduledAt, tournamentTimezone),
     time: formatSheetTime(g.scheduledAt, tournamentTimezone, g.schedulePlaceholder),
@@ -113,6 +126,8 @@ export default async function AdminPrintSheetsPage() {
   const rows: GameSheetTemplateProps[] = games.map((g, i) => ({
     associationName: ASSOCIATION_NAME,
     eventTitle,
+    sheetHeaderLeftLogoUrl: tournament.gameSheetLogoLeftUrl,
+    sheetHeaderRightLogoUrl: tournament.gameSheetLogoRightUrl,
     ...gameToSheetFields(g, i + 1, tournament.timezone),
   }));
 

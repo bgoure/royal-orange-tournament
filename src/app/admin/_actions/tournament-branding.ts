@@ -29,6 +29,8 @@ export async function updateTournamentBranding(
   const parsed = tournamentBrandingFormSchema.safeParse({
     pwaIcon192Url: formData.get("pwaIcon192Url"),
     pwaIcon512Url: formData.get("pwaIcon512Url"),
+    gameSheetLogoLeftUrl: formData.get("gameSheetLogoLeftUrl"),
+    gameSheetLogoRightUrl: formData.get("gameSheetLogoRightUrl"),
     pwaThemeColor: formData.get("pwaThemeColor"),
     socialWebsiteUrl: formData.get("socialWebsiteUrl"),
     socialFacebookUrl: formData.get("socialFacebookUrl"),
@@ -62,6 +64,8 @@ export async function updateTournamentBranding(
       data: {
         pwaIcon192Url: d.pwaIcon192Url ?? null,
         pwaIcon512Url: d.pwaIcon512Url ?? null,
+        gameSheetLogoLeftUrl: d.gameSheetLogoLeftUrl ?? null,
+        gameSheetLogoRightUrl: d.gameSheetLogoRightUrl ?? null,
         pwaThemeColor: d.pwaThemeColor ?? null,
         socialWebsiteUrl: d.socialWebsiteUrl ?? null,
         socialFacebookUrl: d.socialFacebookUrl ?? null,
@@ -84,6 +88,7 @@ export async function updateTournamentBranding(
       },
     });
     await revalidateBranding();
+    revalidatePath("/admin/print-sheets");
     return { ok: true, notice: "Branding and links saved." };
   } catch (e) {
     return { ok: false, error: e instanceof Error ? e.message : "Save failed" };
@@ -187,6 +192,66 @@ export async function uploadPwaBrandingIcon(
     });
     await revalidateBranding();
     return { ok: true, notice: `Saved ${sizeRaw}×${sizeRaw} icon as ${publicUrl}` };
+  } catch (e) {
+    return { ok: false, error: e instanceof Error ? e.message : "Database update failed" };
+  }
+}
+
+/** Upload left or right game sheet header logo under `public/branding/{slug}/`. */
+export async function uploadGameSheetBrandingLogo(
+  _prev: ContentActionResult | undefined,
+  formData: FormData,
+): Promise<ContentActionResult> {
+  const c = await contentCtx();
+  if ("error" in c) return { ok: false, error: c.error };
+  if (!assertContentManage(c.session.user.role)) return contentDeny();
+
+  const slotRaw = formData.get("slot");
+  if (slotRaw !== "left" && slotRaw !== "right") {
+    return { ok: false, error: "Invalid game sheet logo slot." };
+  }
+  const file = formData.get("file");
+  if (!(file instanceof File) || file.size === 0) {
+    return { ok: false, error: "Choose an image file." };
+  }
+  if (file.size > 800_000) {
+    return { ok: false, error: "File too large (max 800KB)." };
+  }
+  const mime = file.type;
+  if (mime !== "image/png" && mime !== "image/jpeg" && mime !== "image/webp") {
+    return { ok: false, error: "Use PNG, JPEG, or WebP." };
+  }
+
+  const ext = mime === "image/png" ? "png" : mime === "image/webp" ? "webp" : "jpg";
+  const filename = slotRaw === "left" ? `game-sheet-left.${ext}` : `game-sheet-right.${ext}`;
+  const slug = c.tournament.slug;
+  const dir = brandingDir(slug);
+  const outPath = path.join(dir, filename);
+
+  try {
+    await mkdir(dir, { recursive: true });
+    const buf = Buffer.from(await file.arrayBuffer());
+    await writeFile(outPath, buf);
+  } catch (e) {
+    const msg = e instanceof Error ? e.message : "Write failed";
+    return {
+      ok: false,
+      error: `${msg} — Game sheet logo upload needs a writable public/ folder (typical on VPS or local dev; not on default Vercel).`,
+    };
+  }
+
+  const publicUrl = `/branding/${slug}/${filename}`;
+  try {
+    await prisma.tournament.update({
+      where: { id: c.tournament.id },
+      data:
+        slotRaw === "left"
+          ? { gameSheetLogoLeftUrl: publicUrl }
+          : { gameSheetLogoRightUrl: publicUrl },
+    });
+    await revalidateBranding();
+    revalidatePath("/admin/print-sheets");
+    return { ok: true, notice: `Saved game sheet ${slotRaw} logo as ${publicUrl}` };
   } catch (e) {
     return { ok: false, error: e instanceof Error ? e.message : "Database update failed" };
   }
