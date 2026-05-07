@@ -47,7 +47,7 @@ function buildEventTitle(tournamentName: string, tournamentStart: Date, timeZone
   const parts = core.split("&");
 
   const lineClass =
-    "text-lg font-bold leading-snug print:text-xl sm:text-xl md:text-2xl";
+    "text-lg font-bold leading-snug print:text-base sm:text-xl md:text-2xl";
   const yearClass = `text-royal ${lineClass}`;
   const ampClass = `text-royal ${lineClass}`;
 
@@ -157,7 +157,7 @@ export default async function AdminPrintSheetsPage() {
   const pairs = chunkPairs(rows);
 
   return (
-    <div className="print-game-sheets-root -mx-4 max-w-none lg:-mx-8">
+    <div className="print-game-sheets-root -mx-4 max-w-none lg:-mx-8 print:mx-0 print:w-full print:max-w-full print:px-0">
       <PrintSheetsToolbar gameCount={games.length} />
 
       {games.length === 0 ? (
@@ -167,7 +167,7 @@ export default async function AdminPrintSheetsPage() {
           {pairs.map(([left, right], pageIndex) => (
             <div
               key={pageIndex}
-              className="grid grid-cols-1 gap-8 md:grid-cols-2 print:grid-cols-2 print:gap-2 print:break-after-page last:print:break-after-auto"
+              className="print-game-sheets-pair grid grid-cols-1 gap-8 md:grid-cols-2 print:grid-cols-2 print:gap-1.5 print:break-after-page last:print:break-after-auto"
             >
               <div className="min-w-0 max-w-full">
                 <GameSheetTemplate {...left} />

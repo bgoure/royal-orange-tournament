@@ -24,13 +24,13 @@ function HeaderLogoSlot({ url, label }: { url?: string | null; label: string }) 
       <img
         src={url}
         alt=""
-        className="h-11 max-h-11 w-auto max-w-[4.75rem] shrink-0 object-contain object-center print:h-8 print:max-h-8 print:max-w-[3.25rem]"
+        className="h-11 max-h-11 w-auto max-w-[4.25rem] shrink-0 object-contain object-center print:h-7 print:max-h-7 print:max-w-[2.65rem]"
       />
     );
   }
   return (
     <div
-      className="flex h-11 w-[3.75rem] shrink-0 items-center justify-center rounded border border-dashed border-slate-300 bg-slate-50 text-[8px] font-medium uppercase tracking-wide text-slate-500 print:h-8 print:w-[3.25rem] print:text-[7px]"
+      className="flex h-11 w-[3.35rem] shrink-0 items-center justify-center rounded border border-dashed border-slate-300 bg-slate-50 text-[8px] font-medium uppercase tracking-wide text-slate-500 print:h-7 print:w-[2.65rem] print:text-[6px]"
       aria-hidden
     >
       {label}
@@ -76,9 +76,9 @@ export function GameSheetTemplate({
   const gameLabel = num ? `#${num}` : "#—";
 
   return (
-    <article className="print-sheet-column flex min-w-0 max-w-full flex-col gap-3 border border-slate-300 bg-white text-slate-800 shadow-sm print:gap-2.5 print:border-slate-400 print:shadow-none">
-      <header className="border-b border-amber-900/20 bg-white px-1.5 py-2 print:px-1 print:py-1.5">
-        <div className="flex items-start justify-between gap-1.5 print:gap-1">
+    <article className="print-sheet-column box-border flex min-w-0 max-w-full flex-col gap-3 border border-slate-300 bg-white text-slate-800 shadow-sm print:gap-2 print:border print:border-slate-400 print:shadow-none">
+      <header className="border-b border-amber-900/20 bg-white px-1 py-1.5 print:px-0.5 print:py-1">
+        <div className="flex items-start justify-between gap-1 print:gap-0.5">
           <HeaderLogoSlot url={sheetHeaderLeftLogoUrl} label="Logo" />
           <div className="min-w-0 max-w-full flex-1 px-0.5 text-center">
             <p className="text-[11px] font-semibold leading-snug text-royal sm:text-[13px] print:text-xs">
@@ -93,13 +93,13 @@ export function GameSheetTemplate({
         </div>
       </header>
 
-      <div className="border border-royal/20 bg-royal-50/90 px-1.5 py-2 print:px-1 print:py-1.5">
-        <div className="flex flex-wrap items-center justify-center gap-x-1.5 gap-y-0.5 text-sm font-extrabold uppercase leading-snug tracking-wide text-royal print:gap-x-1 print:text-xs sm:text-base md:text-lg">
+      <div className="border border-royal/20 bg-royal-50/90 px-1 py-1.5 print:px-0.5 print:py-1">
+        <div className="flex flex-wrap items-center justify-center gap-x-1 gap-y-0.5 text-sm font-extrabold uppercase leading-snug tracking-wide text-royal print:text-[10px] sm:text-base md:text-lg">
           <div className="flex min-w-0 max-w-full items-center gap-1 print:gap-0.5">
             <TeamLogoMark url={homeTeamLogoUrl} />
             <span className="min-w-0 break-words">{homeTeam.toUpperCase()}</span>
           </div>
-          <span className="shrink-0 text-xs font-semibold normal-case text-sky-600 print:text-[10px] sm:text-sm">
+          <span className="shrink-0 text-xs font-semibold normal-case text-sky-600 print:text-[9px] sm:text-sm">
             vs
           </span>
           <div className="flex min-w-0 max-w-full items-center gap-1 print:gap-0.5">
@@ -107,12 +107,12 @@ export function GameSheetTemplate({
             <span className="min-w-0 break-words">{awayTeam.toUpperCase()}</span>
           </div>
         </div>
-        <p className="mt-1.5 text-center text-xs font-semibold text-royal print:mt-1 print:text-xs sm:text-sm">
+        <p className="mt-1 text-center text-xs font-semibold text-royal print:text-[10px] sm:text-sm">
           Game {gameLabel}
         </p>
       </div>
 
-      <div className="border border-royal/15 bg-amber-50/95 px-1.5 py-2 print:px-1 print:py-1.5">
+      <div className="border border-royal/15 bg-amber-50/95 px-1 py-1.5 print:px-0.5 print:py-1">
         <div className="flex flex-col gap-2 print:gap-1.5">
           <div>
             <p className="text-[11px] font-bold uppercase tracking-wide text-royal print:text-[10px] sm:text-xs">
@@ -129,7 +129,7 @@ export function GameSheetTemplate({
         </div>
       </div>
 
-      <div className="flex flex-wrap items-baseline justify-between gap-x-2 gap-y-0.5 border border-royal/25 bg-amber-50/90 px-1.5 py-2 text-[11px] text-slate-800 print:px-1 print:py-1.5 print:text-[10px] sm:text-xs">
+      <div className="flex flex-wrap items-baseline justify-between gap-x-1.5 gap-y-0.5 border border-royal/25 bg-amber-50/90 px-1 py-1.5 text-[11px] text-slate-800 print:px-0.5 print:py-1 print:text-[9px] sm:text-xs">
         <span className="min-w-0">
           <span className="font-bold text-royal">Date:</span> {date}
         </span>
@@ -149,7 +149,7 @@ export function GameSheetTemplate({
         <TeamBlock variant="away" />
       </div>
 
-      <footer className="mt-auto border-t border-slate-200 px-1.5 pb-1.5 pt-1 print:px-1 print:pb-1 print:pt-0.5">
+      <footer className="mt-auto border-t border-slate-200 px-1 pb-1 pt-0.5 print:px-0.5 print:pb-0.5 print:pt-px">
         <p className="text-[9px] font-medium leading-snug text-red-700 print:text-[8px] sm:text-[10px]">
           Completed and signed game results sheets must be hand delivered to the game convenor or the concession
           stand at Lions Park 1 by the <strong className="font-bold">home team</strong> immediately following the
@@ -178,12 +178,12 @@ function TeamBlock({ variant }: { variant: "home" | "away" }) {
     : "text-xs font-bold uppercase tracking-wide text-royal-900 print:text-[11px] sm:text-sm";
 
   const shell =
-    "overflow-hidden rounded-md border-2 print:rounded-sm " +
+    "overflow-hidden rounded-md border-2 print:rounded-sm print:border " +
     (isHome ? "border-accent-700/50 bg-accent-50/90" : "border-royal-700/50 bg-royal-50/90");
 
   return (
     <section className={shell}>
-      <div className="p-0.5 print:p-px">
+      <div className="p-px print:p-0">
         <div className="flex flex-col bg-white">
           <div className="border-b border-slate-200 px-2 py-1.5 print:px-1.5 print:py-1">
             <p className={titleInBoxClass}>{headerLabel}:</p>

@@ -26,7 +26,7 @@ export function CreateTournamentWizardRoot({
   const isPrintSheets = pathname.startsWith("/admin/print-sheets");
 
   const mainInnerClass = isPrintSheets
-    ? "mx-auto max-w-6xl px-8 py-10 print:max-w-none print:px-1 print:py-0.5"
+    ? "mx-auto max-w-6xl px-8 py-10 print:w-full print:max-w-none print:px-0 print:py-0.5"
     : "mx-auto max-w-6xl px-8 py-10 print:max-w-none print:px-3 print:py-2";
 
   return (
@@ -44,7 +44,7 @@ export function CreateTournamentWizardRoot({
               />
             </div>
           ) : null}
-          <main className="flex-1 bg-white print:min-h-0">
+          <main className="flex-1 bg-white print:min-h-0 print:w-full print:min-w-0 print:overflow-x-clip">
             <div className={mainInnerClass}>{children}</div>
           </main>
         </div>
