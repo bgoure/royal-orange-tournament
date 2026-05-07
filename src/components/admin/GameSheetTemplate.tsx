@@ -93,7 +93,9 @@ export function GameSheetTemplate({
             </p>
             <div className="mt-0.5 max-w-full leading-tight break-words print:mt-0.5">{eventTitle}</div>
             <p className="mt-0.5 text-sm font-bold italic leading-tight tracking-wide text-royal sm:text-base print:mt-0.5 print:text-sm">
-              {division} Division — Game {gameLabel}
+              {division.trim()
+                ? `${division} Division — Game ${gameLabel}`
+                : `Game ${gameLabel}`}
             </p>
           </div>
           <div className="flex shrink-0 items-center self-center">

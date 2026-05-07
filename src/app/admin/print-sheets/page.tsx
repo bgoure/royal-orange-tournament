@@ -112,7 +112,15 @@ function gameToSheetFields(
   displayIndex: number,
   tournamentTimezone: string,
 ): SheetFields {
-  const division = g.pool?.division.name ?? g.division?.name ?? "Division";
+  const divisionRaw =
+    g.pool?.division.name ??
+    g.division?.name ??
+    g.bracket?.division.name ??
+    g.consolationHomePool?.division.name ??
+    g.consolationAwayPool?.division.name ??
+    "";
+  const division = divisionRaw.trim() ? divisionRaw.trim().toUpperCase() : "";
+
   const homeTeam = g.homeTeam?.name ?? "TBD";
   const awayTeam = g.awayTeam?.name ?? "TBD";
   const rawNum = g.gameNumber?.trim();
@@ -131,7 +139,7 @@ function gameToSheetFields(
     awayTeam,
     homeTeamLogoUrl,
     awayTeamLogoUrl,
-    division: division.toUpperCase(),
+    division,
     date: formatSheetDate(g.scheduledAt, tournamentTimezone),
     time: formatSheetTime(g.scheduledAt, tournamentTimezone, g.schedulePlaceholder),
     diamondName: g.field.name,

@@ -9,10 +9,14 @@ export function listGamesAdmin(tournamentId: string) {
       awayTeam: teamWithPublicLogoInclude,
       field: { include: { location: { select: { name: true } } } },
       pool: { include: { division: true } },
-      bracket: { select: { id: true } },
+      bracket: { select: { id: true, division: { select: { name: true } } } },
       division: { select: { id: true, name: true } },
-      consolationHomePool: { select: { id: true, name: true } },
-      consolationAwayPool: { select: { id: true, name: true } },
+      consolationHomePool: {
+        select: { id: true, name: true, division: { select: { name: true } } },
+      },
+      consolationAwayPool: {
+        select: { id: true, name: true, division: { select: { name: true } } },
+      },
     },
     orderBy: { scheduledAt: "asc" },
   });
