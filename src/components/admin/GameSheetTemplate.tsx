@@ -26,13 +26,13 @@ function HeaderLogoSlot({ url, label }: { url?: string | null; label: string }) 
       <img
         src={url}
         alt=""
-        className="max-h-[4.25rem] w-auto max-w-[8rem] shrink-0 object-contain object-center sm:max-h-[4.5rem] print:max-h-[3.5rem] print:max-w-[6.5rem]"
+        className="max-h-[4.25rem] w-auto max-w-[8rem] shrink-0 object-contain object-center sm:max-h-[4.5rem] print:max-h-[6.5rem] print:max-w-[12rem]"
       />
     );
   }
   return (
     <div
-      className="flex max-h-[4.25rem] min-h-[2.5rem] w-[6.5rem] shrink-0 items-center justify-center rounded border border-dashed border-slate-300 bg-slate-50 text-[8px] font-medium uppercase tracking-wide text-slate-500 print:max-h-[3.5rem] print:min-h-[2.25rem] print:w-[5.5rem] print:text-[7px]"
+      className="flex max-h-[4.25rem] min-h-[2.5rem] w-[6.5rem] shrink-0 items-center justify-center rounded border border-dashed border-slate-300 bg-slate-50 text-[8px] font-medium uppercase tracking-wide text-slate-500 print:max-h-[6.5rem] print:min-h-[3rem] print:w-[7.5rem] print:text-[7px]"
       aria-hidden
     >
       {label}
@@ -93,7 +93,7 @@ export function GameSheetTemplate({
             </p>
             <div className="mt-0.5 max-w-full leading-tight break-words print:mt-0.5">{eventTitle}</div>
             <p className="mt-0.5 text-sm font-bold italic leading-tight tracking-wide text-royal sm:text-base print:mt-0.5 print:text-sm">
-              {division} — Game {gameLabel}
+              {division} Division — Game {gameLabel}
             </p>
           </div>
           <div className="flex shrink-0 items-center self-center">
