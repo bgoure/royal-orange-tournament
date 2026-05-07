@@ -84,8 +84,8 @@ export function GameSheetTemplate({
   })();
 
   return (
-    <article className="print-sheet-column box-border flex min-w-0 max-w-full flex-col gap-3 border border-slate-300 bg-white text-slate-800 shadow-sm print:gap-3 print:border print:border-slate-400 print:px-1.5 print:shadow-none">
-      <header className="border-b border-amber-900/20 bg-white px-2 py-2 print:px-3 print:py-2">
+    <article className="print-sheet-column box-border flex min-w-0 max-w-full flex-col gap-3 border border-slate-300 bg-white text-slate-800 shadow-sm print:gap-3 print:border print:border-slate-400 print:px-0 print:shadow-none">
+      <header className="border-b border-amber-900/20 bg-white px-1 py-2 sm:px-2 print:px-2.5 print:py-2">
         <div className="flex items-stretch justify-between gap-2 print:gap-1.5">
           <div className="w-[7.25rem] min-w-[4.5rem] shrink-0 print:w-[6rem]" aria-hidden />
           <div className="min-w-0 flex-1 px-1 print:px-1.5">
@@ -107,52 +107,58 @@ export function GameSheetTemplate({
         </div>
       </header>
 
-      <div className="border border-royal/20 bg-royal-50/90 px-2 py-2 print:px-3 print:py-2">
-        <div className="flex flex-col items-center gap-1 print:gap-0.5">
-          <div className="flex w-full min-w-0 flex-wrap items-center justify-center gap-x-2 gap-y-0.5 text-lg font-extrabold uppercase leading-snug tracking-wide text-royal print:text-[17px] sm:text-xl md:text-2xl">
-            <div className="flex min-w-0 max-w-full items-center justify-center gap-2 print:gap-1.5">
-              <TeamLogoMark url={homeTeamLogoUrl} />
-              <span className="min-w-0 break-words">{homeTeam.toUpperCase()}</span>
+      <div className="flex min-h-0 w-full min-w-0 flex-1 flex-col gap-3 px-1 print:gap-3 print:px-2.5 sm:px-2">
+        <section className="overflow-hidden rounded-md border-2 border-royal-700/50 bg-royal-50/90 print:rounded-sm print:border">
+          <div className="p-0.5 print:p-1">
+            <div className="flex flex-col bg-white">
+              <div className="flex flex-col items-center gap-1 border-b border-slate-200 px-2 py-2 print:gap-0.5 print:px-2.5 print:py-1.5">
+                <div className="flex w-full min-w-0 flex-wrap items-center justify-center gap-x-2 gap-y-0.5 text-[13px] font-extrabold uppercase leading-snug tracking-wide text-royal print:text-[13px] sm:text-[15px] md:text-lg">
+                  <div className="flex min-w-0 max-w-full items-center justify-center gap-2 print:gap-1.5">
+                    <TeamLogoMark url={homeTeamLogoUrl} />
+                    <span className="min-w-0 break-words">{homeTeam.toUpperCase()}</span>
+                  </div>
+                  <span className="shrink-0 text-[9px] font-semibold normal-case text-sky-600 print:text-[10px] sm:text-[11px]">
+                    vs
+                  </span>
+                </div>
+                <div className="flex w-full min-w-0 items-center justify-center gap-2 text-[13px] font-extrabold uppercase leading-snug tracking-wide text-royal print:gap-1.5 print:text-[13px] sm:text-[15px] md:text-lg">
+                  <TeamLogoMark url={awayTeamLogoUrl} />
+                  <span className="min-w-0 break-words">{awayTeam.toUpperCase()}</span>
+                </div>
+              </div>
+              <div className="px-2 py-2 print:px-2.5 print:py-1.5">
+                <p className="text-center text-xs font-bold italic leading-snug text-royal print:text-[10px] sm:text-sm">
+                  {matchWhenWhere}
+                </p>
+              </div>
             </div>
-            <span className="shrink-0 text-xs font-semibold normal-case text-sky-600 print:text-[13px] sm:text-sm">
-              vs
-            </span>
           </div>
-          <div className="flex w-full min-w-0 items-center justify-center gap-2 print:gap-1.5 text-lg font-extrabold uppercase leading-snug tracking-wide text-royal print:text-[17px] sm:text-xl md:text-2xl">
-            <TeamLogoMark url={awayTeamLogoUrl} />
-            <span className="min-w-0 break-words">{awayTeam.toUpperCase()}</span>
-          </div>
-        </div>
-        <p className="mt-2.5 text-center text-xs font-bold italic leading-snug text-royal print:mt-2 print:text-[10px] sm:text-sm">
-          {matchWhenWhere}
-        </p>
-      </div>
+        </section>
 
-      <section className="overflow-hidden rounded-md border-2 border-amber-700/45 bg-amber-50/90 print:rounded-sm print:border">
-        <div className="p-0.5 print:p-1">
-          <div className="flex flex-col bg-white">
-            <div className="border-b border-slate-200 px-2 py-2 print:px-2.5 print:py-1.5">
-              <p className="text-[11px] font-bold uppercase tracking-wide text-royal print:text-[10px] sm:text-xs">
-                Pitchcount App Game ID
-              </p>
-              <div className="mt-1 min-h-9 rounded-sm border border-slate-200 bg-white print:min-h-8 sm:min-h-10" />
-            </div>
-            <div className="px-2 py-2 print:px-2.5 print:py-1.5">
-              <p className="text-[11px] font-bold uppercase tracking-wide text-royal print:text-[10px] sm:text-xs">
-                Convenor name
-              </p>
-              <div className="mt-1 min-h-9 rounded-sm border border-slate-200 bg-white print:min-h-8 sm:min-h-10" />
+        <section className="overflow-hidden rounded-md border-2 border-accent-700/50 bg-accent-50/90 print:rounded-sm print:border">
+          <div className="p-0.5 print:p-1">
+            <div className="flex flex-col bg-white">
+              <div className="border-b border-slate-200 px-2 py-2 print:px-2.5 print:py-1.5">
+                <p className="text-[11px] font-bold uppercase tracking-wide text-accent-800 print:text-[10px] sm:text-xs">
+                  Pitchcount App Game ID
+                </p>
+                <div className="mt-1 min-h-9 rounded-sm border border-slate-200 bg-white print:min-h-8 sm:min-h-10" />
+              </div>
+              <div className="px-2 py-2 print:px-2.5 print:py-1.5">
+                <p className="text-[11px] font-bold uppercase tracking-wide text-accent-800 print:text-[10px] sm:text-xs">
+                  Convenor name
+                </p>
+                <div className="mt-1 min-h-9 rounded-sm border border-slate-200 bg-white print:min-h-8 sm:min-h-10" />
+              </div>
             </div>
           </div>
-        </div>
-      </section>
+        </section>
 
-      <div className="flex min-h-0 flex-1 flex-col gap-4 px-1 print:gap-3 print:px-2.5 print:pb-2">
         <TeamBlock variant="home" />
         <TeamBlock variant="away" />
       </div>
 
-      <footer className="print-sheet-footer-note mt-auto border-t border-slate-200 px-2 pb-2 pt-1 print:border-t-0 print:px-3 print:pb-2 print:pt-1">
+      <footer className="print-sheet-footer-note mt-auto border-t border-slate-200 px-1 pb-2 pt-1 print:border-t-0 print:px-2.5 print:pb-2 print:pt-1 sm:px-2">
         <p className="text-[9px] font-medium leading-snug text-red-700 print:text-[8px] sm:text-[10px]">
           Completed and signed game results sheets must be hand delivered to the game convenor or the concession
           stand at Lions Park 1 by the <strong className="font-bold">home team</strong> immediately following the
@@ -182,7 +188,7 @@ function TeamBlock({ variant }: { variant: "home" | "away" }) {
 
   const shell =
     "overflow-hidden rounded-md border-2 print:rounded-sm print:border " +
-    (isHome ? "border-accent-700/50 bg-accent-50/90" : "border-royal-700/50 bg-royal-50/90");
+    (isHome ? "border-royal-700/50 bg-royal-50/90" : "border-accent-700/50 bg-accent-50/90");
 
   return (
     <section className={shell}>
