@@ -5,7 +5,6 @@ import {
 } from "@/components/admin/GameSheetTemplate";
 import { PrintSheetsToolbar } from "@/components/admin/PrintSheetsToolbar";
 import { AdminNoTournamentPlaceholder } from "@/components/admin/AdminNoTournamentPlaceholder";
-import { formatFieldWithLocation } from "@/lib/field-display";
 import { listGamesAdmin } from "@/lib/services/admin-games";
 import { resolveGameSheetHeaderLogoUrl } from "@/lib/game-sheet-header-logo";
 import { teamLogoUrl } from "@/lib/team-logo";
@@ -81,13 +80,14 @@ function buildEventTitle(tournamentName: string, tournamentStart: Date, timeZone
 
 function formatSheetDate(iso: Date, timeZone: string): string {
   try {
-    return new Intl.DateTimeFormat(undefined, {
+    const s = new Intl.DateTimeFormat(undefined, {
       timeZone,
       weekday: "long",
       month: "long",
       day: "numeric",
       year: "numeric",
     }).format(iso);
+    return s.replace(",", "").replace(/\s+/g, " ").trim();
   } catch {
     return iso.toISOString();
   }
@@ -96,11 +96,12 @@ function formatSheetDate(iso: Date, timeZone: string): string {
 function formatSheetTime(iso: Date, timeZone: string, schedulePlaceholder: boolean): string {
   if (schedulePlaceholder) return "TBD";
   try {
-    return new Intl.DateTimeFormat(undefined, {
+    const s = new Intl.DateTimeFormat(undefined, {
       timeZone,
       hour: "numeric",
       minute: "2-digit",
     }).format(iso);
+    return s.replace(/\s*([AP]M)/i, (_, ap) => ap.toLowerCase());
   } catch {
     return iso.toISOString();
   }
@@ -133,7 +134,7 @@ function gameToSheetFields(
     division: division.toUpperCase(),
     date: formatSheetDate(g.scheduledAt, tournamentTimezone),
     time: formatSheetTime(g.scheduledAt, tournamentTimezone, g.schedulePlaceholder),
-    location: formatFieldWithLocation(g.field.name, g.field.location.name),
+    diamondName: g.field.name,
   };
 }
 
