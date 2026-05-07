@@ -3,11 +3,13 @@
 import { useActionState } from "react";
 import type { ContentActionResult } from "@/app/admin/_actions/content-shared";
 import {
+  clearGameSheetHeaderUploadedLogo,
   installDefaultPwaPlaceholderIcons,
   updateTournamentBranding,
   uploadGameSheetBrandingLogo,
   uploadPwaBrandingIcon,
 } from "@/app/admin/_actions/tournament-branding";
+import { gameSheetHeaderLogoUrl } from "@/lib/game-sheet-header-logo";
 import { SOCIAL_DEFAULT_HINTS } from "@/lib/tournament-social-public";
 
 const inputClass =
@@ -106,9 +108,12 @@ function SocialChannelFields({
 }
 
 export type TournamentBrandingState = {
+  tournamentId: string;
   pwaIcon192Url: string | null;
   pwaIcon512Url: string | null;
   gameSheetLogoRightUrl: string | null;
+  /** ISO string when an uploaded logo row exists (DB); used for preview URL cache-bust. */
+  gameSheetHeaderLogoUpdatedAt: string | null;
   pwaThemeColor: string | null;
   socialWebsiteUrl: string | null;
   socialFacebookUrl: string | null;
@@ -153,6 +158,10 @@ export function TournamentBrandingForm({
     uploadGameSheetBrandingLogo,
     undefined as ContentActionResult | undefined,
   );
+  const [clearSheetLogoState, clearSheetLogoAction, clearSheetLogoPending] = useActionState(
+    clearGameSheetHeaderUploadedLogo,
+    undefined as ContentActionResult | undefined,
+  );
   const [defaultsState, defaultsAction, defaultsPending] = useActionState(
     installDefaultPwaPlaceholderIcons,
     undefined as ContentActionResult | undefined,
@@ -185,6 +194,8 @@ export function TournamentBrandingForm({
         <SuccessBanner state={upload512State} />
         <ErrorBanner state={uploadSheetState} />
         <SuccessBanner state={uploadSheetState} />
+        <ErrorBanner state={clearSheetLogoState} />
+        <SuccessBanner state={clearSheetLogoState} />
         <ErrorBanner state={defaultsState} />
         <SuccessBanner state={defaultsState} />
       </div>
@@ -228,14 +239,28 @@ export function TournamentBrandingForm({
       <div className="mt-6 rounded-lg border border-zinc-200 bg-white p-4">
         <h3 className="text-xs font-semibold text-zinc-900">Print · game sheet header logo</h3>
         <p className="mt-1 text-[11px] text-zinc-600">
-          One image appears on the <strong>right</strong> side of the title on <strong>Print game sheets</strong>.{" "}
-          <strong>On Vercel and similar hosts</strong> the button below won’t work (no disk writes): use{" "}
-          <strong>Game sheet header logo URL / path</strong> in the form under this box, then <strong>Save PWA &amp; social</strong>.
-          File upload works on local dev or any server with a writable <code className="rounded bg-zinc-100 px-0.5">public/</code> folder.
+          One image on the <strong>right</strong> of the title on <strong>Print game sheets</strong>. Uploads are stored
+          in the database (same as team logos), including on Vercel. Alternatively, set a URL or site path in{" "}
+          <strong>Game sheet header logo URL / path</strong> below and save — that replaces any uploaded image.
         </p>
-        <div className="mt-3 max-w-md rounded-md border border-zinc-100 p-3">
+        <div className="mt-3 max-w-md space-y-3 rounded-md border border-zinc-100 p-3">
           <p className="text-[11px] font-semibold text-zinc-800">Header logo (right)</p>
-          <form action={uploadSheetAction} encType="multipart/form-data" className="mt-2 flex flex-col gap-2">
+          {branding.gameSheetHeaderLogoUpdatedAt ? (
+            <div className="flex items-center gap-3">
+              {/* eslint-disable-next-line @next/next/no-img-element -- same-origin API bytes as team logos */}
+              <img
+                src={gameSheetHeaderLogoUrl(branding.tournamentId, branding.gameSheetHeaderLogoUpdatedAt)}
+                alt=""
+                className="h-12 w-auto max-w-[6rem] rounded border border-zinc-200 object-contain"
+              />
+              <form action={clearSheetLogoAction}>
+                <button type="submit" disabled={clearSheetLogoPending} className={btnSecondary}>
+                  {clearSheetLogoPending ? "Removing…" : "Remove uploaded logo"}
+                </button>
+              </form>
+            </div>
+          ) : null}
+          <form action={uploadSheetAction} encType="multipart/form-data" className="flex flex-col gap-2">
             <input type="hidden" name="slot" value="right" />
             <input name="file" type="file" accept="image/png,image/jpeg,image/webp" className="text-sm" />
             <button type="submit" disabled={uploadSheetPending} className={btnSecondary}>
@@ -243,8 +268,8 @@ export function TournamentBrandingForm({
             </button>
           </form>
           {branding.gameSheetLogoRightUrl ? (
-            <p className="mt-2 truncate text-[11px] text-zinc-500" title={branding.gameSheetLogoRightUrl}>
-              Current: {branding.gameSheetLogoRightUrl}
+            <p className="truncate text-[11px] text-zinc-500" title={branding.gameSheetLogoRightUrl}>
+              URL / path (used when no upload): {branding.gameSheetLogoRightUrl}
             </p>
           ) : null}
         </div>

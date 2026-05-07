@@ -7,16 +7,15 @@ import { auth } from "@/auth";
 import { prisma } from "@/lib/db";
 import { can } from "@/lib/rbac/permissions";
 import { deliverAnnouncementEmail } from "@/lib/services/announcement-email";
-import { getTournamentForRequest } from "@/lib/tournament-context";
+import { getTournamentForRequest, type TournamentForRequest } from "@/lib/tournament-context";
 import { announcementCreateSchema, announcementUpdateSchema } from "@/lib/validations/announcements-admin";
 import type { Session } from "next-auth";
-import type { Tournament } from "@prisma/client";
 
 export type AnnouncementActionResult =
   | { ok: true; notice?: string }
   | { ok: false; error: string };
 
-async function ctx(): Promise<{ session: Session; tournament: Tournament } | { error: string }> {
+async function ctx(): Promise<{ session: Session; tournament: TournamentForRequest } | { error: string }> {
   const session = await auth();
   if (!session?.user?.id) return { error: "Unauthorized" };
   const tournament = await getTournamentForRequest();

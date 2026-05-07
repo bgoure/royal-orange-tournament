@@ -1,4 +1,5 @@
 import { cookies } from "next/headers";
+import type { Prisma } from "@prisma/client";
 import { prisma } from "@/lib/db";
 
 export const TOURNAMENT_SLUG_COOKIE = "tournament_slug";
@@ -26,6 +27,15 @@ const switcherListOrderBy = [
   { startDate: "asc" as const },
   { slug: "asc" as const },
 ];
+
+/** Loaded without logo bytes — only `updatedAt` for cache-busted `/api/game-sheet-logo/...` URLs. */
+export const tournamentForRequestInclude = {
+  gameSheetHeaderLogo: { select: { updatedAt: true } },
+} satisfies Prisma.TournamentInclude;
+
+export type TournamentForRequest = Prisma.TournamentGetPayload<{
+  include: typeof tournamentForRequestInclude;
+}>;
 
 /** Single-segment public URLs: active tournaments only. */
 function publishedActiveSlugWhere(slug: string) {
@@ -108,7 +118,7 @@ export async function getDefaultPublicTournamentSlug(): Promise<string | null> {
  * `admin_tournament_slug` first, then public `tournament_slug`, else first live tournament
  * in the switcher window, else any live published tournament.
  */
-export async function getTournamentForRequest() {
+export async function getTournamentForRequest(): Promise<TournamentForRequest | null> {
   const trySlug = async (slug: string | null) => {
     if (!slug) return null;
     return prisma.tournament.findFirst({
@@ -116,6 +126,7 @@ export async function getTournamentForRequest() {
         slug: { equals: slug, mode: "insensitive" },
         isPublished: true,
       },
+      include: tournamentForRequestInclude,
     });
   };
 
@@ -128,11 +139,13 @@ export async function getTournamentForRequest() {
   const withinSwitcherWindow = await prisma.tournament.findFirst({
     where: switcherListWhere(),
     orderBy: switcherListOrderBy,
+    include: tournamentForRequestInclude,
   });
   if (withinSwitcherWindow) return withinSwitcherWindow;
   return prisma.tournament.findFirst({
     where: { isPublished: true, archivedAt: null },
     orderBy: switcherListOrderBy,
+    include: tournamentForRequestInclude,
   });
 }
 

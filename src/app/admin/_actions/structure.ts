@@ -24,14 +24,13 @@ import {
   teamCreateSchema,
   teamUpdateSchema,
 } from "@/lib/validations/structure";
-import { getTournamentForRequest } from "@/lib/tournament-context";
+import { getTournamentForRequest, type TournamentForRequest } from "@/lib/tournament-context";
 import type { Session } from "next-auth";
-import type { Tournament } from "@prisma/client";
 
 export type ActionResult = { ok: true } | { ok: false; error: string };
 
 async function tournamentContext(): Promise<
-  { session: Session; tournament: Tournament } | { error: string }
+  { session: Session; tournament: TournamentForRequest } | { error: string }
 > {
   const session = await auth();
   if (!session?.user?.id) {

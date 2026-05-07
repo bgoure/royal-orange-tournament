@@ -1,12 +1,14 @@
 import { auth } from "@/auth";
-import { getTournamentForRequest } from "@/lib/tournament-context";
+import { getTournamentForRequest, type TournamentForRequest } from "@/lib/tournament-context";
 import { can } from "@/lib/rbac/permissions";
-import type { Role, Tournament } from "@prisma/client";
+import type { Role } from "@prisma/client";
 import type { Session } from "next-auth";
 
 export type ContentActionResult = { ok: true; notice?: string } | { ok: false; error: string };
 
-export async function contentCtx(): Promise<{ session: Session; tournament: Tournament } | { error: string }> {
+export async function contentCtx(): Promise<
+  { session: Session; tournament: TournamentForRequest } | { error: string }
+> {
   const session = await auth();
   if (!session?.user?.id) return { error: "Unauthorized" };
   const tournament = await getTournamentForRequest();

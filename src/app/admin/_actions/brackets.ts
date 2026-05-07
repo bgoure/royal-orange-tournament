@@ -13,7 +13,7 @@ import { createDivisionPlayoffBracket } from "@/lib/services/bracket-division-bu
 import { gameCompetitiveResetData } from "@/lib/services/game-competitive-reset";
 import { resolveBracketTeamsFromStandings } from "@/lib/services/bracket-resolution";
 import { parseDatetimeLocalInTimeZone } from "@/lib/datetime-tournament";
-import { getTournamentForRequest } from "@/lib/tournament-context";
+import { getTournamentForRequest, type TournamentForRequest } from "@/lib/tournament-context";
 import {
   createConsolationGameSchema,
   createDivisionBracketSchema,
@@ -23,13 +23,12 @@ import {
   toggleBracketPublishedSchema,
   updatePoolAdvancingSchema,
 } from "@/lib/validations/bracket-admin";
-import type { Tournament } from "@prisma/client";
 import type { Session } from "next-auth";
 
 export type BracketActionResult = { ok: true } | { ok: false; error: string };
 
 async function bracketContext(): Promise<
-  { session: Session; tournament: Tournament } | { error: string }
+  { session: Session; tournament: TournamentForRequest } | { error: string }
 > {
   const session = await auth();
   if (!session?.user?.id) return { error: "Unauthorized" };

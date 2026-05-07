@@ -56,9 +56,11 @@ export default async function AdminTournamentSettingsPage() {
   const publicSitePath = tournamentPublicBasePath(tournament);
 
   const branding = {
+    tournamentId: tournament.id,
     pwaIcon192Url: tournament.pwaIcon192Url,
     pwaIcon512Url: tournament.pwaIcon512Url,
     gameSheetLogoRightUrl: tournament.gameSheetLogoRightUrl,
+    gameSheetHeaderLogoUpdatedAt: tournament.gameSheetHeaderLogo?.updatedAt.toISOString() ?? null,
     pwaThemeColor: tournament.pwaThemeColor,
     socialWebsiteUrl: tournament.socialWebsiteUrl,
     socialFacebookUrl: tournament.socialFacebookUrl,

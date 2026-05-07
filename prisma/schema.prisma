@@ -105,6 +105,8 @@ model Tournament {
   /// Optional header images for printable game results sheets (paths under /branding/{slug}/ or absolute URLs).
   gameSheetLogoLeftUrl  String?
   gameSheetLogoRightUrl String?
+  /// When set, print header uses `/api/game-sheet-logo/{id}` (DB bytes); URL fields above are ignored for display.
+  gameSheetHeaderLogo   GameSheetHeaderLogo?
   socialWebsiteUrl  String? @db.Text
   socialFacebookUrl String? @db.Text
   socialInstagramUrl String? @db.Text
@@ -141,6 +143,15 @@ model Tournament {
   updatedAt       DateTime @updatedAt
 
   @@index([archiveFolder, slug])
+}
+
+/// Printable game sheet title header image (same storage pattern as team logos — DB bytes, served via API).
+model GameSheetHeaderLogo {
+  tournamentId String     @id
+  tournament   Tournament @relation(fields: [tournamentId], references: [id], onDelete: Cascade)
+  mimeType     String
+  data         Bytes
+  updatedAt    DateTime   @updatedAt
 }
 
 /// Anonymous public-site feedback (message + optional contact); emailed to directors when configured.

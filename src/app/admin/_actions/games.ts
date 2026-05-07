@@ -25,14 +25,14 @@ import {
   updateGameScoringSchema,
 } from "@/lib/validations/games-admin";
 import { parseDatetimeLocalInTimeZone } from "@/lib/datetime-tournament";
-import { getTournamentForRequest } from "@/lib/tournament-context";
-import { GameKind, type Tournament } from "@prisma/client";
+import { getTournamentForRequest, type TournamentForRequest } from "@/lib/tournament-context";
+import { GameKind } from "@prisma/client";
 import type { Session } from "next-auth";
 
 export type GameActionResult = { ok: true } | { ok: false; error: string };
 
 async function tournamentContext(): Promise<
-  { session: Session; tournament: Tournament } | { error: string }
+  { session: Session; tournament: TournamentForRequest } | { error: string }
 > {
   const session = await auth();
   if (!session?.user?.id) return { error: "Unauthorized" };

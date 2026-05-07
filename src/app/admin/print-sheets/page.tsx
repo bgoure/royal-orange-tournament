@@ -7,6 +7,7 @@ import { PrintSheetsToolbar } from "@/components/admin/PrintSheetsToolbar";
 import { AdminNoTournamentPlaceholder } from "@/components/admin/AdminNoTournamentPlaceholder";
 import { formatFieldWithLocation } from "@/lib/field-display";
 import { listGamesAdmin } from "@/lib/services/admin-games";
+import { resolveGameSheetHeaderLogoUrl } from "@/lib/game-sheet-header-logo";
 import { teamLogoUrl } from "@/lib/team-logo";
 import { getTournamentForRequest } from "@/lib/tournament-context";
 import "./print-sheets.css";
@@ -149,7 +150,11 @@ export default async function AdminPrintSheetsPage() {
   const rows: GameSheetTemplateProps[] = games.map((g, i) => ({
     associationName: ASSOCIATION_NAME,
     eventTitle,
-    sheetHeaderRightLogoUrl: tournament.gameSheetLogoRightUrl,
+    sheetHeaderRightLogoUrl: resolveGameSheetHeaderLogoUrl({
+      tournamentId: tournament.id,
+      gameSheetLogoRightUrl: tournament.gameSheetLogoRightUrl,
+      gameSheetHeaderLogo: tournament.gameSheetHeaderLogo,
+    }),
     ...gameToSheetFields(g, i + 1, tournament.timezone),
   }));
 

@@ -7,15 +7,14 @@ import { prisma } from "@/lib/db";
 import { can } from "@/lib/rbac/permissions";
 import { assertPoolInTournament } from "@/lib/services/admin-structure";
 import { recomputePoolStandings } from "@/lib/services/standings";
-import { getTournamentForRequest } from "@/lib/tournament-context";
+import { getTournamentForRequest, type TournamentForRequest } from "@/lib/tournament-context";
 import { parseManualRankFields, poolIdSchema } from "@/lib/validations/standings-admin";
 import type { Session } from "next-auth";
-import type { Tournament } from "@prisma/client";
 
 export type StandingsActionResult = { ok: true } | { ok: false; error: string };
 
 async function standingsContext(): Promise<
-  { session: Session; tournament: Tournament } | { error: string }
+  { session: Session; tournament: TournamentForRequest } | { error: string }
 > {
   const session = await auth();
   if (!session?.user?.id) return { error: "Unauthorized" };
