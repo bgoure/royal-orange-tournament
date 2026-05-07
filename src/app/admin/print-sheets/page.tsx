@@ -20,7 +20,7 @@ const ASSOCIATION_NAME = "Milton Minor Baseball Association";
 type GameRow = Awaited<ReturnType<typeof listGamesAdmin>>[number];
 type SheetFields = Omit<
   GameSheetTemplateProps,
-  "associationName" | "eventTitle" | "sheetHeaderLeftLogoUrl" | "sheetHeaderRightLogoUrl"
+  "associationName" | "eventTitle" | "sheetHeaderRightLogoUrl"
 >;
 
 function chunkPairs<T>(items: T[]): [T, T | undefined][] {
@@ -149,7 +149,6 @@ export default async function AdminPrintSheetsPage() {
   const rows: GameSheetTemplateProps[] = games.map((g, i) => ({
     associationName: ASSOCIATION_NAME,
     eventTitle,
-    sheetHeaderLeftLogoUrl: tournament.gameSheetLogoLeftUrl,
     sheetHeaderRightLogoUrl: tournament.gameSheetLogoRightUrl,
     ...gameToSheetFields(g, i + 1, tournament.timezone),
   }));
