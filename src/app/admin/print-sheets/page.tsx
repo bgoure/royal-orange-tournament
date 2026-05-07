@@ -8,6 +8,7 @@ import { AdminNoTournamentPlaceholder } from "@/components/admin/AdminNoTourname
 import { listGamesAdmin } from "@/lib/services/admin-games";
 import { resolveGameSheetHeaderLogoUrl } from "@/lib/game-sheet-header-logo";
 import { teamLogoUrl } from "@/lib/team-logo";
+import { gameSheetOpponentPlaceholder } from "@/lib/game-sheet-opponent-placeholder";
 import { getTournamentForRequest } from "@/lib/tournament-context";
 import "./print-sheets.css";
 
@@ -121,8 +122,12 @@ function gameToSheetFields(
     "";
   const division = divisionRaw.trim() ? divisionRaw.trim().toUpperCase() : "";
 
-  const homeTeam = g.homeTeam?.name ?? "TBD";
-  const awayTeam = g.awayTeam?.name ?? "TBD";
+  const slotPlaceholder = gameSheetOpponentPlaceholder({
+    gameKind: g.gameKind,
+    bracketRound: g.bracketRound,
+  });
+  const homeTeam = g.homeTeam?.name ?? slotPlaceholder;
+  const awayTeam = g.awayTeam?.name ?? slotPlaceholder;
   const rawNum = g.gameNumber?.trim();
   const gameNumber = rawNum || String(displayIndex);
 

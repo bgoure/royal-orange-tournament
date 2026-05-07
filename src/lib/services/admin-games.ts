@@ -10,6 +10,7 @@ export function listGamesAdmin(tournamentId: string) {
       field: { include: { location: { select: { name: true } } } },
       pool: { include: { division: true } },
       bracket: { select: { id: true, division: { select: { name: true } } } },
+      bracketRound: { select: { name: true, roundType: true } },
       division: { select: { id: true, name: true } },
       consolationHomePool: {
         select: { id: true, name: true, division: { select: { name: true } } },
