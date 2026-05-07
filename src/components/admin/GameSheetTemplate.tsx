@@ -22,7 +22,8 @@ export type GameSheetTemplateProps = {
 
 function HeaderLogoSlot({ url, label }: { url?: string | null; label: string }) {
   /** Thin inset so the asset does not kiss the header edge or divider. */
-  const inset = "shrink-0 pb-px pl-px sm:pb-0.5 sm:pl-0.5 print:pb-px print:pl-px";
+  const inset =
+    "shrink-0 pt-px pb-px pl-px sm:pt-0.5 sm:pb-0.5 sm:pl-0.5 print:pt-px print:pb-px print:pl-px";
   if (url) {
     return (
       <div className={inset}>
