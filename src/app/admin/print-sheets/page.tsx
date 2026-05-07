@@ -126,6 +126,10 @@ function gameToSheetFields(
     gameKind: g.gameKind,
     bracketRound: g.bracketRound,
   });
+  const hasHome = Boolean(g.homeTeam?.name);
+  const hasAway = Boolean(g.awayTeam?.name);
+  const unfilledMatchupLabel =
+    !hasHome && !hasAway && slotPlaceholder !== "TBD" ? slotPlaceholder : null;
   const homeTeam = g.homeTeam?.name ?? slotPlaceholder;
   const awayTeam = g.awayTeam?.name ?? slotPlaceholder;
   const rawNum = g.gameNumber?.trim();
@@ -142,6 +146,7 @@ function gameToSheetFields(
     gameNumber,
     homeTeam,
     awayTeam,
+    unfilledMatchupLabel,
     homeTeamLogoUrl,
     awayTeamLogoUrl,
     division,

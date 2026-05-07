@@ -31,14 +31,14 @@ describe("gameSheetOpponentPlaceholder", () => {
         gameKind: GameKind.PLAYOFF,
         bracketRound: { name: "Semifinals", roundType: BracketRoundType.WINNERS },
       }),
-      "Semi-Finals",
+      "Semi-Final Game",
     );
     assert.equal(
       gameSheetOpponentPlaceholder({
         gameKind: GameKind.PLAYOFF,
         bracketRound: { name: "Quarterfinals", roundType: BracketRoundType.WINNERS },
       }),
-      "Quarter-Finals",
+      "Quarter-Final Game",
     );
     assert.equal(
       gameSheetOpponentPlaceholder({

@@ -18,6 +18,11 @@ export type GameSheetTemplateProps = {
   time: string;
   /** Diamond / field name only (no park). */
   diamondName: string;
+  /**
+   * When both opponents are still unassigned (playoff/consolation), show this single centered
+   * line instead of duplicating the label on home and away rows.
+   */
+  unfilledMatchupLabel?: string | null;
 };
 
 function HeaderLogoSlot({ url, label }: { url?: string | null; label: string }) {
@@ -79,6 +84,7 @@ export function GameSheetTemplate({
   date,
   time,
   diamondName,
+  unfilledMatchupLabel,
 }: GameSheetTemplateProps) {
   const num = gameNumber.replace(/^\s*#?\s*/, "");
   const gameLabel = num ? `#${num}` : "#—";
@@ -89,6 +95,8 @@ export function GameSheetTemplate({
     if (diamond) bits.push(diamond);
     return bits.join(" ~ ");
   })();
+
+  const singleLineMatchup = unfilledMatchupLabel?.trim() ?? "";
 
   return (
     <article className="print-sheet-column box-border flex min-w-0 max-w-full flex-col gap-3 border border-slate-300 bg-white text-slate-800 shadow-sm print:gap-3 print:border print:border-slate-400 print:px-0 print:shadow-none">
@@ -118,19 +126,27 @@ export function GameSheetTemplate({
           <div className="p-0.5 print:p-1">
             <div className="flex flex-col bg-white">
               <div className="flex flex-col items-center gap-1 border-b border-slate-200 px-2 py-2 print:gap-0.5 print:px-2.5 print:py-1.5">
-                <div className="flex w-full min-w-0 flex-wrap items-center justify-center gap-x-2 gap-y-0.5 text-[13px] font-extrabold uppercase leading-snug tracking-wide text-royal print:text-[13px] sm:text-[15px] md:text-lg">
-                  <div className="flex min-w-0 max-w-full items-center justify-center gap-2 print:gap-1.5">
-                    <TeamLogoMark url={homeTeamLogoUrl} />
-                    <span className="min-w-0 break-words">{homeTeam.toUpperCase()}</span>
-                  </div>
-                  <span className="shrink-0 text-[9px] font-semibold normal-case text-sky-600 print:text-[10px] sm:text-[11px]">
-                    vs
-                  </span>
-                </div>
-                <div className="flex w-full min-w-0 items-center justify-center gap-2 text-[13px] font-extrabold uppercase leading-snug tracking-wide text-royal print:gap-1.5 print:text-[13px] sm:text-[15px] md:text-lg">
-                  <TeamLogoMark url={awayTeamLogoUrl} />
-                  <span className="min-w-0 break-words">{awayTeam.toUpperCase()}</span>
-                </div>
+                {singleLineMatchup ? (
+                  <p className="w-full min-w-0 text-center text-[13px] font-extrabold leading-snug tracking-wide text-royal print:text-[13px] sm:text-[15px] md:text-lg">
+                    {singleLineMatchup}
+                  </p>
+                ) : (
+                  <>
+                    <div className="flex w-full min-w-0 flex-wrap items-center justify-center gap-x-2 gap-y-0.5 text-[13px] font-extrabold uppercase leading-snug tracking-wide text-royal print:text-[13px] sm:text-[15px] md:text-lg">
+                      <div className="flex min-w-0 max-w-full items-center justify-center gap-2 print:gap-1.5">
+                        <TeamLogoMark url={homeTeamLogoUrl} />
+                        <span className="min-w-0 break-words">{homeTeam.toUpperCase()}</span>
+                      </div>
+                      <span className="shrink-0 text-[9px] font-semibold normal-case text-sky-600 print:text-[10px] sm:text-[11px]">
+                        vs
+                      </span>
+                    </div>
+                    <div className="flex w-full min-w-0 items-center justify-center gap-2 text-[13px] font-extrabold uppercase leading-snug tracking-wide text-royal print:gap-1.5 print:text-[13px] sm:text-[15px] md:text-lg">
+                      <TeamLogoMark url={awayTeamLogoUrl} />
+                      <span className="min-w-0 break-words">{awayTeam.toUpperCase()}</span>
+                    </div>
+                  </>
+                )}
               </div>
               <div className="px-2 py-2 print:px-2.5 print:py-1.5">
                 <p className="text-center text-xs font-bold italic leading-snug text-royal print:text-[10px] sm:text-sm">

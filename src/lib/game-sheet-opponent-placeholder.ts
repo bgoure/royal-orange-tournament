@@ -20,8 +20,8 @@ export function gameSheetOpponentPlaceholder(input: {
 
   const key = br.name.trim().toLowerCase();
   if (key === "final") return "Championship Game";
-  if (key === "semifinals") return "Semi-Finals";
-  if (key === "quarterfinals") return "Quarter-Finals";
+  if (key === "semifinals") return "Semi-Final Game";
+  if (key === "quarterfinals") return "Quarter-Final Game";
 
   if (br.roundType === BracketRoundType.LOSERS) {
     const label = br.name.trim();
