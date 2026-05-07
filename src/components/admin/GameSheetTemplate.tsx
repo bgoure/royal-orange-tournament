@@ -21,21 +21,27 @@ export type GameSheetTemplateProps = {
 };
 
 function HeaderLogoSlot({ url, label }: { url?: string | null; label: string }) {
+  /** Thin inset so the asset does not kiss the header edge or divider. */
+  const inset = "shrink-0 pb-px pl-px sm:pb-0.5 sm:pl-0.5 print:pb-px print:pl-px";
   if (url) {
     return (
-      <img
-        src={url}
-        alt=""
-        className="max-h-[4.25rem] w-auto max-w-[8rem] shrink-0 object-contain object-center sm:max-h-[4.5rem] print:max-h-[6.5rem] print:max-w-[12rem]"
-      />
+      <div className={inset}>
+        <img
+          src={url}
+          alt=""
+          className="max-h-[4.25rem] w-auto max-w-[8rem] object-contain object-center sm:max-h-[4.5rem] print:max-h-[6.5rem] print:max-w-[12rem]"
+        />
+      </div>
     );
   }
   return (
-    <div
-      className="flex max-h-[4.25rem] min-h-[2.5rem] w-[6.5rem] shrink-0 items-center justify-center rounded border border-dashed border-slate-300 bg-slate-50 text-[8px] font-medium uppercase tracking-wide text-slate-500 print:max-h-[6.5rem] print:min-h-[3rem] print:w-[7.5rem] print:text-[7px]"
-      aria-hidden
-    >
-      {label}
+    <div className={inset}>
+      <div
+        className="flex max-h-[4.25rem] min-h-[2.5rem] w-[6.5rem] items-center justify-center rounded border border-dashed border-slate-300 bg-slate-50 text-[8px] font-medium uppercase tracking-wide text-slate-500 print:max-h-[6.5rem] print:min-h-[3rem] print:w-[7.5rem] print:text-[7px]"
+        aria-hidden
+      >
+        {label}
+      </div>
     </div>
   );
 }
