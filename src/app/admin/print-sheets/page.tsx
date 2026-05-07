@@ -47,9 +47,9 @@ function buildEventTitle(tournamentName: string, tournamentStart: Date, timeZone
   const parts = core.split("&");
 
   const lineClass =
-    "text-base font-bold leading-snug print:text-[11px] sm:text-[15px]";
+    "text-lg font-bold leading-snug print:text-[13px] sm:text-xl md:text-2xl";
   const yearClass = `text-royal ${lineClass}`;
-  const ampClass = `text-zinc-900 ${lineClass}`;
+  const ampClass = `text-royal ${lineClass}`;
 
   if (parts.length >= 2) {
     const left = parts[0]!.trim();
