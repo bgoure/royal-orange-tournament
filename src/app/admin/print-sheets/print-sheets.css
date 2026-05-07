@@ -22,12 +22,27 @@
     padding-right: 0 !important;
   }
 
+  /*
+   * Letter landscape: page height 8.5in; with ~0.15in margins, content box ≈ 8.2in tall.
+   * Center the two sheets vertically on each printed page; widen gap for scissors.
+   */
   .print-game-sheets-pair {
     box-sizing: border-box;
     width: 100%;
     max-width: 100%;
-    gap: 0.125in;
+    display: grid;
     grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+    gap: 0.48in;
+    min-height: 8.2in;
+    align-items: center;
+    align-content: safe center;
+    break-after: page;
+    page-break-after: always;
+  }
+
+  .print-game-sheets-pair:last-child {
+    break-after: auto;
+    page-break-after: auto;
   }
 
   .print-sheet-column {
@@ -35,5 +50,17 @@
     max-width: 100%;
     -webkit-print-color-adjust: exact;
     print-color-adjust: exact;
+  }
+
+  /* Red delivery note: no framing box in print */
+  .print-sheet-footer-note {
+    border: 0 !important;
+    padding-top: 0.35rem;
+  }
+
+  .print-sheet-footer-brand {
+    border: 0 !important;
+    margin-top: 0.35rem;
+    padding-top: 0.35rem;
   }
 }

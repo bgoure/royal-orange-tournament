@@ -167,7 +167,7 @@ export default async function AdminPrintSheetsPage() {
           {pairs.map(([left, right], pageIndex) => (
             <div
               key={pageIndex}
-              className="print-game-sheets-pair grid grid-cols-1 gap-8 md:grid-cols-2 print:grid-cols-2 print:gap-1.5 print:break-after-page last:print:break-after-auto"
+              className="print-game-sheets-pair grid grid-cols-1 gap-8 md:grid-cols-2 print:grid-cols-2 print:break-after-page last:print:break-after-auto"
             >
               <div className="min-w-0 max-w-full">
                 <GameSheetTemplate {...left} />
