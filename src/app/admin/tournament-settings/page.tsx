@@ -58,7 +58,6 @@ export default async function AdminTournamentSettingsPage() {
   const branding = {
     pwaIcon192Url: tournament.pwaIcon192Url,
     pwaIcon512Url: tournament.pwaIcon512Url,
-    gameSheetLogoLeftUrl: tournament.gameSheetLogoLeftUrl,
     gameSheetLogoRightUrl: tournament.gameSheetLogoRightUrl,
     pwaThemeColor: tournament.pwaThemeColor,
     socialWebsiteUrl: tournament.socialWebsiteUrl,

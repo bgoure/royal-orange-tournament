@@ -108,7 +108,6 @@ function SocialChannelFields({
 export type TournamentBrandingState = {
   pwaIcon192Url: string | null;
   pwaIcon512Url: string | null;
-  gameSheetLogoLeftUrl: string | null;
   gameSheetLogoRightUrl: string | null;
   pwaThemeColor: string | null;
   socialWebsiteUrl: string | null;
@@ -150,11 +149,7 @@ export function TournamentBrandingForm({
     uploadPwaBrandingIcon,
     undefined as ContentActionResult | undefined,
   );
-  const [uploadSheetLeftState, uploadSheetLeftAction, uploadSheetLeftPending] = useActionState(
-    uploadGameSheetBrandingLogo,
-    undefined as ContentActionResult | undefined,
-  );
-  const [uploadSheetRightState, uploadSheetRightAction, uploadSheetRightPending] = useActionState(
+  const [uploadSheetState, uploadSheetAction, uploadSheetPending] = useActionState(
     uploadGameSheetBrandingLogo,
     undefined as ContentActionResult | undefined,
   );
@@ -188,10 +183,8 @@ export function TournamentBrandingForm({
         <SuccessBanner state={upload192State} />
         <ErrorBanner state={upload512State} />
         <SuccessBanner state={upload512State} />
-        <ErrorBanner state={uploadSheetLeftState} />
-        <SuccessBanner state={uploadSheetLeftState} />
-        <ErrorBanner state={uploadSheetRightState} />
-        <SuccessBanner state={uploadSheetRightState} />
+        <ErrorBanner state={uploadSheetState} />
+        <SuccessBanner state={uploadSheetState} />
         <ErrorBanner state={defaultsState} />
         <SuccessBanner state={defaultsState} />
       </div>
@@ -233,42 +226,27 @@ export function TournamentBrandingForm({
       </div>
 
       <div className="mt-6 rounded-lg border border-zinc-200 bg-white p-4">
-        <h3 className="text-xs font-semibold text-zinc-900">Print · game sheet header logos</h3>
+        <h3 className="text-xs font-semibold text-zinc-900">Print · game sheet header logo</h3>
         <p className="mt-1 text-[11px] text-zinc-600">
-          Left and right images appear on <strong>Print game sheets</strong> (schedule cards). Same upload
-          constraints as PWA icons — on read-only hosts, paste a URL in the fields below and save.
+          One image appears on the <strong>right</strong> side of the title on <strong>Print game sheets</strong>.{" "}
+          <strong>On Vercel and similar hosts</strong> the button below won’t work (no disk writes): use{" "}
+          <strong>Game sheet header logo URL / path</strong> in the form under this box, then <strong>Save PWA &amp; social</strong>.
+          File upload works on local dev or any server with a writable <code className="rounded bg-zinc-100 px-0.5">public/</code> folder.
         </p>
-        <div className="mt-3 grid gap-4 sm:grid-cols-2">
-          <div className="rounded-md border border-zinc-100 p-3">
-            <p className="text-[11px] font-semibold text-zinc-800">Left (e.g. tournament mark)</p>
-            <form action={uploadSheetLeftAction} encType="multipart/form-data" className="mt-2 flex flex-col gap-2">
-              <input type="hidden" name="slot" value="left" />
-              <input name="file" type="file" accept="image/png,image/jpeg,image/webp" className="text-sm" />
-              <button type="submit" disabled={uploadSheetLeftPending} className={btnSecondary}>
-                {uploadSheetLeftPending ? "Uploading…" : "Upload left"}
-              </button>
-            </form>
-            {branding.gameSheetLogoLeftUrl ? (
-              <p className="mt-2 truncate text-[11px] text-zinc-500" title={branding.gameSheetLogoLeftUrl}>
-                Current: {branding.gameSheetLogoLeftUrl}
-              </p>
-            ) : null}
-          </div>
-          <div className="rounded-md border border-zinc-100 p-3">
-            <p className="text-[11px] font-semibold text-zinc-800">Right (e.g. division / league mark)</p>
-            <form action={uploadSheetRightAction} encType="multipart/form-data" className="mt-2 flex flex-col gap-2">
-              <input type="hidden" name="slot" value="right" />
-              <input name="file" type="file" accept="image/png,image/jpeg,image/webp" className="text-sm" />
-              <button type="submit" disabled={uploadSheetRightPending} className={btnSecondary}>
-                {uploadSheetRightPending ? "Uploading…" : "Upload right"}
-              </button>
-            </form>
-            {branding.gameSheetLogoRightUrl ? (
-              <p className="mt-2 truncate text-[11px] text-zinc-500" title={branding.gameSheetLogoRightUrl}>
-                Current: {branding.gameSheetLogoRightUrl}
-              </p>
-            ) : null}
-          </div>
+        <div className="mt-3 max-w-md rounded-md border border-zinc-100 p-3">
+          <p className="text-[11px] font-semibold text-zinc-800">Header logo (right)</p>
+          <form action={uploadSheetAction} encType="multipart/form-data" className="mt-2 flex flex-col gap-2">
+            <input type="hidden" name="slot" value="right" />
+            <input name="file" type="file" accept="image/png,image/jpeg,image/webp" className="text-sm" />
+            <button type="submit" disabled={uploadSheetPending} className={btnSecondary}>
+              {uploadSheetPending ? "Uploading…" : "Upload logo"}
+            </button>
+          </form>
+          {branding.gameSheetLogoRightUrl ? (
+            <p className="mt-2 truncate text-[11px] text-zinc-500" title={branding.gameSheetLogoRightUrl}>
+              Current: {branding.gameSheetLogoRightUrl}
+            </p>
+          ) : null}
         </div>
       </div>
 
@@ -301,33 +279,18 @@ export function TournamentBrandingForm({
             />
           </div>
         </div>
-        <div className="grid gap-4 sm:grid-cols-2">
-          <div>
-            <label htmlFor="gameSheetLogoLeftUrl" className={labelClass}>
-              Game sheet left logo URL / path
-            </label>
-            <input
-              id="gameSheetLogoLeftUrl"
-              name="gameSheetLogoLeftUrl"
-              type="text"
-              defaultValue={branding.gameSheetLogoLeftUrl ?? ""}
-              placeholder="/branding/my-slug/game-sheet-left.png"
-              className={inputClass}
-            />
-          </div>
-          <div>
-            <label htmlFor="gameSheetLogoRightUrl" className={labelClass}>
-              Game sheet right logo URL / path
-            </label>
-            <input
-              id="gameSheetLogoRightUrl"
-              name="gameSheetLogoRightUrl"
-              type="text"
-              defaultValue={branding.gameSheetLogoRightUrl ?? ""}
-              placeholder="/branding/my-slug/game-sheet-right.png"
-              className={inputClass}
-            />
-          </div>
+        <div>
+          <label htmlFor="gameSheetLogoRightUrl" className={labelClass}>
+            Game sheet header logo URL / path
+          </label>
+          <input
+            id="gameSheetLogoRightUrl"
+            name="gameSheetLogoRightUrl"
+            type="text"
+            defaultValue={branding.gameSheetLogoRightUrl ?? ""}
+            placeholder="/branding/my-slug/game-sheet-right.png"
+            className={inputClass}
+          />
         </div>
         <div className="max-w-xs">
           <label htmlFor="pwaThemeColor" className={labelClass}>

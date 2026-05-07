@@ -12,6 +12,14 @@ function brandingDir(slug: string) {
   return path.join(process.cwd(), "public", "branding", slug);
 }
 
+/** Vercel Functions use a read-only filesystem; `public/branding` uploads always fail there. */
+function isVercelServerless(): boolean {
+  return process.env.VERCEL === "1";
+}
+
+const noBrandingDiskMessage =
+  "This deployment can’t store uploads on disk (normal on Vercel). Host the image elsewhere and paste a full https:// URL—or a site path such as /branding/your-slug/file.png if the file is committed under public/—into the URL field below, then click Save PWA & social.";
+
 async function revalidateBranding() {
   revalidatePath("/", "layout");
   await revalidatePublishedTournamentSites();
@@ -29,7 +37,6 @@ export async function updateTournamentBranding(
   const parsed = tournamentBrandingFormSchema.safeParse({
     pwaIcon192Url: formData.get("pwaIcon192Url"),
     pwaIcon512Url: formData.get("pwaIcon512Url"),
-    gameSheetLogoLeftUrl: formData.get("gameSheetLogoLeftUrl"),
     gameSheetLogoRightUrl: formData.get("gameSheetLogoRightUrl"),
     pwaThemeColor: formData.get("pwaThemeColor"),
     socialWebsiteUrl: formData.get("socialWebsiteUrl"),
@@ -64,7 +71,7 @@ export async function updateTournamentBranding(
       data: {
         pwaIcon192Url: d.pwaIcon192Url ?? null,
         pwaIcon512Url: d.pwaIcon512Url ?? null,
-        gameSheetLogoLeftUrl: d.gameSheetLogoLeftUrl ?? null,
+        gameSheetLogoLeftUrl: null,
         gameSheetLogoRightUrl: d.gameSheetLogoRightUrl ?? null,
         pwaThemeColor: d.pwaThemeColor ?? null,
         socialWebsiteUrl: d.socialWebsiteUrl ?? null,
@@ -172,16 +179,17 @@ export async function uploadPwaBrandingIcon(
   const dir = brandingDir(slug);
   const outPath = path.join(dir, filename);
 
+  if (isVercelServerless()) {
+    return { ok: false, error: noBrandingDiskMessage };
+  }
+
   try {
     await mkdir(dir, { recursive: true });
     const buf = Buffer.from(await file.arrayBuffer());
     await writeFile(outPath, buf);
   } catch (e) {
-    const msg = e instanceof Error ? e.message : "Write failed";
-    return {
-      ok: false,
-      error: `${msg} — Icon upload needs a writable public/ folder (typical on VPS or local dev; not on default Vercel).`,
-    };
+    console.error("[uploadPwaBrandingIcon]", e);
+    return { ok: false, error: noBrandingDiskMessage };
   }
 
   const publicUrl = `/branding/${slug}/${filename}`;
@@ -197,7 +205,7 @@ export async function uploadPwaBrandingIcon(
   }
 }
 
-/** Upload left or right game sheet header logo under `public/branding/{slug}/`. */
+/** Upload game sheet header logo (right side of printed sheet) under `public/branding/{slug}/`. */
 export async function uploadGameSheetBrandingLogo(
   _prev: ContentActionResult | undefined,
   formData: FormData,
@@ -207,7 +215,7 @@ export async function uploadGameSheetBrandingLogo(
   if (!assertContentManage(c.session.user.role)) return contentDeny();
 
   const slotRaw = formData.get("slot");
-  if (slotRaw !== "left" && slotRaw !== "right") {
+  if (slotRaw !== "right") {
     return { ok: false, error: "Invalid game sheet logo slot." };
   }
   const file = formData.get("file");
@@ -223,35 +231,33 @@ export async function uploadGameSheetBrandingLogo(
   }
 
   const ext = mime === "image/png" ? "png" : mime === "image/webp" ? "webp" : "jpg";
-  const filename = slotRaw === "left" ? `game-sheet-left.${ext}` : `game-sheet-right.${ext}`;
+  const filename = `game-sheet-right.${ext}`;
   const slug = c.tournament.slug;
   const dir = brandingDir(slug);
   const outPath = path.join(dir, filename);
+
+  if (isVercelServerless()) {
+    return { ok: false, error: noBrandingDiskMessage };
+  }
 
   try {
     await mkdir(dir, { recursive: true });
     const buf = Buffer.from(await file.arrayBuffer());
     await writeFile(outPath, buf);
   } catch (e) {
-    const msg = e instanceof Error ? e.message : "Write failed";
-    return {
-      ok: false,
-      error: `${msg} — Game sheet logo upload needs a writable public/ folder (typical on VPS or local dev; not on default Vercel).`,
-    };
+    console.error("[uploadGameSheetBrandingLogo]", e);
+    return { ok: false, error: noBrandingDiskMessage };
   }
 
   const publicUrl = `/branding/${slug}/${filename}`;
   try {
     await prisma.tournament.update({
       where: { id: c.tournament.id },
-      data:
-        slotRaw === "left"
-          ? { gameSheetLogoLeftUrl: publicUrl }
-          : { gameSheetLogoRightUrl: publicUrl },
+      data: { gameSheetLogoLeftUrl: null, gameSheetLogoRightUrl: publicUrl },
     });
     await revalidateBranding();
     revalidatePath("/admin/print-sheets");
-    return { ok: true, notice: `Saved game sheet ${slotRaw} logo as ${publicUrl}` };
+    return { ok: true, notice: `Saved game sheet header logo as ${publicUrl}` };
   } catch (e) {
     return { ok: false, error: e instanceof Error ? e.message : "Database update failed" };
   }

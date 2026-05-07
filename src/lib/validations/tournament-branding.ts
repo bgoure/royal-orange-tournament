@@ -38,7 +38,6 @@ const optionalShortText = z.preprocess(
 export const tournamentBrandingFormSchema = z.object({
   pwaIcon192Url: optionalAssetUrl,
   pwaIcon512Url: optionalAssetUrl,
-  gameSheetLogoLeftUrl: optionalAssetUrl,
   gameSheetLogoRightUrl: optionalAssetUrl,
   pwaThemeColor: optionalHexColor,
   socialWebsiteUrl: optionalHttpUrl,
