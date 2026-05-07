@@ -1,0 +1,7 @@
+/* Loaded only for /admin/print-sheets so landscape @page applies to this document when printing. */
+@media print {
+  @page {
+    size: landscape;
+    margin: 0.35in;
+  }
+}

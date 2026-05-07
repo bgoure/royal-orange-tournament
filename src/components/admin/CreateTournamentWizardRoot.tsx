@@ -26,17 +26,23 @@ export function CreateTournamentWizardRoot({
 
   return (
     <CreateTournamentWizardProvider canCreateTournament={canCreateTournament}>
-      <div className="flex min-h-full bg-zinc-100">
-        <AdminSidebar />
-        <div className="flex min-h-full min-w-0 flex-1 flex-col">
+      <div className="flex min-h-full bg-zinc-100 print:block print:bg-white">
+        <div className="print:hidden">
+          <AdminSidebar />
+        </div>
+        <div className="flex min-h-full min-w-0 flex-1 flex-col print:w-full">
           {showStrip ? (
-            <AdminTournamentStrip
-              currentTournamentName={currentTournamentName}
-              currentTournamentSlug={currentTournamentSlug}
-            />
+            <div className="print:hidden">
+              <AdminTournamentStrip
+                currentTournamentName={currentTournamentName}
+                currentTournamentSlug={currentTournamentSlug}
+              />
+            </div>
           ) : null}
-          <main className="flex-1 bg-white">
-            <div className="mx-auto max-w-6xl px-8 py-10">{children}</div>
+          <main className="flex-1 bg-white print:min-h-0">
+            <div className="mx-auto max-w-6xl px-8 py-10 print:max-w-none print:px-3 print:py-2">
+              {children}
+            </div>
           </main>
         </div>
       </div>

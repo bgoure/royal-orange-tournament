@@ -4,6 +4,7 @@ export const adminNavItems = [
   { href: "/admin/teams", label: "Teams", segment: "teams" },
   { href: "/admin/divisions", label: "Divisions & Pools", segment: "divisions" },
   { href: "/admin/games", label: "Games", segment: "games" },
+  { href: "/admin/print-sheets", label: "Print game sheets", segment: "print-sheets" },
   { href: "/admin/standings", label: "Standings", segment: "standings" },
   { href: "/admin/brackets", label: "Brackets", segment: "brackets" },
   { href: "/admin/announcements", label: "Announcements", segment: "announcements" },
