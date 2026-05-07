@@ -26,13 +26,13 @@ function HeaderLogoSlot({ url, label }: { url?: string | null; label: string }) 
       <img
         src={url}
         alt=""
-        className="max-h-full w-auto max-w-[9.5rem] shrink-0 object-contain object-center print:max-w-[7.5rem]"
+        className="max-h-[4.25rem] w-auto max-w-[8rem] shrink-0 object-contain object-center sm:max-h-[4.5rem] print:max-h-[3.5rem] print:max-w-[6.5rem]"
       />
     );
   }
   return (
     <div
-      className="flex max-h-full min-h-[3rem] w-[7.25rem] shrink-0 items-center justify-center rounded border border-dashed border-slate-300 bg-slate-50 text-[8px] font-medium uppercase tracking-wide text-slate-500 print:min-h-[2.5rem] print:w-[6rem] print:text-[7px]"
+      className="flex max-h-[4.25rem] min-h-[2.5rem] w-[6.5rem] shrink-0 items-center justify-center rounded border border-dashed border-slate-300 bg-slate-50 text-[8px] font-medium uppercase tracking-wide text-slate-500 print:max-h-[3.5rem] print:min-h-[2.25rem] print:w-[5.5rem] print:text-[7px]"
       aria-hidden
     >
       {label}
@@ -76,7 +76,7 @@ export function GameSheetTemplate({
   const num = gameNumber.replace(/^\s*#?\s*/, "");
   const gameLabel = num ? `#${num}` : "#—";
   const matchWhenWhere = (() => {
-    const bits: string[] = [`Date: ${date}`];
+    const bits: string[] = [date];
     if (time) bits.push(time);
     const diamond = diamondName?.trim();
     if (diamond) bits.push(diamond);
@@ -85,8 +85,8 @@ export function GameSheetTemplate({
 
   return (
     <article className="print-sheet-column box-border flex min-w-0 max-w-full flex-col gap-3 border border-slate-300 bg-white text-slate-800 shadow-sm print:gap-3 print:border print:border-slate-400 print:px-0 print:shadow-none">
-      <header className="border-b border-amber-900/20 bg-white px-1 pb-0 pt-0.5 sm:px-2 print:px-2.5 print:pb-0 print:pt-0">
-        <div className="flex items-stretch gap-2 print:gap-1.5">
+      <header className="border-b border-slate-300 bg-white px-1 pb-0 pt-0.5 sm:px-2 print:px-2.5 print:pb-0 print:pt-0">
+        <div className="flex items-center gap-2 print:gap-1.5">
           <div className="flex min-w-0 flex-1 flex-col items-center justify-center text-center">
             <p className="text-xs font-semibold leading-tight text-royal sm:text-sm print:text-xs">
               {associationName}
@@ -96,8 +96,8 @@ export function GameSheetTemplate({
               {division} — Game {gameLabel}
             </p>
           </div>
-          <div className="flex shrink-0 items-stretch">
-            <div className="flex h-full items-center justify-end">
+          <div className="flex shrink-0 items-center self-center">
+            <div className="flex items-center justify-end">
               <HeaderLogoSlot url={sheetHeaderRightLogoUrl} label="Logo" />
             </div>
           </div>
