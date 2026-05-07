@@ -23,6 +23,11 @@ export function CreateTournamentWizardRoot({
   const pathname = usePathname() ?? "";
   const onHub = pathname === "/admin" || pathname === "/admin/";
   const showStrip = showTournamentStrip && !onHub;
+  const isPrintSheets = pathname.startsWith("/admin/print-sheets");
+
+  const mainInnerClass = isPrintSheets
+    ? "mx-auto max-w-6xl px-8 py-10 print:max-w-none print:px-1 print:py-0.5"
+    : "mx-auto max-w-6xl px-8 py-10 print:max-w-none print:px-3 print:py-2";
 
   return (
     <CreateTournamentWizardProvider canCreateTournament={canCreateTournament}>
@@ -40,9 +45,7 @@ export function CreateTournamentWizardRoot({
             </div>
           ) : null}
           <main className="flex-1 bg-white print:min-h-0">
-            <div className="mx-auto max-w-6xl px-8 py-10 print:max-w-none print:px-3 print:py-2">
-              {children}
-            </div>
+            <div className={mainInnerClass}>{children}</div>
           </main>
         </div>
       </div>

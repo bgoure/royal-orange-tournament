@@ -31,27 +31,50 @@ function chunkPairs<T>(items: T[]): [T, T | undefined][] {
   return out;
 }
 
+/** Remove duplicated calendar year from start/end of tournament name when it matches `year`. */
+function stripYearEdges(name: string, year: string): string {
+  const y = year.trim();
+  if (!y) return name.trim();
+  let s = name.trim();
+  s = s.replace(new RegExp(`^${y}\\s+`, "i"), "");
+  s = s.replace(new RegExp(`\\s+${y}$`, "i"), "");
+  return s.trim() || name.trim();
+}
+
 function buildEventTitle(tournamentName: string, tournamentStart: Date, timeZone: string) {
   const year = new Intl.DateTimeFormat("en-CA", { timeZone, year: "numeric" }).format(tournamentStart);
-  const parts = tournamentName.split("&");
+  const core = stripYearEdges(tournamentName, year);
+  const parts = core.split("&");
+
+  const lineClass =
+    "text-base font-bold leading-snug print:text-[11px] sm:text-[15px]";
+  const yearClass = `text-royal ${lineClass}`;
+  const ampClass = `text-zinc-900 ${lineClass}`;
+
   if (parts.length >= 2) {
     const left = parts[0]!.trim();
     const right = parts.slice(1).join("&").trim();
+    const leftSep = left.endsWith("&") ? "" : " ";
     return (
-      <>
-        <span className="text-royal">{year}</span>{" "}
-        <span className="text-royal">
+      <span className="inline-block text-center">
+        <span className={yearClass}>{year}</span>{" "}
+        <span className={`text-royal ${lineClass}`}>
           {left}
-          {left.endsWith("&") ? "" : " &"}
-        </span>{" "}
-        <span className="text-accent">{right}</span>
-      </>
+          {leftSep}
+        </span>
+        <span className={ampClass}>&</span>{" "}
+        <span className={`text-accent ${lineClass}`}>{right}</span>{" "}
+        <span className={yearClass}>{year}</span>
+      </span>
     );
   }
+
   return (
-    <>
-      <span className="text-royal">{year}</span> <span className="text-royal">{tournamentName}</span>
-    </>
+    <span className="inline-block text-center">
+      <span className={yearClass}>{year}</span>{" "}
+      <span className={`text-accent ${lineClass}`}>{core}</span>{" "}
+      <span className={yearClass}>{year}</span>
+    </span>
   );
 }
 
@@ -144,14 +167,14 @@ export default async function AdminPrintSheetsPage() {
           {pairs.map(([left, right], pageIndex) => (
             <div
               key={pageIndex}
-              className="grid grid-cols-1 gap-8 md:grid-cols-2 print:grid-cols-2 print:gap-6 print:break-after-page last:print:break-after-auto"
+              className="grid grid-cols-1 gap-8 md:grid-cols-2 print:grid-cols-2 print:gap-3 print:break-after-page last:print:break-after-auto"
             >
               <GameSheetTemplate {...left} />
               {right ? (
                 <GameSheetTemplate {...right} />
               ) : (
                 <div
-                  className="hidden min-h-[28rem] rounded border border-dashed border-slate-200 bg-slate-50/80 md:block print:block"
+                  className="hidden min-h-[20rem] rounded border border-dashed border-slate-200 bg-slate-50/80 md:block print:block print:min-h-0"
                   aria-hidden
                 />
               )}
