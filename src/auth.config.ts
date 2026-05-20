@@ -19,6 +19,12 @@ export default {
           Google({
             clientId: process.env.GOOGLE_CLIENT_ID!,
             clientSecret: process.env.GOOGLE_CLIENT_SECRET!,
+            /**
+             * Staff invites create a `User` row before first sign-in. Without this, Google OAuth
+             * returns OAuthAccountNotLinked when the e-mail already exists. Google verifies e-mails;
+             * linking by verified e-mail is acceptable for this single-provider staff flow.
+             */
+            allowDangerousEmailAccountLinking: true,
           }),
         ]
       : [

@@ -12,6 +12,10 @@ const googleConfigured =
 
 export const { handlers, auth, signIn, signOut } = NextAuth({
   ...authConfig,
+  pages: {
+    signIn: "/login",
+    error: "/auth/error",
+  },
   // Prisma adapter types can disagree across nested @auth/core copies; runtime is correct.
   adapter: googleConfigured ? (PrismaAdapter(prisma) as never) : undefined,
   /* Edge middleware cannot use DB sessions (no adapter). JWT keeps User/Account in Prisma; cookie is a JWT. */
