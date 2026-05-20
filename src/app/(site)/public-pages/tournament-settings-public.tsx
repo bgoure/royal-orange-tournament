@@ -1,8 +1,10 @@
-import type { Tournament } from "@prisma/client";
+import type { Role, Tournament } from "@prisma/client";
 import { PageTitle } from "@/components/ui/PublicHeading";
 import { PublicSettingsPortal } from "@/components/settings/PublicSettingsPortal";
 import { auth } from "@/auth";
 import { getRequestPublicOrigin } from "@/lib/request-public-origin";
+import { can } from "@/lib/rbac/permissions";
+import { listBracketProgressForPublicSettings } from "@/lib/services/bracket-public-settings";
 import { tournamentPathFromBase, tournamentPublicBasePath } from "@/lib/tournament-public-path";
 
 const googleAuthConfigured =
@@ -14,6 +16,13 @@ export async function TournamentSettingsPublic({ tournament }: { tournament: Tou
   const user = session?.user;
   const signedIn = Boolean(user?.id);
   const userLabel = user ? (user.name?.trim() || user.email?.trim() || "Signed in") : "";
+  const role = (user?.role ?? "PUBLIC") as Role;
+  const showBracketProgressSection =
+    signedIn && (can(role, "bracket:configure") || can(role, "bracket:pushAndReset"));
+  const bracketProgressRows =
+    showBracketProgressSection && user?.id
+      ? await listBracketProgressForPublicSettings(tournament.id, user.id, role)
+      : [];
   const publicBasePath = tournamentPublicBasePath(tournament);
   const settingsPath = tournamentPathFromBase(publicBasePath, "settings");
 
@@ -27,7 +36,10 @@ export async function TournamentSettingsPublic({ tournament }: { tournament: Tou
         googleAuthConfigured={googleAuthConfigured}
         signedIn={signedIn}
         userLabel={userLabel}
-        role={user?.role ?? "PUBLIC"}
+        role={role}
+        tournamentId={tournament.id}
+        showBracketProgressSection={showBracketProgressSection}
+        bracketProgressRows={bracketProgressRows}
       />
     </div>
   );

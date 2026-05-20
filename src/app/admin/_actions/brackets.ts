@@ -3,17 +3,19 @@
 import { revalidatePath } from "next/cache";
 import { revalidatePublishedTournamentSites } from "@/lib/revalidate-public-tournament-site";
 import { auth } from "@/auth";
-import { GameKind } from "@prisma/client";
+import { GameKind, type Role } from "@prisma/client";
 import { prisma } from "@/lib/db";
 import { can } from "@/lib/rbac/permissions";
+import { assertDivisionScope } from "@/lib/rbac/division-scope";
 import { assertFieldInTournament } from "@/lib/services/admin-games";
 import { assertPoolInTournament } from "@/lib/services/admin-structure";
 import { assertConsolationSlotsAvailable } from "@/lib/services/consolation-slots";
 import { createDivisionPlayoffBracket } from "@/lib/services/bracket-division-build";
 import { gameCompetitiveResetData } from "@/lib/services/game-competitive-reset";
 import { resolveBracketTeamsFromStandings } from "@/lib/services/bracket-resolution";
+import { assertDivisionRoundRobinCompleteForSeeding } from "@/lib/services/round-robin-division";
 import { parseDatetimeLocalInTimeZone } from "@/lib/datetime-tournament";
-import { getTournamentForRequest, type TournamentForRequest } from "@/lib/tournament-context";
+import { getTournamentForRequest, tournamentForRequestInclude, type TournamentForRequest } from "@/lib/tournament-context";
 import {
   createConsolationGameSchema,
   createDivisionBracketSchema,
@@ -40,6 +42,36 @@ async function bracketContext(): Promise<
     };
   }
   return { session, tournament };
+}
+
+async function bracketActionContext(
+  formData: FormData,
+): Promise<{ session: Session; tournament: TournamentForRequest } | { error: string }> {
+  const session = await auth();
+  if (!session?.user?.id) return { error: "Unauthorized" };
+
+  const tid = formData.get("tournamentId")?.toString().trim();
+  if (tid) {
+    const tournament = await prisma.tournament.findFirst({
+      where: { id: tid, isPublished: true },
+      include: tournamentForRequestInclude,
+    });
+    if (!tournament) return { error: "Tournament not found." };
+    return { session, tournament };
+  }
+
+  const tournament = await getTournamentForRequest();
+  if (!tournament) {
+    return {
+      error:
+        "Select a tournament on the public site (tournament switcher), then return here.",
+    };
+  }
+  return { session, tournament };
+}
+
+function canPushOrResetBracketRole(role: Role): boolean {
+  return can(role, "bracket:configure") || can(role, "bracket:pushAndReset");
 }
 
 function deny(): BracketActionResult {
@@ -190,9 +222,9 @@ export async function applyBracketResolution(
   _prev: BracketActionResult | undefined,
   formData: FormData,
 ): Promise<BracketActionResult> {
-  const ctx = await bracketContext();
+  const ctx = await bracketActionContext(formData);
   if ("error" in ctx) return { ok: false, error: ctx.error };
-  if (!can(ctx.session.user.role, "bracket:configure")) return deny();
+  if (!canPushOrResetBracketRole(ctx.session.user.role)) return deny();
 
   const parsed = resolveBracketSchema.safeParse({
     bracketId: formData.get("bracketId"),
@@ -204,8 +236,11 @@ export async function applyBracketResolution(
   try {
     const b = await prisma.bracket.findFirst({
       where: { id: parsed.data.bracketId, tournamentId: ctx.tournament.id },
+      select: { id: true, divisionId: true },
     });
     if (!b) return { ok: false, error: "Bracket not found" };
+    const scopeErr = await assertDivisionScope(ctx.session.user.id, ctx.session.user.role, b.divisionId);
+    if (scopeErr) return { ok: false, error: scopeErr };
     await resolveBracketTeamsFromStandings(parsed.data.bracketId);
     revalidatePath("/admin/brackets");
     revalidatePath("/admin/games");
@@ -331,9 +366,9 @@ export async function resetPlayoffBracket(
   _prev: BracketActionResult | undefined,
   formData: FormData,
 ): Promise<BracketActionResult> {
-  const ctx = await bracketContext();
+  const ctx = await bracketActionContext(formData);
   if ("error" in ctx) return { ok: false, error: ctx.error };
-  if (!can(ctx.session.user.role, "bracket:configure")) return deny();
+  if (!canPushOrResetBracketRole(ctx.session.user.role)) return deny();
 
   const parsed = deleteBracketSchema.safeParse({
     bracketId: formData.get("bracketId"),
@@ -348,6 +383,11 @@ export async function resetPlayoffBracket(
       select: { id: true, divisionId: true },
     });
     if (!existing) return { ok: false, error: "Bracket not found" };
+
+    const scopeErr = await assertDivisionScope(ctx.session.user.id, ctx.session.user.role, existing.divisionId);
+    if (scopeErr) return { ok: false, error: scopeErr };
+
+    await assertDivisionRoundRobinCompleteForSeeding(ctx.tournament.id, existing.divisionId);
 
     await prisma.$transaction(async (tx) => {
       await tx.game.updateMany({

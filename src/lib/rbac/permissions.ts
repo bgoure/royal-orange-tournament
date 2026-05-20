@@ -23,6 +23,8 @@ export type Permission =
   | "user:manageRoles"
   | "user:read"
   | "bracket:configure"
+  /** Apply standings to playoff seeds + reset bracket (scoped to assigned divisions for POWER_USER). */
+  | "bracket:pushAndReset"
   | "standings:configureRules"
   | "content:manage";
 
@@ -66,6 +68,7 @@ const powerUser: ReadonlySet<Permission> = new Set([
   "team:read",
   "team:create",
   "team:update",
+  "bracket:pushAndReset",
 ]);
 
 const publicPerms: ReadonlySet<Permission> = new Set(["game:read", "team:read"]);

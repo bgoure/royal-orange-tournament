@@ -26,6 +26,19 @@ export async function countIncompleteDivisionPoolGames(
   });
 }
 
+/** All pool-play games in the division (excludes playoff-only rows without a pool). */
+export async function countTotalDivisionPoolGames(
+  tournamentId: string,
+  divisionId: string,
+): Promise<number> {
+  return prisma.game.count({
+    where: {
+      tournamentId,
+      pool: { divisionId },
+    },
+  });
+}
+
 export async function isDivisionRoundRobinCompleteForSeeding(
   tournamentId: string,
   divisionId: string,

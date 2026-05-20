@@ -39,6 +39,8 @@ type BracketRow = {
   needsResolutionRefresh: boolean;
   division: { id: string; name: string };
   _count: { rounds: number; games: number };
+  poolGamesTotal: number;
+  poolGamesIncomplete: number;
 };
 
 type ConsolationAdminRow = {
@@ -656,14 +658,16 @@ export function BracketsAdmin({
           <h2 className="text-sm font-semibold text-zinc-900">Playoff brackets</h2>
           <p className="mt-1 text-xs text-zinc-500">
             Unpublished brackets stay hidden on the public site. “Apply standings” only runs when every pool game
-            in that division is final or cancelled (round robin finished). Use it after pool play changes.{" "}
-            <strong className="font-medium text-zinc-700">Reset bracket</strong> keeps the tree and games, clears teams/scores,
-            and sets all bracket games back to scheduled.{" "}
+            in that division is final or cancelled (round robin finished).{" "}
+            <strong className="font-medium text-zinc-700">Reset bracket</strong> also requires a finished round robin;
+            it keeps the tree and games, clears teams/scores, and sets all bracket games back to scheduled.{" "}
             <strong className="font-medium text-zinc-700">Delete bracket</strong> removes the playoff tree and all
             its games so you can run the create wizard again.
           </p>
           <ul className="mt-4 flex flex-col gap-4">
-            {brackets.map((b) => (
+            {brackets.map((b) => {
+              const rrComplete = b.poolGamesTotal > 0 && b.poolGamesIncomplete === 0;
+              return (
               <li key={b.id} className="rounded-lg border border-zinc-100 bg-zinc-50/50 p-4">
                 <div className="flex flex-wrap items-start justify-between gap-3">
                   <div>
@@ -680,6 +684,14 @@ export function BracketsAdmin({
                       {b.needsResolutionRefresh ? (
                         <span className="ml-2 text-amber-800">· Standings changed — re-apply</span>
                       ) : null}
+                      {b.poolGamesTotal > 0 ? (
+                        <span className="ml-2">
+                          · Pool play {b.poolGamesTotal - b.poolGamesIncomplete}/{b.poolGamesTotal} done
+                          {!rrComplete ? " (finish pool games to apply/reset)" : null}
+                        </span>
+                      ) : (
+                        <span className="ml-2">· No pool games in division</span>
+                      )}
                     </p>
                   </div>
                   <div className="flex flex-wrap gap-2">
@@ -692,7 +704,7 @@ export function BracketsAdmin({
                     </form>
                     <form action={resolveAction}>
                       <input type="hidden" name="bracketId" value={b.id} />
-                      <button type="submit" disabled={resolvePending} className={btnSecondary}>
+                      <button type="submit" disabled={resolvePending || !rrComplete} className={btnSecondary}>
                         {resolvePending ? "Applying…" : "Apply standings to seeds"}
                       </button>
                     </form>
@@ -702,7 +714,7 @@ export function BracketsAdmin({
                       className="inline"
                     >
                       <input type="hidden" name="bracketId" value={b.id} />
-                      <button type="submit" disabled={resetPending} className={btnSecondary}>
+                      <button type="submit" disabled={resetPending || !rrComplete} className={btnSecondary}>
                         {resetPending ? "Resetting…" : "Reset bracket"}
                       </button>
                     </ConfirmForm>
@@ -719,7 +731,8 @@ export function BracketsAdmin({
                   </div>
                 </div>
               </li>
-            ))}
+            );
+            })}
           </ul>
         </section>
       ) : null}

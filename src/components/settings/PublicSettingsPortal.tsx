@@ -4,6 +4,8 @@ import type { Role } from "@prisma/client";
 import { signIn, signOut } from "next-auth/react";
 import { usePublicSiteTheme } from "@/components/theme/public-site-theme";
 import { publicGlassCard2xl } from "@/lib/public-glass-card";
+import { BracketRoundRobinProgress } from "@/components/settings/BracketRoundRobinProgress";
+import type { BracketProgressForPublicSettings } from "@/lib/services/bracket-public-settings";
 
 const cardClass = `${publicGlassCard2xl} p-4`;
 
@@ -20,6 +22,9 @@ export function PublicSettingsPortal({
   signedIn,
   userLabel,
   role,
+  tournamentId,
+  showBracketProgressSection,
+  bracketProgressRows,
 }: {
   settingsPath: string;
   requestOrigin: string;
@@ -27,6 +32,9 @@ export function PublicSettingsPortal({
   signedIn: boolean;
   userLabel: string;
   role: Role;
+  tournamentId: string;
+  showBracketProgressSection: boolean;
+  bracketProgressRows: BracketProgressForPublicSettings[];
 }) {
   const settingsAbsolute = requestOrigin ? `${requestOrigin}${settingsPath}` : settingsPath;
   const adminHref = requestOrigin ? `${requestOrigin}/admin` : "/admin";
@@ -104,6 +112,40 @@ export function PublicSettingsPortal({
             <button type="button" className={btnSecondary} onClick={() => void signOut({ callbackUrl: "/" })}>
               Sign out
             </button>
+            {showBracketProgressSection ? (
+              <div className="border-t border-zinc-200 pt-4 dark:border-zinc-600">
+                <h3 className="text-sm font-bold text-zinc-900 dark:text-zinc-100">Playoff bracket (pool play)</h3>
+                <p className="mt-1 text-sm text-zinc-600 dark:text-zinc-400">
+                  When every pool game in the division is final or cancelled, you can push current standings into the
+                  playoff seeds, or reset the bracket to TBD and re-score pool games before pushing again. Creating the
+                  bracket structure is still under{" "}
+                  {canManageTournament ? (
+                    <a href={adminHref} className="font-medium text-royal underline-offset-2 hover:underline">
+                      Tournament Admin → Brackets
+                    </a>
+                  ) : (
+                    <span className="font-medium text-zinc-800 dark:text-zinc-200">Tournament Admin → Brackets</span>
+                  )}
+                  .
+                </p>
+                {bracketProgressRows.length === 0 ? (
+                  <p className="mt-3 text-sm text-zinc-600 dark:text-zinc-400">
+                    {role === "POWER_USER" ? (
+                      <>
+                        No playoff bracket found for your assigned division(s) in this tournament, or pool play is not
+                        set up yet. Ask an admin to create the bracket if needed.
+                      </>
+                    ) : (
+                      <>
+                        No playoff bracket exists for this tournament yet. Create one in Tournament Admin → Brackets.
+                      </>
+                    )}
+                  </p>
+                ) : (
+                  <BracketRoundRobinProgress tournamentId={tournamentId} rows={bracketProgressRows} />
+                )}
+              </div>
+            ) : null}
           </div>
         ) : (
           <div className="mt-3 space-y-2">

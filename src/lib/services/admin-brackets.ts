@@ -1,5 +1,6 @@
 import { GameKind } from "@prisma/client";
 import { prisma } from "@/lib/db";
+import { countIncompleteDivisionPoolGames, countTotalDivisionPoolGames } from "@/lib/services/round-robin-division";
 
 export function listConsolationGamesForAdmin(tournamentId: string) {
   return prisma.game.findMany({
@@ -30,8 +31,8 @@ export function listFieldsForBrackets(tournamentId: string) {
   });
 }
 
-export function listBracketsSummary(tournamentId: string) {
-  return prisma.bracket.findMany({
+export async function listBracketsSummary(tournamentId: string) {
+  const brackets = await prisma.bracket.findMany({
     where: { tournamentId },
     orderBy: { sortOrder: "asc" },
     select: {
@@ -44,6 +45,15 @@ export function listBracketsSummary(tournamentId: string) {
       _count: { select: { rounds: true, games: true } },
     },
   });
+  return Promise.all(
+    brackets.map(async (b) => {
+      const [poolGamesTotal, poolGamesIncomplete] = await Promise.all([
+        countTotalDivisionPoolGames(tournamentId, b.division.id),
+        countIncompleteDivisionPoolGames(tournamentId, b.division.id),
+      ]);
+      return { ...b, poolGamesTotal, poolGamesIncomplete };
+    }),
+  );
 }
 
 /** Divisions with pools (team counts) for the playoff wizard; includes whether a bracket already exists. */
