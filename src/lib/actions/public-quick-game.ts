@@ -1,15 +1,17 @@
 "use server";
 
 import { revalidatePath } from "next/cache";
+import { GameKind, GameResultType, GameStatus, Role } from "@prisma/client";
 import { auth } from "@/auth";
 import { prisma } from "@/lib/db";
+import { assertGameDivisionScope } from "@/lib/rbac/division-scope";
 import { parseDatetimeLocalInTimeZone } from "@/lib/datetime-tournament";
 import { assertFieldInTournament, assertGameInTournament } from "@/lib/services/admin-games";
 import { applyFieldHomeToScoringOptional } from "@/lib/services/game-field-home";
 import { advanceBracketWinnerFromGame } from "@/lib/services/bracket-advance";
 import { recomputePoolStandings } from "@/lib/services/standings";
 import { getPublishedTournamentBySlugForActions } from "@/lib/tournament-context";
-import { publicQuickGameUpdateSchema, publicQuickGameScheduleSchema } from "@/lib/validations/public-quick-game";
+import { publicQuickGameUpdateSchema, publicQuickGameScheduleSchema, publicQuickGameResetPoolScoringSchema } from "@/lib/validations/public-quick-game";
 
 export type PublicQuickGameResult = { ok: true } | { ok: false; error?: string };
 export type PublicQuickScheduleResult = { ok: true } | { ok: false; error?: string };
@@ -197,6 +199,75 @@ export async function updatePublicQuickGameAction(
     return { ok: true };
   } catch (e) {
     const msg = e instanceof Error ? e.message : "Failed to update game.";
+    return { ok: false, error: msg };
+  }
+}
+
+/**
+ * Power users: one-shot clear of pool game scoring back to scheduled 0–0 and recalculated standings.
+ * Bracket / consolation games are not supported here (winner propagation).
+ */
+export async function resetPublicQuickGamePoolScoringAction(
+  _prev: PublicQuickGameResult,
+  formData: FormData,
+): Promise<PublicQuickGameResult> {
+  const session = await auth();
+  if (!session?.user?.id || session.user.role !== Role.POWER_USER) {
+    return {
+      ok: false,
+      error: "Only power users can reset game scoring from here.",
+    };
+  }
+
+  const parsed = publicQuickGameResetPoolScoringSchema.safeParse({
+    tournamentSlug: formData.get("tournamentSlug"),
+    id: formData.get("id"),
+    gameKind: formData.get("gameKind"),
+  });
+
+  if (!parsed.success) {
+    const msg =
+      parsed.error.issues.map((i) => (i.path.length ? `${i.path.join(".")}: ${i.message}` : i.message)).join("; ") ||
+      "Invalid input";
+    return { ok: false, error: msg };
+  }
+
+  const tournament = await getPublishedTournamentBySlugForActions(parsed.data.tournamentSlug);
+  if (!tournament) {
+    return { ok: false, error: "Tournament not found." };
+  }
+
+  const scopeErr = await assertGameDivisionScope(session.user.id, Role.POWER_USER, parsed.data.id);
+  if (scopeErr) {
+    return { ok: false, error: scopeErr };
+  }
+
+  try {
+    const existing = await assertGameInTournament(parsed.data.id, tournament.id);
+    if (existing.gameKind !== GameKind.POOL || !existing.poolId) {
+      return { ok: false, error: "Only pool games can be reset from this screen." };
+    }
+
+    await prisma.game.update({
+      where: { id: parsed.data.id },
+      data: {
+        status: GameStatus.SCHEDULED,
+        resultType: GameResultType.REGULAR,
+        homeRuns: 0,
+        awayRuns: 0,
+        homeDefensiveInnings: 0,
+        awayDefensiveInnings: 0,
+        homeOffensiveInnings: 0,
+        awayOffensiveInnings: 0,
+      },
+    });
+
+    await recomputePoolStandings(existing.poolId);
+
+    revalidatePath(`/${tournament.slug}`, "layout");
+    return { ok: true };
+  } catch (e) {
+    const msg = e instanceof Error ? e.message : "Failed to reset game.";
     return { ok: false, error: msg };
   }
 }

@@ -18,6 +18,7 @@ import { DIVISION_SWIPE_IGNORE } from "@/lib/division-swipe-ignore";
 import {
   updatePublicQuickGameAction,
   updatePublicQuickGameScheduleAction,
+  resetPublicQuickGamePoolScoringAction,
   type PublicQuickGameResult,
   type PublicQuickScheduleResult,
 } from "@/lib/actions/public-quick-game";
@@ -59,6 +60,15 @@ export function usePublicQuickGameEdit(): Ctx | null {
 }
 
 const initialAction: PublicQuickGameResult = { ok: false };
+
+const RESET_POOL_SCORING_CONFIRM =
+  "Reset this pool game?\n\n" +
+  "• Runs set to 0 for both teams\n" +
+  "• Defensive and offensive innings set to 0\n" +
+  "• Result type set to Regular\n" +
+  "• Status set to Scheduled\n" +
+  "• Pool standings will be recalculated\n\n" +
+  "Location, time, and teams stay the same. This cannot be undone automatically (re-enter scores if needed).";
 
 function publicModalCompletionHeadline(status: GameStatus): { line: string; completed: boolean } {
   const completed = status === GameStatus.FINAL || status === GameStatus.CANCELLED;
@@ -248,16 +258,23 @@ function QuickGameModal({
   tournamentSlug,
   timezone,
   fieldOptions,
+  showPoolScoreReset,
   onClose,
 }: {
   game: QuickEditGamePayload;
   tournamentSlug: string;
   timezone: string;
   fieldOptions: QuickEditFieldOption[];
+  /** POWER_USER: show one-click pool scoring reset (with confirm). */
+  showPoolScoreReset: boolean;
   onClose: () => void;
 }) {
   const router = useRouter();
   const [state, formAction, pending] = useActionState(updatePublicQuickGameAction, initialAction);
+  const [resetState, resetFormAction, resetPending] = useActionState(
+    resetPublicQuickGamePoolScoringAction,
+    initialAction,
+  );
 
   const formRef = useRef<HTMLFormElement>(null);
   const statusInputRef = useRef<HTMLInputElement>(null);
@@ -283,6 +300,13 @@ function QuickGameModal({
       router.refresh();
     }
   }, [state.ok, onClose, router]);
+
+  useEffect(() => {
+    if (resetState.ok) {
+      onClose();
+      router.refresh();
+    }
+  }, [resetState.ok, onClose, router]);
 
   useEffect(() => {
     if (statusInputRef.current) {
@@ -387,6 +411,9 @@ function QuickGameModal({
 
           {!state.ok && state.error ? (
             <p className="rounded-lg border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-800">{state.error}</p>
+          ) : null}
+          {!resetState.ok && resetState.error ? (
+            <p className="rounded-lg border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-800">{resetState.error}</p>
           ) : null}
 
           <p className="text-center text-base font-bold text-zinc-900 dark:text-zinc-100">
@@ -528,6 +555,29 @@ function QuickGameModal({
             </div>
           </div>
 
+          {showPoolScoreReset && isPool ? (
+            <div className="border-t border-zinc-100 pt-3 dark:border-zinc-800">
+              <p className="text-xs text-zinc-500 dark:text-zinc-400">
+                Wrong pool score? You can clear scoring in one step (after confirming).
+              </p>
+              <button
+                type="button"
+                disabled={pending || resetPending}
+                onClick={() => {
+                  if (!window.confirm(RESET_POOL_SCORING_CONFIRM)) return;
+                  const fd = new FormData();
+                  fd.set("tournamentSlug", tournamentSlug);
+                  fd.set("id", game.id);
+                  fd.set("gameKind", GameKind.POOL);
+                  resetFormAction(fd);
+                }}
+                className="mt-2 w-full rounded-xl border border-amber-200 bg-amber-50 px-4 py-2.5 text-sm font-semibold text-amber-950 shadow-sm hover:bg-amber-100 disabled:opacity-50 dark:border-amber-900/60 dark:bg-amber-950/40 dark:text-amber-100 dark:hover:bg-amber-950/60"
+              >
+                {resetPending ? "Resetting…" : "Reset game scoring"}
+              </button>
+            </div>
+          ) : null}
+
           <div className="flex flex-wrap gap-2 pt-2">
             <button
               type="button"
@@ -609,12 +659,15 @@ function QuickGameModal({
 
 export function PublicQuickGameProvider({
   isAdmin,
+  showPoolScoreReset,
   tournamentSlug,
   timezone,
   fieldOptions,
   children,
 }: {
   isAdmin: boolean;
+  /** POWER_USER-only: quick reset pool scoring in the game modal. */
+  showPoolScoreReset: boolean;
   tournamentSlug: string;
   timezone: string;
   fieldOptions: QuickEditFieldOption[];
@@ -640,6 +693,7 @@ export function PublicQuickGameProvider({
           tournamentSlug={tournamentSlug}
           timezone={timezone}
           fieldOptions={fieldOptions}
+          showPoolScoreReset={showPoolScoreReset}
           onClose={close}
         />
       ) : null}
