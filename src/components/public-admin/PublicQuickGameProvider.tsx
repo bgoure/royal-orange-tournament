@@ -9,16 +9,23 @@ import {
   useMemo,
   useState,
   useActionState,
+  useRef,
   type ReactNode,
+  type FormEvent,
 } from "react";
 import { useRouter } from "next/navigation";
 import { DIVISION_SWIPE_IGNORE } from "@/lib/division-swipe-ignore";
 import {
   updatePublicQuickGameAction,
+  updatePublicQuickGameScheduleAction,
   type PublicQuickGameResult,
+  type PublicQuickScheduleResult,
 } from "@/lib/actions/public-quick-game";
-import { formatJsDateAsDatetimeLocalInZone } from "@/lib/datetime-tournament";
-import { publicGameStatusLabel } from "@/components/schedule/GameList";
+import {
+  formatGameScheduledAt,
+  formatJsDateAsDatetimeLocalInZone,
+  parseDatetimeLocalInTimeZone,
+} from "@/lib/datetime-tournament";
 
 export type QuickEditFieldOption = { id: string; label: string };
 
@@ -53,14 +60,188 @@ export function usePublicQuickGameEdit(): Ctx | null {
 
 const initialAction: PublicQuickGameResult = { ok: false };
 
-const statusOptions: GameStatus[] = [
-  GameStatus.SCHEDULED,
-  GameStatus.LIVE,
-  GameStatus.AWAITING_RESULTS,
-  GameStatus.FINAL,
-  GameStatus.POSTPONED,
-  GameStatus.CANCELLED,
-];
+function publicModalCompletionHeadline(status: GameStatus): { line: string; completed: boolean } {
+  const completed = status === GameStatus.FINAL || status === GameStatus.CANCELLED;
+  return {
+    line: completed ? "Completed" : "Not completed",
+    completed,
+  };
+}
+
+function StatWheel({
+  name,
+  min,
+  max,
+  defaultValue,
+  emptyOption,
+  ariaLabel,
+}: {
+  name: string;
+  min: number;
+  max: number;
+  defaultValue: number | null;
+  emptyOption?: boolean;
+  ariaLabel: string;
+}) {
+  const values = useMemo(() => {
+    const out: number[] = [];
+    for (let i = min; i <= max; i++) out.push(i);
+    return out;
+  }, [min, max]);
+
+  const selectDefault =
+    emptyOption && (defaultValue == null || defaultValue < min || defaultValue > max)
+      ? ""
+      : String(defaultValue ?? min);
+
+  return (
+    <select
+      name={name}
+      defaultValue={selectDefault}
+      aria-label={ariaLabel}
+      className="w-full rounded-xl border-2 border-accent bg-accent-50 px-2 py-2.5 text-center text-lg font-bold text-accent-800 shadow-sm focus:border-accent-700 focus:outline-none focus:ring-2 focus:ring-accent/25 dark:border-accent-light dark:bg-accent-900/30 dark:text-accent-100"
+    >
+      {emptyOption ? (
+        <option value="">
+          —
+        </option>
+      ) : null}
+      {values.map((n) => (
+        <option key={n} value={n}>
+          {n}
+        </option>
+      ))}
+    </select>
+  );
+}
+
+function QuickGameScheduleModal({
+  game,
+  tournamentSlug,
+  timezone,
+  fieldOptions,
+  initialFieldId,
+  initialWhenLocal,
+  onClose,
+  onSaved,
+}: {
+  game: QuickEditGamePayload;
+  tournamentSlug: string;
+  timezone: string;
+  fieldOptions: QuickEditFieldOption[];
+  initialFieldId: string;
+  initialWhenLocal: string;
+  onClose: () => void;
+  onSaved: (fieldId: string, whenLocal: string) => void;
+}) {
+  const router = useRouter();
+  const [error, setError] = useState<string | null>(null);
+  const [pending, setPending] = useState(false);
+
+  async function handleSubmit(e: FormEvent<HTMLFormElement>) {
+    e.preventDefault();
+    setError(null);
+    setPending(true);
+    const form = e.currentTarget;
+    const fd = new FormData(form);
+    const res: PublicQuickScheduleResult = await updatePublicQuickGameScheduleAction({ ok: false }, fd);
+    setPending(false);
+    if (res.ok) {
+      const fid = String(fd.get("fieldId") ?? "");
+      const when = String(fd.get("scheduledAt") ?? "");
+      onSaved(fid, when);
+      router.refresh();
+      onClose();
+    } else {
+      setError(res.error ?? "Could not update field or time.");
+    }
+  }
+
+  return (
+    <div
+      className="fixed inset-0 z-[110] flex items-end justify-center sm:items-center"
+      role="presentation"
+      {...{ [DIVISION_SWIPE_IGNORE]: "" }}
+    >
+      <button type="button" className="absolute inset-0 bg-black/50" aria-label="Close" onClick={onClose} />
+      <div
+        className="relative z-[111] m-4 w-full max-w-md rounded-2xl border border-zinc-200 bg-white p-4 shadow-2xl dark:border-zinc-700 dark:bg-zinc-950"
+        role="dialog"
+        aria-modal
+        aria-labelledby="quick-game-schedule-title"
+      >
+        <h3 id="quick-game-schedule-title" className="text-base font-bold text-zinc-900 dark:text-zinc-100">
+          Edit location &amp; time
+        </h3>
+        <form onSubmit={handleSubmit} className="mt-3 flex flex-col gap-3">
+          <input type="hidden" name="tournamentSlug" value={tournamentSlug} />
+          <input type="hidden" name="id" value={game.id} />
+          <input type="hidden" name="gameKind" value={game.gameKind} />
+
+          {error ? (
+            <p className="rounded-lg border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-800">{error}</p>
+          ) : null}
+
+          <div>
+            <label
+              htmlFor="qgs-field"
+              className="mb-1 block text-xs font-semibold uppercase tracking-wide text-zinc-500 dark:text-zinc-400"
+            >
+              Field
+            </label>
+            <select
+              id="qgs-field"
+              name="fieldId"
+              required
+              defaultValue={initialFieldId}
+              className="w-full rounded-xl border border-zinc-200 bg-white px-3 py-2.5 text-sm text-zinc-900 shadow-sm focus:border-royal focus:outline-none focus:ring-2 focus:ring-royal/20 dark:border-zinc-600 dark:bg-zinc-900 dark:text-zinc-100"
+            >
+              {fieldOptions.map((f) => (
+                <option key={f.id} value={f.id}>
+                  {f.label}
+                </option>
+              ))}
+            </select>
+          </div>
+
+          <div>
+            <label
+              htmlFor="qgs-when"
+              className="mb-1 block text-xs font-semibold uppercase tracking-wide text-zinc-500 dark:text-zinc-400"
+            >
+              Game time ({timezone})
+            </label>
+            <input
+              id="qgs-when"
+              name="scheduledAt"
+              type="datetime-local"
+              required
+              defaultValue={initialWhenLocal}
+              className="w-full rounded-xl border border-zinc-200 bg-white px-3 py-2.5 text-sm text-zinc-900 shadow-sm focus:border-royal focus:outline-none focus:ring-2 focus:ring-royal/20 dark:border-zinc-600 dark:bg-zinc-900 dark:text-zinc-100"
+            />
+          </div>
+
+          <div className="mt-1 flex gap-2">
+            <button
+              type="submit"
+              disabled={pending}
+              className="min-h-10 flex-1 rounded-xl bg-royal px-4 py-2 text-sm font-semibold text-white shadow-sm hover:bg-royal-800 disabled:opacity-50"
+            >
+              {pending ? "Saving…" : "Save"}
+            </button>
+            <button
+              type="button"
+              onClick={onClose}
+              className="min-h-10 rounded-xl border border-zinc-200 px-4 py-2 text-sm font-semibold text-zinc-700 hover:bg-zinc-50 dark:border-zinc-600 dark:text-zinc-200 dark:hover:bg-zinc-800"
+            >
+              Cancel
+            </button>
+          </div>
+        </form>
+      </div>
+    </div>
+  );
+}
 
 function QuickGameModal({
   game,
@@ -78,6 +259,24 @@ function QuickGameModal({
   const router = useRouter();
   const [state, formAction, pending] = useActionState(updatePublicQuickGameAction, initialAction);
 
+  const formRef = useRef<HTMLFormElement>(null);
+  const statusInputRef = useRef<HTMLInputElement>(null);
+
+  const [scheduleDraft, setScheduleDraft] = useState<{
+    fieldId: string;
+    whenLocal: string;
+  } | null>(null);
+
+  const draftFieldId = scheduleDraft?.fieldId ?? game.fieldId;
+  const draftWhenLocal = scheduleDraft?.whenLocal ?? formatJsDateAsDatetimeLocalInZone(game.scheduledAt, timezone);
+
+  const [fieldHomeTeamId, setFieldHomeTeamId] = useState<string | null>(
+    game.homeTeamId && game.awayTeamId ? game.homeTeamId : null,
+  );
+
+  const [scheduleOpen, setScheduleOpen] = useState(false);
+  const [completeOpen, setCompleteOpen] = useState(false);
+
   useEffect(() => {
     if (state.ok) {
       onClose();
@@ -85,12 +284,54 @@ function QuickGameModal({
     }
   }, [state.ok, onClose, router]);
 
-  const whenLocal = useMemo(
-    () => formatJsDateAsDatetimeLocalInZone(game.scheduledAt, timezone),
-    [game.scheduledAt, timezone],
-  );
+  useEffect(() => {
+    if (statusInputRef.current) {
+      statusInputRef.current.value = game.status;
+    }
+  }, [game.status]);
 
   const isPool = game.gameKind === GameKind.POOL;
+  const { line: completionLine, completed: dbCompleted } = publicModalCompletionHeadline(game.status);
+
+  const fieldLabel =
+    fieldOptions.find((f) => f.id === draftFieldId)?.label ?? `Field ${draftFieldId.slice(0, 6)}…`;
+
+  const timeLabel = useMemo(() => {
+    const showTbd = scheduleDraft == null && game.schedulePlaceholder;
+    if (showTbd) return "TBD";
+    try {
+      const d = parseDatetimeLocalInTimeZone(draftWhenLocal, timezone);
+      return formatGameScheduledAt(d, timezone).replace(/\s*([AP]M)/i, (_, ap) => String(ap).toLowerCase());
+    } catch {
+      return "TBD";
+    }
+  }, [draftWhenLocal, timezone, scheduleDraft, game.schedulePlaceholder]);
+
+  function setStatusAndSubmit(status: GameStatus) {
+    if (statusInputRef.current) {
+      statusInputRef.current.value = status;
+    }
+    queueMicrotask(() => formRef.current?.requestSubmit());
+  }
+
+  function onUpdateGameClick() {
+    if (dbCompleted) {
+      setStatusAndSubmit(game.status);
+      return;
+    }
+    setCompleteOpen(true);
+  }
+
+  function onCompleteConfirm(yes: boolean) {
+    setCompleteOpen(false);
+    if (yes) {
+      setStatusAndSubmit(GameStatus.FINAL);
+    } else {
+      setStatusAndSubmit(game.status);
+    }
+  }
+
+  const bothTeams = Boolean(game.homeTeamId && game.awayTeamId);
 
   return (
     <div
@@ -112,7 +353,7 @@ function QuickGameModal({
       >
         <div className="sticky top-0 z-10 flex items-center justify-between border-b border-zinc-100 bg-white px-4 py-3 dark:border-zinc-800 dark:bg-zinc-950">
           <h2 id="quick-game-title" className="text-base font-bold text-zinc-900 dark:text-zinc-100">
-            Edit game
+            Game Results
           </h2>
           <button
             type="button"
@@ -126,13 +367,17 @@ function QuickGameModal({
           </button>
         </div>
 
-        <form action={formAction} className="flex flex-col gap-3 px-4 py-4">
+        <form ref={formRef} action={formAction} className="flex flex-col gap-4 px-4 py-4">
           <input type="hidden" name="tournamentSlug" value={tournamentSlug} />
           <input type="hidden" name="id" value={game.id} />
           <input type="hidden" name="gameKind" value={game.gameKind} />
           <input type="hidden" name="resultType" value={game.resultType} />
           <input type="hidden" name="homeOffensiveInnings" value="" />
           <input type="hidden" name="awayOffensiveInnings" value="" />
+          <input ref={statusInputRef} type="hidden" name="status" />
+          <input type="hidden" name="fieldId" value={draftFieldId} />
+          <input type="hidden" name="scheduledAt" value={draftWhenLocal} />
+
           {!isPool ? (
             <>
               <input type="hidden" name="homeDefensiveInnings" value={game.homeDefensiveInnings ?? ""} />
@@ -144,176 +389,153 @@ function QuickGameModal({
             <p className="rounded-lg border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-800">{state.error}</p>
           ) : null}
 
-          <p className="text-sm text-zinc-600 dark:text-zinc-400">
-            <span className="font-semibold text-zinc-900 dark:text-zinc-100">{game.awayTeamName}</span>
-            <span className="ml-1 text-xs font-medium text-zinc-400 dark:text-zinc-500">(A)</span>
-            <span className="mx-1 text-accent dark:text-accent-light">vs</span>
-            <span className="font-semibold text-zinc-900 dark:text-zinc-100">{game.homeTeamName}</span>
-            <span className="ml-1 text-xs font-medium text-zinc-400 dark:text-zinc-500">(H)</span>
+          <p className="text-center text-base font-bold text-zinc-900 dark:text-zinc-100">
+            {game.awayTeamName}{" "}
+            <span className="font-normal text-accent dark:text-accent-light">vs</span> {game.homeTeamName}
           </p>
 
-          <div>
-            <label
-              htmlFor="qg-field"
-              className="mb-1 block text-xs font-semibold uppercase tracking-wide text-zinc-500 dark:text-zinc-400"
+          <div className="flex items-start justify-between gap-3 text-xs text-sky-600 dark:text-sky-400">
+            <div className="min-w-0 space-y-0.5">
+              <p>
+                <span className="font-semibold">Field:</span> {fieldLabel}
+              </p>
+              <p>
+                <span className="font-semibold">Time:</span> {timeLabel}
+              </p>
+            </div>
+            <button
+              type="button"
+              className="shrink-0 font-semibold underline decoration-sky-600/80 underline-offset-2 hover:text-sky-700 dark:hover:text-sky-300"
+              onClick={() => setScheduleOpen(true)}
             >
-              Field
-            </label>
-            <select
-              id="qg-field"
-              name="fieldId"
-              required
-              defaultValue={game.fieldId}
-              className="w-full rounded-xl border border-zinc-200 bg-white px-3 py-2.5 text-sm text-zinc-900 shadow-sm focus:border-royal focus:outline-none focus:ring-2 focus:ring-royal/20 dark:border-zinc-600 dark:bg-zinc-900 dark:text-zinc-100"
-            >
-              {fieldOptions.map((f) => (
-                <option key={f.id} value={f.id}>
-                  {f.label}
-                </option>
-              ))}
-            </select>
+              Edit location/time
+            </button>
           </div>
 
-          <div>
-            <label
-              htmlFor="qg-when"
-              className="mb-1 block text-xs font-semibold uppercase tracking-wide text-zinc-500 dark:text-zinc-400"
-            >
-              Game time ({timezone})
-            </label>
-            <input
-              id="qg-when"
-              name="scheduledAt"
-              type="datetime-local"
-              required
-              defaultValue={whenLocal}
-              className="w-full rounded-xl border border-zinc-200 bg-white px-3 py-2.5 text-sm text-zinc-900 shadow-sm focus:border-royal focus:outline-none focus:ring-2 focus:ring-royal/20 dark:border-zinc-600 dark:bg-zinc-900 dark:text-zinc-100"
-            />
-          </div>
+          <p
+            className={
+              dbCompleted
+                ? "text-center text-sm font-semibold text-emerald-700 dark:text-emerald-400"
+                : "text-center text-sm font-semibold text-red-600 dark:text-red-400"
+            }
+          >
+            Game status: {completionLine}
+          </p>
 
-          <div>
-            <label
-              htmlFor="qg-status"
-              className="mb-1 block text-xs font-semibold uppercase tracking-wide text-zinc-500 dark:text-zinc-400"
-            >
-              Status
-            </label>
-            <select
-              id="qg-status"
-              name="status"
-              required
-              defaultValue={game.status}
-              className="w-full rounded-xl border border-zinc-200 bg-white px-3 py-2.5 text-sm text-zinc-900 shadow-sm focus:border-royal focus:outline-none focus:ring-2 focus:ring-royal/20 dark:border-zinc-600 dark:bg-zinc-900 dark:text-zinc-100"
-            >
-              {statusOptions.map((s) => (
-                <option key={s} value={s}>
-                  {publicGameStatusLabel(s)}
-                </option>
-              ))}
-            </select>
-          </div>
-
-          {game.homeTeamId && game.awayTeamId ? (
-            <fieldset className="rounded-xl border border-zinc-200 bg-zinc-50/80 px-3 py-2 dark:border-zinc-700 dark:bg-zinc-900/60">
-              <legend className="px-1 text-[10px] font-semibold uppercase tracking-wide text-zinc-500 dark:text-zinc-400">
-                Home Team
-              </legend>
-              <div className="flex flex-col gap-2 sm:flex-row sm:flex-wrap">
-                <label className="flex cursor-pointer items-center gap-2 text-sm text-zinc-800 dark:text-zinc-200">
-                  <input
-                    type="radio"
-                    name="fieldHomeTeamId"
-                    value={game.awayTeamId}
-                    className="size-4 border-zinc-300 text-royal focus:ring-royal/30"
-                  />
-                  <span className="font-medium">{game.awayTeamName}</span>
-                </label>
-                <label className="flex cursor-pointer items-center gap-2 text-sm text-zinc-800 dark:text-zinc-200">
-                  <input
-                    type="radio"
-                    name="fieldHomeTeamId"
-                    value={game.homeTeamId}
-                    defaultChecked
-                    className="size-4 border-zinc-300 text-royal focus:ring-royal/30"
-                  />
-                  <span className="font-medium">{game.homeTeamName}</span>
-                </label>
-              </div>
-            </fieldset>
-          ) : (
+          {bothTeams ? <input type="hidden" name="fieldHomeTeamId" value={fieldHomeTeamId ?? ""} /> : (
             <input type="hidden" name="fieldHomeTeamId" value="" />
           )}
 
           <div className="grid grid-cols-2 gap-3">
-            <div>
-              <label htmlFor="qg-ar" className="mb-1 block text-xs font-semibold text-zinc-500 dark:text-zinc-400">
-                Runs — {game.awayTeamName}
-                <span className="ml-1 font-normal text-zinc-400 dark:text-zinc-500">(A)</span>
-              </label>
-              <input
-                id="qg-ar"
-                name="awayRuns"
-                type="number"
-                min={0}
-                defaultValue={game.awayRuns ?? ""}
-                className="w-full rounded-xl border border-zinc-200 bg-white px-3 py-2 text-sm text-zinc-900 shadow-sm focus:border-royal focus:outline-none focus:ring-2 focus:ring-royal/20 dark:border-zinc-600 dark:bg-zinc-900 dark:text-zinc-100"
-              />
-            </div>
-            <div>
-              <label htmlFor="qg-hr" className="mb-1 block text-xs font-semibold text-zinc-500 dark:text-zinc-400">
-                Runs — {game.homeTeamName}
-                <span className="ml-1 font-normal text-zinc-400 dark:text-zinc-500">(H)</span>
-              </label>
-              <input
-                id="qg-hr"
-                name="homeRuns"
-                type="number"
-                min={0}
-                defaultValue={game.homeRuns ?? ""}
-                className="w-full rounded-xl border border-zinc-200 bg-white px-3 py-2 text-sm text-zinc-900 shadow-sm focus:border-royal focus:outline-none focus:ring-2 focus:ring-royal/20 dark:border-zinc-600 dark:bg-zinc-900 dark:text-zinc-100"
-              />
-            </div>
-            {isPool ? (
-              <>
+            {/* Away (left) */}
+            <div className="rounded-xl border border-zinc-200 bg-zinc-50/80 p-3 dark:border-zinc-700 dark:bg-zinc-900/50">
+              <p className="text-center text-sm font-bold text-zinc-900 dark:text-zinc-100">{game.awayTeamName}</p>
+              <div className="mt-2 space-y-2">
                 <div>
-                  <label className="mb-1 block text-xs font-semibold text-zinc-500 dark:text-zinc-400">
-                    Def. innings — {game.awayTeamName}{" "}
-                    <span className="font-normal text-zinc-400 dark:text-zinc-500">(A)</span>
-                  </label>
-                  <input
-                    name="awayDefensiveInnings"
-                    type="number"
-                    step="any"
+                  <p className="mb-1 text-center text-[10px] font-semibold uppercase tracking-wide text-zinc-500">Runs</p>
+                  <StatWheel
+                    name="awayRuns"
                     min={0}
-                    defaultValue={game.awayDefensiveInnings ?? ""}
-                    className="w-full rounded-xl border border-zinc-200 bg-white px-3 py-2 text-sm text-zinc-900 shadow-sm focus:border-royal focus:outline-none focus:ring-2 focus:ring-royal/20 dark:border-zinc-600 dark:bg-zinc-900 dark:text-zinc-100"
+                    max={40}
+                    defaultValue={game.awayRuns}
+                    emptyOption
+                    ariaLabel={`Runs for ${game.awayTeamName}`}
                   />
                 </div>
+                {isPool ? (
+                  <div>
+                    <p className="mb-1 text-center text-[10px] font-semibold uppercase tracking-wide text-zinc-500">
+                      Def. innings
+                    </p>
+                    <StatWheel
+                      name="awayDefensiveInnings"
+                      min={0}
+                      max={12}
+                      defaultValue={
+                        game.awayDefensiveInnings != null
+                          ? Math.round(game.awayDefensiveInnings)
+                          : null
+                      }
+                      emptyOption
+                      ariaLabel={`Defensive innings for ${game.awayTeamName}`}
+                    />
+                  </div>
+                ) : null}
+              </div>
+              {bothTeams ? (
+                <button
+                  type="button"
+                  onClick={() => setFieldHomeTeamId(game.awayTeamId!)}
+                  className={
+                    fieldHomeTeamId === game.awayTeamId
+                      ? "mt-3 w-full rounded-lg border-2 border-yellow-400 bg-yellow-200 py-2 text-sm font-bold text-zinc-900 shadow-sm dark:bg-yellow-300/90"
+                      : "mt-3 w-full rounded-lg border-2 border-zinc-200 bg-white py-2 text-sm font-bold text-zinc-500 hover:bg-zinc-50 dark:border-zinc-600 dark:bg-zinc-900 dark:text-zinc-400 dark:hover:bg-zinc-800"
+                  }
+                >
+                  {fieldHomeTeamId === game.awayTeamId ? "Home" : "Away"}
+                </button>
+              ) : null}
+            </div>
+
+            {/* Home (right) */}
+            <div className="rounded-xl border border-zinc-200 bg-zinc-50/80 p-3 dark:border-zinc-700 dark:bg-zinc-900/50">
+              <p className="text-center text-sm font-bold text-zinc-900 dark:text-zinc-100">{game.homeTeamName}</p>
+              <div className="mt-2 space-y-2">
                 <div>
-                  <label className="mb-1 block text-xs font-semibold text-zinc-500 dark:text-zinc-400">
-                    Def. innings — {game.homeTeamName}{" "}
-                    <span className="font-normal text-zinc-400 dark:text-zinc-500">(H)</span>
-                  </label>
-                  <input
-                    name="homeDefensiveInnings"
-                    type="number"
-                    step="any"
+                  <p className="mb-1 text-center text-[10px] font-semibold uppercase tracking-wide text-zinc-500">Runs</p>
+                  <StatWheel
+                    name="homeRuns"
                     min={0}
-                    defaultValue={game.homeDefensiveInnings ?? ""}
-                    className="w-full rounded-xl border border-zinc-200 bg-white px-3 py-2 text-sm text-zinc-900 shadow-sm focus:border-royal focus:outline-none focus:ring-2 focus:ring-royal/20 dark:border-zinc-600 dark:bg-zinc-900 dark:text-zinc-100"
+                    max={40}
+                    defaultValue={game.homeRuns}
+                    emptyOption
+                    ariaLabel={`Runs for ${game.homeTeamName}`}
                   />
                 </div>
-              </>
-            ) : null}
+                {isPool ? (
+                  <div>
+                    <p className="mb-1 text-center text-[10px] font-semibold uppercase tracking-wide text-zinc-500">
+                      Def. innings
+                    </p>
+                    <StatWheel
+                      name="homeDefensiveInnings"
+                      min={0}
+                      max={12}
+                      defaultValue={
+                        game.homeDefensiveInnings != null
+                          ? Math.round(game.homeDefensiveInnings)
+                          : null
+                      }
+                      emptyOption
+                      ariaLabel={`Defensive innings for ${game.homeTeamName}`}
+                    />
+                  </div>
+                ) : null}
+              </div>
+              {bothTeams ? (
+                <button
+                  type="button"
+                  onClick={() => setFieldHomeTeamId(game.homeTeamId!)}
+                  className={
+                    fieldHomeTeamId === game.homeTeamId
+                      ? "mt-3 w-full rounded-lg border-2 border-yellow-400 bg-yellow-200 py-2 text-sm font-bold text-zinc-900 shadow-sm dark:bg-yellow-300/90"
+                      : "mt-3 w-full rounded-lg border-2 border-zinc-200 bg-white py-2 text-sm font-bold text-zinc-500 hover:bg-zinc-50 dark:border-zinc-600 dark:bg-zinc-900 dark:text-zinc-400 dark:hover:bg-zinc-800"
+                  }
+                >
+                  {fieldHomeTeamId === game.homeTeamId ? "Home" : "Away"}
+                </button>
+              ) : null}
+            </div>
           </div>
 
           <div className="flex flex-wrap gap-2 pt-2">
             <button
-              type="submit"
+              type="button"
               disabled={pending}
-              className="min-h-11 flex-1 rounded-xl bg-royal px-4 py-2.5 text-sm font-semibold text-white shadow-sm hover:bg-royal-800 disabled:opacity-50"
+              onClick={onUpdateGameClick}
+              className="min-h-11 flex-1 rounded-xl bg-accent px-4 py-2.5 text-sm font-semibold text-white shadow-sm hover:bg-accent-700 disabled:opacity-50 dark:hover:bg-accent-light"
             >
-              {pending ? "Saving…" : "Save"}
+              {pending ? "Updating…" : "Update Game"}
             </button>
             <button
               type="button"
@@ -325,6 +547,62 @@ function QuickGameModal({
           </div>
         </form>
       </div>
+
+      {scheduleOpen ? (
+        <QuickGameScheduleModal
+          game={game}
+          tournamentSlug={tournamentSlug}
+          timezone={timezone}
+          fieldOptions={fieldOptions}
+          initialFieldId={draftFieldId}
+          initialWhenLocal={draftWhenLocal}
+          onClose={() => setScheduleOpen(false)}
+          onSaved={(fieldId, whenLocal) => {
+            setScheduleDraft({ fieldId, whenLocal });
+          }}
+        />
+      ) : null}
+
+      {completeOpen ? (
+        <div
+          className="fixed inset-0 z-[115] flex items-center justify-center p-4"
+          role="presentation"
+          {...{ [DIVISION_SWIPE_IGNORE]: "" }}
+        >
+          <button
+            type="button"
+            className="absolute inset-0 bg-black/50"
+            aria-label="Dismiss"
+            onClick={() => setCompleteOpen(false)}
+          />
+          <div
+            className="relative z-[116] w-full max-w-sm rounded-2xl border border-zinc-200 bg-white p-5 shadow-2xl dark:border-zinc-700 dark:bg-zinc-950"
+            role="dialog"
+            aria-modal
+            aria-labelledby="complete-confirm-title"
+          >
+            <p id="complete-confirm-title" className="text-center text-base font-semibold text-zinc-900 dark:text-zinc-100">
+              Is the game completed?
+            </p>
+            <div className="mt-4 flex gap-2">
+              <button
+                type="button"
+                onClick={() => onCompleteConfirm(true)}
+                className="min-h-10 flex-1 rounded-xl bg-royal px-4 py-2 text-sm font-semibold text-white hover:bg-royal-800"
+              >
+                Yes
+              </button>
+              <button
+                type="button"
+                onClick={() => onCompleteConfirm(false)}
+                className="min-h-10 flex-1 rounded-xl border border-zinc-200 px-4 py-2 text-sm font-semibold text-zinc-700 hover:bg-zinc-50 dark:border-zinc-600 dark:text-zinc-200 dark:hover:bg-zinc-800"
+              >
+                No
+              </button>
+            </div>
+          </div>
+        </div>
+      ) : null}
     </div>
   );
 }
@@ -357,6 +635,7 @@ export function PublicQuickGameProvider({
       {children}
       {active ? (
         <QuickGameModal
+          key={active.id}
           game={active}
           tournamentSlug={tournamentSlug}
           timezone={timezone}

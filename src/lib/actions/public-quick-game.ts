@@ -9,9 +9,73 @@ import { applyFieldHomeToScoringOptional } from "@/lib/services/game-field-home"
 import { advanceBracketWinnerFromGame } from "@/lib/services/bracket-advance";
 import { recomputePoolStandings } from "@/lib/services/standings";
 import { getPublishedTournamentBySlugForActions } from "@/lib/tournament-context";
-import { publicQuickGameUpdateSchema } from "@/lib/validations/public-quick-game";
+import { publicQuickGameUpdateSchema, publicQuickGameScheduleSchema } from "@/lib/validations/public-quick-game";
 
 export type PublicQuickGameResult = { ok: true } | { ok: false; error?: string };
+export type PublicQuickScheduleResult = { ok: true } | { ok: false; error?: string };
+
+export async function updatePublicQuickGameScheduleAction(
+  _prev: PublicQuickScheduleResult,
+  formData: FormData,
+): Promise<PublicQuickScheduleResult> {
+  const session = await auth();
+  if (
+    !session?.user?.id ||
+    (session.user.role !== "ADMIN" && session.user.role !== "POWER_USER")
+  ) {
+    return { ok: false, error: "You must be signed in as an admin or power user to edit games." };
+  }
+
+  const parsed = publicQuickGameScheduleSchema.safeParse({
+    tournamentSlug: formData.get("tournamentSlug"),
+    id: formData.get("id"),
+    fieldId: formData.get("fieldId"),
+    scheduledAt: formData.get("scheduledAt"),
+    gameKind: formData.get("gameKind"),
+  });
+
+  if (!parsed.success) {
+    const msg =
+      parsed.error.issues.map((i) => (i.path.length ? `${i.path.join(".")}: ${i.message}` : i.message)).join("; ") ||
+      "Invalid input";
+    return { ok: false, error: msg };
+  }
+
+  const tournament = await getPublishedTournamentBySlugForActions(parsed.data.tournamentSlug);
+  if (!tournament) {
+    return { ok: false, error: "Tournament not found." };
+  }
+
+  try {
+    const existing = await assertGameInTournament(parsed.data.id, tournament.id);
+    if (existing.gameKind !== parsed.data.gameKind) {
+      return { ok: false, error: "Game type mismatch; refresh the page and try again." };
+    }
+    await assertFieldInTournament(parsed.data.fieldId, tournament.id);
+
+    let scheduledAt: Date;
+    try {
+      scheduledAt = parseDatetimeLocalInTimeZone(parsed.data.scheduledAt, tournament.timezone);
+    } catch {
+      return { ok: false, error: "Invalid date/time for this tournament's timezone." };
+    }
+
+    await prisma.game.update({
+      where: { id: parsed.data.id },
+      data: {
+        fieldId: parsed.data.fieldId,
+        scheduledAt,
+        schedulePlaceholder: false,
+      },
+    });
+
+    revalidatePath(`/${tournament.slug}`, "layout");
+    return { ok: true };
+  } catch (e) {
+    const msg = e instanceof Error ? e.message : "Failed to update schedule.";
+    return { ok: false, error: msg };
+  }
+}
 
 export async function updatePublicQuickGameAction(
   _prev: PublicQuickGameResult,

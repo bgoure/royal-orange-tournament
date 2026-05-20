@@ -1,17 +1,25 @@
 import { GameKind, GameResultType, GameStatus } from "@prisma/client";
 import { z } from "zod";
 
-const optionalInt = z.preprocess((v) => {
+const optionalRunsInt = z.preprocess((v) => {
   if (v === "" || v === null || v === undefined) return null;
   const n = Number(v);
   return Number.isFinite(n) ? n : null;
-}, z.number().int().nullable());
+}, z.number().int().min(0).max(40).nullable());
 
 const optionalFloat = z.preprocess((v) => {
   if (v === "" || v === null || v === undefined) return null;
   const n = Number(v);
   return Number.isFinite(n) ? n : null;
 }, z.number().nullable());
+
+export const publicQuickGameScheduleSchema = z.object({
+  tournamentSlug: z.string().trim().min(1),
+  id: z.string().min(1),
+  fieldId: z.string().min(1, "Select a field"),
+  scheduledAt: z.string().min(1),
+  gameKind: z.nativeEnum(GameKind),
+});
 
 export const publicQuickGameUpdateSchema = z
   .object({
@@ -21,8 +29,8 @@ export const publicQuickGameUpdateSchema = z
     scheduledAt: z.string().min(1),
     fieldHomeTeamId: z
       .preprocess((v) => (v == null || v === "" ? undefined : String(v)), z.string().min(1).optional()),
-    homeRuns: optionalInt,
-    awayRuns: optionalInt,
+    homeRuns: optionalRunsInt,
+    awayRuns: optionalRunsInt,
     homeDefensiveInnings: optionalFloat,
     awayDefensiveInnings: optionalFloat,
     homeOffensiveInnings: optionalFloat,
@@ -32,6 +40,22 @@ export const publicQuickGameUpdateSchema = z
     gameKind: z.nativeEnum(GameKind),
   })
   .superRefine((data, ctx) => {
+    if (data.gameKind === GameKind.POOL) {
+      for (const [path, val] of [
+        ["homeDefensiveInnings", data.homeDefensiveInnings],
+        ["awayDefensiveInnings", data.awayDefensiveInnings],
+      ] as const) {
+        if (val == null) continue;
+        if (!Number.isInteger(val) || val < 0 || val > 12) {
+          ctx.addIssue({
+            code: "custom",
+            message: "Defensive innings must be a whole number from 0 to 12.",
+            path: [path],
+          });
+        }
+      }
+    }
+
     const hasAnyRun = data.homeRuns != null || data.awayRuns != null;
     const poolFinalIncomplete =
       data.gameKind === GameKind.POOL &&
