@@ -21,7 +21,7 @@ export const publicQuickGameScheduleSchema = z.object({
   gameKind: z.nativeEnum(GameKind),
 });
 
-/** POWER_USER quick reset: pool games only (bracket games need different propagation rules). */
+/** Public quick-edit reset: pool games only (bracket games need different propagation rules). */
 export const publicQuickGameResetPoolScoringSchema = z
   .object({
     tournamentSlug: z.string().trim().min(1),

@@ -58,7 +58,9 @@ export async function SiteShell({
         <PwaInstallPrompt />
         <PublicQuickGameProvider
           isAdmin={isAdmin}
-          showPoolScoreReset={session?.user?.role === "POWER_USER"}
+          showPoolScoreReset={
+            session?.user?.role === "POWER_USER" || session?.user?.role === "ADMIN"
+          }
           tournamentSlug={slug}
           timezone={tournament.timezone}
           fieldOptions={quickFieldOptions}

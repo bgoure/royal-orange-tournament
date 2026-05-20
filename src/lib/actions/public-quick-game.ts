@@ -204,7 +204,7 @@ export async function updatePublicQuickGameAction(
 }
 
 /**
- * Power users: one-shot clear of pool game scoring back to scheduled 0–0 and recalculated standings.
+ * Staff (ADMIN or POWER_USER): one-shot clear of pool game scoring back to scheduled 0–0 and recalculated standings.
  * Bracket / consolation games are not supported here (winner propagation).
  */
 export async function resetPublicQuickGamePoolScoringAction(
@@ -212,10 +212,13 @@ export async function resetPublicQuickGamePoolScoringAction(
   formData: FormData,
 ): Promise<PublicQuickGameResult> {
   const session = await auth();
-  if (!session?.user?.id || session.user.role !== Role.POWER_USER) {
+  if (
+    !session?.user?.id ||
+    (session.user.role !== Role.POWER_USER && session.user.role !== Role.ADMIN)
+  ) {
     return {
       ok: false,
-      error: "Only power users can reset game scoring from here.",
+      error: "You must be signed in as an admin or power user to reset game scoring here.",
     };
   }
 
@@ -237,9 +240,11 @@ export async function resetPublicQuickGamePoolScoringAction(
     return { ok: false, error: "Tournament not found." };
   }
 
-  const scopeErr = await assertGameDivisionScope(session.user.id, Role.POWER_USER, parsed.data.id);
-  if (scopeErr) {
-    return { ok: false, error: scopeErr };
+  if (session.user.role === Role.POWER_USER) {
+    const scopeErr = await assertGameDivisionScope(session.user.id, Role.POWER_USER, parsed.data.id);
+    if (scopeErr) {
+      return { ok: false, error: scopeErr };
+    }
   }
 
   try {

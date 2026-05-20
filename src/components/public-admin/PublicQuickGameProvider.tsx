@@ -265,7 +265,7 @@ function QuickGameModal({
   tournamentSlug: string;
   timezone: string;
   fieldOptions: QuickEditFieldOption[];
-  /** POWER_USER: show one-click pool scoring reset (with confirm). */
+  /** ADMIN / POWER_USER: show one-click pool scoring reset (with confirm). */
   showPoolScoreReset: boolean;
   onClose: () => void;
 }) {
@@ -666,7 +666,7 @@ export function PublicQuickGameProvider({
   children,
 }: {
   isAdmin: boolean;
-  /** POWER_USER-only: quick reset pool scoring in the game modal. */
+  /** ADMIN / POWER_USER: quick reset pool scoring in the game modal. */
   showPoolScoreReset: boolean;
   tournamentSlug: string;
   timezone: string;
