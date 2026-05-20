@@ -151,7 +151,7 @@ describe("orderTeamsForPool", () => {
     assert.equal(order[2], c);
   });
 
-  it("uses runs-against ratio among tied teams when head-to-head wins match", () => {
+  it("RP 7.3(b) then (a): 3-way cycle ranks by RA among tied, then head-to-head for the pair", () => {
     const x = "x-team";
     const y = "y-team";
     const z = "z-team";
@@ -195,8 +195,93 @@ describe("orderTeamsForPool", () => {
     const aggs = buildAggregates(teamIds, games);
     for (const id of teamIds) assert.equal(aggs.get(id)!.points, 2);
     const { order } = orderTeamsForPool(teamIds, games, aggs, new Map());
-    // winsAmong tied at 1; among-group RA/IP lowest for x (1 run / 36 IP vs 1/13 and 1/20)
-    assert.equal(order[0], x);
+    // x best RA among {x,y,z}; then y beats z head-to-head → x, y, z
+    assert.deepEqual(order, [x, y, z]);
+  });
+
+  /** OBA RP 7.3: RA among 3+ picks 1st; two remaining use head-to-head (Oak over Bur). */
+  it("regression: four-team round robin matches OBA 2-1 / 2-1 / 2-1 / 0-3 scenario", () => {
+    const burlington = "pool-burlington";
+    const cambridge = "pool-cambridge";
+    const oakville = "pool-oakville";
+    const eastYork = "pool-east-york";
+    const teamIds = [burlington, cambridge, oakville, eastYork];
+    const inn = 6;
+    const games: StandingsGameInput[] = [
+      final({
+        resultType: "REGULAR",
+        homeTeamId: burlington,
+        awayTeamId: eastYork,
+        homeRuns: 12,
+        awayRuns: 5,
+        homeDefensiveInnings: inn,
+        awayDefensiveInnings: inn,
+        homeOffensiveInnings: null,
+        awayOffensiveInnings: null,
+      }),
+      final({
+        resultType: "REGULAR",
+        homeTeamId: cambridge,
+        awayTeamId: oakville,
+        homeRuns: 7,
+        awayRuns: 5,
+        homeDefensiveInnings: inn,
+        awayDefensiveInnings: inn,
+        homeOffensiveInnings: null,
+        awayOffensiveInnings: null,
+      }),
+      final({
+        resultType: "REGULAR",
+        homeTeamId: oakville,
+        awayTeamId: eastYork,
+        homeRuns: 11,
+        awayRuns: 6,
+        homeDefensiveInnings: inn,
+        awayDefensiveInnings: inn,
+        homeOffensiveInnings: null,
+        awayOffensiveInnings: null,
+      }),
+      final({
+        resultType: "REGULAR",
+        homeTeamId: burlington,
+        awayTeamId: cambridge,
+        homeRuns: 5,
+        awayRuns: 4,
+        homeDefensiveInnings: inn,
+        awayDefensiveInnings: inn,
+        homeOffensiveInnings: null,
+        awayOffensiveInnings: null,
+      }),
+      final({
+        resultType: "REGULAR",
+        homeTeamId: oakville,
+        awayTeamId: burlington,
+        homeRuns: 9,
+        awayRuns: 8,
+        homeDefensiveInnings: inn,
+        awayDefensiveInnings: inn,
+        homeOffensiveInnings: null,
+        awayOffensiveInnings: null,
+      }),
+      final({
+        resultType: "REGULAR",
+        homeTeamId: cambridge,
+        awayTeamId: eastYork,
+        homeRuns: 10,
+        awayRuns: 1,
+        homeDefensiveInnings: inn,
+        awayDefensiveInnings: inn,
+        homeOffensiveInnings: null,
+        awayOffensiveInnings: null,
+      }),
+    ];
+    const aggs = buildAggregates(teamIds, games);
+    for (const id of [burlington, cambridge, oakville]) {
+      assert.equal(aggs.get(id)!.points, 4);
+    }
+    assert.equal(aggs.get(eastYork)!.points, 0);
+    const { order } = orderTeamsForPool(teamIds, games, aggs, new Map());
+    assert.deepEqual(order, [cambridge, oakville, burlington, eastYork]);
   });
 
   it("uses runs-against ratio all pool games when among-tied RA ratios still match", () => {

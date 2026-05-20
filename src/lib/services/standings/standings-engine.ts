@@ -1,6 +1,7 @@
 /**
  * Pure standings ordering: aggregate FINAL pool games and rank teams by points,
- * then tiebreakers (strict order). No I/O.
+ * then tiebreakers per OBA-style RP 7.3: recursive RP 7.3(b) for 3+ eligible teams,
+ * then RP 7.3(a) when two remain. No I/O.
  */
 
 const RATIO_EPS = 1e-9;
@@ -200,16 +201,10 @@ function nearEqualNumbers(a: number, b: number): boolean {
 }
 
 /**
- * Tiebreak tuple: higher numeric prefix = better rank.
- * 1. head-to-head wins among tied teams
- * 2. RA ratio among tied teams (lower RA better → store negated)
- * 3. RA ratio all pool games
- * 4. RF ratio among tied teams
- * 5. RF ratio all pool games
- * 6. tiebreakOverrideRank (lower rank value = better → store as bonus)
- * 7. teamId lexicographic (coin-toss placeholder: stable arbitrary order)
+ * RP 7.3(a) — exactly two tied teams. Higher numeric prefix = better rank.
+ * Head-to-head wins, then RA/RF among and all pool games, director override, teamId.
  */
-function tiebreakKey(
+function tiebreakKeyRP73a(
   teamId: string,
   aggs: Map<string, PoolTeamAggregate>,
   scoped: Map<string, ScopedStat>,
@@ -226,7 +221,26 @@ function tiebreakKey(
   return [h2h, raTied, raAll, rfTied, rfAll, manualBonus, teamId] as const;
 }
 
-function compareTiebreakKeys(
+/**
+ * RP 7.3(b) — three or more tied teams: next placement without head-to-head-wins step.
+ */
+function tiebreakKeyRP73b(
+  teamId: string,
+  aggs: Map<string, PoolTeamAggregate>,
+  scoped: Map<string, ScopedStat>,
+  tiebreakOverrideRank: number | null,
+): readonly [number, number, number, number, number, string] {
+  const agg = aggs.get(teamId)!;
+  const sc = scoped.get(teamId)!;
+  const raTied = -raRatio(sc.runsAgainst, sc.defensiveInnings);
+  const raAll = -raRatio(agg.runsAgainst, agg.defensiveInnings);
+  const rfTied = rfRatio(sc.runsFor, sc.offensiveInnings);
+  const rfAll = rfRatio(agg.runsFor, agg.offensiveInnings);
+  const manualBonus = tiebreakOverrideRank != null ? 10_000 - tiebreakOverrideRank : 0;
+  return [raTied, raAll, rfTied, rfAll, manualBonus, teamId] as const;
+}
+
+function compareTiebreakKeys7(
   a: readonly [number, number, number, number, number, number, string],
   b: readonly [number, number, number, number, number, number, string],
 ): number {
@@ -240,8 +254,21 @@ function compareTiebreakKeys(
   return a[6].localeCompare(b[6]);
 }
 
-/** True if ordering between two teams required the teamId (step 6) tiebreak. */
-function reliedOnCoinToss(
+function compareTiebreakKeys6(
+  a: readonly [number, number, number, number, number, string],
+  b: readonly [number, number, number, number, number, string],
+): number {
+  for (let i = 0; i < 5; i++) {
+    const av = a[i] as number;
+    const bv = b[i] as number;
+    if (!nearEqualNumbers(av, bv)) {
+      return bv - av;
+    }
+  }
+  return a[5].localeCompare(b[5]);
+}
+
+function reliedOnCoinToss7(
   a: readonly [number, number, number, number, number, number, string],
   b: readonly [number, number, number, number, number, number, string],
 ): boolean {
@@ -253,9 +280,74 @@ function reliedOnCoinToss(
   return a[6] !== b[6];
 }
 
+function reliedOnCoinToss6(
+  a: readonly [number, number, number, number, number, string],
+  b: readonly [number, number, number, number, number, string],
+): boolean {
+  for (let i = 0; i < 5; i++) {
+    const av = a[i] as number;
+    const bv = b[i] as number;
+    if (!nearEqualNumbers(av, bv)) return false;
+  }
+  return a[5] !== b[5];
+}
+
+/**
+ * Eligible = no forfeit loss. Ineligible teams sort after eligible in the same points bucket.
+ */
+function orderEligibleByObaRP73(
+  teamIds: string[],
+  games: StandingsGameInput[],
+  aggs: Map<string, PoolTeamAggregate>,
+  tiebreakOverrides: Map<string, number | null>,
+): { order: string[]; usedCoinTossPlaceholder: boolean } {
+  if (teamIds.length === 0) return { order: [], usedCoinTossPlaceholder: false };
+  if (teamIds.length === 1) {
+    return { order: [teamIds[0]!], usedCoinTossPlaceholder: false };
+  }
+
+  if (teamIds.length === 2) {
+    const [a, b] = teamIds;
+    const pair = new Set([a, b]);
+    const scoped = scopedAmongTied(games, pair);
+    const ka = tiebreakKeyRP73a(a, aggs, scoped, tiebreakOverrides.get(a) ?? null);
+    const kb = tiebreakKeyRP73a(b, aggs, scoped, tiebreakOverrides.get(b) ?? null);
+    const keys = [
+      { tid: a, key: ka },
+      { tid: b, key: kb },
+    ].sort((x, y) => compareTiebreakKeys7(x.key, y.key));
+    const usedCoin = reliedOnCoinToss7(keys[0]!.key, keys[1]!.key);
+    return { order: keys.map((row) => row.tid), usedCoinTossPlaceholder: usedCoin };
+  }
+
+  const groupSet = new Set(teamIds);
+  const scoped = scopedAmongTied(games, groupSet);
+  const rows = teamIds.map((tid) => ({
+    tid,
+    key: tiebreakKeyRP73b(tid, aggs, scoped, tiebreakOverrides.get(tid) ?? null),
+  }));
+  rows.sort((x, y) => compareTiebreakKeys6(x.key, y.key));
+
+  const usedCoinTop = rows.length >= 2 && reliedOnCoinToss6(rows[0]!.key, rows[1]!.key);
+
+  const winner = rows[0]!.tid;
+  const rest = teamIds.filter((t) => t !== winner);
+  const { order: restOrder, usedCoinTossPlaceholder: restCoin } = orderEligibleByObaRP73(
+    rest,
+    games,
+    aggs,
+    tiebreakOverrides,
+  );
+
+  return {
+    order: [winner, ...restOrder],
+    usedCoinTossPlaceholder: usedCoinTop || restCoin,
+  };
+}
+
 /**
  * Team IDs in display order (index 0 = first place). Same points are clustered;
- * tiebreakers applied within each cluster.
+ * RP 7.3(b) recursively, then RP 7.3(a) for pairs among eligible teams.
  */
 export function orderTeamsForPool(
   teamIds: string[],
@@ -288,20 +380,19 @@ export function orderTeamsForPool(
       continue;
     }
 
-    const groupSet = new Set(group);
-    const scoped = scopedAmongTied(games, groupSet);
-    const keys = group.map((tid) => ({
-      tid,
-      key: tiebreakKey(tid, aggs, scoped, tiebreakOverrides.get(tid) ?? null),
-    }));
-    keys.sort((a, b) => compareTiebreakKeys(a.key, b.key));
+    const eligible = group.filter((id) => (aggs.get(id)?.forfeitLosses ?? 0) === 0);
+    const ineligible = group.filter((id) => (aggs.get(id)?.forfeitLosses ?? 0) > 0);
+    ineligible.sort((a, b) => a.localeCompare(b));
 
-    for (let k = 0; k < keys.length - 1; k++) {
-      if (reliedOnCoinToss(keys[k]!.key, keys[k + 1]!.key)) {
-        usedCoin = true;
-      }
-    }
-    for (const { tid } of keys) result.push(tid);
+    const { order: eOrder, usedCoinTossPlaceholder: groupCoin } = orderEligibleByObaRP73(
+      eligible,
+      games,
+      aggs,
+      tiebreakOverrides,
+    );
+    usedCoin = usedCoin || groupCoin;
+    for (const tid of eOrder) result.push(tid);
+    for (const tid of ineligible) result.push(tid);
   }
 
   return { order: result, usedCoinTossPlaceholder: usedCoin };
