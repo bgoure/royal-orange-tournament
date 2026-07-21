@@ -5,6 +5,7 @@ import { SiteShell } from "@/components/layout/SiteShell";
 import {
   getArchivedPublishedTournamentBySlug,
   getPublishedTournamentBySlug,
+  getTournamentForSlugRedirect,
 } from "@/lib/tournament-context";
 import { buildTournamentPublicMetadata } from "@/lib/tournament-public-metadata";
 import { tournamentPathFromBase, tournamentPublicBasePath } from "@/lib/tournament-public-path";
@@ -18,6 +19,18 @@ function pathAfterFirstSegment(pathname: string, slug: string): string | null {
   return parts.slice(1).join("/");
 }
 
+function redirectTargetForSlugChange(
+  pathname: string,
+  requestedSlug: string,
+  tournament: { slug: string; archiveFolder: string | null; archivedAt: Date | null },
+): string {
+  const canonicalBase = tournamentPublicBasePath(tournament);
+  const rest = pathAfterFirstSegment(pathname, requestedSlug) ?? "";
+  return rest.length > 0
+    ? tournamentPathFromBase(canonicalBase, ...rest.split("/").filter(Boolean))
+    : canonicalBase;
+}
+
 export async function generateMetadata({
   params,
 }: {
@@ -28,6 +41,8 @@ export async function generateMetadata({
   if (live) return buildTournamentPublicMetadata(live);
   const archived = await getArchivedPublishedTournamentBySlug(tournamentSlug);
   if (archived) return buildTournamentPublicMetadata(archived);
+  const viaRedirect = await getTournamentForSlugRedirect(tournamentSlug);
+  if (viaRedirect) return buildTournamentPublicMetadata(viaRedirect);
   return { title: "Tournament" };
 }
 
@@ -45,12 +60,16 @@ export default async function TournamentSiteLayout({
   }
 
   const archived = await getArchivedPublishedTournamentBySlug(tournamentSlug);
-  if (!archived) notFound();
+  if (archived) {
+    const pathname = (await headers()).get(TOURNEY_PATHNAME_HEADER) ?? `/${tournamentSlug}`;
+    permanentRedirect(redirectTargetForSlugChange(pathname, tournamentSlug, archived));
+  }
 
-  const pathname = (await headers()).get(TOURNEY_PATHNAME_HEADER) ?? `/${tournamentSlug}`;
-  const canonicalBase = tournamentPublicBasePath(archived);
-  const rest = pathAfterFirstSegment(pathname, tournamentSlug) ?? "";
-  const target =
-    rest.length > 0 ? tournamentPathFromBase(canonicalBase, ...rest.split("/").filter(Boolean)) : canonicalBase;
-  permanentRedirect(target);
+  const viaRedirect = await getTournamentForSlugRedirect(tournamentSlug);
+  if (viaRedirect) {
+    const pathname = (await headers()).get(TOURNEY_PATHNAME_HEADER) ?? `/${tournamentSlug}`;
+    permanentRedirect(redirectTargetForSlugChange(pathname, tournamentSlug, viaRedirect));
+  }
+
+  notFound();
 }

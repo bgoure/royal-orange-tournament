@@ -7,6 +7,7 @@ import {
 } from "@/components/admin/tournament/TournamentHeadquartersForm";
 import { TournamentDangerZoneForm } from "@/components/admin/tournament/TournamentDangerZoneForm";
 import { TournamentRenameForm } from "@/components/admin/tournament/TournamentRenameForm";
+import { TournamentSlugForm } from "@/components/admin/tournament/TournamentSlugForm";
 import { TournamentPublicSwitcherOrderForm } from "@/components/admin/tournament/TournamentPublicSwitcherOrderForm";
 import { TournamentBrandingForm } from "@/components/admin/tournament/TournamentBrandingForm";
 import { TournamentPublicAnnouncementsForm } from "@/components/admin/tournament/TournamentPublicAnnouncementsForm";
@@ -92,6 +93,7 @@ export default async function AdminTournamentSettingsPage() {
           </p>
         </header>
         <TournamentRenameForm tournamentName={tournament.name} canManage={canManage} />
+        <TournamentSlugForm tournamentSlug={tournament.slug} canManage={canManage} />
         <TournamentPublicSwitcherOrderForm
           publicSwitcherOrder={tournament.publicSwitcherOrder}
           tournamentSlug={tournament.slug}
@@ -136,6 +138,7 @@ export default async function AdminTournamentSettingsPage() {
         </p>
       </header>
       <TournamentRenameForm tournamentName={tournament.name} canManage={canManage} />
+      <TournamentSlugForm tournamentSlug={tournament.slug} canManage={canManage} />
       <TournamentPublicSwitcherOrderForm
         publicSwitcherOrder={tournament.publicSwitcherOrder}
         tournamentSlug={tournament.slug}

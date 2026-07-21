@@ -97,6 +97,21 @@ export async function getArchivedPublishedTournamentBySlug(slug: string) {
   });
 }
 
+/**
+ * If `fromSlug` was a former public URL, return the published tournament it should redirect to.
+ */
+export async function getTournamentForSlugRedirect(fromSlug: string) {
+  const row = await prisma.tournamentSlugRedirect.findFirst({
+    where: { fromSlug: { equals: fromSlug, mode: "insensitive" } },
+    select: {
+      tournament: true,
+    },
+  });
+  const t = row?.tournament;
+  if (!t || !t.isPublished) return null;
+  return t;
+}
+
 /** First live tournament slug for redirecting `/` on the public site.
  * Prefer the visitor’s `tournament_slug` cookie when it still matches a published live event,
  * so admin “Public site” and post-create flows land on the event they were working on.

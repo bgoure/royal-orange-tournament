@@ -15,6 +15,23 @@ export function slugifyTournamentName(name: string): string {
   return s.length > 0 ? s : "tournament";
 }
 
+/** Path segments reserved by the app — cannot be used as live tournament slugs. */
+export const RESERVED_TOURNAMENT_SLUGS = new Set([
+  "admin",
+  "api",
+  "login",
+  "past",
+  "auth",
+  "_next",
+  "favicon.ico",
+  "manifest.json",
+  "robots.txt",
+]);
+
+export function isReservedTournamentSlug(slug: string): boolean {
+  return RESERVED_TOURNAMENT_SLUGS.has(slug.toLowerCase());
+}
+
 /**
  * Reserves a unique `Tournament.slug` by appending `-2`, `-3`, … if the base is taken.
  */

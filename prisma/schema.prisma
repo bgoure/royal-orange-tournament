@@ -139,10 +139,22 @@ model Tournament {
   mediaAssets   MediaAsset[]
   sponsors        TournamentSponsor[]
   publicFeedbacks PublicFeedback[]
+  slugRedirects   TournamentSlugRedirect[]
   createdAt       DateTime @default(now())
   updatedAt       DateTime @updatedAt
 
   @@index([archiveFolder, slug])
+}
+
+/// Former public slugs that permanently redirect to the tournament’s current public path.
+model TournamentSlugRedirect {
+  id           String     @id @default(cuid())
+  fromSlug     String     @unique
+  tournamentId String
+  tournament   Tournament @relation(fields: [tournamentId], references: [id], onDelete: Cascade)
+  createdAt    DateTime   @default(now())
+
+  @@index([tournamentId])
 }
 
 /// Printable game sheet title header image (same storage pattern as team logos — DB bytes, served via API).

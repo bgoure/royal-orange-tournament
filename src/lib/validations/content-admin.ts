@@ -48,6 +48,11 @@ export const tournamentRenameSchema = z.object({
   name: z.string().trim().min(1, "Name is required").max(200),
 });
 
+/** Raw slug input — normalized with `slugifyTournamentName` before uniqueness checks. */
+export const tournamentSlugChangeSchema = z.object({
+  slug: z.string().trim().min(1, "URL slug is required").max(120),
+});
+
 export const tournamentPublicSwitcherOrderSchema = z.object({
   publicSwitcherOrder: z.coerce.number().int().min(0).max(999_999),
 });
