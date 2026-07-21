@@ -76,8 +76,14 @@ export const tournamentWizardSchema = z
     timezone: z.string().trim().min(1).max(120),
     /** Number of fields to create at HQ (Field 1…N). */
     fieldCount: z.coerce.number().int().min(1).max(WIZARD_MAX_FIELDS),
-    /** Minutes between game start waves (slot length). */
+    /** Minutes between game start waves (slot / changeover cadence). */
     slotMinutes: z.coerce.number().int().min(15).max(360),
+    /** How long each game lasts (field + team occupied). */
+    gameDurationMinutes: z.coerce.number().int().min(15).max(360),
+    /** Break after a game ends before that team may start another. */
+    minRestMinutes: z.coerce.number().int().min(0).max(240),
+    /** Extra travel minutes when a team's next game is on a different field. */
+    travelMinutesBetweenFields: z.coerce.number().int().min(0).max(120),
     /** First allowed game start each day (HH:mm in tournament timezone). */
     dayStartTime: hmSchema,
     /** Games must start before this time each day (HH:mm). */

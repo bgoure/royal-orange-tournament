@@ -1,5 +1,4 @@
 import { GameKind } from "@prisma/client";
-import type { DateTime } from "luxon";
 import { prisma } from "@/lib/db";
 import { parseDatetimeLocalInTimeZone } from "@/lib/datetime-tournament";
 import {
@@ -9,8 +8,11 @@ import {
 import { isValidEntryTeamCount } from "@/lib/services/bracket-engine";
 import {
   buildRoundRobinPairings,
+  emptySchedulePackingCursor,
   estimateScheduleCapacity,
   scheduleRoundRobinSlotsInWindow,
+  type SchedulePackingCursor,
+  type ScheduleWindowOpts,
 } from "@/lib/services/round-robin-schedule";
 import { recomputePoolStandings } from "@/lib/services/standings";
 
@@ -59,12 +61,15 @@ export type WizardScheduleParams = {
   dayStartTime: string;
   dayEndTime: string;
   slotMinutes: number;
+  gameDurationMinutes: number;
+  minRestMinutes: number;
+  travelMinutesBetweenFields: number;
   fieldIds: string[];
 };
 
 /**
  * Generate single round-robin for every pool with ≥2 teams inside the tournament window.
- * Pools are packed sequentially on the shared fields (no double-booking).
+ * Pools share fields sequentially; team rest and inter-field travel are enforced.
  */
 export async function generateWizardPoolSchedules(
   opts: WizardScheduleParams & { tournamentId: string },
@@ -90,17 +95,23 @@ export async function generateWizardPoolSchedules(
     dayStartHm: opts.dayStartTime,
     dayEndHm: opts.dayEndTime,
     slotMinutes: opts.slotMinutes,
+    gameDurationMinutes: opts.gameDurationMinutes,
+    minRestMinutes: opts.minRestMinutes,
+    travelMinutesBetweenFields: opts.travelMinutesBetweenFields,
   });
   notes.push(...capacity.warnings);
 
-  let cursor: { nextAt: DateTime | null } = { nextAt: null };
-  const windowOpts = {
+  let cursor: SchedulePackingCursor = emptySchedulePackingCursor();
+  const windowOpts: ScheduleWindowOpts = {
     timezone: opts.timezone,
     startDateYmd: opts.startDateYmd,
     endDateYmd: opts.endDateYmd,
     dayStartHm: opts.dayStartTime,
     dayEndHm: opts.dayEndTime,
     slotMinutes: opts.slotMinutes,
+    gameDurationMinutes: opts.gameDurationMinutes,
+    minRestMinutes: opts.minRestMinutes,
+    travelMinutesBetweenFields: opts.travelMinutesBetweenFields,
     fieldIds: opts.fieldIds,
   };
 
@@ -125,7 +136,7 @@ export async function generateWizardPoolSchedules(
 
     const pairings = buildRoundRobinPairings(pool.teams.map((t) => t.id));
     const packed = scheduleRoundRobinSlotsInWindow(pairings, windowOpts, cursor);
-    cursor = { nextAt: packed.nextAt };
+    cursor = packed.cursor;
     notes.push(...packed.warnings.map((w) => `${label}: ${w}`));
 
     if (packed.slots.length === 0) {
@@ -240,7 +251,7 @@ export async function runWizardFinishOptions(
     notes.push(...rr.notes);
     if (rr.gamesCreated > 0) {
       notes.push(
-        `Created ${rr.gamesCreated} pool game(s) on ${opts.fieldIds.length} field(s), ${opts.dayStartTime}–${opts.dayEndTime}, ${opts.slotMinutes}-min slots (${opts.timezone}).`,
+        `Created ${rr.gamesCreated} pool game(s) on ${opts.fieldIds.length} field(s), ${opts.dayStartTime}–${opts.dayEndTime}, ${opts.gameDurationMinutes}-min games / ${opts.slotMinutes}-min slots, ${opts.minRestMinutes}-min rest, ${opts.travelMinutesBetweenFields}-min field travel (${opts.timezone}).`,
       );
     }
   }

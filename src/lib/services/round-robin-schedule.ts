@@ -122,7 +122,14 @@ export type ScheduleWindowOpts = {
   dayStartHm: string;
   /** Wall-clock HH:mm — games must start strictly before this time. */
   dayEndHm: string;
+  /** Preferred minutes between successive wave start times. */
   slotMinutes: number;
+  /** How long a game occupies a field / keeps a team busy. */
+  gameDurationMinutes: number;
+  /** Minutes after a game ends before that team may start another. */
+  minRestMinutes: number;
+  /** Extra minutes when a team's next game is on a different field (travel). */
+  travelMinutesBetweenFields: number;
   fieldIds: string[];
 };
 
@@ -184,8 +191,28 @@ export type ScheduleCapacityEstimate = {
   warnings: string[];
 };
 
+export type SchedulePackingCursor = {
+  nextWaveAt: DateTime | null;
+  /** Field id → earliest time the field is free for a new start. */
+  fieldFreeAt: Map<string, DateTime>;
+  /** Team id → earliest time the team may start another game. */
+  teamReadyAt: Map<string, DateTime>;
+  /** Team id → field of their last scheduled game. */
+  teamLastFieldId: Map<string, string>;
+};
+
+export function emptySchedulePackingCursor(): SchedulePackingCursor {
+  return {
+    nextWaveAt: null,
+    fieldFreeAt: new Map(),
+    teamReadyAt: new Map(),
+    teamLastFieldId: new Map(),
+  };
+}
+
 /**
- * Estimate whether pool RRs fit into the tournament window (sequential pools, shared fields).
+ * Estimate whether pool RRs fit into the tournament window, including rest/travel constraints
+ * via a dry-run of the same packer.
  */
 export function estimateScheduleCapacity(opts: {
   poolTeamCounts: number[];
@@ -196,9 +223,13 @@ export function estimateScheduleCapacity(opts: {
   dayStartHm: string;
   dayEndHm: string;
   slotMinutes: number;
+  gameDurationMinutes: number;
+  minRestMinutes: number;
+  travelMinutesBetweenFields: number;
 }): ScheduleCapacityEstimate {
   const warnings: string[] = [];
   const fieldCount = Math.max(1, opts.fieldCount);
+  const fieldIds = Array.from({ length: fieldCount }, (_, i) => `f${i}`);
   let wavesNeeded = 0;
   for (const tc of opts.poolTeamCounts) {
     if (tc >= 2) wavesNeeded += countRoundRobinWaves(tc, fieldCount);
@@ -218,39 +249,80 @@ export function estimateScheduleCapacity(opts: {
     warnings.push(
       "No valid time slots in the date range and daily hours — widen the window or shorten slot length.",
     );
-  } else if (wavesNeeded > slotsAvailable) {
+  }
+
+  const windowOpts: ScheduleWindowOpts = {
+    timezone: opts.timezone,
+    startDateYmd: opts.startDateYmd,
+    endDateYmd: opts.endDateYmd,
+    dayStartHm: opts.dayStartHm,
+    dayEndHm: opts.dayEndHm,
+    slotMinutes: opts.slotMinutes,
+    gameDurationMinutes: opts.gameDurationMinutes,
+    minRestMinutes: opts.minRestMinutes,
+    travelMinutesBetweenFields: opts.travelMinutesBetweenFields,
+    fieldIds,
+  };
+
+  let cursor = emptySchedulePackingCursor();
+  let dryOverflow = false;
+  let poolIndex = 0;
+  for (const tc of opts.poolTeamCounts) {
+    if (tc < 2) continue;
+    const ids = Array.from({ length: tc }, (_, i) => `p${poolIndex}_t${i}`);
+    poolIndex += 1;
+    const pairings = buildRoundRobinPairings(ids);
+    const packed = scheduleRoundRobinSlotsInWindow(pairings, windowOpts, cursor);
+    cursor = packed.cursor;
+    if (packed.warnings.some((w) => w.toLowerCase().includes("outside"))) {
+      dryOverflow = true;
+    }
+  }
+
+  if (dryOverflow || (wavesNeeded > 0 && wavesNeeded > slotsAvailable)) {
     warnings.push(
-      `Schedule needs about ${wavesNeeded} time slot(s) but only ${slotsAvailable} fit in ${opts.startDateYmd}–${opts.endDateYmd} between ${opts.dayStartHm} and ${opts.dayEndHm} on ${fieldCount} field(s). Add fields, days, or shorten slot length.`,
+      `With rest (${opts.minRestMinutes} min) and field travel (${opts.travelMinutesBetweenFields} min), the schedule may not fit ${opts.startDateYmd}–${opts.endDateYmd} between ${opts.dayStartHm} and ${opts.dayEndHm} on ${fieldCount} field(s). Add fields/days, shorten games, or reduce rest/travel.`,
     );
   }
 
   return {
     wavesNeeded,
     slotsAvailable,
-    fits: wavesNeeded > 0 && wavesNeeded <= slotsAvailable,
+    fits: wavesNeeded > 0 && !dryOverflow && wavesNeeded <= slotsAvailable,
     warnings,
   };
 }
 
 /**
- * Pack RR pairings into a date/time window without double-booking a field.
- * Same-round games share a start when enough fields exist; overflow becomes the next wave.
- * Advances `cursor` so multiple pools can be scheduled sequentially on the same fields.
+ * Pack RR pairings into a date/time window without double-booking a field,
+ * respecting team rest and travel time when switching fields.
  */
 export function scheduleRoundRobinSlotsInWindow(
   pairings: RoundRobinPairing[],
   opts: ScheduleWindowOpts,
-  cursor?: { nextAt: DateTime | null },
-): { slots: ScheduledRoundRobinSlot[]; warnings: string[]; nextAt: DateTime | null } {
+  cursor?: SchedulePackingCursor,
+): { slots: ScheduledRoundRobinSlot[]; warnings: string[]; cursor: SchedulePackingCursor } {
   const warnings: string[] = [];
+  const state: SchedulePackingCursor = cursor
+    ? {
+        nextWaveAt: cursor.nextWaveAt,
+        fieldFreeAt: new Map(cursor.fieldFreeAt),
+        teamReadyAt: new Map(cursor.teamReadyAt),
+        teamLastFieldId: new Map(cursor.teamLastFieldId),
+      }
+    : emptySchedulePackingCursor();
+
   if (pairings.length === 0) {
-    return { slots: [], warnings, nextAt: cursor?.nextAt ?? null };
+    return { slots: [], warnings, cursor: state };
   }
   if (opts.fieldIds.length === 0) {
     throw new Error("At least one field is required");
   }
   if (opts.slotMinutes < 1 || opts.slotMinutes > 24 * 60) {
     throw new Error("Slot minutes must be between 1 and 1440");
+  }
+  if (opts.gameDurationMinutes < 1 || opts.gameDurationMinutes > 24 * 60) {
+    throw new Error("Game duration must be between 1 and 1440");
   }
 
   const { hour: sh, minute: sm } = parseHm(opts.dayStartHm);
@@ -264,8 +336,9 @@ export function scheduleRoundRobinSlotsInWindow(
   const dayEndOf = (day: DateTime) => day.set({ hour: eh, minute: em, second: 0, millisecond: 0 });
   const dayStartOf = (day: DateTime) => day.set({ hour: sh, minute: sm, second: 0, millisecond: 0 });
 
-  let next =
-    cursor?.nextAt && cursor.nextAt.isValid ? cursor.nextAt : dayStartOf(firstDay);
+  if (!state.nextWaveAt) {
+    state.nextWaveAt = dayStartOf(firstDay);
+  }
 
   const advancePastWindow = (from: DateTime): DateTime | null => {
     let t = from;
@@ -284,6 +357,15 @@ export function scheduleRoundRobinSlotsInWindow(
     return null;
   };
 
+  const teamEarliest = (teamId: string, fieldId: string): DateTime | null => {
+    const ready = state.teamReadyAt.get(teamId);
+    if (!ready) return null;
+    const lastField = state.teamLastFieldId.get(teamId);
+    const travel =
+      lastField && lastField !== fieldId ? opts.travelMinutesBetweenFields : 0;
+    return ready.plus({ minutes: travel });
+  };
+
   const byRound = new Map<number, RoundRobinPairing[]>();
   for (const p of pairings) {
     const list = byRound.get(p.roundIndex) ?? [];
@@ -293,41 +375,72 @@ export function scheduleRoundRobinSlotsInWindow(
   const roundIndexes = [...byRound.keys()].sort((a, b) => a - b);
   const out: ScheduledRoundRobinSlot[] = [];
   let overflow = false;
+  let restOrTravelPushed = false;
 
   for (const roundIndex of roundIndexes) {
     const roundPairings = byRound.get(roundIndex)!;
     for (let offset = 0; offset < roundPairings.length; offset += opts.fieldIds.length) {
       const wave = roundPairings.slice(offset, offset + opts.fieldIds.length);
-      const placed = advancePastWindow(next);
+      const assignments = wave.map((p, i) => ({
+        pairing: p,
+        fieldId: opts.fieldIds[i]!,
+      }));
+
+      let earliest = state.nextWaveAt ?? dayStartOf(firstDay);
+      for (const a of assignments) {
+        const fieldFree = state.fieldFreeAt.get(a.fieldId);
+        if (fieldFree && fieldFree > earliest) earliest = fieldFree;
+        for (const teamId of [a.pairing.homeTeamId, a.pairing.awayTeamId]) {
+          const te = teamEarliest(teamId, a.fieldId);
+          if (te && te > earliest) {
+            earliest = te;
+            restOrTravelPushed = true;
+          }
+        }
+      }
+
+      const placed = advancePastWindow(earliest);
       if (!placed) {
         overflow = true;
         const fallback = dayStartOf(lastDay);
-        for (let i = 0; i < wave.length; i++) {
+        for (const a of assignments) {
           out.push({
-            ...wave[i]!,
+            ...a.pairing,
             scheduledAt: fallback.toJSDate(),
-            fieldId: opts.fieldIds[i]!,
+            fieldId: a.fieldId,
           });
         }
-        next = fallback.plus({ minutes: opts.slotMinutes });
+        state.nextWaveAt = fallback.plus({ minutes: opts.slotMinutes });
         continue;
       }
-      for (let i = 0; i < wave.length; i++) {
+
+      const gameEnd = placed.plus({ minutes: opts.gameDurationMinutes });
+      const teamReady = gameEnd.plus({ minutes: opts.minRestMinutes });
+      for (const a of assignments) {
         out.push({
-          ...wave[i]!,
+          ...a.pairing,
           scheduledAt: placed.toJSDate(),
-          fieldId: opts.fieldIds[i]!,
+          fieldId: a.fieldId,
         });
+        state.fieldFreeAt.set(a.fieldId, gameEnd);
+        for (const teamId of [a.pairing.homeTeamId, a.pairing.awayTeamId]) {
+          state.teamReadyAt.set(teamId, teamReady);
+          state.teamLastFieldId.set(teamId, a.fieldId);
+        }
       }
-      next = placed.plus({ minutes: opts.slotMinutes });
+      state.nextWaveAt = placed.plus({ minutes: opts.slotMinutes });
     }
   }
 
   if (overflow) {
     warnings.push(
-      "Some games fall outside the tournament date range or daily hours — widen the window, add fields, or shorten slot length.",
+      "Some games fall outside the tournament date range or daily hours — widen the window, add fields, shorten games, or reduce rest/travel time.",
+    );
+  } else if (restOrTravelPushed) {
+    warnings.push(
+      "Schedule stretched to honor team rest and travel between fields.",
     );
   }
 
-  return { slots: out, warnings, nextAt: next };
+  return { slots: out, warnings, cursor: state };
 }

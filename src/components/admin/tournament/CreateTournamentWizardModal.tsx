@@ -75,6 +75,9 @@ export function CreateTournamentWizardModal({ onClose }: Props) {
   const [timezone, setTimezone] = useState<string>(TIMEZONES[0]);
   const [fieldCount, setFieldCount] = useState("2");
   const [slotMinutes, setSlotMinutes] = useState("90");
+  const [gameDurationMinutes, setGameDurationMinutes] = useState("75");
+  const [minRestMinutes, setMinRestMinutes] = useState("30");
+  const [travelMinutesBetweenFields, setTravelMinutesBetweenFields] = useState("10");
   const [dayStartTime, setDayStartTime] = useState("08:00");
   const [dayEndTime, setDayEndTime] = useState("18:00");
 
@@ -124,6 +127,9 @@ export function CreateTournamentWizardModal({ onClose }: Props) {
     }
     const fc = Number(fieldCount) || 1;
     const sm = Number(slotMinutes) || 90;
+    const gd = Number(gameDurationMinutes) || 75;
+    const rest = Number(minRestMinutes) || 0;
+    const travel = Number(travelMinutesBetweenFields) || 0;
     const poolCounts: number[] = [];
     for (const pools of poolsByDivision) {
       for (const p of pools) {
@@ -139,6 +145,9 @@ export function CreateTournamentWizardModal({ onClose }: Props) {
       dayStartHm: dayStartTime,
       dayEndHm: dayEndTime,
       slotMinutes: sm,
+      gameDurationMinutes: gd,
+      minRestMinutes: rest,
+      travelMinutesBetweenFields: travel,
     });
   }, [
     startDate,
@@ -147,6 +156,9 @@ export function CreateTournamentWizardModal({ onClose }: Props) {
     dayEndTime,
     fieldCount,
     slotMinutes,
+    gameDurationMinutes,
+    minRestMinutes,
+    travelMinutesBetweenFields,
     timezone,
     poolsByDivision,
   ]);
@@ -211,6 +223,9 @@ export function CreateTournamentWizardModal({ onClose }: Props) {
     timezone,
     fieldCount: Number(fieldCount),
     slotMinutes: Number(slotMinutes),
+    gameDurationMinutes: Number(gameDurationMinutes),
+    minRestMinutes: Number(minRestMinutes),
+    travelMinutesBetweenFields: Number(travelMinutesBetweenFields),
     dayStartTime,
     dayEndTime,
     generateSchedules,
@@ -247,6 +262,9 @@ export function CreateTournamentWizardModal({ onClose }: Props) {
     Number(fieldCount) >= 1 &&
     Number(fieldCount) <= WIZARD_MAX_FIELDS &&
     Number(slotMinutes) >= 15 &&
+    Number(gameDurationMinutes) >= 15 &&
+    Number(minRestMinutes) >= 0 &&
+    Number(travelMinutesBetweenFields) >= 0 &&
     dayStartTime &&
     dayEndTime &&
     dayStartTime < dayEndTime;
@@ -480,8 +498,8 @@ export function CreateTournamentWizardModal({ onClose }: Props) {
                   Fields &amp; schedule window
                 </p>
                 <p className="text-xs text-zinc-500">
-                  Used if you generate round-robin schedules. Games start only between daily hours on tournament
-                  dates.
+                  Used if you generate round-robin schedules. Games start only between daily hours. Rest and field
+                  travel keep teams from being scheduled too tightly when they move diamonds.
                 </p>
                 <div className="grid grid-cols-2 gap-3">
                   <label className="block text-sm font-medium text-zinc-700">
@@ -496,7 +514,7 @@ export function CreateTournamentWizardModal({ onClose }: Props) {
                     />
                   </label>
                   <label className="block text-sm font-medium text-zinc-700">
-                    Slot length (minutes)
+                    Slot / changeover (min)
                     <input
                       type="number"
                       min={15}
@@ -508,6 +526,44 @@ export function CreateTournamentWizardModal({ onClose }: Props) {
                     />
                   </label>
                   <label className="block text-sm font-medium text-zinc-700">
+                    Game length (min)
+                    <input
+                      type="number"
+                      min={15}
+                      max={360}
+                      step={5}
+                      className="mt-1 w-full rounded-lg border border-zinc-200 px-3 py-2 text-sm"
+                      value={gameDurationMinutes}
+                      onChange={(e) => setGameDurationMinutes(e.target.value)}
+                    />
+                  </label>
+                  <label className="block text-sm font-medium text-zinc-700">
+                    Rest between games (min)
+                    <input
+                      type="number"
+                      min={0}
+                      max={240}
+                      step={5}
+                      className="mt-1 w-full rounded-lg border border-zinc-200 px-3 py-2 text-sm"
+                      value={minRestMinutes}
+                      onChange={(e) => setMinRestMinutes(e.target.value)}
+                      title="After a game ends, minimum break before that team starts again"
+                    />
+                  </label>
+                  <label className="block text-sm font-medium text-zinc-700">
+                    Travel between fields (min)
+                    <input
+                      type="number"
+                      min={0}
+                      max={120}
+                      step={5}
+                      className="mt-1 w-full rounded-lg border border-zinc-200 px-3 py-2 text-sm"
+                      value={travelMinutesBetweenFields}
+                      onChange={(e) => setTravelMinutesBetweenFields(e.target.value)}
+                      title="Extra time when a team’s next game is on a different field"
+                    />
+                  </label>
+                  <label className="block text-sm font-medium text-zinc-700">
                     Daily first pitch
                     <input
                       type="time"
@@ -516,7 +572,7 @@ export function CreateTournamentWizardModal({ onClose }: Props) {
                       onChange={(e) => setDayStartTime(e.target.value)}
                     />
                   </label>
-                  <label className="block text-sm font-medium text-zinc-700">
+                  <label className="col-span-2 block text-sm font-medium text-zinc-700 sm:col-span-1">
                     No new games after
                     <input
                       type="time"
@@ -716,8 +772,10 @@ export function CreateTournamentWizardModal({ onClose }: Props) {
                   <strong>Dates:</strong> {startDate} → {endDate} ({timezone})
                 </p>
                 <p>
-                  <strong>Fields:</strong> {fieldCount} · <strong>Slots:</strong> {slotMinutes} min ·{" "}
-                  <strong>Daily:</strong> {dayStartTime}–{dayEndTime}
+                  <strong>Fields:</strong> {fieldCount} · <strong>Games:</strong> {gameDurationMinutes} min ·{" "}
+                  <strong>Slots:</strong> {slotMinutes} min · <strong>Rest:</strong> {minRestMinutes} min ·{" "}
+                  <strong>Travel:</strong> {travelMinutesBetweenFields} min · <strong>Daily:</strong>{" "}
+                  {dayStartTime}–{dayEndTime}
                 </p>
                 <div className="border-t border-zinc-100 pt-2">
                   <strong className="text-zinc-900">Structure</strong>
@@ -779,9 +837,10 @@ export function CreateTournamentWizardModal({ onClose }: Props) {
                   <span>
                     <span className="font-medium">Generate pool round-robin schedules</span>
                     <span className="mt-0.5 block text-xs text-zinc-500">
-                      Uses your {fieldCount} field(s), {dayStartTime}–{dayEndTime} daily, {slotMinutes}-min
-                      slots across {startDate || "…"}–{endDate || "…"}. Pools share fields sequentially (no
-                      double-booking). Needs ≥2 teams per pool.
+                      Uses your {fieldCount} field(s), {dayStartTime}–{dayEndTime} daily, {gameDurationMinutes}-min
+                      games, {slotMinutes}-min slots, {minRestMinutes}-min team rest, {travelMinutesBetweenFields}-min
+                      travel when switching fields. Across {startDate || "…"}–{endDate || "…"}. Needs ≥2 teams per
+                      pool.
                       {!allPoolsHaveTwoPlusNamed
                         ? " (Some pools still use placeholders or have fewer than 2 teams.)"
                         : ""}
