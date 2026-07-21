@@ -93,6 +93,10 @@ export function GamesAdmin({
   );
   const [poolId, setPoolId] = useState(poolsWithTeams[0]?.poolId ?? "");
   const [rrPoolId, setRrPoolId] = useState(poolsWithTeams[0]?.poolId ?? "");
+  const [listFilter, setListFilter] = useState<"all" | "needs_score" | "unscheduled" | "live" | "final">(
+    "all",
+  );
+  const [fieldFilter, setFieldFilter] = useState<string>("all");
 
   const teamOptions = useMemo(() => {
     const p = poolsWithTeams.find((x) => x.poolId === poolId);
@@ -102,6 +106,40 @@ export function GamesAdmin({
   const rrTeamCount = useMemo(() => {
     return poolsWithTeams.find((x) => x.poolId === rrPoolId)?.teams.length ?? 0;
   }, [poolsWithTeams, rrPoolId]);
+
+  const filterCounts = useMemo(() => {
+    const now = Date.now();
+    let needs_score = 0;
+    let unscheduled = 0;
+    let live = 0;
+    let final = 0;
+    for (const g of games) {
+      if (gameNeedsScore(g, now)) needs_score += 1;
+      if (g.schedulePlaceholder) unscheduled += 1;
+      if (g.status === GameStatus.LIVE) live += 1;
+      if (g.status === GameStatus.FINAL) final += 1;
+    }
+    return { all: games.length, needs_score, unscheduled, live, final };
+  }, [games]);
+
+  const filteredGames = useMemo(() => {
+    const now = Date.now();
+    return games.filter((g) => {
+      if (fieldFilter !== "all" && g.fieldId !== fieldFilter) return false;
+      switch (listFilter) {
+        case "needs_score":
+          return gameNeedsScore(g, now);
+        case "unscheduled":
+          return g.schedulePlaceholder;
+        case "live":
+          return g.status === GameStatus.LIVE;
+        case "final":
+          return g.status === GameStatus.FINAL;
+        default:
+          return true;
+      }
+    });
+  }, [games, listFilter, fieldFilter]);
 
   if (mode === "scorekeeper") {
     return (
@@ -376,21 +414,144 @@ export function GamesAdmin({
       {games.length === 0 ? (
         <p className="text-sm text-zinc-500">No games scheduled yet.</p>
       ) : (
-        <div className="flex flex-col gap-6">
-          {games.map((game) => (
-            <GameCard
-              key={game.id}
-              game={game}
-              fields={fields}
-              poolsWithTeams={poolsWithTeams}
-              tournamentTimezone={tournamentTimezone}
-              isAdmin={isAdmin}
-            />
-          ))}
-        </div>
+        <section className="flex flex-col gap-4">
+          <div className="flex flex-col gap-3 border-b border-zinc-200 pb-4">
+            <div className="flex flex-wrap items-end justify-between gap-3">
+              <div>
+                <h2 className="text-sm font-semibold text-zinc-900">Game list</h2>
+                <p className="mt-0.5 text-xs text-zinc-500">
+                  Showing {filteredGames.length} of {games.length}
+                  {listFilter !== "all" || fieldFilter !== "all" ? " (filtered)" : ""}.
+                </p>
+              </div>
+              <label className="flex min-w-[12rem] flex-col gap-1">
+                <span className={labelClass}>Field</span>
+                <select
+                  value={fieldFilter}
+                  onChange={(e) => setFieldFilter(e.target.value)}
+                  className={`${formClass} w-full`}
+                >
+                  <option value="all">All fields</option>
+                  {fields.map((f) => (
+                    <option key={f.id} value={f.id}>
+                      {f.label}
+                    </option>
+                  ))}
+                </select>
+              </label>
+            </div>
+            <div className="flex flex-wrap gap-2" role="group" aria-label="Filter games">
+              {(
+                [
+                  ["all", "All"],
+                  ["needs_score", "Needs score"],
+                  ["unscheduled", "Unscheduled"],
+                  ["live", "Live"],
+                  ["final", "Final"],
+                ] as const
+              ).map(([id, label]) => {
+                const count = filterCounts[id];
+                const active = listFilter === id;
+                return (
+                  <button
+                    key={id}
+                    type="button"
+                    onClick={() => setListFilter(id)}
+                    className={`inline-flex items-center gap-1.5 rounded-full border px-3 py-1.5 text-xs font-semibold transition-colors ${
+                      active
+                        ? id === "live"
+                          ? "border-red-600 bg-red-600 text-white"
+                          : id === "final"
+                            ? "border-emerald-600 bg-emerald-600 text-white"
+                            : id === "needs_score" || id === "unscheduled"
+                              ? "border-amber-600 bg-amber-600 text-white"
+                              : "border-zinc-800 bg-zinc-800 text-white"
+                        : "border-zinc-300 bg-white text-zinc-700 hover:bg-zinc-50"
+                    }`}
+                  >
+                    {label}
+                    <span
+                      className={`tabular-nums ${active ? "opacity-90" : "text-zinc-500"}`}
+                    >
+                      {count}
+                    </span>
+                  </button>
+                );
+              })}
+            </div>
+          </div>
+
+          {filteredGames.length === 0 ? (
+            <p className="rounded-xl border border-dashed border-zinc-300 bg-zinc-50 px-4 py-8 text-center text-sm text-zinc-600">
+              No games match this filter.{" "}
+              <button
+                type="button"
+                className="font-semibold text-emerald-800 underline"
+                onClick={() => {
+                  setListFilter("all");
+                  setFieldFilter("all");
+                }}
+              >
+                Clear filters
+              </button>
+            </p>
+          ) : (
+            <div className="flex flex-col gap-6">
+              {filteredGames.map((game) => (
+                <GameCard
+                  key={game.id}
+                  game={game}
+                  fields={fields}
+                  poolsWithTeams={poolsWithTeams}
+                  tournamentTimezone={tournamentTimezone}
+                  isAdmin={isAdmin}
+                />
+              ))}
+            </div>
+          )}
+        </section>
       )}
     </div>
   );
+}
+
+function gameNeedsScore(game: AdminGameRow, now: number): boolean {
+  if (game.status === GameStatus.LIVE || game.status === GameStatus.AWAITING_RESULTS) return true;
+  if (
+    game.status === GameStatus.FINAL ||
+    game.status === GameStatus.CANCELLED ||
+    game.status === GameStatus.POSTPONED
+  ) {
+    return false;
+  }
+  if (game.schedulePlaceholder) return false;
+  const start = new Date(game.scheduledAt).getTime();
+  return start <= now && (game.homeRuns == null || game.awayRuns == null);
+}
+
+function adminStatusBadgeClass(status: GameStatus): string {
+  switch (status) {
+    case GameStatus.LIVE:
+      return "bg-red-100 text-red-800 ring-1 ring-red-200";
+    case GameStatus.FINAL:
+      return "bg-emerald-100 text-emerald-900 ring-1 ring-emerald-200";
+    case GameStatus.AWAITING_RESULTS:
+      return "bg-amber-100 text-amber-950 ring-1 ring-amber-200";
+    case GameStatus.POSTPONED:
+      return "bg-orange-100 text-orange-950 ring-1 ring-orange-200";
+    case GameStatus.CANCELLED:
+      return "bg-zinc-200 text-zinc-600 ring-1 ring-zinc-300";
+    default:
+      return "bg-sky-100 text-sky-950 ring-1 ring-sky-200";
+  }
+}
+
+function gameCardAccentClass(game: AdminGameRow): string {
+  if (game.status === GameStatus.LIVE) return "border-red-300 shadow-red-100/80";
+  if (game.status === GameStatus.FINAL) return "border-emerald-200";
+  if (game.schedulePlaceholder) return "border-amber-300";
+  if (game.status === GameStatus.AWAITING_RESULTS) return "border-amber-300";
+  return "border-zinc-200";
 }
 
 const GAME_STATUS_OPTIONS: GameStatus[] = [
@@ -461,10 +622,18 @@ function GameCard({
   const isPoolGame = game.gameKind === GameKind.POOL;
 
   return (
-    <article className="overflow-hidden rounded-xl border border-zinc-200 bg-white shadow-sm">
+    <article
+      className={`overflow-hidden rounded-xl border bg-white shadow-sm ${gameCardAccentClass(game)}`}
+    >
       <div className="flex flex-wrap items-start justify-between gap-3 border-b border-zinc-100 bg-zinc-50 px-4 py-3">
         <div>
-          <p className="text-xs font-medium text-zinc-500">{fmtWhen(iso, tournamentTimezone)}</p>
+          <p className="text-xs font-medium text-zinc-500">
+            {game.schedulePlaceholder ? (
+              <span className="font-semibold text-amber-800">Time TBD</span>
+            ) : (
+              fmtWhen(iso, tournamentTimezone)
+            )}
+          </p>
           <p className="text-base font-semibold text-zinc-900">
             {awayLabel} <span className="font-normal text-zinc-400">vs</span> {homeLabel}
           </p>
@@ -478,18 +647,18 @@ function GameCard({
           </p>
         </div>
         <div className="flex flex-wrap items-center gap-2">
-          <span
-            className={`rounded-full px-2.5 py-0.5 text-xs font-semibold ${
-              game.status === "LIVE"
-                ? "bg-red-100 text-red-800"
-                : game.status === "FINAL"
-                  ? "bg-emerald-100 text-emerald-900"
-                  : game.status === "AWAITING_RESULTS"
-                    ? "bg-amber-100 text-amber-950"
-                    : "bg-zinc-200 text-zinc-800"
-            }`}
-          >
-            {publicGameStatusLabel(game.status)}
+          <span className={`rounded-full px-2.5 py-0.5 text-xs font-semibold ${adminStatusBadgeClass(game.status)}`}>
+            {game.status === GameStatus.LIVE ? (
+              <span className="inline-flex items-center gap-1.5">
+                <span className="relative flex size-1.5">
+                  <span className="absolute inline-flex size-full animate-ping rounded-full bg-red-500 opacity-75" />
+                  <span className="relative inline-flex size-1.5 rounded-full bg-red-600" />
+                </span>
+                {publicGameStatusLabel(game.status)}
+              </span>
+            ) : (
+              publicGameStatusLabel(game.status)
+            )}
           </span>
           {isAdmin ? (
             <ConfirmForm

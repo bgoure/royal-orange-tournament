@@ -319,9 +319,10 @@ export function BracketsAdmin({
         </p>
       ) : (
         <p className="text-sm text-zinc-600">
-          Playoffs are scoped to one division at a time. Choose first-round pairings as &quot;kᵗʰ in pool&quot;
-          slots, then publish when you are ready for the public site. Pool standings can change the seed list;
-          re-apply standings after round-robin updates.
+          Playoffs are scoped to one division. First-round slots are labeled as &quot;kᵗʰ in pool&quot; when you create
+          the bracket. After pool play finishes, use{" "}
+          <strong className="font-medium text-zinc-800">Apply standings to seeds</strong> to fill those slots with
+          the current standings (it does not rebuild the bracket tree). Re-apply if standings change.
         </p>
       )}
 
@@ -338,9 +339,9 @@ export function BracketsAdmin({
         <section className="rounded-xl border border-zinc-200 bg-white p-6 shadow-sm">
           <h2 className="text-sm font-semibold text-zinc-900">Consolation game (one game at a time)</h2>
           <p className="mt-1 text-xs text-zinc-500">
-            Non-bracket games seeded from pool finishing order. Teams fill when you apply standings on the playoff
-            bracket for this division. Each pool finishing slot can only appear once per division (duplicate ranks
-            blocked).
+            Non-bracket games labeled from pool finishing order. Teams fill when you apply standings on the playoff
+            bracket for this division (same action as Round 1 seeds). Each pool finishing slot can only appear once
+            per division.
           </p>
           <form action={consolationCreateAction} className="mt-4 flex flex-col gap-4">
             <div className="grid gap-3 sm:max-w-xl">
@@ -657,20 +658,30 @@ export function BracketsAdmin({
         <section className="rounded-xl border border-zinc-200 bg-white p-6 shadow-sm">
           <h2 className="text-sm font-semibold text-zinc-900">Playoff brackets</h2>
           <p className="mt-1 text-xs text-zinc-500">
-            Unpublished brackets stay hidden on the public site. “Apply standings” only runs when every pool game
-            in that division is final or cancelled (round robin finished).{" "}
-            <strong className="font-medium text-zinc-700">Reset bracket</strong> also requires a finished round robin;
-            it keeps the tree and games, clears teams/scores, and sets all bracket games back to scheduled.{" "}
-            <strong className="font-medium text-zinc-700">Delete bracket</strong> removes the playoff tree and all
-            its games so you can run the create wizard again.
+            Unpublished brackets stay hidden on the public site. Applying standings only runs when every pool game
+            in that division is final or cancelled.{" "}
+            <strong className="font-medium text-zinc-700">Reset bracket</strong> clears teams/scores on the existing
+            tree (same pool-play requirement).{" "}
+            <strong className="font-medium text-zinc-700">Delete bracket</strong> removes the playoff tree so you can
+            run the create wizard again.
           </p>
           <ul className="mt-4 flex flex-col gap-4">
             {brackets.map((b) => {
               const rrComplete = b.poolGamesTotal > 0 && b.poolGamesIncomplete === 0;
+              const complete = Math.max(0, b.poolGamesTotal - b.poolGamesIncomplete);
+              const pct =
+                b.poolGamesTotal > 0 ? Math.round((complete / b.poolGamesTotal) * 100) : 0;
               return (
-              <li key={b.id} className="rounded-lg border border-zinc-100 bg-zinc-50/50 p-4">
+              <li
+                key={b.id}
+                className={`rounded-lg border p-4 ${
+                  b.needsResolutionRefresh
+                    ? "border-amber-300 bg-amber-50/60"
+                    : "border-zinc-100 bg-zinc-50/50"
+                }`}
+              >
                 <div className="flex flex-wrap items-start justify-between gap-3">
-                  <div>
+                  <div className="min-w-0 flex-1">
                     <p className="text-sm font-medium text-zinc-900">
                       {b.name} · {b.division.name}
                     </p>
@@ -681,18 +692,75 @@ export function BracketsAdmin({
                       ) : (
                         <span className="font-medium text-zinc-600">Hidden</span>
                       )}
-                      {b.needsResolutionRefresh ? (
-                        <span className="ml-2 text-amber-800">· Standings changed — re-apply</span>
-                      ) : null}
-                      {b.poolGamesTotal > 0 ? (
-                        <span className="ml-2">
-                          · Pool play {b.poolGamesTotal - b.poolGamesIncomplete}/{b.poolGamesTotal} done
-                          {!rrComplete ? " (finish pool games to apply/reset)" : null}
-                        </span>
-                      ) : (
-                        <span className="ml-2">· No pool games in division</span>
-                      )}
                     </p>
+
+                    {b.poolGamesTotal > 0 ? (
+                      <div className="mt-3 max-w-md">
+                        <div className="flex flex-wrap items-baseline justify-between gap-2 text-xs text-zinc-600">
+                          <span>
+                            Pool play{" "}
+                            <span className="font-medium text-zinc-800">
+                              {complete}/{b.poolGamesTotal}
+                            </span>{" "}
+                            final or cancelled
+                          </span>
+                          <span className="tabular-nums text-zinc-500">{pct}%</span>
+                        </div>
+                        <div
+                          className="mt-1.5 h-2 w-full overflow-hidden rounded-full bg-zinc-200"
+                          role="progressbar"
+                          aria-valuenow={pct}
+                          aria-valuemin={0}
+                          aria-valuemax={100}
+                          aria-label={`Pool play completion for ${b.division.name}`}
+                        >
+                          <div
+                            className={`h-full rounded-full transition-[width] ${
+                              rrComplete ? "bg-emerald-600" : "bg-amber-500"
+                            }`}
+                            style={{ width: `${pct}%` }}
+                          />
+                        </div>
+                      </div>
+                    ) : (
+                      <p className="mt-2 text-xs text-amber-800">
+                        No pool games in this division yet — schedule pool play before seeding.
+                      </p>
+                    )}
+
+                    <div className="mt-3 rounded-lg border border-zinc-200 bg-white px-3 py-2.5 text-xs leading-relaxed text-zinc-600">
+                      {b.needsResolutionRefresh ? (
+                        <p className="font-medium text-amber-900">
+                          Standings changed since the last apply — re-apply to refresh first-round and consolation
+                          teams from current rankings.
+                        </p>
+                      ) : rrComplete ? (
+                        <p>
+                          <span className="font-medium text-emerald-800">Ready to seed.</span> Apply standings fills
+                          Round 1 (and consolation) slots from pool standings. It does not change who plays whom by
+                          rank — only which team sits in each existing &quot;kᵗʰ in pool&quot; slot.
+                        </p>
+                      ) : b.poolGamesTotal > 0 ? (
+                        <p>
+                          <span className="font-medium text-amber-900">
+                            {b.poolGamesIncomplete} pool game{b.poolGamesIncomplete === 1 ? "" : "s"} still open.
+                          </span>{" "}
+                          Finish scoring under{" "}
+                          <Link href="/admin/games?mode=scorekeeper" className="font-medium text-emerald-800 underline">
+                            Scorekeeper
+                          </Link>{" "}
+                          or{" "}
+                          <Link href="/admin/games" className="font-medium text-emerald-800 underline">
+                            Games
+                          </Link>{" "}
+                          (final or cancelled) before applying seeds.
+                        </p>
+                      ) : (
+                        <p>
+                          Create pool games first, then return here to push standings into playoff seeds.
+                        </p>
+                      )}
+                    </div>
                   </div>
                   <div className="flex flex-wrap gap-2">
                     <form action={publishAction}>
@@ -704,8 +772,21 @@ export function BracketsAdmin({
                     </form>
                     <form action={resolveAction}>
                       <input type="hidden" name="bracketId" value={b.id} />
-                      <button type="submit" disabled={resolvePending || !rrComplete} className={btnSecondary}>
-                        {resolvePending ? "Applying…" : "Apply standings to seeds"}
+                      <button
+                        type="submit"
+                        disabled={resolvePending || !rrComplete}
+                        title={
+                          !rrComplete
+                            ? "Finish all pool games (final or cancelled) first"
+                            : "Fill first-round teams from current pool standings"
+                        }
+                        className={rrComplete ? btnPrimary : btnSecondary}
+                      >
+                        {resolvePending
+                          ? "Applying…"
+                          : b.needsResolutionRefresh
+                            ? "Re-apply standings to seeds"
+                            : "Apply standings to seeds"}
                       </button>
                     </form>
                     <ConfirmForm
