@@ -48,7 +48,7 @@ export default async function AdminTournamentsHubPage() {
                 <tr key={t.id} className="text-zinc-800">
                   <td className="px-4 py-3">
                     <div className="font-medium text-zinc-900">{t.name}</div>
-                    <div className="mt-0.5 font-mono text-xs text-zinc-500">{t.slug}</div>
+                    <div className="mt-0.5 font-mono text-xs text-zinc-500">{publicPath}</div>
                     <div className="mt-1 line-clamp-1 text-xs text-zinc-500">{t.locationLabel}</div>
                   </td>
                   <td className="whitespace-nowrap px-4 py-3 text-zinc-600">

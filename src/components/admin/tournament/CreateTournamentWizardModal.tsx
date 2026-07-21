@@ -203,6 +203,7 @@ export function CreateTournamentWizardModal({ onClose }: Props) {
   };
 
   if (createdSlug) {
+    const publicPath = `/${createdSlug}`;
     return (
       <div
         className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4"
@@ -215,14 +216,24 @@ export function CreateTournamentWizardModal({ onClose }: Props) {
           <h2 id="setup-checklist-title" className="mt-1 text-xl font-semibold text-zinc-900">
             Next steps
           </h2>
-          <p className="mt-1 text-sm text-zinc-600">
-            Your event skeleton is ready at{" "}
-            <span className="font-mono text-zinc-800">/{createdSlug}</span>. Finish setup when you can.
-          </p>
+          <div className="mt-3 rounded-lg border border-zinc-200 bg-zinc-50 px-3 py-3">
+            <p className="text-xs font-medium uppercase tracking-wide text-zinc-500">Public URL path</p>
+            <p className="mt-1 font-mono text-sm font-semibold text-zinc-900">{publicPath}</p>
+            <p className="mt-1.5 text-xs text-zinc-600">
+              Derived from the tournament name (lowercase, hyphenated). Share this path with parents — it is how
+              people open your event (not the site home page).
+            </p>
+          </div>
           <div className="mt-4">
             <SetupChecklistPanel progress={postCreateProgress} />
           </div>
           <div className="mt-6 flex flex-wrap justify-end gap-2">
+            <a
+              href={publicPath}
+              className="rounded-lg border border-emerald-300 bg-white px-4 py-2 text-sm font-semibold text-emerald-900 hover:bg-emerald-50"
+            >
+              Open public site
+            </a>
             <button
               type="button"
               onClick={finishAfterChecklist}

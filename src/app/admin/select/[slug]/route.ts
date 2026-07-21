@@ -2,7 +2,7 @@ import { cookies } from "next/headers";
 import { NextResponse } from "next/server";
 import { auth } from "@/auth";
 import { prisma } from "@/lib/db";
-import { ADMIN_TOURNAMENT_SLUG_COOKIE } from "@/lib/tournament-context";
+import { ADMIN_TOURNAMENT_SLUG_COOKIE, TOURNAMENT_SLUG_COOKIE } from "@/lib/tournament-context";
 
 const cookieOpts = {
   path: "/",
@@ -45,6 +45,7 @@ export async function GET(
 
   const jar = await cookies();
   jar.set(ADMIN_TOURNAMENT_SLUG_COOKIE, tournament.slug, cookieOpts);
+  jar.set(TOURNAMENT_SLUG_COOKIE, tournament.slug, cookieOpts);
 
   return NextResponse.redirect(new URL(next, request.url));
 }

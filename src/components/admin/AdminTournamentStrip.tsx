@@ -6,9 +6,14 @@ import { useCreateTournamentWizard } from "@/components/admin/tournament/CreateT
 type Props = {
   currentTournamentName: string | null;
   currentTournamentSlug: string | null;
+  publicSiteHref: string;
 };
 
-export function AdminTournamentStrip({ currentTournamentName, currentTournamentSlug }: Props) {
+export function AdminTournamentStrip({
+  currentTournamentName,
+  currentTournamentSlug,
+  publicSiteHref,
+}: Props) {
   const { open, canCreateTournament } = useCreateTournamentWizard();
 
   return (
@@ -18,7 +23,10 @@ export function AdminTournamentStrip({ currentTournamentName, currentTournamentS
           <>
             <span className="font-medium text-zinc-900">Tournament:</span>{" "}
             <span className="truncate">{currentTournamentName}</span>{" "}
-            <span className="hidden text-zinc-400 sm:inline">({currentTournamentSlug})</span>
+            <span className="hidden text-zinc-400 sm:inline">
+              · public URL{" "}
+              <span className="font-mono text-zinc-600">{publicSiteHref}</span>
+            </span>
           </>
         ) : (
           <span className="text-amber-900">
@@ -51,8 +59,13 @@ export function AdminTournamentStrip({ currentTournamentName, currentTournamentS
           </Link>
         ) : null}
         <Link
-          href="/"
+          href={publicSiteHref}
           className="rounded-lg px-3 py-2 text-sm font-medium text-emerald-800 hover:bg-emerald-50 hover:underline"
+          title={
+            currentTournamentSlug
+              ? `Open ${publicSiteHref}`
+              : "Opens the default public tournament"
+          }
         >
           Public site
         </Link>

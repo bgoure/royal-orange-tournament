@@ -13,6 +13,8 @@ type Props = {
   canCreateTournament: boolean;
   currentTournamentName: string | null;
   currentTournamentSlug: string | null;
+  /** Public URL for the selected tournament (`/{slug}` or archived path). */
+  publicSiteHref: string;
   setupProgress: SetupProgress | null;
 };
 
@@ -22,6 +24,7 @@ export function CreateTournamentWizardRoot({
   canCreateTournament,
   currentTournamentName,
   currentTournamentSlug,
+  publicSiteHref,
   setupProgress,
 }: Props) {
   const pathname = usePathname() ?? "";
@@ -37,7 +40,7 @@ export function CreateTournamentWizardRoot({
     <CreateTournamentWizardProvider canCreateTournament={canCreateTournament}>
       <div className="flex min-h-full bg-zinc-100 print:block print:bg-white">
         <div className="print:hidden">
-          <AdminSidebar />
+          <AdminSidebar publicSiteHref={publicSiteHref} />
         </div>
         <div className="flex min-h-full min-w-0 flex-1 flex-col print:w-full">
           {showStrip ? (
@@ -45,6 +48,7 @@ export function CreateTournamentWizardRoot({
               <AdminTournamentStrip
                 currentTournamentName={currentTournamentName}
                 currentTournamentSlug={currentTournamentSlug}
+                publicSiteHref={publicSiteHref}
               />
               {currentTournamentSlug && setupProgress ? (
                 <AdminSetupChecklistStrip slug={currentTournamentSlug} progress={setupProgress} />

@@ -97,8 +97,24 @@ export async function getArchivedPublishedTournamentBySlug(slug: string) {
   });
 }
 
-/** First live tournament slug for redirecting `/` on the public site. */
+/** First live tournament slug for redirecting `/` on the public site.
+ * Prefer the visitor’s `tournament_slug` cookie when it still matches a published live event,
+ * so admin “Public site” and post-create flows land on the event they were working on.
+ */
 export async function getDefaultPublicTournamentSlug(): Promise<string | null> {
+  const cookieSlug = await getSelectedTournamentSlug();
+  if (cookieSlug) {
+    const fromCookie = await prisma.tournament.findFirst({
+      where: {
+        slug: { equals: cookieSlug, mode: "insensitive" },
+        isPublished: true,
+        archivedAt: null,
+      },
+      select: { slug: true },
+    });
+    if (fromCookie) return fromCookie.slug;
+  }
+
   const withinSwitcherWindow = await prisma.tournament.findFirst({
     where: switcherListWhere(),
     orderBy: switcherListOrderBy,
