@@ -19,6 +19,8 @@ type Props = {
   currentTournamentSlug: string | null;
   /** Public URL for the selected tournament (`/{slug}` or archived path). */
   publicSiteHref: string;
+  /** Absolute public URL for share / QR. */
+  publicSiteAbsoluteUrl: string;
   setupProgress: SetupProgress | null;
   tournaments: AdminSidebarTournamentOption[];
 };
@@ -30,6 +32,7 @@ export function CreateTournamentWizardRoot({
   currentTournamentName,
   currentTournamentSlug,
   publicSiteHref,
+  publicSiteAbsoluteUrl,
   setupProgress,
   tournaments,
 }: Props) {
@@ -85,7 +88,9 @@ export function CreateTournamentWizardRoot({
             <div className="print:hidden">
               <AdminTournamentStrip
                 publicSiteHref={publicSiteHref}
+                publicSiteAbsoluteUrl={publicSiteAbsoluteUrl}
                 currentTournamentSlug={currentTournamentSlug}
+                currentTournamentName={currentTournamentName}
                 onOpenMobileNav={() => setMobileNavOpen(true)}
               />
               {currentTournamentSlug && setupProgress ? (
