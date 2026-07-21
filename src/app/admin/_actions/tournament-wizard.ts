@@ -5,15 +5,27 @@ import { cookies } from "next/headers";
 import type { Prisma } from "@prisma/client";
 import { auth } from "@/auth";
 import { prisma } from "@/lib/db";
+import type { SetupProgress } from "@/lib/admin-setup-checklist";
 import { can } from "@/lib/rbac/permissions";
 import { slugifyTournamentName } from "@/lib/slug";
+import { getTournamentSetupProgress } from "@/lib/services/admin-setup-progress";
 import { recomputeAllPoolsForTournament } from "@/lib/services/standings";
+import { runWizardFinishOptions } from "@/lib/services/wizard-finish";
 import { revalidatePublishedTournamentSites } from "@/lib/revalidate-public-tournament-site";
 import { ADMIN_TOURNAMENT_SLUG_COOKIE, TOURNAMENT_SLUG_COOKIE } from "@/lib/tournament-context";
-import { tournamentWizardSchema, type TournamentWizardInput } from "@/lib/validations/tournament-wizard";
+import {
+  tournamentWizardSchema,
+  wizardPoolTeamCount,
+  type TournamentWizardInput,
+} from "@/lib/validations/tournament-wizard";
 
 export type TournamentWizardResult =
-  | { ok: true; slug: string }
+  | {
+      ok: true;
+      slug: string;
+      setupProgress: SetupProgress;
+      finishNotes: string[];
+    }
   | { ok: false; error: string };
 
 function parseDateOnlyUtc(ymd: string): Date {
@@ -39,7 +51,9 @@ async function allocateUniqueSlugTx(tx: Prisma.TransactionClient, displayName: s
   }
 }
 
-async function persistSkeleton(data: TournamentWizardInput): Promise<{ id: string; slug: string }> {
+async function persistSkeleton(
+  data: TournamentWizardInput,
+): Promise<{ id: string; slug: string; fieldId: string }> {
   return prisma.$transaction(async (tx) => {
     const slug = await allocateUniqueSlugTx(tx, data.tournamentName);
 
@@ -66,7 +80,7 @@ async function persistSkeleton(data: TournamentWizardInput): Promise<{ id: strin
       },
     });
 
-    await tx.field.create({
+    const field = await tx.field.create({
       data: {
         tournamentId: tournament.id,
         locationId: location.id,
@@ -96,19 +110,32 @@ async function persistSkeleton(data: TournamentWizardInput): Promise<{ id: strin
           },
         });
 
-        for (let ti = 0; ti < poolData.teamCount; ti++) {
-          const teamLabel = `${divData.name} · ${poolData.name} · Team ${ti + 1}`;
-          await tx.team.create({
-            data: {
-              poolId: pool.id,
-              name: teamLabel.length > 120 ? teamLabel.slice(0, 117) + "…" : teamLabel,
-            },
-          });
+        if (poolData.usePlaceholders) {
+          const count = poolData.teamCount ?? 0;
+          for (let ti = 0; ti < count; ti++) {
+            const teamLabel = `${divData.name} · ${poolData.name} · Team ${ti + 1}`;
+            await tx.team.create({
+              data: {
+                poolId: pool.id,
+                name: teamLabel.length > 120 ? teamLabel.slice(0, 117) + "…" : teamLabel,
+              },
+            });
+          }
+        } else {
+          const names = (poolData.teamNames ?? []).map((n) => n.trim()).filter(Boolean);
+          for (const name of names) {
+            await tx.team.create({
+              data: {
+                poolId: pool.id,
+                name: name.length > 120 ? name.slice(0, 117) + "…" : name,
+              },
+            });
+          }
         }
       }
     }
 
-    return { id: tournament.id, slug };
+    return { id: tournament.id, slug, fieldId: field.id };
   });
 }
 
@@ -134,8 +161,23 @@ export async function createTournamentFromWizard(input: unknown): Promise<Tourna
   }
 
   try {
-    const { id, slug } = await persistSkeleton(parsed.data);
+    const { id, slug, fieldId } = await persistSkeleton(parsed.data);
     await recomputeAllPoolsForTournament(id);
+
+    const finishNotes: string[] = [];
+    if (parsed.data.generateSchedules || parsed.data.createBrackets) {
+      const finish = await runWizardFinishOptions({
+        tournamentId: id,
+        timezone: parsed.data.timezone,
+        startDateYmd: parsed.data.startDate,
+        fieldId,
+        generateSchedules: parsed.data.generateSchedules,
+        createBrackets: parsed.data.createBrackets,
+      });
+      finishNotes.push(...finish.notes);
+    }
+
+    const setupProgress = await getTournamentSetupProgress(id);
 
     const jar = await cookies();
     const opts = {
@@ -150,9 +192,12 @@ export async function createTournamentFromWizard(input: unknown): Promise<Tourna
     revalidatePath("/", "layout");
     await revalidatePublishedTournamentSites();
     revalidatePath("/admin", "layout");
-    return { ok: true, slug };
+    return { ok: true, slug, setupProgress, finishNotes };
   } catch (e) {
     console.error(e);
     return { ok: false, error: e instanceof Error ? e.message : "Failed to create tournament." };
   }
 }
+
+/** Exported for tests / UI helpers. */
+export { wizardPoolTeamCount };

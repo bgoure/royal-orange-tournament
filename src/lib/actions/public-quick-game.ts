@@ -48,6 +48,16 @@ export async function updatePublicQuickGameScheduleAction(
     return { ok: false, error: "Tournament not found." };
   }
 
+  // POWER_USER must stay within assigned divisions (same as admin game actions).
+  const scheduleScopeErr = await assertGameDivisionScope(
+    session.user.id,
+    session.user.role,
+    parsed.data.id,
+  );
+  if (scheduleScopeErr) {
+    return { ok: false, error: scheduleScopeErr };
+  }
+
   try {
     const existing = await assertGameInTournament(parsed.data.id, tournament.id);
     if (existing.gameKind !== parsed.data.gameKind) {
@@ -118,6 +128,16 @@ export async function updatePublicQuickGameAction(
   const tournament = await getPublishedTournamentBySlugForActions(parsed.data.tournamentSlug);
   if (!tournament) {
     return { ok: false, error: "Tournament not found." };
+  }
+
+  // POWER_USER must stay within assigned divisions (same as admin game actions).
+  const scoreScopeErr = await assertGameDivisionScope(
+    session.user.id,
+    session.user.role,
+    parsed.data.id,
+  );
+  if (scoreScopeErr) {
+    return { ok: false, error: scoreScopeErr };
   }
 
   try {

@@ -1,14 +1,21 @@
 "use client";
 
 import { useRouter } from "next/navigation";
-import { useCallback, useState } from "react";
+import { useCallback, useMemo, useState } from "react";
 import { createTournamentFromWizard } from "@/app/admin/_actions/tournament-wizard";
 import { SetupChecklistPanel } from "@/components/admin/tournament/SetupChecklistPanel";
 import {
   setupChecklistDismissKey,
   type SetupProgress,
 } from "@/lib/admin-setup-checklist";
-import type { TournamentWizardInput } from "@/lib/validations/tournament-wizard";
+import {
+  WIZARD_MAX_DIVISIONS,
+  WIZARD_MAX_POOLS_PER_DIVISION,
+  WIZARD_MAX_TEAMS_PER_POOL,
+  WIZARD_MAX_TEAMS_TOURNAMENT,
+  type TournamentWizardInput,
+} from "@/lib/validations/tournament-wizard";
+import { isValidEntryTeamCount } from "@/lib/services/bracket-engine";
 
 const TIMEZONES = [
   "America/New_York",
@@ -21,12 +28,30 @@ const TIMEZONES = [
   "UTC",
 ] as const;
 
-export type PoolDraft = { name: string; teamCount: string; teamsAdvancing: string };
+export type PoolDraft = {
+  name: string;
+  teamsAdvancing: string;
+  usePlaceholders: boolean;
+  /** Used when usePlaceholders is true. */
+  teamCount: string;
+  /** One name per line when usePlaceholders is false. */
+  teamNamesText: string;
+};
+
+function parseTeamNames(text: string): string[] {
+  return text
+    .split(/\r?\n/)
+    .map((l) => l.trim())
+    .filter(Boolean)
+    .slice(0, WIZARD_MAX_TEAMS_PER_POOL);
+}
 
 const defaultPool = (index: number): PoolDraft => ({
   name: `Pool ${String.fromCharCode(65 + index)}`,
-  teamCount: "4",
   teamsAdvancing: "2",
+  usePlaceholders: false,
+  teamCount: "4",
+  teamNamesText: "",
 });
 
 type Props = { onClose: () => void };
@@ -37,13 +62,8 @@ export function CreateTournamentWizardModal({ onClose }: Props) {
   const [pending, setPending] = useState(false);
   const [formError, setFormError] = useState<string | null>(null);
   const [createdSlug, setCreatedSlug] = useState<string | null>(null);
-
-  const postCreateProgress: SetupProgress = {
-    teamsNamed: false,
-    hasField: true,
-    hasPoolGames: false,
-    hasBracket: false,
-  };
+  const [setupProgress, setSetupProgress] = useState<SetupProgress | null>(null);
+  const [finishNotes, setFinishNotes] = useState<string[]>([]);
 
   const [tournamentName, setTournamentName] = useState("");
   const [venueName, setVenueName] = useState("");
@@ -57,6 +77,9 @@ export function CreateTournamentWizardModal({ onClose }: Props) {
 
   const [poolsByDivision, setPoolsByDivision] = useState<PoolDraft[][]>([[defaultPool(0)]]);
 
+  const [generateSchedules, setGenerateSchedules] = useState(true);
+  const [createBrackets, setCreateBrackets] = useState(false);
+
   const syncPoolsShape = useCallback((names: string[], prevPools: PoolDraft[][]) => {
     return names.map((_, i) => {
       const existing = prevPools[i];
@@ -65,7 +88,32 @@ export function CreateTournamentWizardModal({ onClose }: Props) {
     });
   }, []);
 
+  const poolTeamCount = (p: PoolDraft) =>
+    p.usePlaceholders ? Number(p.teamCount) || 0 : parseTeamNames(p.teamNamesText).length;
+
+  const totalTeams = useMemo(() => {
+    return poolsByDivision.reduce(
+      (sum, pools) => sum + pools.reduce((s, p) => s + poolTeamCount(p), 0),
+      0,
+    );
+  }, [poolsByDivision]);
+
+  const allPoolsHaveTwoPlusNamed = useMemo(() => {
+    return poolsByDivision.every((pools) =>
+      pools.every((p) => !p.usePlaceholders && parseTeamNames(p.teamNamesText).length >= 2),
+    );
+  }, [poolsByDivision]);
+
+  const advancingByDivision = useMemo(() => {
+    return divisionNames.map((_, di) =>
+      (poolsByDivision[di] ?? []).reduce((sum, p) => sum + (Number(p.teamsAdvancing) || 0), 0),
+    );
+  }, [divisionNames, poolsByDivision]);
+
+  const bracketsPossible = advancingByDivision.some((n) => isValidEntryTeamCount(n));
+
   const addDivision = () => {
+    if (divisionNames.length >= WIZARD_MAX_DIVISIONS) return;
     setDivisionNames((d) => {
       const next = [...d, `Division ${d.length + 1}`];
       setPoolsByDivision((p) => syncPoolsShape(next, p));
@@ -88,9 +136,11 @@ export function CreateTournamentWizardModal({ onClose }: Props) {
 
   const addPool = (divisionIndex: number) => {
     setPoolsByDivision((rows) =>
-      rows.map((pools, i) =>
-        i === divisionIndex ? [...pools, defaultPool(pools.length)] : pools,
-      ),
+      rows.map((pools, i) => {
+        if (i !== divisionIndex) return pools;
+        if (pools.length >= WIZARD_MAX_POOLS_PER_DIVISION) return pools;
+        return [...pools, defaultPool(pools.length)];
+      }),
     );
   };
 
@@ -104,11 +154,7 @@ export function CreateTournamentWizardModal({ onClose }: Props) {
     );
   };
 
-  const updatePool = (
-    divisionIndex: number,
-    poolIndex: number,
-    patch: Partial<PoolDraft>,
-  ) => {
+  const updatePool = (divisionIndex: number, poolIndex: number, patch: Partial<PoolDraft>) => {
     setPoolsByDivision((rows) =>
       rows.map((pools, i) => {
         if (i !== divisionIndex) return pools;
@@ -124,13 +170,27 @@ export function CreateTournamentWizardModal({ onClose }: Props) {
     startDate,
     endDate,
     timezone,
+    generateSchedules,
+    createBrackets,
     divisions: divisionNames.map((name, di) => ({
       name: name.trim(),
-      pools: (poolsByDivision[di] ?? []).map((p) => ({
-        name: p.name.trim(),
-        teamCount: Number(p.teamCount),
-        teamsAdvancing: Number(p.teamsAdvancing),
-      })),
+      pools: (poolsByDivision[di] ?? []).map((p) => {
+        if (p.usePlaceholders) {
+          return {
+            name: p.name.trim(),
+            teamsAdvancing: Number(p.teamsAdvancing),
+            usePlaceholders: true,
+            teamCount: Number(p.teamCount),
+            teamNames: [],
+          };
+        }
+        return {
+          name: p.name.trim(),
+          teamsAdvancing: Number(p.teamsAdvancing),
+          usePlaceholders: false,
+          teamNames: parseTeamNames(p.teamNamesText),
+        };
+      }),
     })),
   });
 
@@ -142,15 +202,21 @@ export function CreateTournamentWizardModal({ onClose }: Props) {
     endDate;
 
   const canAdvanceFromStep1 =
-    divisionNames.length > 0 && divisionNames.every((n) => n.trim().length > 0);
+    divisionNames.length > 0 &&
+    divisionNames.length <= WIZARD_MAX_DIVISIONS &&
+    divisionNames.every((n) => n.trim().length > 0);
 
   const canAdvanceFromStep2 =
     poolsByDivision.length === divisionNames.length &&
+    totalTeams <= WIZARD_MAX_TEAMS_TOURNAMENT &&
     poolsByDivision.every((pools) =>
       pools.every((p) => {
-        const tc = Number(p.teamCount);
         const ta = Number(p.teamsAdvancing);
-        return p.name.trim() && Number.isFinite(tc) && tc >= 1 && Number.isFinite(ta) && ta >= 0 && ta <= tc;
+        if (!p.name.trim() || !Number.isFinite(ta) || ta < 0) return false;
+        const tc = poolTeamCount(p);
+        if (tc < 1 || tc > WIZARD_MAX_TEAMS_PER_POOL) return false;
+        if (ta > tc) return false;
+        return true;
       }),
     );
 
@@ -165,8 +231,13 @@ export function CreateTournamentWizardModal({ onClose }: Props) {
       return;
     }
     if (step === 2 && !canAdvanceFromStep2) {
-      setFormError("Each pool needs a name, team count ≥ 1, and advancing count ≤ team count.");
+      setFormError(
+        `Each pool needs a name, at least one team (names or placeholders), and advancing ≤ team count. Max ${WIZARD_MAX_TEAMS_TOURNAMENT} teams total.`,
+      );
       return;
+    }
+    if (step === 2) {
+      setGenerateSchedules(allPoolsHaveTwoPlusNamed);
     }
     setStep((s) => Math.min(s + 1, 3));
   };
@@ -191,6 +262,8 @@ export function CreateTournamentWizardModal({ onClose }: Props) {
         /* ignore */
       }
       setCreatedSlug(result.slug);
+      setSetupProgress(result.setupProgress);
+      setFinishNotes(result.finishNotes);
       router.refresh();
     } finally {
       setPending(false);
@@ -202,7 +275,7 @@ export function CreateTournamentWizardModal({ onClose }: Props) {
     router.refresh();
   };
 
-  if (createdSlug) {
+  if (createdSlug && setupProgress) {
     const publicPath = `/${createdSlug}`;
     return (
       <div
@@ -224,8 +297,15 @@ export function CreateTournamentWizardModal({ onClose }: Props) {
               people open your event (not the site home page).
             </p>
           </div>
+          {finishNotes.length > 0 ? (
+            <ul className="mt-3 space-y-1 rounded-lg border border-zinc-200 bg-white px-3 py-2 text-xs text-zinc-600">
+              {finishNotes.map((n, i) => (
+                <li key={i}>• {n}</li>
+              ))}
+            </ul>
+          ) : null}
           <div className="mt-4">
-            <SetupChecklistPanel progress={postCreateProgress} />
+            <SetupChecklistPanel progress={setupProgress} />
           </div>
           <div className="mt-6 flex flex-wrap justify-end gap-2">
             <a
@@ -261,7 +341,8 @@ export function CreateTournamentWizardModal({ onClose }: Props) {
               Create tournament
             </h2>
             <p className="text-xs text-zinc-500">
-              Step {step + 1} of 4 — skeleton only (no schedule or bracket yet)
+              Step {step + 1} of 4
+              {step === 3 ? " — review & optional schedule" : ""}
             </p>
           </div>
           <button
@@ -390,8 +471,9 @@ export function CreateTournamentWizardModal({ onClose }: Props) {
                 {multipleDivisions ? (
                   <button
                     type="button"
-                    className="text-sm font-medium text-emerald-700 hover:underline"
+                    className="text-sm font-medium text-emerald-700 hover:underline disabled:opacity-40"
                     onClick={addDivision}
+                    disabled={divisionNames.length >= WIZARD_MAX_DIVISIONS}
                   >
                     + Add division
                   </button>
@@ -402,15 +484,16 @@ export function CreateTournamentWizardModal({ onClose }: Props) {
 
           {step === 2 ? (
             <div className="space-y-6">
+              <p className="text-xs text-zinc-500">
+                Paste one team name per line, or use placeholders and rename later. Cap: {WIZARD_MAX_TEAMS_PER_POOL}{" "}
+                teams/pool, {WIZARD_MAX_TEAMS_TOURNAMENT} total ({totalTeams} so far).
+              </p>
               {divisionNames.map((divName, di) => (
                 <div key={di} className="rounded-xl border border-zinc-200 p-4">
                   <h3 className="text-sm font-semibold text-zinc-900">{divName || `Division ${di + 1}`}</h3>
                   <ul className="mt-3 space-y-3">
                     {(poolsByDivision[di] ?? []).map((pool, pi) => (
-                      <li
-                        key={pi}
-                        className="rounded-lg border border-zinc-100 bg-zinc-50/80 p-3 text-sm"
-                      >
+                      <li key={pi} className="rounded-lg border border-zinc-100 bg-zinc-50/80 p-3 text-sm">
                         <div className="mb-2 flex items-center justify-between gap-2">
                           <span className="text-xs font-medium uppercase text-zinc-500">Pool</span>
                           {(poolsByDivision[di] ?? []).length > 1 ? (
@@ -429,35 +512,84 @@ export function CreateTournamentWizardModal({ onClose }: Props) {
                           onChange={(e) => updatePool(di, pi, { name: e.target.value })}
                           placeholder="Pool name"
                         />
-                        <div className="grid grid-cols-2 gap-2">
-                          <label className="text-xs text-zinc-600">
-                            Teams
-                            <input
-                              type="number"
-                              min={1}
-                              className="mt-0.5 w-full rounded border border-zinc-200 px-2 py-1.5"
-                              value={pool.teamCount}
-                              onChange={(e) => updatePool(di, pi, { teamCount: e.target.value })}
-                            />
-                          </label>
-                          <label className="text-xs text-zinc-600">
-                            Advancing
-                            <input
-                              type="number"
-                              min={0}
-                              className="mt-0.5 w-full rounded border border-zinc-200 px-2 py-1.5"
-                              value={pool.teamsAdvancing}
-                              onChange={(e) => updatePool(di, pi, { teamsAdvancing: e.target.value })}
-                            />
-                          </label>
-                        </div>
+                        <label className="mb-2 flex cursor-pointer items-center gap-2 text-xs text-zinc-700">
+                          <input
+                            type="checkbox"
+                            checked={pool.usePlaceholders}
+                            onChange={(e) =>
+                              updatePool(di, pi, { usePlaceholders: e.target.checked })
+                            }
+                          />
+                          Use placeholders + finish later
+                        </label>
+                        {pool.usePlaceholders ? (
+                          <div className="grid grid-cols-2 gap-2">
+                            <label className="text-xs text-zinc-600">
+                              Team count
+                              <input
+                                type="number"
+                                min={1}
+                                max={WIZARD_MAX_TEAMS_PER_POOL}
+                                className="mt-0.5 w-full rounded border border-zinc-200 px-2 py-1.5"
+                                value={pool.teamCount}
+                                onChange={(e) => updatePool(di, pi, { teamCount: e.target.value })}
+                              />
+                            </label>
+                            <label className="text-xs text-zinc-600">
+                              Advancing
+                              <input
+                                type="number"
+                                min={0}
+                                max={WIZARD_MAX_TEAMS_PER_POOL}
+                                className="mt-0.5 w-full rounded border border-zinc-200 px-2 py-1.5"
+                                value={pool.teamsAdvancing}
+                                onChange={(e) =>
+                                  updatePool(di, pi, { teamsAdvancing: e.target.value })
+                                }
+                              />
+                            </label>
+                          </div>
+                        ) : (
+                          <>
+                            <label className="block text-xs text-zinc-600">
+                              Team names (one per line)
+                              <textarea
+                                className="mt-0.5 w-full rounded border border-zinc-200 px-2 py-1.5 font-mono text-sm"
+                                rows={4}
+                                value={pool.teamNamesText}
+                                onChange={(e) =>
+                                  updatePool(di, pi, { teamNamesText: e.target.value })
+                                }
+                                placeholder={"Raptors\nThunder\nAces\nWolves"}
+                              />
+                            </label>
+                            <p className="mt-1 text-[10px] text-zinc-500">
+                              {parseTeamNames(pool.teamNamesText).length} team
+                              {parseTeamNames(pool.teamNamesText).length === 1 ? "" : "s"}
+                            </p>
+                            <label className="mt-2 block text-xs text-zinc-600">
+                              Advancing to playoffs
+                              <input
+                                type="number"
+                                min={0}
+                                max={WIZARD_MAX_TEAMS_PER_POOL}
+                                className="mt-0.5 w-full rounded border border-zinc-200 px-2 py-1.5"
+                                value={pool.teamsAdvancing}
+                                onChange={(e) =>
+                                  updatePool(di, pi, { teamsAdvancing: e.target.value })
+                                }
+                              />
+                            </label>
+                          </>
+                        )}
                       </li>
                     ))}
                   </ul>
                   <button
                     type="button"
-                    className="mt-2 text-sm font-medium text-emerald-700 hover:underline"
+                    className="mt-2 text-sm font-medium text-emerald-700 hover:underline disabled:opacity-40"
                     onClick={() => addPool(di)}
+                    disabled={(poolsByDivision[di] ?? []).length >= WIZARD_MAX_POOLS_PER_DIVISION}
                   >
                     + Add pool
                   </button>
@@ -467,33 +599,78 @@ export function CreateTournamentWizardModal({ onClose }: Props) {
           ) : null}
 
           {step === 3 ? (
-            <div className="space-y-2 text-sm text-zinc-700">
-              <p>
-                <strong>Name:</strong> {tournamentName}
-              </p>
-              <p>
-                <strong>Venue:</strong> {venueName} — {venueAddress.slice(0, 80)}
-                {venueAddress.length > 80 ? "…" : ""}
-              </p>
-              <p>
-                <strong>Dates:</strong> {startDate} → {endDate} ({timezone})
-              </p>
-              <div className="border-t border-zinc-100 pt-2">
-                <strong className="text-zinc-900">Structure</strong>
-                <ul className="mt-1 list-inside list-disc space-y-1 text-zinc-600">
-                  {divisionNames.map((dn, di) => (
-                    <li key={di}>
-                      {dn}: {(poolsByDivision[di] ?? [])
-                        .map((p) => `${p.name} (${p.teamCount} teams, ${p.teamsAdvancing} adv.)`)
-                        .join("; ")}
-                    </li>
-                  ))}
-                </ul>
+            <div className="space-y-4 text-sm text-zinc-700">
+              <div className="space-y-2">
+                <p>
+                  <strong>Name:</strong> {tournamentName}
+                </p>
+                <p>
+                  <strong>Venue:</strong> {venueName} — {venueAddress.slice(0, 80)}
+                  {venueAddress.length > 80 ? "…" : ""}
+                </p>
+                <p>
+                  <strong>Dates:</strong> {startDate} → {endDate} ({timezone})
+                </p>
+                <div className="border-t border-zinc-100 pt-2">
+                  <strong className="text-zinc-900">Structure</strong>
+                  <ul className="mt-1 list-inside list-disc space-y-1 text-zinc-600">
+                    {divisionNames.map((dn, di) => (
+                      <li key={di}>
+                        {dn}:{" "}
+                        {(poolsByDivision[di] ?? [])
+                          .map((p) => {
+                            const tc = poolTeamCount(p);
+                            const mode = p.usePlaceholders ? "placeholders" : "named";
+                            return `${p.name} (${tc} ${mode}, ${p.teamsAdvancing} adv.)`;
+                          })
+                          .join("; ")}
+                      </li>
+                    ))}
+                  </ul>
+                  <p className="mt-1 text-xs text-zinc-500">{totalTeams} teams total</p>
+                </div>
               </div>
-              <p className="text-xs text-zinc-500">
-                Creates published tournament, HQ location, one field placeholder, divisions, pools, and
-                placeholder teams. Slug is generated from the tournament name.
-              </p>
+
+              <div className="rounded-xl border border-zinc-200 bg-zinc-50/80 p-4 space-y-3">
+                <p className="text-xs font-semibold uppercase tracking-wide text-zinc-500">
+                  Optional finish
+                </p>
+                <label className="flex cursor-pointer items-start gap-2 text-sm text-zinc-800">
+                  <input
+                    type="checkbox"
+                    className="mt-1"
+                    checked={generateSchedules}
+                    onChange={(e) => setGenerateSchedules(e.target.checked)}
+                  />
+                  <span>
+                    <span className="font-medium">Generate pool round-robin schedules</span>
+                    <span className="mt-0.5 block text-xs text-zinc-500">
+                      Uses Field 1, start {startDate || "…"} 9:00, 90 min between rounds. Needs ≥2 teams per pool.
+                      {!allPoolsHaveTwoPlusNamed
+                        ? " (Some pools still use placeholders or have fewer than 2 teams.)"
+                        : ""}
+                    </span>
+                  </span>
+                </label>
+                <label className="flex cursor-pointer items-start gap-2 text-sm text-zinc-800">
+                  <input
+                    type="checkbox"
+                    className="mt-1"
+                    checked={createBrackets}
+                    onChange={(e) => setCreateBrackets(e.target.checked)}
+                    disabled={!bracketsPossible}
+                  />
+                  <span>
+                    <span className="font-medium">Create single-elim playoff brackets</span>
+                    <span className="mt-0.5 block text-xs text-zinc-500">
+                      Only when a division’s advancing total is a power of 2 (2–64). Unpublished until you publish.
+                      {!bracketsPossible
+                        ? " None of your advancing totals qualify yet — adjust advancing counts or create brackets later."
+                        : " Apply standings to seeds after pool play finishes."}
+                    </span>
+                  </span>
+                </label>
+              </div>
             </div>
           ) : null}
         </div>

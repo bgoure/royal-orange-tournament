@@ -21,9 +21,9 @@ export const SETUP_STEPS: SetupStepDef[] = [
   {
     id: "teams",
     title: "Name teams",
-    description: "Paste or rename placeholder teams in each pool.",
+    description: "Paste or rename teams in each pool (skip if you named them in the create wizard).",
     href: "/admin/teams",
-    ctaLabel: "Add teams",
+    ctaLabel: "Review teams",
   },
   {
     id: "fields",
@@ -35,14 +35,14 @@ export const SETUP_STEPS: SetupStepDef[] = [
   {
     id: "games",
     title: "Generate pool schedule",
-    description: "Use round-robin generate or add pool games.",
+    description: "Use round-robin generate or add pool games (may already be done in the wizard).",
     href: "/admin/games",
-    ctaLabel: "Generate schedule",
+    ctaLabel: "Open games",
   },
   {
     id: "brackets",
     title: "Build playoffs",
-    description: "Optional until pool play is underway.",
+    description: "Optional until pool play is underway. Single-elim only; apply standings when ready.",
     href: "/admin/brackets",
     ctaLabel: "Open brackets",
     optional: true,
