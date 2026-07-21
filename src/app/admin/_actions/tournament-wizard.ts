@@ -53,7 +53,7 @@ async function allocateUniqueSlugTx(tx: Prisma.TransactionClient, displayName: s
 
 async function persistSkeleton(
   data: TournamentWizardInput,
-): Promise<{ id: string; slug: string; fieldId: string }> {
+): Promise<{ id: string; slug: string; fieldIds: string[] }> {
   return prisma.$transaction(async (tx) => {
     const slug = await allocateUniqueSlugTx(tx, data.tournamentName);
 
@@ -80,14 +80,18 @@ async function persistSkeleton(
       },
     });
 
-    const field = await tx.field.create({
-      data: {
-        tournamentId: tournament.id,
-        locationId: location.id,
-        name: "Field 1",
-        sortOrder: 0,
-      },
-    });
+    const fieldIds: string[] = [];
+    for (let fi = 0; fi < data.fieldCount; fi++) {
+      const field = await tx.field.create({
+        data: {
+          tournamentId: tournament.id,
+          locationId: location.id,
+          name: `Field ${fi + 1}`,
+          sortOrder: fi,
+        },
+      });
+      fieldIds.push(field.id);
+    }
 
     for (let di = 0; di < data.divisions.length; di++) {
       const divData = data.divisions[di]!;
@@ -135,7 +139,7 @@ async function persistSkeleton(
       }
     }
 
-    return { id: tournament.id, slug, fieldId: field.id };
+    return { id: tournament.id, slug, fieldIds };
   });
 }
 
@@ -161,7 +165,7 @@ export async function createTournamentFromWizard(input: unknown): Promise<Tourna
   }
 
   try {
-    const { id, slug, fieldId } = await persistSkeleton(parsed.data);
+    const { id, slug, fieldIds } = await persistSkeleton(parsed.data);
     await recomputeAllPoolsForTournament(id);
 
     const finishNotes: string[] = [];
@@ -170,7 +174,11 @@ export async function createTournamentFromWizard(input: unknown): Promise<Tourna
         tournamentId: id,
         timezone: parsed.data.timezone,
         startDateYmd: parsed.data.startDate,
-        fieldId,
+        endDateYmd: parsed.data.endDate,
+        dayStartTime: parsed.data.dayStartTime,
+        dayEndTime: parsed.data.dayEndTime,
+        slotMinutes: parsed.data.slotMinutes,
+        fieldIds,
         generateSchedules: parsed.data.generateSchedules,
         createBrackets: parsed.data.createBrackets,
       });

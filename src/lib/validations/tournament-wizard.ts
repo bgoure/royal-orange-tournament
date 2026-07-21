@@ -4,6 +4,12 @@ export const WIZARD_MAX_TEAMS_PER_POOL = 24;
 export const WIZARD_MAX_POOLS_PER_DIVISION = 8;
 export const WIZARD_MAX_DIVISIONS = 8;
 export const WIZARD_MAX_TEAMS_TOURNAMENT = 96;
+export const WIZARD_MAX_FIELDS = 16;
+
+const hmSchema = z
+  .string()
+  .trim()
+  .regex(/^\d{2}:\d{2}$/, "Use HH:mm");
 
 const poolRowSchema = z
   .object({
@@ -68,6 +74,14 @@ export const tournamentWizardSchema = z
     startDate: z.string().regex(/^\d{4}-\d{2}-\d{2}$/, "Use YYYY-MM-DD"),
     endDate: z.string().regex(/^\d{4}-\d{2}-\d{2}$/, "Use YYYY-MM-DD"),
     timezone: z.string().trim().min(1).max(120),
+    /** Number of fields to create at HQ (Field 1…N). */
+    fieldCount: z.coerce.number().int().min(1).max(WIZARD_MAX_FIELDS),
+    /** Minutes between game start waves (slot length). */
+    slotMinutes: z.coerce.number().int().min(15).max(360),
+    /** First allowed game start each day (HH:mm in tournament timezone). */
+    dayStartTime: hmSchema,
+    /** Games must start before this time each day (HH:mm). */
+    dayEndTime: hmSchema,
     divisions: z
       .array(divisionSchema)
       .min(1, "At least one division is required")
@@ -80,6 +94,10 @@ export const tournamentWizardSchema = z
   .refine((d) => d.endDate >= d.startDate, {
     message: "End date must be on or after start date",
     path: ["endDate"],
+  })
+  .refine((d) => d.dayStartTime < d.dayEndTime, {
+    message: "Daily end time must be after daily start time",
+    path: ["dayEndTime"],
   })
   .superRefine((d, ctx) => {
     let totalTeams = 0;

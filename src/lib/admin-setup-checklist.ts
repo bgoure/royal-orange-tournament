@@ -28,7 +28,7 @@ export const SETUP_STEPS: SetupStepDef[] = [
   {
     id: "fields",
     title: "Confirm fields",
-    description: "Field 1 was created with HQ — add more if needed.",
+    description: "Fields were created from the wizard count — rename or add more if needed.",
     href: "/admin/fields",
     ctaLabel: "Review fields",
   },

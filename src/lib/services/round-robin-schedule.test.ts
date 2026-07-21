@@ -2,8 +2,10 @@ import assert from "node:assert/strict";
 import { describe, it } from "node:test";
 import {
   buildRoundRobinPairings,
+  estimateScheduleCapacity,
   expectedRoundRobinGameCount,
   scheduleRoundRobinSlots,
+  scheduleRoundRobinSlotsInWindow,
 } from "./round-robin-schedule";
 
 describe("buildRoundRobinPairings", () => {
@@ -55,5 +57,61 @@ describe("scheduleRoundRobinSlots", () => {
     assert.equal(later!.scheduledAt.getTime(), start.getTime() + 90 * 60_000);
     const fieldsUsed = new Set(slots.map((s) => s.fieldId));
     assert.ok(fieldsUsed.has("f1"));
+  });
+});
+
+describe("scheduleRoundRobinSlotsInWindow", () => {
+  it("does not double-book a field at the same time", () => {
+    const pairings = buildRoundRobinPairings(["a", "b", "c", "d"]);
+    const { slots, warnings } = scheduleRoundRobinSlotsInWindow(pairings, {
+      timezone: "UTC",
+      startDateYmd: "2026-07-01",
+      endDateYmd: "2026-07-01",
+      dayStartHm: "08:00",
+      dayEndHm: "20:00",
+      slotMinutes: 60,
+      fieldIds: ["f1"],
+    });
+    assert.equal(slots.length, 6);
+    assert.equal(warnings.length, 0);
+    const byKey = new Map<string, number>();
+    for (const s of slots) {
+      const key = `${s.fieldId}|${s.scheduledAt.toISOString()}`;
+      byKey.set(key, (byKey.get(key) ?? 0) + 1);
+    }
+    for (const n of byKey.values()) {
+      assert.equal(n, 1);
+    }
+  });
+
+  it("warns when capacity is exceeded", () => {
+    const pairings = buildRoundRobinPairings(["a", "b", "c", "d", "e", "f"]);
+    const { warnings } = scheduleRoundRobinSlotsInWindow(pairings, {
+      timezone: "UTC",
+      startDateYmd: "2026-07-01",
+      endDateYmd: "2026-07-01",
+      dayStartHm: "08:00",
+      dayEndHm: "09:00",
+      slotMinutes: 60,
+      fieldIds: ["f1"],
+    });
+    assert.ok(warnings.length >= 1);
+  });
+});
+
+describe("estimateScheduleCapacity", () => {
+  it("flags when waves exceed available slots", () => {
+    const est = estimateScheduleCapacity({
+      poolTeamCounts: [4, 4],
+      fieldCount: 1,
+      timezone: "UTC",
+      startDateYmd: "2026-07-01",
+      endDateYmd: "2026-07-01",
+      dayStartHm: "08:00",
+      dayEndHm: "10:00",
+      slotMinutes: 90,
+    });
+    assert.equal(est.fits, false);
+    assert.ok(est.warnings.length >= 1);
   });
 });

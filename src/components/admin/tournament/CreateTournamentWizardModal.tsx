@@ -10,12 +10,14 @@ import {
 } from "@/lib/admin-setup-checklist";
 import {
   WIZARD_MAX_DIVISIONS,
+  WIZARD_MAX_FIELDS,
   WIZARD_MAX_POOLS_PER_DIVISION,
   WIZARD_MAX_TEAMS_PER_POOL,
   WIZARD_MAX_TEAMS_TOURNAMENT,
   type TournamentWizardInput,
 } from "@/lib/validations/tournament-wizard";
 import { isValidEntryTeamCount } from "@/lib/services/bracket-engine";
+import { estimateScheduleCapacity } from "@/lib/services/round-robin-schedule";
 
 const TIMEZONES = [
   "America/New_York",
@@ -71,6 +73,10 @@ export function CreateTournamentWizardModal({ onClose }: Props) {
   const [startDate, setStartDate] = useState("");
   const [endDate, setEndDate] = useState("");
   const [timezone, setTimezone] = useState<string>(TIMEZONES[0]);
+  const [fieldCount, setFieldCount] = useState("2");
+  const [slotMinutes, setSlotMinutes] = useState("90");
+  const [dayStartTime, setDayStartTime] = useState("08:00");
+  const [dayEndTime, setDayEndTime] = useState("18:00");
 
   const [multipleDivisions, setMultipleDivisions] = useState(false);
   const [divisionNames, setDivisionNames] = useState<string[]>(["Main"]);
@@ -111,6 +117,39 @@ export function CreateTournamentWizardModal({ onClose }: Props) {
   }, [divisionNames, poolsByDivision]);
 
   const bracketsPossible = advancingByDivision.some((n) => isValidEntryTeamCount(n));
+
+  const scheduleCapacity = useMemo(() => {
+    if (!startDate || !endDate || dayStartTime >= dayEndTime) {
+      return null;
+    }
+    const fc = Number(fieldCount) || 1;
+    const sm = Number(slotMinutes) || 90;
+    const poolCounts: number[] = [];
+    for (const pools of poolsByDivision) {
+      for (const p of pools) {
+        poolCounts.push(poolTeamCount(p));
+      }
+    }
+    return estimateScheduleCapacity({
+      poolTeamCounts: poolCounts,
+      fieldCount: fc,
+      timezone,
+      startDateYmd: startDate,
+      endDateYmd: endDate,
+      dayStartHm: dayStartTime,
+      dayEndHm: dayEndTime,
+      slotMinutes: sm,
+    });
+  }, [
+    startDate,
+    endDate,
+    dayStartTime,
+    dayEndTime,
+    fieldCount,
+    slotMinutes,
+    timezone,
+    poolsByDivision,
+  ]);
 
   const addDivision = () => {
     if (divisionNames.length >= WIZARD_MAX_DIVISIONS) return;
@@ -170,6 +209,10 @@ export function CreateTournamentWizardModal({ onClose }: Props) {
     startDate,
     endDate,
     timezone,
+    fieldCount: Number(fieldCount),
+    slotMinutes: Number(slotMinutes),
+    dayStartTime,
+    dayEndTime,
     generateSchedules,
     createBrackets,
     divisions: divisionNames.map((name, di) => ({
@@ -199,7 +242,14 @@ export function CreateTournamentWizardModal({ onClose }: Props) {
     venueName.trim() &&
     venueAddress.trim() &&
     startDate &&
-    endDate;
+    endDate &&
+    endDate >= startDate &&
+    Number(fieldCount) >= 1 &&
+    Number(fieldCount) <= WIZARD_MAX_FIELDS &&
+    Number(slotMinutes) >= 15 &&
+    dayStartTime &&
+    dayEndTime &&
+    dayStartTime < dayEndTime;
 
   const canAdvanceFromStep1 =
     divisionNames.length > 0 &&
@@ -223,7 +273,9 @@ export function CreateTournamentWizardModal({ onClose }: Props) {
   const goNext = () => {
     setFormError(null);
     if (step === 0 && !canAdvanceFromStep0) {
-      setFormError("Fill in all required fields.");
+      setFormError(
+        "Fill in venue, dates, field count, slot length, and daily hours (end must be after start).",
+      );
       return;
     }
     if (step === 1 && !canAdvanceFromStep1) {
@@ -423,6 +475,58 @@ export function CreateTournamentWizardModal({ onClose }: Props) {
                   ))}
                 </select>
               </label>
+              <div className="rounded-xl border border-zinc-200 bg-zinc-50/80 p-4 space-y-3">
+                <p className="text-xs font-semibold uppercase tracking-wide text-zinc-500">
+                  Fields &amp; schedule window
+                </p>
+                <p className="text-xs text-zinc-500">
+                  Used if you generate round-robin schedules. Games start only between daily hours on tournament
+                  dates.
+                </p>
+                <div className="grid grid-cols-2 gap-3">
+                  <label className="block text-sm font-medium text-zinc-700">
+                    Number of fields
+                    <input
+                      type="number"
+                      min={1}
+                      max={WIZARD_MAX_FIELDS}
+                      className="mt-1 w-full rounded-lg border border-zinc-200 px-3 py-2 text-sm"
+                      value={fieldCount}
+                      onChange={(e) => setFieldCount(e.target.value)}
+                    />
+                  </label>
+                  <label className="block text-sm font-medium text-zinc-700">
+                    Slot length (minutes)
+                    <input
+                      type="number"
+                      min={15}
+                      max={360}
+                      step={5}
+                      className="mt-1 w-full rounded-lg border border-zinc-200 px-3 py-2 text-sm"
+                      value={slotMinutes}
+                      onChange={(e) => setSlotMinutes(e.target.value)}
+                    />
+                  </label>
+                  <label className="block text-sm font-medium text-zinc-700">
+                    Daily first pitch
+                    <input
+                      type="time"
+                      className="mt-1 w-full rounded-lg border border-zinc-200 px-3 py-2 text-sm"
+                      value={dayStartTime}
+                      onChange={(e) => setDayStartTime(e.target.value)}
+                    />
+                  </label>
+                  <label className="block text-sm font-medium text-zinc-700">
+                    No new games after
+                    <input
+                      type="time"
+                      className="mt-1 w-full rounded-lg border border-zinc-200 px-3 py-2 text-sm"
+                      value={dayEndTime}
+                      onChange={(e) => setDayEndTime(e.target.value)}
+                    />
+                  </label>
+                </div>
+              </div>
             </>
           ) : null}
 
@@ -611,6 +715,10 @@ export function CreateTournamentWizardModal({ onClose }: Props) {
                 <p>
                   <strong>Dates:</strong> {startDate} → {endDate} ({timezone})
                 </p>
+                <p>
+                  <strong>Fields:</strong> {fieldCount} · <strong>Slots:</strong> {slotMinutes} min ·{" "}
+                  <strong>Daily:</strong> {dayStartTime}–{dayEndTime}
+                </p>
                 <div className="border-t border-zinc-100 pt-2">
                   <strong className="text-zinc-900">Structure</strong>
                   <ul className="mt-1 list-inside list-disc space-y-1 text-zinc-600">
@@ -631,6 +739,32 @@ export function CreateTournamentWizardModal({ onClose }: Props) {
                 </div>
               </div>
 
+              {scheduleCapacity && scheduleCapacity.warnings.length > 0 ? (
+                <div
+                  className={`rounded-xl border px-3 py-3 text-xs ${
+                    scheduleCapacity.fits
+                      ? "border-zinc-200 bg-zinc-50 text-zinc-600"
+                      : "border-amber-300 bg-amber-50 text-amber-950"
+                  }`}
+                  role="status"
+                >
+                  <p className="font-semibold">
+                    {scheduleCapacity.fits ? "Schedule capacity" : "Schedule warning"}
+                  </p>
+                  <ul className="mt-1 list-inside list-disc space-y-0.5">
+                    {scheduleCapacity.warnings.map((w, i) => (
+                      <li key={i}>{w}</li>
+                    ))}
+                  </ul>
+                  {scheduleCapacity.wavesNeeded > 0 ? (
+                    <p className="mt-1.5 tabular-nums text-[11px] opacity-80">
+                      ~{scheduleCapacity.wavesNeeded} slot(s) needed · {scheduleCapacity.slotsAvailable}{" "}
+                      available
+                    </p>
+                  ) : null}
+                </div>
+              ) : null}
+
               <div className="rounded-xl border border-zinc-200 bg-zinc-50/80 p-4 space-y-3">
                 <p className="text-xs font-semibold uppercase tracking-wide text-zinc-500">
                   Optional finish
@@ -645,9 +779,14 @@ export function CreateTournamentWizardModal({ onClose }: Props) {
                   <span>
                     <span className="font-medium">Generate pool round-robin schedules</span>
                     <span className="mt-0.5 block text-xs text-zinc-500">
-                      Uses Field 1, start {startDate || "…"} 9:00, 90 min between rounds. Needs ≥2 teams per pool.
+                      Uses your {fieldCount} field(s), {dayStartTime}–{dayEndTime} daily, {slotMinutes}-min
+                      slots across {startDate || "…"}–{endDate || "…"}. Pools share fields sequentially (no
+                      double-booking). Needs ≥2 teams per pool.
                       {!allPoolsHaveTwoPlusNamed
                         ? " (Some pools still use placeholders or have fewer than 2 teams.)"
+                        : ""}
+                      {scheduleCapacity && !scheduleCapacity.fits && generateSchedules
+                        ? " Warning: capacity looks short — games may spill outside the window."
                         : ""}
                     </span>
                   </span>

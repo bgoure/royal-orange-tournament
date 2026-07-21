@@ -1,4 +1,5 @@
 import { GameKind } from "@prisma/client";
+import type { DateTime } from "luxon";
 import { prisma } from "@/lib/db";
 import { parseDatetimeLocalInTimeZone } from "@/lib/datetime-tournament";
 import {
@@ -8,7 +9,8 @@ import {
 import { isValidEntryTeamCount } from "@/lib/services/bracket-engine";
 import {
   buildRoundRobinPairings,
-  scheduleRoundRobinSlots,
+  estimateScheduleCapacity,
+  scheduleRoundRobinSlotsInWindow,
 } from "@/lib/services/round-robin-schedule";
 import { recomputePoolStandings } from "@/lib/services/standings";
 
@@ -50,28 +52,25 @@ function defaultFirstRound(
   return out;
 }
 
-/** 9:00 on tournament start date in the event timezone. */
-export function wizardDefaultScheduleLocal(startDateYmd: string): string {
-  return `${startDateYmd}T09:00`;
-}
-
-/**
- * Generate single round-robin for every pool with ≥2 teams using one field.
- */
-export async function generateWizardPoolSchedules(opts: {
-  tournamentId: string;
+export type WizardScheduleParams = {
   timezone: string;
   startDateYmd: string;
-  fieldId: string;
-  slotMinutes?: number;
-}): Promise<{ gamesCreated: number; notes: string[] }> {
+  endDateYmd: string;
+  dayStartTime: string;
+  dayEndTime: string;
+  slotMinutes: number;
+  fieldIds: string[];
+};
+
+/**
+ * Generate single round-robin for every pool with ≥2 teams inside the tournament window.
+ * Pools are packed sequentially on the shared fields (no double-booking).
+ */
+export async function generateWizardPoolSchedules(
+  opts: WizardScheduleParams & { tournamentId: string },
+): Promise<{ gamesCreated: number; notes: string[] }> {
   const notes: string[] = [];
   let gamesCreated = 0;
-  const slotMinutes = opts.slotMinutes ?? 90;
-  const startAt = parseDatetimeLocalInTimeZone(
-    wizardDefaultScheduleLocal(opts.startDateYmd),
-    opts.timezone,
-  );
 
   const pools = await prisma.pool.findMany({
     where: { division: { tournamentId: opts.tournamentId } },
@@ -81,6 +80,29 @@ export async function generateWizardPoolSchedules(opts: {
     },
     orderBy: [{ division: { sortOrder: "asc" } }, { sortOrder: "asc" }],
   });
+
+  const capacity = estimateScheduleCapacity({
+    poolTeamCounts: pools.map((p) => p.teams.length),
+    fieldCount: opts.fieldIds.length,
+    timezone: opts.timezone,
+    startDateYmd: opts.startDateYmd,
+    endDateYmd: opts.endDateYmd,
+    dayStartHm: opts.dayStartTime,
+    dayEndHm: opts.dayEndTime,
+    slotMinutes: opts.slotMinutes,
+  });
+  notes.push(...capacity.warnings);
+
+  let cursor: { nextAt: DateTime | null } = { nextAt: null };
+  const windowOpts = {
+    timezone: opts.timezone,
+    startDateYmd: opts.startDateYmd,
+    endDateYmd: opts.endDateYmd,
+    dayStartHm: opts.dayStartTime,
+    dayEndHm: opts.dayEndTime,
+    slotMinutes: opts.slotMinutes,
+    fieldIds: opts.fieldIds,
+  };
 
   for (const pool of pools) {
     const label = `${pool.division.name} → ${pool.name}`;
@@ -102,19 +124,17 @@ export async function generateWizardPoolSchedules(opts: {
     }
 
     const pairings = buildRoundRobinPairings(pool.teams.map((t) => t.id));
-    const slots = scheduleRoundRobinSlots(pairings, {
-      startAt,
-      slotMinutes,
-      fieldIds: [opts.fieldId],
-    });
+    const packed = scheduleRoundRobinSlotsInWindow(pairings, windowOpts, cursor);
+    cursor = { nextAt: packed.nextAt };
+    notes.push(...packed.warnings.map((w) => `${label}: ${w}`));
 
-    if (slots.length === 0) {
+    if (packed.slots.length === 0) {
       notes.push(`Skipped schedule for ${label}: no pairings.`);
       continue;
     }
 
     await prisma.game.createMany({
-      data: slots.map((s) => ({
+      data: packed.slots.map((s) => ({
         tournamentId: opts.tournamentId,
         poolId: pool.id,
         fieldId: s.fieldId,
@@ -127,7 +147,7 @@ export async function generateWizardPoolSchedules(opts: {
       })),
     });
     await recomputePoolStandings(pool.id);
-    gamesCreated += slots.length;
+    gamesCreated += packed.slots.length;
   }
 
   return { gamesCreated, notes };
@@ -201,48 +221,46 @@ export async function createWizardSingleElimBrackets(opts: {
   return { bracketsCreated, notes };
 }
 
-export async function runWizardFinishOptions(opts: {
-  tournamentId: string;
-  timezone: string;
-  startDateYmd: string;
-  fieldId: string;
-  generateSchedules: boolean;
-  createBrackets: boolean;
-}): Promise<WizardFinishResult> {
+export async function runWizardFinishOptions(
+  opts: WizardScheduleParams & {
+    tournamentId: string;
+    generateSchedules: boolean;
+    createBrackets: boolean;
+  },
+): Promise<WizardFinishResult> {
   const notes: string[] = [];
   let gamesCreated = 0;
   let bracketsCreated = 0;
   let schedulesGenerated = false;
 
   if (opts.generateSchedules) {
-    const rr = await generateWizardPoolSchedules({
-      tournamentId: opts.tournamentId,
-      timezone: opts.timezone,
-      startDateYmd: opts.startDateYmd,
-      fieldId: opts.fieldId,
-    });
+    const rr = await generateWizardPoolSchedules(opts);
     gamesCreated = rr.gamesCreated;
     schedulesGenerated = rr.gamesCreated > 0;
     notes.push(...rr.notes);
     if (rr.gamesCreated > 0) {
-      notes.push(`Created ${rr.gamesCreated} pool game(s) starting ${opts.startDateYmd} 9:00 (${opts.timezone}).`);
+      notes.push(
+        `Created ${rr.gamesCreated} pool game(s) on ${opts.fieldIds.length} field(s), ${opts.dayStartTime}–${opts.dayEndTime}, ${opts.slotMinutes}-min slots (${opts.timezone}).`,
+      );
     }
   }
 
   if (opts.createBrackets) {
     const startsAt = parseDatetimeLocalInTimeZone(
-      wizardDefaultScheduleLocal(opts.startDateYmd),
+      `${opts.startDateYmd}T${opts.dayStartTime}`,
       opts.timezone,
     );
     const br = await createWizardSingleElimBrackets({
       tournamentId: opts.tournamentId,
-      fieldId: opts.fieldId,
+      fieldId: opts.fieldIds[0]!,
       startsAt,
     });
     bracketsCreated = br.bracketsCreated;
     notes.push(...br.notes);
     if (br.bracketsCreated > 0) {
-      notes.push(`Created ${br.bracketsCreated} unpublished single-elim bracket(s). Apply standings after pool play.`);
+      notes.push(
+        `Created ${br.bracketsCreated} unpublished single-elim bracket(s). Apply standings after pool play.`,
+      );
     }
   }
 
