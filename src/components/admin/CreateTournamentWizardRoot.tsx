@@ -1,7 +1,11 @@
 "use client";
 
+import { useCallback, useEffect, useState } from "react";
 import { usePathname } from "next/navigation";
-import { AdminSidebar } from "@/components/admin/AdminSidebar";
+import {
+  AdminSidebar,
+  type AdminSidebarTournamentOption,
+} from "@/components/admin/AdminSidebar";
 import { AdminTournamentStrip } from "@/components/admin/AdminTournamentStrip";
 import { AdminSetupChecklistStrip } from "@/components/admin/tournament/AdminSetupChecklistStrip";
 import { CreateTournamentWizardProvider } from "@/components/admin/tournament/CreateTournamentWizardContext";
@@ -16,6 +20,7 @@ type Props = {
   /** Public URL for the selected tournament (`/{slug}` or archived path). */
   publicSiteHref: string;
   setupProgress: SetupProgress | null;
+  tournaments: AdminSidebarTournamentOption[];
 };
 
 export function CreateTournamentWizardRoot({
@@ -26,11 +31,24 @@ export function CreateTournamentWizardRoot({
   currentTournamentSlug,
   publicSiteHref,
   setupProgress,
+  tournaments,
 }: Props) {
   const pathname = usePathname() ?? "";
   const onHub = pathname === "/admin" || pathname === "/admin/";
   const showStrip = showTournamentStrip && !onHub;
   const isPrintSheets = pathname.startsWith("/admin/print-sheets");
+  const [mobileNavOpen, setMobileNavOpen] = useState(false);
+
+  const closeMobileNav = useCallback(() => setMobileNavOpen(false), []);
+
+  useEffect(() => {
+    if (!mobileNavOpen) return;
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key === "Escape") closeMobileNav();
+    };
+    document.addEventListener("keydown", onKey);
+    return () => document.removeEventListener("keydown", onKey);
+  }, [mobileNavOpen, closeMobileNav]);
 
   const mainInnerClass = isPrintSheets
     ? "mx-auto max-w-6xl px-8 py-10 print:w-full print:max-w-none print:px-0 print:py-0.5"
@@ -39,16 +57,36 @@ export function CreateTournamentWizardRoot({
   return (
     <CreateTournamentWizardProvider canCreateTournament={canCreateTournament}>
       <div className="flex min-h-full bg-zinc-100 print:block print:bg-white">
-        <div className="print:hidden">
-          <AdminSidebar publicSiteHref={publicSiteHref} />
-        </div>
+        <AdminSidebar
+          publicSiteHref={publicSiteHref}
+          currentTournamentName={currentTournamentName}
+          currentTournamentSlug={currentTournamentSlug}
+          tournaments={tournaments}
+          mobileOpen={mobileNavOpen}
+          onMobileClose={closeMobileNav}
+        />
         <div className="flex min-h-full min-w-0 flex-1 flex-col print:w-full">
+          {onHub && showTournamentStrip ? (
+            <div className="flex items-center gap-2 border-b border-zinc-200 bg-zinc-50 px-4 py-3 print:hidden lg:hidden">
+              <button
+                type="button"
+                onClick={() => setMobileNavOpen(true)}
+                className="inline-flex size-9 items-center justify-center rounded-lg border border-zinc-300 bg-white text-zinc-800 hover:bg-zinc-100"
+                aria-label="Open navigation"
+              >
+                <svg viewBox="0 0 24 24" className="size-5" fill="none" stroke="currentColor" strokeWidth={2}>
+                  <path d="M4 6h16M4 12h16M4 18h16" strokeLinecap="round" />
+                </svg>
+              </button>
+              <span className="text-sm font-medium text-zinc-800">Tournaments</span>
+            </div>
+          ) : null}
           {showStrip ? (
             <div className="print:hidden">
               <AdminTournamentStrip
-                currentTournamentName={currentTournamentName}
-                currentTournamentSlug={currentTournamentSlug}
                 publicSiteHref={publicSiteHref}
+                currentTournamentSlug={currentTournamentSlug}
+                onOpenMobileNav={() => setMobileNavOpen(true)}
               />
               {currentTournamentSlug && setupProgress ? (
                 <AdminSetupChecklistStrip slug={currentTournamentSlug} progress={setupProgress} />

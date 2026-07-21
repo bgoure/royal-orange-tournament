@@ -3,7 +3,7 @@ import { auth } from "@/auth";
 import { CreateTournamentWizardRoot } from "@/components/admin/CreateTournamentWizardRoot";
 import { can } from "@/lib/rbac/permissions";
 import { getTournamentSetupProgress } from "@/lib/services/admin-setup-progress";
-import { getTournamentForRequest } from "@/lib/tournament-context";
+import { getTournamentForRequest, listTournamentsForAdminHub } from "@/lib/tournament-context";
 import { tournamentPublicBasePath } from "@/lib/tournament-public-path";
 
 export const metadata: Metadata = {
@@ -16,9 +16,17 @@ export default async function AdminLayout({ children }: { children: React.ReactN
   const role = session?.user?.role;
   const showTournamentStrip = role === "ADMIN" || role === "POWER_USER";
   const canCreateTournament = role != null && can(role, "content:manage");
-  const tournament = await getTournamentForRequest();
+  const [tournament, hubRows] = await Promise.all([
+    getTournamentForRequest(),
+    listTournamentsForAdminHub(),
+  ]);
   const setupProgress = tournament ? await getTournamentSetupProgress(tournament.id) : null;
   const publicSiteHref = tournament ? tournamentPublicBasePath(tournament) : "/";
+  const tournaments = hubRows.map((t) => ({
+    name: t.name,
+    slug: t.slug,
+    archivedAt: t.archivedAt ? t.archivedAt.toISOString() : null,
+  }));
 
   return (
     <CreateTournamentWizardRoot
@@ -28,6 +36,7 @@ export default async function AdminLayout({ children }: { children: React.ReactN
       currentTournamentSlug={tournament?.slug ?? null}
       publicSiteHref={publicSiteHref}
       setupProgress={setupProgress}
+      tournaments={tournaments}
     >
       {children}
     </CreateTournamentWizardRoot>
