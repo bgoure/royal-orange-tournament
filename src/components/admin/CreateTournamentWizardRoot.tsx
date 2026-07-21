@@ -1,7 +1,7 @@
 "use client";
 
-import { useCallback, useEffect, useState } from "react";
-import { usePathname } from "next/navigation";
+import { Suspense, useCallback, useEffect, useState } from "react";
+import { usePathname, useSearchParams } from "next/navigation";
 import {
   AdminSidebar,
   type AdminSidebarTournamentOption,
@@ -25,7 +25,7 @@ type Props = {
   tournaments: AdminSidebarTournamentOption[];
 };
 
-export function CreateTournamentWizardRoot({
+function AdminShell({
   children,
   showTournamentStrip,
   canCreateTournament,
@@ -37,8 +37,12 @@ export function CreateTournamentWizardRoot({
   tournaments,
 }: Props) {
   const pathname = usePathname() ?? "";
+  const searchParams = useSearchParams();
   const onHub = pathname === "/admin" || pathname === "/admin/";
-  const showStrip = showTournamentStrip && !onHub;
+  const isScorekeeper =
+    (pathname === "/admin/games" || pathname.startsWith("/admin/games/")) &&
+    searchParams.get("mode") === "scorekeeper";
+  const showStrip = showTournamentStrip && !onHub && !isScorekeeper;
   const isPrintSheets = pathname.startsWith("/admin/print-sheets");
   const [mobileNavOpen, setMobileNavOpen] = useState(false);
 
@@ -53,21 +57,25 @@ export function CreateTournamentWizardRoot({
     return () => document.removeEventListener("keydown", onKey);
   }, [mobileNavOpen, closeMobileNav]);
 
-  const mainInnerClass = isPrintSheets
-    ? "mx-auto max-w-6xl px-8 py-10 print:w-full print:max-w-none print:px-0 print:py-0.5"
-    : "mx-auto max-w-6xl px-8 py-10 print:max-w-none print:px-3 print:py-2";
+  const mainInnerClass = isScorekeeper
+    ? "mx-auto max-w-lg px-4 py-4 sm:px-8"
+    : isPrintSheets
+      ? "mx-auto max-w-6xl px-8 py-10 print:w-full print:max-w-none print:px-0 print:py-0.5"
+      : "mx-auto max-w-6xl px-8 py-10 print:max-w-none print:px-3 print:py-2";
 
   return (
     <CreateTournamentWizardProvider canCreateTournament={canCreateTournament}>
       <div className="flex min-h-full bg-zinc-100 print:block print:bg-white">
-        <AdminSidebar
-          publicSiteHref={publicSiteHref}
-          currentTournamentName={currentTournamentName}
-          currentTournamentSlug={currentTournamentSlug}
-          tournaments={tournaments}
-          mobileOpen={mobileNavOpen}
-          onMobileClose={closeMobileNav}
-        />
+        {isScorekeeper ? null : (
+          <AdminSidebar
+            publicSiteHref={publicSiteHref}
+            currentTournamentName={currentTournamentName}
+            currentTournamentSlug={currentTournamentSlug}
+            tournaments={tournaments}
+            mobileOpen={mobileNavOpen}
+            onMobileClose={closeMobileNav}
+          />
+        )}
         <div className="flex min-h-full min-w-0 flex-1 flex-col print:w-full">
           {onHub && showTournamentStrip ? (
             <div className="flex items-center gap-2 border-b border-zinc-200 bg-zinc-50 px-4 py-3 print:hidden lg:hidden">
@@ -104,5 +112,23 @@ export function CreateTournamentWizardRoot({
         </div>
       </div>
     </CreateTournamentWizardProvider>
+  );
+}
+
+function AdminShellFallback({ children }: { children: React.ReactNode }) {
+  return (
+    <div className="flex min-h-full bg-zinc-100">
+      <main className="flex-1 bg-white">
+        <div className="mx-auto max-w-6xl px-8 py-10">{children}</div>
+      </main>
+    </div>
+  );
+}
+
+export function CreateTournamentWizardRoot(props: Props) {
+  return (
+    <Suspense fallback={<AdminShellFallback>{props.children}</AdminShellFallback>}>
+      <AdminShell {...props} />
+    </Suspense>
   );
 }

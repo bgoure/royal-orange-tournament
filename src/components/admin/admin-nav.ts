@@ -27,6 +27,7 @@ export const adminNavGroups = [
     label: "Competition Ops",
     items: [
       { href: "/admin/games", label: "Games & Schedule", segment: "games" },
+      { href: "/admin/games?mode=scorekeeper", label: "Scorekeeper", segment: "games-scorekeeper" },
       { href: "/admin/standings", label: "Standings", segment: "standings" },
       { href: "/admin/brackets", label: "Brackets & Playoffs", segment: "brackets" },
       { href: "/admin/print-sheets", label: "Print game sheets", segment: "print-sheets" },
@@ -54,12 +55,30 @@ export const adminNavGroups = [
 /** Flat list for callers that still need every link. */
 export const adminNavItems: readonly AdminNavItem[] = adminNavGroups.flatMap((g) => [...g.items]);
 
-export function navItemIsActive(pathname: string, href: string, segment: string): boolean {
+export function navItemIsActive(
+  pathname: string,
+  href: string,
+  segment: string,
+  search = "",
+): boolean {
+  const mode = new URLSearchParams(search.startsWith("?") ? search.slice(1) : search).get("mode");
+  if (segment === "games-scorekeeper") {
+    return pathname === "/admin/games" || pathname.startsWith("/admin/games/")
+      ? mode === "scorekeeper"
+      : false;
+  }
+  if (segment === "games") {
+    if (pathname === "/admin/games" || pathname.startsWith("/admin/games/")) {
+      return mode !== "scorekeeper";
+    }
+    return false;
+  }
   if (segment === "hub") {
     return pathname === "/admin" || pathname === "/admin/";
   }
   if (segment === "tournament-settings") {
     return pathname === href || pathname.startsWith(`${href}/`);
   }
-  return pathname === href || pathname.startsWith(`${href}/`);
+  const pathOnly = href.split("?")[0] ?? href;
+  return pathname === pathOnly || pathname.startsWith(`${pathOnly}/`);
 }

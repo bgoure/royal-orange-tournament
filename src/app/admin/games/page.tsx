@@ -6,9 +6,15 @@ import { listGamesAdmin } from "@/lib/services/admin-games";
 import { getTournamentStructure } from "@/lib/services/admin-structure";
 import { getTournamentForRequest } from "@/lib/tournament-context";
 
-export default async function AdminGamesPage() {
+export default async function AdminGamesPage({
+  searchParams,
+}: {
+  searchParams: Promise<{ mode?: string }>;
+}) {
   const session = await auth();
   const tournament = await getTournamentForRequest();
+  const sp = await searchParams;
+  const mode = sp.mode === "scorekeeper" ? "scorekeeper" : "admin";
 
   if (!tournament) {
     return <AdminNoTournamentPlaceholder />;
@@ -48,6 +54,7 @@ export default async function AdminGamesPage() {
       tournamentName={tournament.name}
       tournamentTimezone={tournament.timezone}
       isAdmin={isAdmin}
+      mode={mode}
     />
   );
 }

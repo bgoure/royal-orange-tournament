@@ -18,6 +18,7 @@ import {
 } from "@/app/admin/_actions/games";
 import { ActionMessage } from "@/components/admin/structure/ActionMessage";
 import { ConfirmForm } from "@/components/admin/structure/ConfirmForm";
+import { ScorekeeperView } from "@/components/admin/games/ScorekeeperView";
 import { formatJsDateAsDatetimeLocalInZone } from "@/lib/datetime-tournament";
 
 export type AdminGameRow = Game & {
@@ -72,6 +73,8 @@ type Props = {
   /** IANA zone for interpreting `datetime-local` values (matches tournament settings). */
   tournamentTimezone: string;
   isAdmin: boolean;
+  /** Day-of mobile scoring UI when `scorekeeper`. */
+  mode?: "admin" | "scorekeeper";
 };
 
 export function GamesAdmin({
@@ -81,6 +84,7 @@ export function GamesAdmin({
   tournamentName,
   tournamentTimezone,
   isAdmin,
+  mode = "admin",
 }: Props) {
   const [createState, createAction, createPending] = useActionState(createGame, undefined as GameActionResult | undefined);
   const [rrState, rrAction, rrPending] = useActionState(
@@ -99,6 +103,17 @@ export function GamesAdmin({
     return poolsWithTeams.find((x) => x.poolId === rrPoolId)?.teams.length ?? 0;
   }, [poolsWithTeams, rrPoolId]);
 
+  if (mode === "scorekeeper") {
+    return (
+      <ScorekeeperView
+        games={games}
+        fields={fields}
+        tournamentName={tournamentName}
+        tournamentTimezone={tournamentTimezone}
+      />
+    );
+  }
+
   return (
     <div className="flex flex-col gap-10">
       <header className="flex flex-wrap items-end justify-between gap-4 border-b border-zinc-200 pb-6">
@@ -111,6 +126,12 @@ export function GamesAdmin({
         </p>
       </div>
         <div className="flex flex-wrap gap-2">
+          <Link
+            href="/admin/games?mode=scorekeeper"
+            className="rounded-md bg-emerald-600 px-3 py-2 text-sm font-semibold text-white hover:bg-emerald-700"
+          >
+            Scorekeeper mode
+          </Link>
           <Link href="/admin/divisions" className={`${btnSecondary} px-3 py-2 text-sm`}>
             Divisions &amp; pools
           </Link>

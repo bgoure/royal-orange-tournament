@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { usePathname } from "next/navigation";
+import { usePathname, useSearchParams } from "next/navigation";
 import { useEffect, useId, useRef, useState } from "react";
 import { signOut } from "next-auth/react";
 import { adminNavGroups, navItemIsActive } from "@/components/admin/admin-nav";
@@ -41,6 +41,8 @@ function SidebarPanel({
   onNavigate?: () => void;
 }) {
   const pathname = usePathname() ?? "";
+  const searchParams = useSearchParams();
+  const search = searchParams?.toString() ?? "";
   const { open: openWizard, canCreateTournament } = useCreateTournamentWizard();
   const [switcherOpen, setSwitcherOpen] = useState(false);
   const switcherRef = useRef<HTMLDivElement>(null);
@@ -171,7 +173,7 @@ function SidebarPanel({
             </p>
             <div className="flex flex-col gap-0.5">
               {group.items.map((item) => {
-                const active = navItemIsActive(pathname, item.href, item.segment);
+                const active = navItemIsActive(pathname, item.href, item.segment, search);
                 return (
                   <Link
                     key={item.href}
