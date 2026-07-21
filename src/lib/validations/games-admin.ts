@@ -125,3 +125,27 @@ export const updateGameScoringSchema = z
       });
     }
   });
+
+const checkboxTrue = z.preprocess((v) => {
+  if (v === true || v === "true" || v === "on" || v === "1") return true;
+  return false;
+}, z.boolean());
+
+/** Generate a full single round-robin schedule for one pool. */
+export const generatePoolRoundRobinSchema = z.object({
+  poolId: z.string().min(1, "Pool is required"),
+  /** Comma-separated field ids, or single fieldId form field. */
+  fieldIds: z.preprocess((v) => {
+    if (Array.isArray(v)) return v.map(String).filter(Boolean);
+    if (typeof v === "string") {
+      return v
+        .split(",")
+        .map((s) => s.trim())
+        .filter(Boolean);
+    }
+    return [];
+  }, z.array(z.string().min(1)).min(1, "Select at least one field")),
+  scheduledAt: z.string().min(1, "Start time is required"),
+  slotMinutes: z.coerce.number().int().min(15).max(24 * 60).default(90),
+  replaceExisting: checkboxTrue.default(false),
+});

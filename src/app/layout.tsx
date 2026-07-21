@@ -17,11 +17,24 @@ const geistMono = Geist_Mono({
 export const viewport: Viewport = {
   width: "device-width",
   initialScale: 1,
-  maximumScale: 1,
-  userScalable: false,
 };
 
+const metadataBaseUrl = (() => {
+  const raw =
+    process.env.AUTH_URL?.trim() ||
+    process.env.NEXTAUTH_URL?.trim() ||
+    process.env.VERCEL_PROJECT_PRODUCTION_URL?.trim() ||
+    process.env.VERCEL_URL?.trim();
+  if (!raw) return new URL("http://localhost:3000");
+  try {
+    return new URL(raw.startsWith("http") ? raw : `https://${raw}`);
+  } catch {
+    return new URL("http://localhost:3000");
+  }
+})();
+
 export const metadata: Metadata = {
+  metadataBase: metadataBaseUrl,
   title: "R&O 2026",
   description: "Royal & Orange 2026 — schedules, scores, standings, and brackets.",
   manifest: "/manifest.json",

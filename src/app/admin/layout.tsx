@@ -2,6 +2,7 @@ import type { Metadata } from "next";
 import { auth } from "@/auth";
 import { CreateTournamentWizardRoot } from "@/components/admin/CreateTournamentWizardRoot";
 import { can } from "@/lib/rbac/permissions";
+import { getTournamentSetupProgress } from "@/lib/services/admin-setup-progress";
 import { getTournamentForRequest } from "@/lib/tournament-context";
 
 export const metadata: Metadata = {
@@ -15,6 +16,7 @@ export default async function AdminLayout({ children }: { children: React.ReactN
   const showTournamentStrip = role === "ADMIN" || role === "POWER_USER";
   const canCreateTournament = role != null && can(role, "content:manage");
   const tournament = await getTournamentForRequest();
+  const setupProgress = tournament ? await getTournamentSetupProgress(tournament.id) : null;
 
   return (
     <CreateTournamentWizardRoot
@@ -22,6 +24,7 @@ export default async function AdminLayout({ children }: { children: React.ReactN
       canCreateTournament={canCreateTournament}
       currentTournamentName={tournament?.name ?? null}
       currentTournamentSlug={tournament?.slug ?? null}
+      setupProgress={setupProgress}
     >
       {children}
     </CreateTournamentWizardRoot>

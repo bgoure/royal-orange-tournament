@@ -3,7 +3,9 @@
 import { usePathname } from "next/navigation";
 import { AdminSidebar } from "@/components/admin/AdminSidebar";
 import { AdminTournamentStrip } from "@/components/admin/AdminTournamentStrip";
+import { AdminSetupChecklistStrip } from "@/components/admin/tournament/AdminSetupChecklistStrip";
 import { CreateTournamentWizardProvider } from "@/components/admin/tournament/CreateTournamentWizardContext";
+import type { SetupProgress } from "@/lib/admin-setup-checklist";
 
 type Props = {
   children: React.ReactNode;
@@ -11,6 +13,7 @@ type Props = {
   canCreateTournament: boolean;
   currentTournamentName: string | null;
   currentTournamentSlug: string | null;
+  setupProgress: SetupProgress | null;
 };
 
 export function CreateTournamentWizardRoot({
@@ -19,6 +22,7 @@ export function CreateTournamentWizardRoot({
   canCreateTournament,
   currentTournamentName,
   currentTournamentSlug,
+  setupProgress,
 }: Props) {
   const pathname = usePathname() ?? "";
   const onHub = pathname === "/admin" || pathname === "/admin/";
@@ -42,6 +46,9 @@ export function CreateTournamentWizardRoot({
                 currentTournamentName={currentTournamentName}
                 currentTournamentSlug={currentTournamentSlug}
               />
+              {currentTournamentSlug && setupProgress ? (
+                <AdminSetupChecklistStrip slug={currentTournamentSlug} progress={setupProgress} />
+              ) : null}
             </div>
           ) : null}
           <main className="flex-1 bg-white print:min-h-0 print:w-full print:min-w-0 print:overflow-x-clip">

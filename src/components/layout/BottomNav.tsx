@@ -12,15 +12,20 @@ import {
   MoreIconSettings,
   MoreIconSocial,
 } from "@/components/icons/MoreMenuIcons";
+import { ShareTournamentButton } from "@/components/ui/ShareTournamentButton";
 import { tournamentPathFromBase } from "@/lib/tournament-public-path";
 
 export function BottomNav({
   publicBasePath,
   showPublicAnnouncements = true,
+  shareUrl,
+  tournamentName,
 }: {
   publicBasePath: string;
   /** When false, announcements are omitted from the More drawer (matches Tournament Admin setting). */
   showPublicAnnouncements?: boolean;
+  shareUrl: string;
+  tournamentName: string;
 }) {
   const pathname = usePathname();
   const tp = (...s: string[]) => tournamentPathFromBase(publicBasePath, ...s);
@@ -51,7 +56,7 @@ export function BottomNav({
       icon: <MoreIconRules />,
     },
     { href: tp("social"), label: "Social", description: "Follow Us!", icon: <MoreIconSocial /> },
-    { href: tp("settings"), label: "Settings", description: "Admin items", icon: <MoreIconSettings /> },
+    { href: tp("settings"), label: "Settings", description: "Theme & account", icon: <MoreIconSettings /> },
   ];
 
   const tabs = [
@@ -173,6 +178,9 @@ export function BottomNav({
               <Drawer.Handle className="h-1 w-10 rounded-full bg-zinc-300 dark:bg-zinc-600" />
             </div>
             <ul className="min-h-0 flex-1 overflow-y-auto px-4 pb-4 pt-4">
+              <li className="mb-2">
+                <ShareTournamentButton url={shareUrl} title={tournamentName} className="w-full" />
+              </li>
               {moreLinks.map((item) => (
                 <li key={item.href} className="border-b border-zinc-100 dark:border-zinc-800">
                   <Link

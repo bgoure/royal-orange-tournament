@@ -1,5 +1,6 @@
 import Link from "next/link";
 import { HeaderDivisionPills } from "@/components/layout/HeaderDivisionPills";
+import { ShareTournamentButton } from "@/components/ui/ShareTournamentButton";
 import type { DivisionTabDescriptor } from "@/lib/division-tabs";
 import { publicSiteHeaderTitleLines } from "@/lib/tournament-header-display";
 import { tournamentPathFromBase } from "@/lib/tournament-public-path";
@@ -10,12 +11,14 @@ export function SiteHeader({
   tournamentShortLabel,
   divisionDescriptors,
   cookieDivision,
+  shareUrl,
 }: {
   publicBasePath: string;
   tournamentName: string;
   tournamentShortLabel: string | null;
   divisionDescriptors: DivisionTabDescriptor[];
   cookieDivision: string | null;
+  shareUrl: string;
 }) {
   const tp = (...s: string[]) => tournamentPathFromBase(publicBasePath, ...s);
   const nav = [
@@ -56,6 +59,7 @@ export function SiteHeader({
             divisionDescriptors={divisionDescriptors}
             cookieDivision={cookieDivision}
           />
+          <ShareTournamentButton compact url={shareUrl} title={tournamentName} />
           <nav className="hidden gap-1 md:flex md:shrink-0">
             {nav.map((item) => (
               <Link

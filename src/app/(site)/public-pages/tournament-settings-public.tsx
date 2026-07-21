@@ -29,6 +29,9 @@ export async function TournamentSettingsPublic({ tournament }: { tournament: Tou
   return (
     <div className="flex flex-col gap-4">
       <PageTitle>Settings</PageTitle>
+      <p className="text-sm text-zinc-600 dark:text-zinc-400">
+        Change how this site looks on your device. Staff sign-in tools are below if you help run the tournament.
+      </p>
 
       <PublicSettingsPortal
         settingsPath={settingsPath}

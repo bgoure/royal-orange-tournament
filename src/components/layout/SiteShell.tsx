@@ -9,6 +9,7 @@ import { PwaInstallPrompt } from "@/components/ui/PwaInstallPrompt";
 import { getDivisionTabCookie } from "@/lib/division-tab-cookie";
 import { buildDivisionTabDescriptors } from "@/lib/division-tabs";
 import { formatFieldWithLocation } from "@/lib/field-display";
+import { getRequestPublicOrigin } from "@/lib/request-public-origin";
 import { listFieldsForTournament, listPoolsForDivisionTabs } from "@/lib/services/pools";
 import { tournamentPublicBasePath } from "@/lib/tournament-public-path";
 
@@ -32,11 +33,12 @@ export async function SiteShell({
   const slug = tournament.slug;
   const publicBasePath = tournamentPublicBasePath(tournament);
 
-  const [divisionTabDescriptors, cookieDivision, session, fieldRows] = await Promise.all([
+  const [divisionTabDescriptors, cookieDivision, session, fieldRows, requestOrigin] = await Promise.all([
     listPoolsForDivisionTabs(tournament.id).then(buildDivisionTabDescriptors),
     getDivisionTabCookie(),
     auth(),
     listFieldsForTournament(tournament.id),
+    getRequestPublicOrigin(),
   ]);
 
   const isAdmin = session?.user?.role === "ADMIN" || session?.user?.role === "POWER_USER";
@@ -44,6 +46,7 @@ export async function SiteShell({
     id: f.id,
     label: formatFieldWithLocation(f.name, f.location.name),
   }));
+  const shareUrl = requestOrigin ? `${requestOrigin}${publicBasePath}` : publicBasePath;
 
   return (
     <PublicSiteThemeRoot>
@@ -54,6 +57,7 @@ export async function SiteShell({
           tournamentShortLabel={tournament.shortLabel}
           divisionDescriptors={divisionTabDescriptors}
           cookieDivision={cookieDivision}
+          shareUrl={shareUrl}
         />
         <PwaInstallPrompt />
         <PublicQuickGameProvider
@@ -81,7 +85,12 @@ export async function SiteShell({
         >
           Deploy {sha}
         </p>
-        <BottomNav publicBasePath={publicBasePath} showPublicAnnouncements={tournament.showPublicAnnouncements} />
+        <BottomNav
+          publicBasePath={publicBasePath}
+          showPublicAnnouncements={tournament.showPublicAnnouncements}
+          shareUrl={shareUrl}
+          tournamentName={tournament.name}
+        />
       </div>
     </PublicSiteThemeRoot>
   );

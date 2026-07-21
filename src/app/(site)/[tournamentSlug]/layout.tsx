@@ -1,3 +1,4 @@
+import type { Metadata } from "next";
 import { headers } from "next/headers";
 import { notFound, permanentRedirect } from "next/navigation";
 import { SiteShell } from "@/components/layout/SiteShell";
@@ -5,6 +6,7 @@ import {
   getArchivedPublishedTournamentBySlug,
   getPublishedTournamentBySlug,
 } from "@/lib/tournament-context";
+import { buildTournamentPublicMetadata } from "@/lib/tournament-public-metadata";
 import { tournamentPathFromBase, tournamentPublicBasePath } from "@/lib/tournament-public-path";
 import { TOURNEY_PATHNAME_HEADER } from "@/lib/tourney-request";
 
@@ -14,6 +16,19 @@ function pathAfterFirstSegment(pathname: string, slug: string): string | null {
   if (parts.length === 0) return null;
   if (parts[0]!.toLowerCase() !== slug.toLowerCase()) return null;
   return parts.slice(1).join("/");
+}
+
+export async function generateMetadata({
+  params,
+}: {
+  params: Promise<{ tournamentSlug: string }>;
+}): Promise<Metadata> {
+  const { tournamentSlug } = await params;
+  const live = await getPublishedTournamentBySlug(tournamentSlug);
+  if (live) return buildTournamentPublicMetadata(live);
+  const archived = await getArchivedPublishedTournamentBySlug(tournamentSlug);
+  if (archived) return buildTournamentPublicMetadata(archived);
+  return { title: "Tournament" };
 }
 
 export default async function TournamentSiteLayout({

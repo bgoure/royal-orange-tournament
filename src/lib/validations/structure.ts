@@ -49,3 +49,22 @@ export const teamUpdateSchema = z.object({
   name: z.string().trim().min(1).max(120),
   seed: optionalSeed,
 });
+
+/** One team name per line (paste / CSV-ish). Blank lines ignored. */
+export const importPoolTeamsSchema = z.object({
+  poolId: z.string().min(1, "Pool is required"),
+  namesText: z.string().min(1, "Paste at least one team name"),
+});
+
+export function parseTeamNamesFromPaste(raw: string): string[] {
+  return raw
+    .split(/\r?\n/)
+    .map((line) => line.replace(/^\s*[\d]+[.)]\s*/, "").replace(/^["']|["']$/g, "").trim())
+    .filter((line) => line.length > 0)
+    .map((line) => {
+      // Allow "Name, City" CSV first column
+      const first = line.includes(",") ? line.split(",")[0]!.trim() : line;
+      return first.slice(0, 120);
+    })
+    .filter((line) => line.length > 0);
+}

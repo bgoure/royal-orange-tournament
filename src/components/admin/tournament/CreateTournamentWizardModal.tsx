@@ -3,6 +3,11 @@
 import { useRouter } from "next/navigation";
 import { useCallback, useState } from "react";
 import { createTournamentFromWizard } from "@/app/admin/_actions/tournament-wizard";
+import { SetupChecklistPanel } from "@/components/admin/tournament/SetupChecklistPanel";
+import {
+  setupChecklistDismissKey,
+  type SetupProgress,
+} from "@/lib/admin-setup-checklist";
 import type { TournamentWizardInput } from "@/lib/validations/tournament-wizard";
 
 const TIMEZONES = [
@@ -31,6 +36,14 @@ export function CreateTournamentWizardModal({ onClose }: Props) {
   const [step, setStep] = useState(0);
   const [pending, setPending] = useState(false);
   const [formError, setFormError] = useState<string | null>(null);
+  const [createdSlug, setCreatedSlug] = useState<string | null>(null);
+
+  const postCreateProgress: SetupProgress = {
+    teamsNamed: false,
+    hasField: true,
+    hasPoolGames: false,
+    hasBracket: false,
+  };
 
   const [tournamentName, setTournamentName] = useState("");
   const [venueName, setVenueName] = useState("");
@@ -172,12 +185,56 @@ export function CreateTournamentWizardModal({ onClose }: Props) {
         setFormError(result.error);
         return;
       }
-      onClose();
+      try {
+        localStorage.removeItem(setupChecklistDismissKey(result.slug));
+      } catch {
+        /* ignore */
+      }
+      setCreatedSlug(result.slug);
       router.refresh();
     } finally {
       setPending(false);
     }
   };
+
+  const finishAfterChecklist = () => {
+    onClose();
+    router.refresh();
+  };
+
+  if (createdSlug) {
+    return (
+      <div
+        className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4"
+        role="dialog"
+        aria-modal="true"
+        aria-labelledby="setup-checklist-title"
+      >
+        <div className="max-h-[90vh] w-full max-w-lg overflow-y-auto rounded-2xl border border-zinc-200 bg-white p-6 shadow-xl">
+          <p className="text-xs font-medium uppercase tracking-wide text-emerald-700">Tournament created</p>
+          <h2 id="setup-checklist-title" className="mt-1 text-xl font-semibold text-zinc-900">
+            Next steps
+          </h2>
+          <p className="mt-1 text-sm text-zinc-600">
+            Your event skeleton is ready at{" "}
+            <span className="font-mono text-zinc-800">/{createdSlug}</span>. Finish setup when you can.
+          </p>
+          <div className="mt-4">
+            <SetupChecklistPanel progress={postCreateProgress} />
+          </div>
+          <div className="mt-6 flex flex-wrap justify-end gap-2">
+            <button
+              type="button"
+              onClick={finishAfterChecklist}
+              className="rounded-lg bg-emerald-600 px-4 py-2 text-sm font-semibold text-white hover:bg-emerald-700"
+            >
+              Continue to admin
+            </button>
+          </div>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div

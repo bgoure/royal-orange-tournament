@@ -18,6 +18,7 @@ import { applyFieldHomeToScoringOptional } from "@/lib/services/game-field-home"
 import { recomputePoolStandings } from "@/lib/services/standings";
 import {
   createGameSchema,
+  generatePoolRoundRobinSchema,
   updateBracketGameScheduleSchema,
   updateBracketGameTeamsSchema,
   updateGameMetaSchema,
@@ -26,6 +27,7 @@ import {
 } from "@/lib/validations/games-admin";
 import { parseDatetimeLocalInTimeZone } from "@/lib/datetime-tournament";
 import { getTournamentForRequest, type TournamentForRequest } from "@/lib/tournament-context";
+import { buildRoundRobinPairings, scheduleRoundRobinSlots } from "@/lib/services/round-robin-schedule";
 import { GameKind } from "@prisma/client";
 import type { Session } from "next-auth";
 
@@ -116,6 +118,118 @@ export async function createGame(
     return { ok: true };
   } catch (e) {
     const msg = e instanceof Error ? e.message : "Failed to create game";
+    return { ok: false, error: msg };
+  }
+}
+
+/**
+ * Create a full single round-robin of POOL games for one pool.
+ * Blocks if pool already has POOL games unless replaceExisting is checked.
+ */
+export async function generatePoolRoundRobin(
+  _prev: GameActionResult | undefined,
+  formData: FormData,
+): Promise<GameActionResult> {
+  const ctx = await tournamentContext();
+  if ("error" in ctx) return { ok: false, error: ctx.error };
+  const { session, tournament } = ctx;
+  if (!can(session.user.role, "game:create")) return deny();
+
+  const fieldIdsRaw = formData.getAll("fieldIds").map(String).filter(Boolean);
+  const singleField = formData.get("fieldId")?.toString();
+  const fieldIds =
+    fieldIdsRaw.length > 0 ? fieldIdsRaw : singleField ? [singleField] : [];
+
+  const parsed = generatePoolRoundRobinSchema.safeParse({
+    poolId: formData.get("poolId"),
+    fieldIds,
+    scheduledAt: formData.get("scheduledAt"),
+    slotMinutes: formData.get("slotMinutes") || undefined,
+    replaceExisting: formData.get("replaceExisting"),
+  });
+  if (!parsed.success) {
+    return {
+      ok: false,
+      error: parsed.error.issues.map((i) => i.message).join(", ") || "Invalid input",
+    };
+  }
+
+  try {
+    await assertPoolInTournament(parsed.data.poolId, tournament.id);
+    for (const fieldId of parsed.data.fieldIds) {
+      await assertFieldInTournament(fieldId, tournament.id);
+    }
+
+    const existingCount = await prisma.game.count({
+      where: {
+        tournamentId: tournament.id,
+        poolId: parsed.data.poolId,
+        gameKind: GameKind.POOL,
+      },
+    });
+    if (existingCount > 0 && !parsed.data.replaceExisting) {
+      return {
+        ok: false,
+        error: `This pool already has ${existingCount} pool game(s). Check “Replace existing pool games” to delete them and regenerate.`,
+      };
+    }
+
+    const teams = await prisma.team.findMany({
+      where: { poolId: parsed.data.poolId },
+      orderBy: [{ seed: "asc" }, { createdAt: "asc" }],
+      select: { id: true },
+    });
+    if (teams.length < 2) {
+      return { ok: false, error: "Need at least 2 teams in this pool to generate a schedule." };
+    }
+
+    let startAt: Date;
+    try {
+      startAt = parseDatetimeLocalInTimeZone(parsed.data.scheduledAt, tournament.timezone);
+    } catch {
+      return { ok: false, error: "Invalid date/time for this tournament's timezone" };
+    }
+
+    const pairings = buildRoundRobinPairings(teams.map((t) => t.id));
+    const slots = scheduleRoundRobinSlots(pairings, {
+      startAt,
+      slotMinutes: parsed.data.slotMinutes,
+      fieldIds: parsed.data.fieldIds,
+    });
+
+    await prisma.$transaction(async (tx) => {
+      if (parsed.data.replaceExisting && existingCount > 0) {
+        await tx.game.deleteMany({
+          where: {
+            tournamentId: tournament.id,
+            poolId: parsed.data.poolId,
+            gameKind: GameKind.POOL,
+          },
+        });
+      }
+      if (slots.length > 0) {
+        await tx.game.createMany({
+          data: slots.map((s) => ({
+            tournamentId: tournament.id,
+            poolId: parsed.data.poolId,
+            fieldId: s.fieldId,
+            homeTeamId: s.homeTeamId,
+            awayTeamId: s.awayTeamId,
+            scheduledAt: s.scheduledAt,
+            status: "SCHEDULED" as const,
+            resultType: "REGULAR" as const,
+            gameKind: GameKind.POOL,
+          })),
+        });
+      }
+    });
+
+    await recomputePools([parsed.data.poolId]);
+    revalidatePath("/admin/games");
+    await revalidatePublishedTournamentSites();
+    return { ok: true };
+  } catch (e) {
+    const msg = e instanceof Error ? e.message : "Failed to generate schedule";
     return { ok: false, error: msg };
   }
 }

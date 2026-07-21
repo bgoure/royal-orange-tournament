@@ -1,14 +1,17 @@
 "use client";
 
 import { useRouter } from "next/navigation";
-import { useCallback, useRef, useState, useTransition, type ReactNode } from "react";
+import { useCallback, useEffect, useRef, useState, useTransition, type ReactNode } from "react";
 
 const THRESHOLD_PX = 72;
 /** Height of the indicator strip while `router.refresh` transition is in flight */
 const PENDING_INDICATOR_PX = 48;
+/** Light live refresh while the tab is visible (home / schedule / results). */
+const LIVE_REFRESH_MS = 45_000;
 
 /**
  * Pull down at scroll top to refetch server components (`router.refresh`).
+ * Also auto-refreshes every ~45s while the document is visible.
  * iOS-friendly: no extra deps; complements native overscroll where present.
  */
 export function PullToRefresh({ children }: { children: ReactNode }) {
@@ -18,6 +21,28 @@ export function PullToRefresh({ children }: { children: ReactNode }) {
   const pullRef = useRef(0);
   const startY = useRef<number | null>(null);
   const active = useRef(false);
+
+  const refresh = useCallback(() => {
+    startTransition(() => {
+      router.refresh();
+    });
+  }, [router]);
+
+  useEffect(() => {
+    const tick = () => {
+      if (typeof document !== "undefined" && document.hidden) return;
+      refresh();
+    };
+    const id = window.setInterval(tick, LIVE_REFRESH_MS);
+    const onVisibility = () => {
+      if (!document.hidden) refresh();
+    };
+    document.addEventListener("visibilitychange", onVisibility);
+    return () => {
+      window.clearInterval(id);
+      document.removeEventListener("visibilitychange", onVisibility);
+    };
+  }, [refresh]);
 
   const onTouchStart = useCallback((e: React.TouchEvent) => {
     if (typeof window === "undefined" || window.scrollY > 8) return;
@@ -44,13 +69,11 @@ export function PullToRefresh({ children }: { children: ReactNode }) {
     pullRef.current = 0;
     if (p >= THRESHOLD_PX) {
       setPull(0);
-      startTransition(() => {
-        router.refresh();
-      });
+      refresh();
     } else {
       setPull(0);
     }
-  }, [router]);
+  }, [refresh]);
 
   const onTouchEnd = useCallback(() => end(), [end]);
   const onTouchCancel = useCallback(() => end(), [end]);

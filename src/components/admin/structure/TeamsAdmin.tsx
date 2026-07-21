@@ -7,6 +7,7 @@ import {
   clearTeamLogo,
   createTeam,
   deleteTeam,
+  importPoolTeams,
   updateTeam,
   uploadTeamLogo,
   type ActionResult,
@@ -45,6 +46,10 @@ type Props = {
 
 export function TeamsAdmin({ teams, poolOptions, tournamentName, isAdmin }: Props) {
   const [createState, createAction, createPending] = useActionState(createTeam, undefined as ActionResult | undefined);
+  const [importState, importAction, importPending] = useActionState(
+    importPoolTeams,
+    undefined as ActionResult | undefined,
+  );
 
   return (
     <div className="flex flex-col gap-10">
@@ -58,6 +63,55 @@ export function TeamsAdmin({ teams, poolOptions, tournamentName, isAdmin }: Prop
           ← Divisions &amp; pools
         </Link>
       </header>
+
+      <section className="rounded-xl border border-zinc-200 bg-zinc-50/80 p-6">
+        <h2 className="text-sm font-semibold text-zinc-900">Paste team names</h2>
+        <p className="mt-1 text-xs text-zinc-600">
+          One name per line for a pool. Existing teams are renamed in order (seed, then created); extra lines create new
+          teams. Handy after the create wizard’s placeholder names.
+        </p>
+        <ActionMessage state={importState} />
+        {poolOptions.length === 0 ? (
+          <p className="mt-4 text-sm text-amber-800">
+            Create at least one pool under{" "}
+            <Link href="/admin/divisions" className="font-medium underline">
+              Divisions
+            </Link>{" "}
+            before importing teams.
+          </p>
+        ) : (
+          <form action={importAction} className="mt-4 flex flex-col gap-4">
+            <div>
+              <label htmlFor="import-pool" className={labelClass}>
+                Division / pool
+              </label>
+              <select id="import-pool" name="poolId" required className={formClass} defaultValue={poolOptions[0]?.poolId}>
+                {poolOptions.map((o) => (
+                  <option key={o.poolId} value={o.poolId}>
+                    {o.label}
+                  </option>
+                ))}
+              </select>
+            </div>
+            <div>
+              <label htmlFor="import-names" className={labelClass}>
+                Team names
+              </label>
+              <textarea
+                id="import-names"
+                name="namesText"
+                required
+                rows={6}
+                className={formClass}
+                placeholder={"Lightning\nThunder\nStorm"}
+              />
+            </div>
+            <button type="submit" disabled={importPending} className={`${btnPrimary} w-fit`}>
+              {importPending ? "Importing…" : "Apply names"}
+            </button>
+          </form>
+        )}
+      </section>
 
       <section className="rounded-xl border border-zinc-200 bg-zinc-50/80 p-6">
         <h2 className="text-sm font-semibold text-zinc-900">Add team</h2>

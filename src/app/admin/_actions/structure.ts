@@ -19,6 +19,8 @@ import { recomputePoolStandings } from "@/lib/services/standings";
 import {
   divisionCreateSchema,
   divisionUpdateSchema,
+  importPoolTeamsSchema,
+  parseTeamNamesFromPaste,
   poolCreateSchema,
   poolUpdateSchema,
   teamCreateSchema,
@@ -250,6 +252,78 @@ export async function createTeam(_prev: ActionResult | undefined, formData: Form
       seed: parsed.data.seed ?? undefined,
     },
   });
+  await recomputePoolStandings(parsed.data.poolId);
+  revalidatePath("/admin/divisions");
+  revalidatePath("/admin/teams");
+  await revalidatePublishedTournamentSites();
+  return { ok: true };
+}
+
+/**
+ * Paste one name per line into a pool: rename existing teams in order (seed, then createdAt),
+ * then create extras for overflow lines.
+ */
+export async function importPoolTeams(
+  _prev: ActionResult | undefined,
+  formData: FormData,
+): Promise<ActionResult> {
+  const ctx = await tournamentContext();
+  if ("error" in ctx) return { ok: false, error: ctx.error };
+  if (!can(ctx.session.user.role, "team:create") || !can(ctx.session.user.role, "team:update")) {
+    return denyPermission();
+  }
+
+  const parsed = importPoolTeamsSchema.safeParse({
+    poolId: formData.get("poolId"),
+    namesText: formData.get("namesText"),
+  });
+  if (!parsed.success) {
+    return { ok: false, error: parsed.error.flatten().formErrors.join(", ") || "Invalid input" };
+  }
+
+  const names = parseTeamNamesFromPaste(parsed.data.namesText);
+  if (names.length === 0) {
+    return { ok: false, error: "Paste at least one team name (one per line)." };
+  }
+  for (const name of names) {
+    if (name.length < 1 || name.length > 120) {
+      return { ok: false, error: `Team name must be 1–120 characters: “${name.slice(0, 40)}…”` };
+    }
+  }
+
+  await assertPoolInTournament(parsed.data.poolId, ctx.tournament.id);
+  const scopeErr = await assertPoolDivisionScope(
+    ctx.session.user.id,
+    ctx.session.user.role,
+    parsed.data.poolId,
+  );
+  if (scopeErr) return { ok: false, error: scopeErr };
+
+  const existing = await prisma.team.findMany({
+    where: { poolId: parsed.data.poolId },
+    orderBy: [{ seed: "asc" }, { createdAt: "asc" }],
+    select: { id: true },
+  });
+
+  await prisma.$transaction(async (tx) => {
+    const renameCount = Math.min(existing.length, names.length);
+    for (let i = 0; i < renameCount; i++) {
+      await tx.team.update({
+        where: { id: existing[i]!.id },
+        data: { name: names[i]! },
+      });
+    }
+    for (let i = existing.length; i < names.length; i++) {
+      await tx.team.create({
+        data: {
+          poolId: parsed.data.poolId,
+          name: names[i]!,
+          seed: i + 1,
+        },
+      });
+    }
+  });
+
   await recomputePoolStandings(parsed.data.poolId);
   revalidatePath("/admin/divisions");
   revalidatePath("/admin/teams");

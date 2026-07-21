@@ -9,6 +9,7 @@ import { formatFieldWithLocation } from "@/lib/field-display";
 import {
   createGame,
   deleteGame,
+  generatePoolRoundRobin,
   updateBracketGameSchedule,
   updateBracketGameTeams,
   updateGameMeta,
@@ -82,12 +83,21 @@ export function GamesAdmin({
   isAdmin,
 }: Props) {
   const [createState, createAction, createPending] = useActionState(createGame, undefined as GameActionResult | undefined);
+  const [rrState, rrAction, rrPending] = useActionState(
+    generatePoolRoundRobin,
+    undefined as GameActionResult | undefined,
+  );
   const [poolId, setPoolId] = useState(poolsWithTeams[0]?.poolId ?? "");
+  const [rrPoolId, setRrPoolId] = useState(poolsWithTeams[0]?.poolId ?? "");
 
   const teamOptions = useMemo(() => {
     const p = poolsWithTeams.find((x) => x.poolId === poolId);
     return p?.teams ?? [];
   }, [poolsWithTeams, poolId]);
+
+  const rrTeamCount = useMemo(() => {
+    return poolsWithTeams.find((x) => x.poolId === rrPoolId)?.teams.length ?? 0;
+  }, [poolsWithTeams, rrPoolId]);
 
   return (
     <div className="flex flex-col gap-10">
@@ -112,6 +122,110 @@ export function GamesAdmin({
           </Link>
         </div>
       </header>
+
+      <section className="rounded-xl border border-zinc-200 bg-zinc-50/80 p-6">
+        <h2 className="text-sm font-semibold text-zinc-900">Generate pool round-robin</h2>
+        <p className="mt-1 text-xs text-zinc-600">
+          Create every pool-play matchup for one pool. Rounds share a start time; later rounds are spaced by the slot
+          length. Multiple fields rotate within each round. Odd team counts skip the bye slot (no bye games).
+        </p>
+        <ActionMessage state={rrState} />
+        {poolsWithTeams.length === 0 ? (
+          <p className="mt-4 text-sm text-amber-800">
+            Add pools and teams under{" "}
+            <Link href="/admin/divisions" className="font-medium underline">
+              Divisions
+            </Link>{" "}
+            first.
+          </p>
+        ) : fields.length === 0 ? (
+          <p className="mt-4 text-sm text-amber-800">
+            Add fields under{" "}
+            <Link href="/admin/fields" className="font-medium underline">
+              Fields
+            </Link>{" "}
+            before generating a schedule.
+          </p>
+        ) : (
+          <form action={rrAction} className="mt-4 flex flex-col gap-4">
+            <div className="grid gap-3 lg:grid-cols-2 xl:grid-cols-3">
+              <div>
+                <label htmlFor="rr-pool" className={labelClass}>
+                  Pool
+                </label>
+                <select
+                  id="rr-pool"
+                  name="poolId"
+                  required
+                  value={rrPoolId}
+                  onChange={(e) => setRrPoolId(e.target.value)}
+                  className={`${formClass} mt-1 w-full`}
+                >
+                  {poolsWithTeams.map((p) => (
+                    <option key={p.poolId} value={p.poolId}>
+                      {p.label} ({p.teams.length} teams)
+                    </option>
+                  ))}
+                </select>
+                {rrTeamCount > 0 && rrTeamCount < 2 ? (
+                  <p className="mt-1 text-[10px] text-amber-700">Need at least 2 teams in this pool.</p>
+                ) : rrTeamCount >= 2 ? (
+                  <p className="mt-1 text-[10px] text-zinc-500">
+                    Will create {(rrTeamCount * (rrTeamCount - 1)) / 2} games.
+                  </p>
+                ) : null}
+              </div>
+              <div>
+                <label htmlFor="rr-when" className={labelClass}>
+                  First round start ({tournamentTimezone})
+                </label>
+                <input
+                  id="rr-when"
+                  name="scheduledAt"
+                  type="datetime-local"
+                  required
+                  className={`${formClass} mt-1 w-full`}
+                />
+              </div>
+              <div>
+                <label htmlFor="rr-slot" className={labelClass}>
+                  Minutes between rounds
+                </label>
+                <input
+                  id="rr-slot"
+                  name="slotMinutes"
+                  type="number"
+                  min={15}
+                  max={1440}
+                  defaultValue={90}
+                  required
+                  className={`${formClass} mt-1 w-full`}
+                />
+              </div>
+              <div className="lg:col-span-2 xl:col-span-3">
+                <span className={labelClass}>Fields (select one or more)</span>
+                <div className="mt-1 flex flex-wrap gap-3">
+                  {fields.map((f) => (
+                    <label key={f.id} className="inline-flex items-center gap-2 text-sm text-zinc-800">
+                      <input type="checkbox" name="fieldIds" value={f.id} defaultChecked={fields[0]?.id === f.id} />
+                      {f.label}
+                    </label>
+                  ))}
+                </div>
+              </div>
+              <div className="lg:col-span-2 xl:col-span-3">
+                <label className="inline-flex items-center gap-2 text-sm text-zinc-800">
+                  <input type="checkbox" name="replaceExisting" value="true" />
+                  Replace existing pool games for this pool
+                </label>
+              </div>
+            </div>
+            <button type="submit" disabled={rrPending || rrTeamCount < 2} className={`${btnPrimary} w-fit`}>
+              {rrPending ? "Generating…" : "Generate schedule"}
+            </button>
+          </form>
+        )}
+      </section>
 
       <section className="rounded-xl border border-zinc-200 bg-zinc-50/80 p-6">
         <h2 className="text-sm font-semibold text-zinc-900">New pool game</h2>
