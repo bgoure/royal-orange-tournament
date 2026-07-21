@@ -13,6 +13,7 @@ import {
   type ActionResult,
 } from "@/app/admin/_actions/structure";
 import { teamLogoUrl } from "@/lib/team-logo";
+import { PLACEHOLDER_TEAM_NAME_RE } from "@/lib/admin-setup-checklist";
 import { ActionMessage } from "@/components/admin/structure/ActionMessage";
 import { ConfirmForm } from "@/components/admin/structure/ConfirmForm";
 
@@ -51,6 +52,9 @@ export function TeamsAdmin({ teams, poolOptions, tournamentName, isAdmin }: Prop
     undefined as ActionResult | undefined,
   );
 
+  const placeholderCount = teams.filter((t) => PLACEHOLDER_TEAM_NAME_RE.test(t.name)).length;
+  const needsNaming = teams.length === 0 || placeholderCount > 0;
+
   return (
     <div className="flex flex-col gap-10">
       <header className="flex flex-wrap items-end justify-between gap-4 border-b border-zinc-200 pb-6">
@@ -64,28 +68,94 @@ export function TeamsAdmin({ teams, poolOptions, tournamentName, isAdmin }: Prop
         </Link>
       </header>
 
-      <section className="rounded-xl border border-zinc-200 bg-zinc-50/80 p-6">
-        <h2 className="text-sm font-semibold text-zinc-900">Paste team names</h2>
-        <p className="mt-1 text-xs text-zinc-600">
-          One name per line for a pool. Existing teams are renamed in order (seed, then created); extra lines create new
-          teams. Handy after the create wizard’s placeholder names.
-        </p>
-        <ActionMessage state={importState} />
-        {poolOptions.length === 0 ? (
-          <p className="mt-4 text-sm text-amber-800">
-            Create at least one pool under{" "}
-            <Link href="/admin/divisions" className="font-medium underline">
-              Divisions
-            </Link>{" "}
-            before importing teams.
+      {poolOptions.length === 0 ? (
+        <section className="rounded-xl border border-dashed border-amber-300 bg-amber-50/80 px-6 py-10 text-center">
+          <h2 className="text-base font-semibold text-amber-950">No pools yet</h2>
+          <p className="mx-auto mt-2 max-w-md text-sm text-amber-900/80">
+            Create a division and at least one pool first, then come back to paste team names.
           </p>
-        ) : (
+          <Link
+            href="/admin/divisions"
+            className={`${btnPrimary} mt-5 inline-flex items-center justify-center`}
+          >
+            Go to Divisions &amp; pools →
+          </Link>
+        </section>
+      ) : null}
+
+      {needsNaming && poolOptions.length > 0 ? (
+        <section className="rounded-xl border-2 border-emerald-200 bg-emerald-50/50 p-6">
+          <h2 className="text-sm font-semibold text-emerald-950">
+            {teams.length === 0 ? "Add your teams" : "Rename placeholder teams"}
+          </h2>
+          <p className="mt-1 text-sm text-emerald-900/80">
+            {teams.length === 0
+              ? "Paste one team name per line into a pool. Fastest way to fill a new event."
+              : placeholderCount > 0
+                ? `${placeholderCount} placeholder name${placeholderCount === 1 ? "" : "s"} still look like “Division · Pool · Team N”. Paste real names below to rename them in order.`
+                : "Paste one name per line to rename existing teams in order, or add extras."}
+          </p>
+          <ActionMessage state={importState} />
           <form action={importAction} className="mt-4 flex flex-col gap-4">
             <div>
               <label htmlFor="import-pool" className={labelClass}>
                 Division / pool
               </label>
-              <select id="import-pool" name="poolId" required className={formClass} defaultValue={poolOptions[0]?.poolId}>
+              <select
+                id="import-pool"
+                name="poolId"
+                required
+                className={formClass}
+                defaultValue={poolOptions[0]?.poolId}
+              >
+                {poolOptions.map((o) => (
+                  <option key={o.poolId} value={o.poolId}>
+                    {o.label}
+                  </option>
+                ))}
+              </select>
+            </div>
+            <div>
+              <label htmlFor="import-names" className={labelClass}>
+                Team names (one per line)
+              </label>
+              <textarea
+                id="import-names"
+                name="namesText"
+                required
+                rows={6}
+                className={formClass}
+                placeholder={"Lightning\nThunder\nStorm"}
+              />
+              <p className="mt-1 text-[11px] text-zinc-500">
+                Tip: copy from a spreadsheet column or email list. Extra lines create new teams.
+              </p>
+            </div>
+            <button type="submit" disabled={importPending} className={`${btnPrimary} w-fit`}>
+              {importPending ? "Applying…" : "Apply team names"}
+            </button>
+          </form>
+        </section>
+      ) : poolOptions.length > 0 ? (
+        <section className="rounded-xl border border-zinc-200 bg-zinc-50/80 p-6">
+          <h2 className="text-sm font-semibold text-zinc-900">Paste team names</h2>
+          <p className="mt-1 text-xs text-zinc-600">
+            One name per line for a pool. Existing teams are renamed in order (seed, then created); extra lines create
+            new teams.
+          </p>
+          <ActionMessage state={importState} />
+          <form action={importAction} className="mt-4 flex flex-col gap-4">
+            <div>
+              <label htmlFor="import-pool" className={labelClass}>
+                Division / pool
+              </label>
+              <select
+                id="import-pool"
+                name="poolId"
+                required
+                className={formClass}
+                defaultValue={poolOptions[0]?.poolId}
+              >
                 {poolOptions.map((o) => (
                   <option key={o.poolId} value={o.poolId}>
                     {o.label}
@@ -110,8 +180,8 @@ export function TeamsAdmin({ teams, poolOptions, tournamentName, isAdmin }: Prop
               {importPending ? "Importing…" : "Apply names"}
             </button>
           </form>
-        )}
-      </section>
+        </section>
+      ) : null}
 
       <section className="rounded-xl border border-zinc-200 bg-zinc-50/80 p-6">
         <h2 className="text-sm font-semibold text-zinc-900">Add team</h2>
@@ -119,7 +189,10 @@ export function TeamsAdmin({ teams, poolOptions, tournamentName, isAdmin }: Prop
         <ActionMessage state={createState} />
         {poolOptions.length === 0 ? (
           <p className="mt-4 text-sm text-amber-800">
-            Create at least one pool under <Link href="/admin/divisions" className="font-medium underline">Divisions</Link>{" "}
+            Create at least one pool under{" "}
+            <Link href="/admin/divisions" className="font-medium underline">
+              Divisions
+            </Link>{" "}
             before adding teams.
           </p>
         ) : (
@@ -159,7 +232,9 @@ export function TeamsAdmin({ teams, poolOptions, tournamentName, isAdmin }: Prop
       </section>
 
       {teams.length === 0 ? (
-        <p className="text-sm text-zinc-500">No teams yet.</p>
+        poolOptions.length > 0 ? null : (
+          <p className="text-sm text-zinc-500">No teams yet.</p>
+        )
       ) : (
         <div className="overflow-x-auto rounded-xl border border-zinc-200 bg-white shadow-sm">
           <table className="w-full min-w-[720px] text-left text-sm">

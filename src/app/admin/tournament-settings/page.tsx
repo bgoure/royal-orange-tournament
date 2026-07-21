@@ -11,10 +11,12 @@ import { TournamentSlugForm } from "@/components/admin/tournament/TournamentSlug
 import { TournamentPublicSwitcherOrderForm } from "@/components/admin/tournament/TournamentPublicSwitcherOrderForm";
 import { TournamentBrandingForm } from "@/components/admin/tournament/TournamentBrandingForm";
 import { TournamentPublicAnnouncementsForm } from "@/components/admin/tournament/TournamentPublicAnnouncementsForm";
+import { AdminSetupChecklistStrip } from "@/components/admin/tournament/AdminSetupChecklistStrip";
 import { can } from "@/lib/rbac/permissions";
 import { Role } from "@prisma/client";
 import { formatLocationAddress } from "@/lib/location-utils";
 import { getHeadquartersLocation, listLocations } from "@/lib/services/content";
+import { getTournamentSetupProgress } from "@/lib/services/admin-setup-progress";
 import { getTournamentForRequest } from "@/lib/tournament-context";
 import { tournamentPublicBasePath } from "@/lib/tournament-public-path";
 
@@ -26,9 +28,10 @@ export default async function AdminTournamentSettingsPage() {
     return <AdminNoTournamentPlaceholder />;
   }
 
-  const [hq, locations] = await Promise.all([
+  const [hq, locations, setupProgress] = await Promise.all([
     getHeadquartersLocation(tournament.id),
     listLocations(tournament.id),
+    getTournamentSetupProgress(tournament.id),
   ]);
 
   const options: HeadquartersLocationOption[] = locations.map((l) => ({
@@ -92,6 +95,7 @@ export default async function AdminTournamentSettingsPage() {
             Branding, headquarters, announcements, and archive tools for <strong>{tournament.name}</strong>.
           </p>
         </header>
+        <AdminSetupChecklistStrip slug={tournament.slug} progress={setupProgress} variant="card" />
         <TournamentRenameForm tournamentName={tournament.name} canManage={canManage} />
         <TournamentSlugForm tournamentSlug={tournament.slug} canManage={canManage} />
         <TournamentPublicSwitcherOrderForm
@@ -137,6 +141,7 @@ export default async function AdminTournamentSettingsPage() {
           Branding, headquarters, announcements, and archive tools for <strong>{tournament.name}</strong>.
         </p>
       </header>
+      <AdminSetupChecklistStrip slug={tournament.slug} progress={setupProgress} variant="card" />
       <TournamentRenameForm tournamentName={tournament.name} canManage={canManage} />
       <TournamentSlugForm tournamentSlug={tournament.slug} canManage={canManage} />
       <TournamentPublicSwitcherOrderForm

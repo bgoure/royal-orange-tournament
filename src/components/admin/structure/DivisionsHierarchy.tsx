@@ -47,11 +47,7 @@ export function DivisionsHierarchy({ tournament, isAdmin }: Props) {
           <p className="text-xs font-medium uppercase tracking-wide text-zinc-500">Tournament</p>
           <h1 className="text-2xl font-semibold tracking-tight text-zinc-900">{tournament.name}</h1>
           <p className="mt-1 text-sm text-zinc-600">
-            Hierarchy: divisions → pools → teams.{" "}
-            <Link href="/" className="font-medium text-emerald-700 hover:underline">
-              Switch tournament
-            </Link>{" "}
-            on the public site if needed.
+            Hierarchy: divisions → pools → teams. Use the sidebar switcher to change events.
           </p>
         </div>
         <Link href="/admin/teams" className={`${btnSecondary} inline-flex items-center`}>
@@ -59,8 +55,23 @@ export function DivisionsHierarchy({ tournament, isAdmin }: Props) {
         </Link>
       </header>
 
+      {tournament.divisions.length === 0 ? (
+        <section className="rounded-xl border-2 border-dashed border-emerald-200 bg-emerald-50/40 px-6 py-10 text-center">
+          <h2 className="text-base font-semibold text-emerald-950">Start with a division</h2>
+          <p className="mx-auto mt-2 max-w-lg text-sm text-emerald-900/80">
+            Age brackets or flight groups (e.g. 10U, 12U) go here first. Then add pools under each division, then paste
+            teams.
+          </p>
+          <p className="mt-4 text-xs font-medium uppercase tracking-wide text-emerald-800/70">
+            Use the form below to create your first division
+          </p>
+        </section>
+      ) : null}
+
       <section className="rounded-xl border border-zinc-200 bg-zinc-50/80 p-6">
-        <h2 className="text-sm font-semibold text-zinc-900">Add division</h2>
+        <h2 className="text-sm font-semibold text-zinc-900">
+          {tournament.divisions.length === 0 ? "Create your first division" : "Add division"}
+        </h2>
         <ActionMessage state={divState} />
         <form action={divAction} className="mt-4 flex flex-wrap items-end gap-3">
           <div className="min-w-[200px] flex-1">
@@ -87,9 +98,7 @@ export function DivisionsHierarchy({ tournament, isAdmin }: Props) {
         </form>
       </section>
 
-      {tournament.divisions.length === 0 ? (
-        <p className="text-sm text-zinc-500">No divisions yet. Create one above.</p>
-      ) : (
+      {tournament.divisions.length === 0 ? null : (
         <div className="flex flex-col gap-8">
           {tournament.divisions.map((division) => (
             <DivisionCard key={division.id} division={division} isAdmin={isAdmin} />

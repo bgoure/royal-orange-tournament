@@ -4,6 +4,7 @@ import Link from "next/link";
 import {
   SETUP_STEPS,
   countIncompleteRequiredSteps,
+  getNextRequiredSetupStep,
   isSetupStepDone,
   type SetupProgress,
 } from "@/lib/admin-setup-checklist";
@@ -23,6 +24,7 @@ export function SetupChecklistPanel({
   title = "Finish tournament setup",
 }: Props) {
   const remaining = countIncompleteRequiredSteps(progress);
+  const next = getNextRequiredSetupStep(progress);
 
   return (
     <div
@@ -33,19 +35,21 @@ export function SetupChecklistPanel({
       }
     >
       <div className="flex flex-wrap items-start justify-between gap-2">
-        <div>
+        <div className="min-w-0 flex-1">
           <h2 className={`font-semibold text-emerald-950 ${compact ? "text-sm" : "text-base"}`}>
             {title}
           </h2>
-          {!compact ? (
-            <p className="mt-1 text-xs text-emerald-900/80">
-              Skeleton created. Complete these steps to get ready for game day
-              {remaining > 0 ? ` (${remaining} remaining)` : ""}.
+          {next ? (
+            <p className={`mt-1 text-emerald-900/80 ${compact ? "text-xs" : "text-sm"}`}>
+              Step {next.stepNumber} of {next.totalRequired}: {next.step.title}
             </p>
-          ) : remaining > 0 ? (
-            <p className="text-xs text-emerald-900/80">{remaining} step{remaining === 1 ? "" : "s"} left</p>
           ) : (
-            <p className="text-xs text-emerald-900/80">Required setup complete</p>
+            <p className={`mt-1 text-emerald-900/80 ${compact ? "text-xs" : "text-sm"}`}>
+              Required setup complete
+              {remaining === 0 && !progress.hasBracket
+                ? " — playoffs are optional when you’re ready."
+                : "."}
+            </p>
           )}
         </div>
         {onDismiss ? (
@@ -58,14 +62,39 @@ export function SetupChecklistPanel({
           </button>
         ) : null}
       </div>
-      <ul className={`mt-3 space-y-2 ${compact ? "mt-2" : ""}`}>
+
+      {next ? (
+        <div className={compact ? "mt-2" : "mt-4"}>
+          <Link
+            href={next.step.href}
+            className={`inline-flex items-center justify-center rounded-lg bg-emerald-600 font-semibold text-white hover:bg-emerald-700 ${
+              compact ? "px-3 py-1.5 text-xs" : "px-4 py-2.5 text-sm"
+            }`}
+          >
+            Step {next.stepNumber} of {next.totalRequired}: {next.step.ctaLabel} →
+          </Link>
+          {!compact ? (
+            <p className="mt-2 text-xs text-emerald-900/70">{next.step.description}</p>
+          ) : null}
+        </div>
+      ) : null}
+
+      <ul className={`space-y-2 ${compact ? "mt-2" : "mt-4"}`}>
         {SETUP_STEPS.map((step) => {
           const done = isSetupStepDone(step.id, progress);
+          const isNext = next?.step.id === step.id;
           return (
-            <li key={step.id} className="flex items-start gap-2">
+            <li
+              key={step.id}
+              className={`flex items-start gap-2 ${isNext && !compact ? "rounded-lg bg-white/70 px-2 py-1.5 ring-1 ring-emerald-200" : ""}`}
+            >
               <span
                 className={`mt-0.5 inline-flex size-5 shrink-0 items-center justify-center rounded-full text-[10px] font-bold ${
-                  done ? "bg-emerald-600 text-white" : "border border-emerald-300 bg-white text-emerald-800"
+                  done
+                    ? "bg-emerald-600 text-white"
+                    : isNext
+                      ? "border-2 border-emerald-600 bg-white text-emerald-800"
+                      : "border border-emerald-300 bg-white text-emerald-800"
                 }`}
                 aria-hidden
               >

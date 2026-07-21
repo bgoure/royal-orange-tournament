@@ -13,6 +13,7 @@ export type SetupStepDef = {
   title: string;
   description: string;
   href: string;
+  ctaLabel: string;
   optional?: boolean;
 };
 
@@ -22,24 +23,28 @@ export const SETUP_STEPS: SetupStepDef[] = [
     title: "Name teams",
     description: "Paste or rename placeholder teams in each pool.",
     href: "/admin/teams",
+    ctaLabel: "Add teams",
   },
   {
     id: "fields",
     title: "Confirm fields",
     description: "Field 1 was created with HQ — add more if needed.",
     href: "/admin/fields",
+    ctaLabel: "Review fields",
   },
   {
     id: "games",
     title: "Generate pool schedule",
     description: "Use round-robin generate or add pool games.",
     href: "/admin/games",
+    ctaLabel: "Generate schedule",
   },
   {
     id: "brackets",
     title: "Build playoffs",
     description: "Optional until pool play is underway.",
     href: "/admin/brackets",
+    ctaLabel: "Open brackets",
     optional: true,
   },
 ];
@@ -64,8 +69,32 @@ export function isSetupStepDone(stepId: SetupStepId, progress: SetupProgress): b
   }
 }
 
+export const REQUIRED_SETUP_STEPS = SETUP_STEPS.filter((s) => !s.optional);
+
 export function countIncompleteRequiredSteps(progress: SetupProgress): number {
-  return SETUP_STEPS.filter((s) => !s.optional && !isSetupStepDone(s.id, progress)).length;
+  return REQUIRED_SETUP_STEPS.filter((s) => !isSetupStepDone(s.id, progress)).length;
+}
+
+/** 1-based index of the first incomplete required step, or null if all required are done. */
+export function getNextRequiredSetupStep(progress: SetupProgress): {
+  step: SetupStepDef;
+  /** 1-based position among required steps */
+  stepNumber: number;
+  totalRequired: number;
+} | null {
+  const totalRequired = REQUIRED_SETUP_STEPS.length;
+  for (let i = 0; i < REQUIRED_SETUP_STEPS.length; i++) {
+    const step = REQUIRED_SETUP_STEPS[i]!;
+    if (!isSetupStepDone(step.id, progress)) {
+      return { step, stepNumber: i + 1, totalRequired };
+    }
+  }
+  return null;
+}
+
+/** How many required steps are complete (for “Step N of M” when highlighting next). */
+export function countCompletedRequiredSteps(progress: SetupProgress): number {
+  return REQUIRED_SETUP_STEPS.filter((s) => isSetupStepDone(s.id, progress)).length;
 }
 
 /** Wizard placeholders look like `10U · Pool A · Team 1`. */
