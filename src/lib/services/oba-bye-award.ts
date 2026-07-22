@@ -1,9 +1,10 @@
 /**
- * Ontario Baseball Association bye award rules (Rep tournament procedures):
- * - No back-to-back bye in successive rounds
- * - No second bye until all remaining teams have received their first
- * - If multiple eligible: undefeated team gets the bye
- * - Else: RP7.3(a) tie-breakers; RP7.3(a)(vii) is a draw when >2 teams still eligible
+ * OBA RP5.2 n. bye awards (Tournament Style Rep Play-offs), as amended:
+ * i. No back-to-back bye in successive rounds
+ * ii. No second bye until all remaining teams have received their first
+ * iii. If multiple eligible: undefeated team gets the bye
+ * iv. Else RP7.3(a); RP7.3(a)(vii) is a draw when >2 teams still eligible
+ *     (not Select SP bye rules, which use an immediate draw when no one is undefeated)
  */
 
 import {
@@ -22,7 +23,7 @@ export type ObaByeCandidate = {
 };
 
 /**
- * Select which team receives a bye among an odd-sized pairing cohort (OBA rules).
+ * Select which team receives a bye among an odd-sized pairing cohort (OBA RP5.2 n.).
  */
 export function selectObaByeRecipient(
   candidates: ObaByeCandidate[],
@@ -34,18 +35,18 @@ export function selectObaByeRecipient(
   }
   if (candidates.length === 1) return candidates[0]!.teamId;
 
-  // i. No back-to-back bye in successive rounds
+  // RP5.2 n.i — no back-to-back bye in successive rounds
   let pool = candidates.filter((c) => !c.hadByeInPreviousRound);
   if (pool.length === 0) {
     // Should be rare; fall back so pairing can proceed
     pool = [...candidates];
   }
 
-  // ii. No second bye until all remaining teams have received their first
+  // RP5.2 n.ii — no second bye until all remaining teams have received their first
   const minByes = Math.min(...pool.map((c) => c.byeCount));
   pool = pool.filter((c) => c.byeCount === minByes);
 
-  // iii. Undefeated preferred when multiple eligible
+  // RP5.2 n.iii — undefeated preferred when multiple eligible
   const undefeated = pool.filter((c) => c.bracketLosses === 0);
   if (undefeated.length > 0) {
     pool = undefeated;
@@ -53,7 +54,7 @@ export function selectObaByeRecipient(
 
   if (pool.length === 1) return pool[0]!.teamId;
 
-  // iv. RP7.3(a), with (vii) = draw when >2 still tied
+  // RP5.2 n.iv — RP7.3(a); (vii) = draw when >2 still tied
   return pickTeamByObaRP73ForBye(
     pool.map((c) => c.teamId),
     gamesForRp73,
