@@ -154,6 +154,8 @@ export async function createDivisionPlayoffBracketAction(
     scheduledAt: formData.get("scheduledAt"),
     hoursBetweenRounds: formData.get("hoursBetweenRounds") || undefined,
     published: formData.get("published") === "1" ? "1" : "0",
+    format: formData.get("format") || "SINGLE_ELIMINATION",
+    avoidRematchesUntilForced: formData.get("avoidRematchesUntilForced") === "1" ? "1" : "0",
     firstRound,
   });
   if (!parsed.success) {
@@ -190,6 +192,7 @@ export async function createDivisionPlayoffBracketAction(
       firstRound: parsed.data.firstRound,
       published: parsed.data.published ?? false,
       format: parsed.data.format,
+      avoidRematchesUntilForced: parsed.data.avoidRematchesUntilForced,
     });
     revalidatePath("/admin/brackets");
     revalidatePath("/admin/games");

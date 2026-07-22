@@ -39,6 +39,7 @@ export async function listBracketsSummary(tournamentId: string) {
       id: true,
       name: true,
       format: true,
+      avoidRematchesUntilForced: true,
       published: true,
       needsResolutionRefresh: true,
       division: { select: { id: true, name: true } },

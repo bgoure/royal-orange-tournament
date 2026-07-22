@@ -35,6 +35,7 @@ type BracketRow = {
   id: string;
   name: string;
   format: BracketFormat;
+  avoidRematchesUntilForced: boolean;
   published: boolean;
   needsResolutionRefresh: boolean;
   division: { id: string; name: string };
@@ -277,6 +278,9 @@ export function BracketsAdmin({
   );
 
   const [entrySize, setEntrySize] = useState<number>(8);
+  const [createFormat, setCreateFormat] = useState<"SINGLE_ELIMINATION" | "DOUBLE_ELIMINATION">(
+    "SINGLE_ELIMINATION",
+  );
 
   const divisionsWithPools = useMemo(() => divisions.filter((d) => d.pools.length > 0), [divisions]);
   const [consolationDivisionId, setConsolationDivisionId] = useState(
@@ -599,15 +603,40 @@ export function BracketsAdmin({
                 </div>
                 <div>
                   <label className={labelClass}>Format</label>
-                  <select name="format" defaultValue="SINGLE_ELIMINATION" className={`${formClass} mt-1 w-full`}>
+                  <select
+                    name="format"
+                    value={createFormat}
+                    onChange={(e) =>
+                      setCreateFormat(e.target.value as "SINGLE_ELIMINATION" | "DOUBLE_ELIMINATION")
+                    }
+                    className={`${formClass} mt-1 w-full`}
+                  >
                     <option value="SINGLE_ELIMINATION">Single elimination</option>
                     <option value="DOUBLE_ELIMINATION">Double elimination</option>
                   </select>
                   <p className="mt-1 text-[11px] text-zinc-500">
-                    Double-elim: losers drop into a losers bracket. Grand final is one game (no forced rematch).
-                    Triple elimination is not offered yet (would need a second losers bracket).
+                    Double-elim: losers drop into a losers bracket. Grand final is one game (no forced rematch
+                    series). Triple elimination is not offered yet.
                   </p>
                 </div>
+                {createFormat === "DOUBLE_ELIMINATION" ? (
+                  <div className="flex items-start gap-2 sm:col-span-2">
+                    <input
+                      type="checkbox"
+                      name="avoidRematchesUntilForced"
+                      value="1"
+                      id="avoid-rematch"
+                      className="mt-1 rounded border-zinc-300"
+                    />
+                    <label htmlFor="avoid-rematch" className="text-sm text-zinc-700">
+                      <span className="font-medium">Avoid rematches until forced</span>
+                      <span className="mt-0.5 block text-xs text-zinc-500">
+                        Losers-bracket matchups are re-drawn to prefer teams that have not played each other
+                        yet. If every pairing is a rematch, a random optimal redraw is used.
+                      </span>
+                    </label>
+                  </div>
+                ) : null}
                 <div>
                   <label className={labelClass}>Field size (bracket slots)</label>
                   <select
@@ -699,7 +728,13 @@ export function BracketsAdmin({
                       {b.name} · {b.division.name}
                     </p>
                     <p className="mt-1 text-xs text-zinc-600">
-                      {b._count.rounds} rounds · {b._count.games} games ·{" "}
+                      {b.format === "DOUBLE_ELIMINATION"
+                        ? "Double elimination"
+                        : b.format === "TRIPLE_ELIMINATION"
+                          ? "Triple elimination"
+                          : "Single elimination"}
+                      {b.avoidRematchesUntilForced ? " · avoid rematches" : ""} · {b._count.rounds} rounds ·{" "}
+                      {b._count.games} games ·{" "}
                       {b.published ? (
                         <span className="font-medium text-emerald-700">Published</span>
                       ) : (

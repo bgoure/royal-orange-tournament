@@ -33,6 +33,11 @@ export const createDivisionBracketSchema = z
       .enum(["SINGLE_ELIMINATION", "DOUBLE_ELIMINATION"])
       .optional()
       .default("SINGLE_ELIMINATION"),
+    avoidRematchesUntilForced: z
+      .enum(["0", "1"])
+      .optional()
+      .default("0")
+      .transform((v) => v === "1"),
     firstRound: z.array(firstRoundSlotSchema).min(1),
   })
   .superRefine((data, ctx) => {

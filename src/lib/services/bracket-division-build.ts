@@ -27,6 +27,8 @@ export type CreateDivisionPlayoffOptions = {
   /** When true, bracket is visible on the public site (still respects per-game schedule placeholders). */
   published?: boolean;
   format?: BracketFormat;
+  /** Double-elim: rematch-aware losers pairing. Ignored for single-elim. */
+  avoidRematchesUntilForced?: boolean;
 };
 
 function slotKey(poolId: string, rank: number) {
@@ -48,6 +50,7 @@ export async function createDivisionPlayoffBracket(opts: CreateDivisionPlayoffOp
     firstRound,
     published = false,
     format = BracketFormat.SINGLE_ELIMINATION,
+    avoidRematchesUntilForced = false,
   } = opts;
 
   const division = await prisma.division.findFirst({
@@ -111,6 +114,8 @@ export async function createDivisionPlayoffBracket(opts: CreateDivisionPlayoffOp
         name,
         sortOrder,
         format,
+        avoidRematchesUntilForced:
+          format === BracketFormat.DOUBLE_ELIMINATION ? avoidRematchesUntilForced : false,
         published,
         needsResolutionRefresh: false,
       },

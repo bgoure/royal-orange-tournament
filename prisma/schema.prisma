@@ -441,6 +441,8 @@ model Bracket {
   name         String
   sortOrder    Int            @default(0)
   format       BracketFormat  @default(SINGLE_ELIMINATION)
+  /// Double/triple losers: re-pair open rounds to avoid rematches until forced (then random among optima).
+  avoidRematchesUntilForced Boolean @default(false)
   /// Hidden on the public site until turned on; admins may publish with placeholder schedule/teams.
   published    Boolean        @default(false)
   /// Set when pool play changes; cleared after directors re-apply standings to seeded slots.
