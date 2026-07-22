@@ -423,6 +423,8 @@ model Game {
 enum BracketRoundType {
   WINNERS
   LOSERS
+  /// Triple-elim: second-loss (L2) bracket. Lose here → eliminated.
+  LOSERS_SECOND
   FINAL
 }
 

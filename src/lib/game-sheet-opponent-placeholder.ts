@@ -23,7 +23,7 @@ export function gameSheetOpponentPlaceholder(input: {
   if (key === "semifinals") return "Semi-Final Game";
   if (key === "quarterfinals") return "Quarter-Final Game";
 
-  if (br.roundType === BracketRoundType.LOSERS) {
+  if (br.roundType === BracketRoundType.LOSERS || br.roundType === BracketRoundType.LOSERS_SECOND) {
     const label = br.name.trim();
     return label ? `${label} Game` : "Playoff Game";
   }

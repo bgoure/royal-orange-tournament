@@ -278,9 +278,10 @@ export function BracketsAdmin({
   );
 
   const [entrySize, setEntrySize] = useState<number>(8);
-  const [createFormat, setCreateFormat] = useState<"SINGLE_ELIMINATION" | "DOUBLE_ELIMINATION">(
-    "SINGLE_ELIMINATION",
-  );
+  const [createFormat, setCreateFormat] = useState<
+    "SINGLE_ELIMINATION" | "DOUBLE_ELIMINATION" | "TRIPLE_ELIMINATION"
+  >("SINGLE_ELIMINATION");
+  const [pairingMode, setPairingMode] = useState<"classic" | "avoid_rematches">("classic");
 
   const divisionsWithPools = useMemo(() => divisions.filter((d) => d.pools.length > 0), [divisions]);
   const [consolationDivisionId, setConsolationDivisionId] = useState(
@@ -607,34 +608,67 @@ export function BracketsAdmin({
                     name="format"
                     value={createFormat}
                     onChange={(e) =>
-                      setCreateFormat(e.target.value as "SINGLE_ELIMINATION" | "DOUBLE_ELIMINATION")
+                      setCreateFormat(
+                        e.target.value as
+                          | "SINGLE_ELIMINATION"
+                          | "DOUBLE_ELIMINATION"
+                          | "TRIPLE_ELIMINATION",
+                      )
                     }
                     className={`${formClass} mt-1 w-full`}
                   >
                     <option value="SINGLE_ELIMINATION">Single elimination</option>
                     <option value="DOUBLE_ELIMINATION">Double elimination</option>
+                    <option value="TRIPLE_ELIMINATION">Triple elimination</option>
                   </select>
                   <p className="mt-1 text-[11px] text-zinc-500">
-                    Double-elim: losers drop into a losers bracket. Grand final is one game (no forced rematch
-                    series). Triple elimination is not offered yet.
+                    {createFormat === "SINGLE_ELIMINATION"
+                      ? "One loss eliminates. Pad the field to a power of 2 with BYEs."
+                      : createFormat === "DOUBLE_ELIMINATION"
+                        ? "One-loss losers bracket + grand final (W champ vs L champ). No forced IF rematch series."
+                        : "Three lives: W → L1 (1 loss) → L2 (2 losses). L2 champ meets W champ in the grand final."}
                   </p>
                 </div>
-                {createFormat === "DOUBLE_ELIMINATION" ? (
-                  <div className="flex items-start gap-2 sm:col-span-2">
-                    <input
-                      type="checkbox"
-                      name="avoidRematchesUntilForced"
-                      value="1"
-                      id="avoid-rematch"
-                      className="mt-1 rounded border-zinc-300"
-                    />
-                    <label htmlFor="avoid-rematch" className="text-sm text-zinc-700">
-                      <span className="font-medium">Avoid rematches until forced</span>
-                      <span className="mt-0.5 block text-xs text-zinc-500">
-                        Losers-bracket matchups are re-drawn to prefer teams that have not played each other
-                        yet. If every pairing is a rematch, a random optimal redraw is used.
-                      </span>
-                    </label>
+                {createFormat === "DOUBLE_ELIMINATION" || createFormat === "TRIPLE_ELIMINATION" ? (
+                  <div className="sm:col-span-2">
+                    <p className={labelClass}>Losers pairing</p>
+                    <div className="mt-2 flex flex-col gap-2">
+                      <label className="flex items-start gap-2 text-sm text-zinc-700">
+                        <input
+                          type="radio"
+                          name="pairingMode"
+                          value="classic"
+                          checked={pairingMode === "classic"}
+                          onChange={() => setPairingMode("classic")}
+                          className="mt-1"
+                        />
+                        <span>
+                          <span className="font-medium">Classic fixed bracket</span>
+                          <span className="mt-0.5 block text-xs text-zinc-500">
+                            Straight double/triple paths — drop into predetermined slots (printable
+                            feeder lines).
+                          </span>
+                        </span>
+                      </label>
+                      <label className="flex items-start gap-2 text-sm text-zinc-700">
+                        <input
+                          type="radio"
+                          name="pairingMode"
+                          value="avoid_rematches"
+                          checked={pairingMode === "avoid_rematches"}
+                          onChange={() => setPairingMode("avoid_rematches")}
+                          className="mt-1"
+                        />
+                        <span>
+                          <span className="font-medium">Avoid duplicate matchups</span>
+                          <span className="mt-0.5 block text-xs text-zinc-500">
+                            Re-draw open losers / L2 rounds so teams that already played each other
+                            are paired last. If every pairing is a rematch, a random optimal redraw is
+                            used (same idea as the 27-team poster).
+                          </span>
+                        </span>
+                      </label>
+                    </div>
                   </div>
                 ) : null}
                 <div>
@@ -733,7 +767,7 @@ export function BracketsAdmin({
                         : b.format === "TRIPLE_ELIMINATION"
                           ? "Triple elimination"
                           : "Single elimination"}
-                      {b.avoidRematchesUntilForced ? " · avoid rematches" : ""} · {b._count.rounds} rounds ·{" "}
+                      {b.avoidRematchesUntilForced ? " · avoid duplicate matchups" : b.format !== "SINGLE_ELIMINATION" ? " · classic paths" : ""} · {b._count.rounds} rounds ·{" "}
                       {b._count.games} games ·{" "}
                       {b.published ? (
                         <span className="font-medium text-emerald-700">Published</span>

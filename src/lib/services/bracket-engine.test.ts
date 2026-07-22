@@ -3,12 +3,14 @@ import { describe, it } from "node:test";
 import {
   bracketWinnerTeamId,
   collectAdvancingTeamIds,
+  doubleElimLosersRoundSizes,
   isPowerOfTwo,
   isValidAdvancingTeamCount,
   isValidEntryTeamCount,
   nextPowerOfTwo,
   padSlotsWithByes,
   singleElimRoundName,
+  tripleElimL2RoundSizes,
 } from "./bracket-engine";
 
 describe("isPowerOfTwo", () => {
@@ -115,3 +117,22 @@ describe("bracketWinnerTeamId", () => {
     );
   });
 });
+
+describe("doubleElimLosersRoundSizes / tripleElimL2RoundSizes", () => {
+  it("ends with a single final game", () => {
+    const l1 = doubleElimLosersRoundSizes(8);
+    assert.ok(l1.length >= 1);
+    assert.equal(l1[l1.length - 1], 1);
+    const l2 = tripleElimL2RoundSizes(8);
+    assert.equal(l2[l2.length - 1], 1);
+  });
+
+  it("scales up for larger fields", () => {
+    assert.ok(doubleElimLosersRoundSizes(16).length > doubleElimLosersRoundSizes(8).length);
+    assert.ok(sum(doubleElimLosersRoundSizes(16)) > sum(doubleElimLosersRoundSizes(8)));
+  });
+});
+
+function sum(ns: number[]) {
+  return ns.reduce((a, b) => a + b, 0);
+}

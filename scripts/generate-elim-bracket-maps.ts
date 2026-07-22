@@ -427,7 +427,7 @@ function laneTitle(lane: number, round: number, teamCountApprox: number): string
 
 function drawPlanPage(doc: PDFKit.PDFDocument, plan: BracketPlan, kind: "double" | "triple") {
   const [W, H] = pageSizeFor(plan);
-  doc.addPage({ size: [W, H], margins: 0 });
+  doc.addPage({ size: [W, H] as [number, number], margin: 0 });
 
   // background
   doc.rect(0, 0, W, H).fill("#ffffff");

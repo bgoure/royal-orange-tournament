@@ -1,8 +1,10 @@
 import { BracketFormat, BracketRoundType, GameStatus } from "@prisma/client";
 import { prisma } from "@/lib/db";
 import {
+  doubleElimLosersRoundSizes,
   isValidEntryTeamCount,
   singleElimRoundName,
+  tripleElimL2RoundSizes,
 } from "./bracket-engine";
 import { resolveBracketTeamsFromStandings } from "./bracket-resolution";
 import { isDivisionRoundRobinCompleteForSeeding } from "./round-robin-division";
@@ -27,7 +29,10 @@ export type CreateDivisionPlayoffOptions = {
   /** When true, bracket is visible on the public site (still respects per-game schedule placeholders). */
   published?: boolean;
   format?: BracketFormat;
-  /** Double-elim: rematch-aware losers pairing. Ignored for single-elim. */
+  /**
+   * Double/triple: when true, losers (and L2) rounds re-pair to avoid rematches until forced.
+   * When false, classic fixed feeder paths.
+   */
   avoidRematchesUntilForced?: boolean;
 };
 
@@ -37,6 +42,67 @@ function slotKey(poolId: string, rank: number) {
 
 function isByeSide(side: FirstRoundSide): side is { bye: true } {
   return "bye" in side && side.bye === true;
+}
+
+type Tx = Parameters<Parameters<typeof prisma.$transaction>[0]>[0];
+
+async function createSideBracketRounds(
+  tx: Tx,
+  opts: {
+    tournamentId: string;
+    bracketId: string;
+    fieldId: string;
+    startsAtMs: number;
+    stepMs: number;
+    startRoundIndex: number;
+    scheduleRoundOffset: number;
+    roundType: BracketRoundType;
+    sizes: number[];
+    nameFor: (i: number, total: number) => string;
+  },
+): Promise<number> {
+  let roundIndex = opts.startRoundIndex;
+  for (let i = 0; i < opts.sizes.length; i++) {
+    const slots = opts.sizes[i]!;
+    const round = await tx.bracketRound.create({
+      data: {
+        bracketId: opts.bracketId,
+        name: opts.nameFor(i, opts.sizes.length),
+        roundIndex,
+        roundType: opts.roundType,
+      },
+    });
+    const scheduledAt = new Date(
+      opts.startsAtMs + (opts.scheduleRoundOffset + i) * opts.stepMs,
+    );
+    for (let m = 0; m < slots; m++) {
+      const game = await tx.game.create({
+        data: {
+          tournamentId: opts.tournamentId,
+          poolId: null,
+          fieldId: opts.fieldId,
+          homeTeamId: null,
+          awayTeamId: null,
+          scheduledAt,
+          schedulePlaceholder: true,
+          status: GameStatus.SCHEDULED,
+          resultType: "REGULAR",
+          bracketId: opts.bracketId,
+          bracketRoundId: round.id,
+          bracketPosition: m,
+        },
+      });
+      await tx.bracketMatch.create({
+        data: {
+          bracketRoundId: round.id,
+          matchIndex: m,
+          gameId: game.id,
+        },
+      });
+    }
+    roundIndex += 1;
+  }
+  return roundIndex;
 }
 
 export async function createDivisionPlayoffBracket(opts: CreateDivisionPlayoffOptions): Promise<string> {
@@ -115,7 +181,10 @@ export async function createDivisionPlayoffBracket(opts: CreateDivisionPlayoffOp
         sortOrder,
         format,
         avoidRematchesUntilForced:
-          format === BracketFormat.DOUBLE_ELIMINATION ? avoidRematchesUntilForced : false,
+          format === BracketFormat.DOUBLE_ELIMINATION ||
+          format === BracketFormat.TRIPLE_ELIMINATION
+            ? avoidRematchesUntilForced
+            : false,
         published,
         needsResolutionRefresh: false,
       },
@@ -137,58 +206,43 @@ export async function createDivisionPlayoffBracket(opts: CreateDivisionPlayoffOp
       });
     }
 
-    // Double-elim: append losers bracket rounds + grand final already as FINAL above.
-    // Losers tree has (n - 2) games across ~2*log2(n)-1 rounds; we create parallel LOSERS rounds
-    // with enough slots for drop-ins from winners.
-    if (format === BracketFormat.DOUBLE_ELIMINATION) {
-      const losersRoundCount = Math.max(1, 2 * totalWinnerRounds - 2);
-      for (let lr = 0; lr < losersRoundCount; lr++) {
-        const roundIndex = totalWinnerRounds + lr;
-        const nameRound =
-          lr === losersRoundCount - 1 ? "Losers final" : `Losers round ${lr + 1}`;
-        await tx.bracketRound.create({
-          data: {
-            bracketId: bracket.id,
-            name: nameRound,
-            roundIndex,
-            roundType: BracketRoundType.LOSERS,
-          },
-        });
-      }
-      // Create loser round 0 games (n/2 - 1 slots typically) — minimal: n/2 games for first losers round
-      const firstLosers = await tx.bracketRound.findFirst({
-        where: { bracketId: bracket.id, roundType: BracketRoundType.LOSERS },
-        orderBy: { roundIndex: "asc" },
+    // Double/triple: full losers trees (all rounds get games). Triple also adds L2 (LOSERS_SECOND).
+    if (
+      format === BracketFormat.DOUBLE_ELIMINATION ||
+      format === BracketFormat.TRIPLE_ELIMINATION
+    ) {
+      const baseMs = startsAt.getTime();
+      const stepMs = hoursBetweenRounds * 60 * 60 * 1000;
+      const l1Sizes = doubleElimLosersRoundSizes(n);
+      let nextRoundIndex = await createSideBracketRounds(tx, {
+        tournamentId,
+        bracketId: bracket.id,
+        fieldId,
+        startsAtMs: baseMs,
+        stepMs,
+        startRoundIndex: totalWinnerRounds,
+        scheduleRoundOffset: totalWinnerRounds,
+        roundType: BracketRoundType.LOSERS,
+        sizes: l1Sizes,
+        nameFor: (i, total) =>
+          i === total - 1 ? "Losers final (1 loss)" : `Losers round ${i + 1}`,
       });
-      if (firstLosers) {
-        const loserSlots = Math.max(1, n / 2 - 1);
-        const baseMs = startsAt.getTime();
-        const stepMs = hoursBetweenRounds * 60 * 60 * 1000;
-        for (let m = 0; m < loserSlots; m++) {
-          const game = await tx.game.create({
-            data: {
-              tournamentId,
-              poolId: null,
-              fieldId,
-              homeTeamId: null,
-              awayTeamId: null,
-              scheduledAt: new Date(baseMs + totalWinnerRounds * stepMs),
-              schedulePlaceholder: true,
-              status: GameStatus.SCHEDULED,
-              resultType: "REGULAR",
-              bracketId: bracket.id,
-              bracketRoundId: firstLosers.id,
-              bracketPosition: m,
-            },
-          });
-          await tx.bracketMatch.create({
-            data: {
-              bracketRoundId: firstLosers.id,
-              matchIndex: m,
-              gameId: game.id,
-            },
-          });
-        }
+
+      if (format === BracketFormat.TRIPLE_ELIMINATION) {
+        const l2Sizes = tripleElimL2RoundSizes(n);
+        await createSideBracketRounds(tx, {
+          tournamentId,
+          bracketId: bracket.id,
+          fieldId,
+          startsAtMs: baseMs,
+          stepMs,
+          startRoundIndex: nextRoundIndex,
+          scheduleRoundOffset: totalWinnerRounds + l1Sizes.length,
+          roundType: BracketRoundType.LOSERS_SECOND,
+          sizes: l2Sizes,
+          nameFor: (i, total) =>
+            i === total - 1 ? "Losers final (2 losses)" : `L2 round ${i + 1}`,
+        });
       }
     }
 

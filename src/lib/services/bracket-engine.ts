@@ -172,6 +172,42 @@ export function bracketLoserTeamId(input: {
   return null;
 }
 
+/**
+ * Game counts per losers (1-loss) round for a power-of-2 field of size `slots`.
+ * Ends with a single losers-final game.
+ */
+export function doubleElimLosersRoundSizes(slots: number): number[] {
+  if (!isPowerOfTwo(slots) || slots < 2) return [1];
+  const winnerRounds = Math.log2(slots);
+  const losersRoundCount = Math.max(1, 2 * winnerRounds - 1);
+  const sizes: number[] = [];
+  let games = slots / 2 - 1;
+  for (let r = 0; r < losersRoundCount; r++) {
+    sizes.push(Math.max(1, games));
+    if (r % 2 === 1) games = Math.max(1, Math.floor(games / 2));
+  }
+  sizes[sizes.length - 1] = 1;
+  return sizes;
+}
+
+/**
+ * Game counts per L2 (2-loss) round for triple elimination.
+ * Slightly shallower than L1; ends with one L2 final.
+ */
+export function tripleElimL2RoundSizes(slots: number): number[] {
+  if (!isPowerOfTwo(slots) || slots < 2) return [1];
+  const winnerRounds = Math.log2(slots);
+  const roundCount = Math.max(1, 2 * winnerRounds - 2);
+  const sizes: number[] = [];
+  let games = Math.max(1, slots / 2 - 2);
+  for (let r = 0; r < roundCount; r++) {
+    sizes.push(Math.max(1, games));
+    if (r % 2 === 1) games = Math.max(1, Math.floor(games / 2));
+  }
+  sizes[sizes.length - 1] = 1;
+  return sizes;
+}
+
 export function bracketWinnerTeamId(input: {
   status: string;
   resultType: string;

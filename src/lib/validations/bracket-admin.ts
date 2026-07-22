@@ -30,9 +30,14 @@ export const createDivisionBracketSchema = z
     hoursBetweenRounds: z.coerce.number().min(0).max(168).optional().default(2),
     published: z.enum(["0", "1"]).transform((v) => v === "1"),
     format: z
-      .enum(["SINGLE_ELIMINATION", "DOUBLE_ELIMINATION"])
+      .enum(["SINGLE_ELIMINATION", "DOUBLE_ELIMINATION", "TRIPLE_ELIMINATION"])
       .optional()
       .default("SINGLE_ELIMINATION"),
+    /** Classic fixed paths vs rematch-avoiding losers/L2 re-pairing. */
+    pairingMode: z
+      .enum(["classic", "avoid_rematches"])
+      .optional()
+      .default("classic"),
     avoidRematchesUntilForced: z
       .enum(["0", "1"])
       .optional()
@@ -59,6 +64,16 @@ export const createDivisionBracketSchema = z
         });
       }
     }
+  })
+  .transform((data) => {
+    const multi =
+      data.format === "DOUBLE_ELIMINATION" || data.format === "TRIPLE_ELIMINATION";
+    const avoid =
+      multi && (data.pairingMode === "avoid_rematches" || data.avoidRematchesUntilForced);
+    return {
+      ...data,
+      avoidRematchesUntilForced: avoid,
+    };
   });
 
 export const toggleBracketPublishedSchema = z.object({

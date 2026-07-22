@@ -24,12 +24,12 @@ export function poolFinishPlaceholderLabel(
 export function hasConsolationRounds(
   rounds: { roundType: BracketRoundType }[],
 ): boolean {
-  return rounds.some((r) => r.roundType === "LOSERS");
+  return rounds.some((r) => r.roundType === "LOSERS" || r.roundType === "LOSERS_SECOND");
 }
 
 export type BracketScopeFilter = "all" | "main" | "consolation";
 
-/** Main bracket: winners path + championship. Consolation: losers bracket rounds (if present). */
+/** Main bracket: winners path + championship. Consolation: losers / L2 rounds (if present). */
 export function filterRoundsForScope<
   R extends { roundIndex: number; roundType: BracketRoundType },
 >(rounds: R[], scope: BracketScopeFilter): R[] {
@@ -38,7 +38,7 @@ export function filterRoundsForScope<
   if (scope === "main") {
     return sorted.filter((r) => r.roundType === "WINNERS" || r.roundType === "FINAL");
   }
-  return sorted.filter((r) => r.roundType === "LOSERS");
+  return sorted.filter((r) => r.roundType === "LOSERS" || r.roundType === "LOSERS_SECOND");
 }
 
 export function roundTypeShortLabel(roundType: BracketRoundType): string {
@@ -46,7 +46,9 @@ export function roundTypeShortLabel(roundType: BracketRoundType): string {
     case "WINNERS":
       return "Winners";
     case "LOSERS":
-      return "Consolation";
+      return "Losers (1 loss)";
+    case "LOSERS_SECOND":
+      return "Losers (2 losses)";
     case "FINAL":
       return "Final";
     default:

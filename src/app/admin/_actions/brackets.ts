@@ -155,6 +155,7 @@ export async function createDivisionPlayoffBracketAction(
     hoursBetweenRounds: formData.get("hoursBetweenRounds") || undefined,
     published: formData.get("published") === "1" ? "1" : "0",
     format: formData.get("format") || "SINGLE_ELIMINATION",
+    pairingMode: formData.get("pairingMode") || "classic",
     avoidRematchesUntilForced: formData.get("avoidRematchesUntilForced") === "1" ? "1" : "0",
     firstRound,
   });
