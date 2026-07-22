@@ -62,10 +62,10 @@ function AdminShell({
   }, [mobileNavOpen, closeMobileNav]);
 
   const mainInnerClass = isScorekeeper
-    ? "mx-auto max-w-lg px-4 py-4 sm:px-8"
+    ? "mx-auto max-w-lg px-4 py-4 sm:px-6"
     : isPrintSheets
-      ? "mx-auto max-w-6xl px-8 py-10 print:w-full print:max-w-none print:px-0 print:py-0.5"
-      : "mx-auto max-w-6xl px-8 py-10 print:max-w-none print:px-3 print:py-2";
+      ? "mx-auto max-w-6xl px-4 py-6 sm:px-8 sm:py-10 print:w-full print:max-w-none print:px-0 print:py-0.5"
+      : "mx-auto max-w-6xl px-4 py-6 sm:px-8 sm:py-10 print:max-w-none print:px-3 print:py-2";
 
   return (
     <CreateTournamentWizardProvider canCreateTournament={canCreateTournament}>
@@ -124,7 +124,7 @@ function AdminShellFallback({ children }: { children: React.ReactNode }) {
   return (
     <div className="flex min-h-full bg-zinc-100">
       <main className="flex-1 bg-white">
-        <div className="mx-auto max-w-6xl px-8 py-10">{children}</div>
+        <div className="mx-auto max-w-6xl px-4 py-6 sm:px-8 sm:py-10">{children}</div>
       </main>
     </div>
   );

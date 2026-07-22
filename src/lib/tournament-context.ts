@@ -226,6 +226,7 @@ export async function listTournamentsForAdminHub(opts?: {
   });
 }
 
+/** Live published events in the public switcher date window (header switcher). */
 export async function listPublishedTournaments() {
   return prisma.tournament.findMany({
     where: switcherListWhere(),
@@ -237,6 +238,25 @@ export async function listPublishedTournaments() {
       locationLabel: true,
       startDate: true,
       endDate: true,
+    },
+  });
+}
+
+/** All live published tournaments for the marketing directory (no lead-time window). */
+export async function listLiveTournamentsForDirectory() {
+  return prisma.tournament.findMany({
+    where: { isPublished: true, archivedAt: null },
+    orderBy: [{ startDate: "asc" }, { publicSwitcherOrder: "asc" }, { slug: "asc" }],
+    select: {
+      id: true,
+      name: true,
+      slug: true,
+      shortLabel: true,
+      locationLabel: true,
+      startDate: true,
+      endDate: true,
+      archiveFolder: true,
+      archivedAt: true,
     },
   });
 }

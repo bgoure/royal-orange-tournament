@@ -60,6 +60,25 @@ describe("scheduleRoundRobinSlots", () => {
     const fieldsUsed = new Set(slots.map((s) => s.fieldId));
     assert.ok(fieldsUsed.has("f1"));
   });
+
+  it("staggers overflow waves when a round has more games than fields", () => {
+    const pairings = buildRoundRobinPairings(["a", "b", "c", "d"]);
+    const start = new Date("2026-07-01T14:00:00.000Z");
+    const slots = scheduleRoundRobinSlots(pairings, {
+      startAt: start,
+      slotMinutes: 90,
+      fieldIds: ["f1"],
+    });
+    assert.equal(slots.length, 6);
+    const byKey = new Map<string, number>();
+    for (const s of slots) {
+      const key = `${s.fieldId}|${s.scheduledAt.toISOString()}`;
+      byKey.set(key, (byKey.get(key) ?? 0) + 1);
+    }
+    for (const n of byKey.values()) {
+      assert.equal(n, 1);
+    }
+  });
 });
 
 const baseWindow = {

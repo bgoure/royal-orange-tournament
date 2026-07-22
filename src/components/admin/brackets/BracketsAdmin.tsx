@@ -602,10 +602,10 @@ export function BracketsAdmin({
                   <select name="format" defaultValue="SINGLE_ELIMINATION" className={`${formClass} mt-1 w-full`}>
                     <option value="SINGLE_ELIMINATION">Single elimination</option>
                     <option value="DOUBLE_ELIMINATION">Double elimination</option>
-                    <option value="TRIPLE_ELIMINATION">Triple elimination (experimental)</option>
                   </select>
                   <p className="mt-1 text-[11px] text-zinc-500">
                     Double-elim: losers drop into a losers bracket. Grand final is one game (no forced rematch).
+                    Triple elimination is not offered yet (would need a second losers bracket).
                   </p>
                 </div>
                 <div>

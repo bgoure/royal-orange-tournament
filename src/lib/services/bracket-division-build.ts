@@ -135,7 +135,7 @@ export async function createDivisionPlayoffBracket(opts: CreateDivisionPlayoffOp
     // Double-elim: append losers bracket rounds + grand final already as FINAL above.
     // Losers tree has (n - 2) games across ~2*log2(n)-1 rounds; we create parallel LOSERS rounds
     // with enough slots for drop-ins from winners.
-    if (format === BracketFormat.DOUBLE_ELIMINATION || format === BracketFormat.TRIPLE_ELIMINATION) {
+    if (format === BracketFormat.DOUBLE_ELIMINATION) {
       const losersRoundCount = Math.max(1, 2 * totalWinnerRounds - 2);
       for (let lr = 0; lr < losersRoundCount; lr++) {
         const roundIndex = totalWinnerRounds + lr;

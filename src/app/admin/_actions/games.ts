@@ -28,6 +28,7 @@ import {
 import { parseDatetimeLocalInTimeZone } from "@/lib/datetime-tournament";
 import { getTournamentForRequest, type TournamentForRequest } from "@/lib/tournament-context";
 import { buildRoundRobinPairings, scheduleRoundRobinSlots } from "@/lib/services/round-robin-schedule";
+import { assertNoFieldScheduleConflict } from "@/lib/services/schedule-conflicts";
 import { GameKind } from "@prisma/client";
 import type { Session } from "next-auth";
 
@@ -104,6 +105,13 @@ export async function createGame(
     } catch {
       return { ok: false, error: "Invalid date/time for this tournament's timezone" };
     }
+
+    const conflict = await assertNoFieldScheduleConflict({
+      tournamentId: tournament.id,
+      fieldId: parsed.data.fieldId,
+      scheduledAt,
+    });
+    if (conflict) return { ok: false, error: conflict };
 
     await prisma.game.create({
       data: {
@@ -387,6 +395,14 @@ export async function updateBracketGameSchedule(
       return { ok: false, error: "Invalid date/time for this tournament's timezone" };
     }
 
+    const conflict = await assertNoFieldScheduleConflict({
+      tournamentId: ctx.tournament.id,
+      fieldId: d.fieldId,
+      scheduledAt,
+      excludeGameId: d.id,
+    });
+    if (conflict) return { ok: false, error: conflict };
+
     await prisma.game.update({
       where: { id: d.id },
       data: {
@@ -501,6 +517,14 @@ export async function updateGameMeta(
     } catch {
       return { ok: false, error: "Invalid date/time for this tournament's timezone" };
     }
+
+    const conflict = await assertNoFieldScheduleConflict({
+      tournamentId: ctx.tournament.id,
+      fieldId: d.fieldId,
+      scheduledAt,
+      excludeGameId: d.id,
+    });
+    if (conflict) return { ok: false, error: conflict };
 
     await prisma.game.update({
       where: { id: d.id },

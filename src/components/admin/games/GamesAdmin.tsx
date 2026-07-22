@@ -75,6 +75,12 @@ type Props = {
   isAdmin: boolean;
   /** Day-of mobile scoring UI when `scorekeeper`. */
   mode?: "admin" | "scorekeeper";
+  /** Existing field double-books (non-placeholder games). */
+  fieldConflicts?: Array<{
+    fieldName: string;
+    gameA: { id: string; gameNumber: string | null; scheduledAt: Date };
+    gameB: { id: string; gameNumber: string | null; scheduledAt: Date };
+  }>;
 };
 
 export function GamesAdmin({
@@ -85,6 +91,7 @@ export function GamesAdmin({
   tournamentTimezone,
   isAdmin,
   mode = "admin",
+  fieldConflicts = [],
 }: Props) {
   const [createState, createAction, createPending] = useActionState(createGame, undefined as GameActionResult | undefined);
   const [rrState, rrAction, rrPending] = useActionState(
@@ -153,8 +160,8 @@ export function GamesAdmin({
   }
 
   return (
-    <div className="flex flex-col gap-10">
-      <header className="flex flex-wrap items-end justify-between gap-4 border-b border-zinc-200 pb-6">
+    <div className="flex flex-col gap-6 sm:gap-10">
+      <header className="flex flex-wrap items-end justify-between gap-3 border-b border-zinc-200 pb-4 sm:gap-4 sm:pb-6">
         <div>
           <p className="text-xs font-medium uppercase tracking-wide text-zinc-500">Tournament</p>
           <h1 className="text-2xl font-semibold tracking-tight text-zinc-900">Games</h1>
@@ -182,11 +189,36 @@ export function GamesAdmin({
         </div>
       </header>
 
-      <section className="rounded-xl border border-zinc-200 bg-zinc-50/80 p-6">
+      {fieldConflicts.length > 0 ? (
+        <div
+          role="alert"
+          className="rounded-lg border border-amber-300 bg-amber-50 px-4 py-3 text-sm text-amber-950"
+        >
+          <p className="font-semibold">
+            {fieldConflicts.length} field schedule conflict{fieldConflicts.length === 1 ? "" : "s"}
+          </p>
+          <p className="mt-1 text-xs text-amber-900/90">
+            Two games occupy the same field within ~90 minutes. Fix field or start time below — new saves that
+            collide are blocked.
+          </p>
+          <ul className="mt-2 list-inside list-disc text-xs">
+            {fieldConflicts.slice(0, 8).map((c, i) => (
+              <li key={`${c.gameA.id}-${c.gameB.id}-${i}`}>
+                {c.fieldName}:{" "}
+                {c.gameA.gameNumber ? `Game #${c.gameA.gameNumber}` : c.gameA.id.slice(0, 8)} vs{" "}
+                {c.gameB.gameNumber ? `Game #${c.gameB.gameNumber}` : c.gameB.id.slice(0, 8)}
+              </li>
+            ))}
+          </ul>
+        </div>
+      ) : null}
+
+      <section className="rounded-xl border border-zinc-200 bg-zinc-50/80 p-4 sm:p-6">
         <h2 className="text-sm font-semibold text-zinc-900">Generate pool round-robin</h2>
         <p className="mt-1 text-xs text-zinc-600">
-          Create every pool-play matchup for one pool. Rounds share a start time; later rounds are spaced by the slot
-          length. Multiple fields rotate within each round. Odd team counts skip the bye slot (no bye games).
+          Create every pool-play matchup for one pool. Games rotate across fields; when a round has more games
+          than fields, overflow waves are spaced by the slot length so a field is never double-booked. Odd team
+          counts skip the bye slot (no bye games).
         </p>
         <ActionMessage state={rrState} />
         {poolsWithTeams.length === 0 ? (

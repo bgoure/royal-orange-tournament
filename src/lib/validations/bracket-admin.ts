@@ -30,7 +30,7 @@ export const createDivisionBracketSchema = z
     hoursBetweenRounds: z.coerce.number().min(0).max(168).optional().default(2),
     published: z.enum(["0", "1"]).transform((v) => v === "1"),
     format: z
-      .enum(["SINGLE_ELIMINATION", "DOUBLE_ELIMINATION", "TRIPLE_ELIMINATION"])
+      .enum(["SINGLE_ELIMINATION", "DOUBLE_ELIMINATION"])
       .optional()
       .default("SINGLE_ELIMINATION"),
     firstRound: z.array(firstRoundSlotSchema).min(1),

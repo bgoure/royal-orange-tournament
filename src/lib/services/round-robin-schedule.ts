@@ -68,8 +68,9 @@ export type ScheduledRoundRobinSlot = RoundRobinPairing & {
  * Assign start times and fields to pairings.
  * Games in the same round share a time; rounds are spaced by `slotMinutes`.
  * Multiple fields rotate within a round when provided.
- * Note: if a round has more games than fields, multiple games share a field at the same time
- * (legacy behavior). Prefer `scheduleRoundRobinSlotsInWindow` for collision-safe packing.
+ * If a round has more games than fields, extra games start on later waves
+ * (`slotMinutes` apart) so the same field is never double-booked.
+ * Prefer `scheduleRoundRobinSlotsInWindow` when packing into a multi-day window with rest/travel.
  */
 export function scheduleRoundRobinSlots(
   pairings: RoundRobinPairing[],
@@ -97,18 +98,29 @@ export function scheduleRoundRobinSlots(
   const roundIndexes = [...byRound.keys()].sort((a, b) => a - b);
   const out: ScheduledRoundRobinSlot[] = [];
 
+  const fieldCount = opts.fieldIds.length;
+  // Advance the global clock so overflow waves (more games than fields in a round)
+  // never collide with the next round on the same field.
+  let waveOffset = 0;
+
   for (let ri = 0; ri < roundIndexes.length; ri++) {
     const roundIndex = roundIndexes[ri]!;
     const roundPairings = byRound.get(roundIndex)!;
-    const scheduledAt = new Date(opts.startAt.getTime() + ri * opts.slotMinutes * 60_000);
+    const waves = Math.ceil(roundPairings.length / fieldCount);
+
     for (let i = 0; i < roundPairings.length; i++) {
       const p = roundPairings[i]!;
+      const wave = Math.floor(i / fieldCount);
+      const scheduledAt = new Date(
+        opts.startAt.getTime() + (waveOffset + wave) * opts.slotMinutes * 60_000,
+      );
       out.push({
         ...p,
         scheduledAt,
-        fieldId: opts.fieldIds[i % opts.fieldIds.length]!,
+        fieldId: opts.fieldIds[i % fieldCount]!,
       });
     }
+    waveOffset += Math.max(1, waves);
   }
 
   return out;
