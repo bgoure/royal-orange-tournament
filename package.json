@@ -12,6 +12,7 @@
     "db:push": "prisma db push",
     "db:seed": "prisma db seed",
     "user:role": "tsx scripts/promote-user-role.ts",
+    "bracket-maps:generate": "tsx scripts/generate-elim-bracket-maps.ts",
     "test": "tsx --test src/lib/services/standings/standings-engine.test.ts src/lib/services/bracket-engine.test.ts src/lib/brackets/bracket-champion.test.ts src/lib/services/tournament-soft-reset.test.ts src/lib/services/announcement-email.test.ts src/lib/headquarters-display.test.ts src/lib/services/game-field-home.test.ts src/lib/game-sheet-opponent-placeholder.test.ts src/lib/services/round-robin-schedule.test.ts src/lib/services/schedule-conflicts.test.ts src/lib/services/rematch-aware-pairing.test.ts src/lib/rbac/permissions.test.ts src/lib/rbac/division-scope.test.ts src/lib/services/tournament-happy-path.test.ts src/lib/api/v1/serialize-game.test.ts src/lib/api/v1/api-v1-games.test.ts"
   },
   "dependencies": {
@@ -35,12 +36,14 @@
     "@tailwindcss/postcss": "^4",
     "@types/luxon": "^3.7.1",
     "@types/node": "^20",
+    "@types/pdfkit": "^0.17.6",
     "@types/react": "^19",
     "@types/react-dom": "^19",
     "cross-env": "^10.1.0",
     "dotenv": "^17.4.2",
     "eslint": "^9",
     "eslint-config-next": "16.2.2",
+    "pdfkit": "^0.19.1",
     "prisma": "^6.19.3",
     "tailwindcss": "^4",
     "tsx": "^4.21.0",
