@@ -1,10 +1,12 @@
 import { prisma } from "@/lib/db";
 import { bracketLoserTeamId, bracketWinnerTeamId } from "./bracket-engine";
+import { selectObaByeRecipient, type ObaByeCandidate } from "./oba-bye-award";
 import {
   meetingKey,
   pairTeamsAvoidingRematches,
   pickSeatAvoidingRematch,
 } from "./rematch-aware-pairing";
+import type { StandingsGameInput } from "@/lib/services/standings/standings-engine";
 
 async function placeTeamInNextWinnersSlot(
   bracketId: string,
@@ -53,6 +55,168 @@ async function loadBracketPriorMeetings(bracketId: string): Promise<Set<string>>
     }
   }
   return set;
+}
+
+/**
+ * Build OBA bye candidates + RP7.3 game inputs for an odd pairing cohort.
+ * Bye history: structural R0 BYE advances + prior sit-out games (one team assigned, opponent null).
+ */
+async function loadObaByeCandidatesForTeams(
+  bracketId: string,
+  teamIds: string[],
+  currentRoundIndex: number,
+): Promise<{ candidates: ObaByeCandidate[]; gamesForRp73: StandingsGameInput[] }> {
+  const idSet = new Set(teamIds);
+
+  const bracket = await prisma.bracket.findUnique({
+    where: { id: bracketId },
+    select: { tournamentId: true, divisionId: true },
+  });
+  if (!bracket) {
+    return {
+      candidates: teamIds.map((teamId) => ({
+        teamId,
+        bracketLosses: 0,
+        byeCount: 0,
+        hadByeInPreviousRound: false,
+      })),
+      gamesForRp73: [],
+    };
+  }
+
+  const [matches, finalGames, sitOuts] = await Promise.all([
+    prisma.bracketMatch.findMany({
+      where: {
+        bracketRound: { bracketId },
+        OR: [{ homeIsBye: true }, { awayIsBye: true }],
+      },
+      include: {
+        bracketRound: { select: { roundIndex: true } },
+        game: { select: { homeTeamId: true, awayTeamId: true, status: true } },
+      },
+    }),
+    prisma.game.findMany({
+      where: {
+        tournamentId: bracket.tournamentId,
+        status: "FINAL",
+        homeTeamId: { not: null },
+        awayTeamId: { not: null },
+        OR: [
+          { bracketId },
+          { pool: { divisionId: bracket.divisionId } },
+        ],
+      },
+      select: {
+        status: true,
+        resultType: true,
+        homeTeamId: true,
+        awayTeamId: true,
+        homeRuns: true,
+        awayRuns: true,
+        homeDefensiveInnings: true,
+        awayDefensiveInnings: true,
+        homeOffensiveInnings: true,
+        awayOffensiveInnings: true,
+        bracketId: true,
+      },
+    }),
+    // Mid-round sit-outs only (exclude structural R0 BYE slots — counted via matches)
+    prisma.game.findMany({
+      where: {
+        bracketId,
+        AND: [
+          {
+            OR: [
+              { homeTeamId: { not: null }, awayTeamId: null },
+              { homeTeamId: null, awayTeamId: { not: null } },
+            ],
+          },
+          {
+            OR: [
+              { bracketMatch: null },
+              {
+                bracketMatch: {
+                  is: { homeIsBye: false, awayIsBye: false },
+                },
+              },
+            ],
+          },
+        ],
+      },
+      select: {
+        homeTeamId: true,
+        awayTeamId: true,
+        bracketRound: { select: { roundIndex: true } },
+      },
+    }),
+  ]);
+
+  const byeCount = new Map<string, number>();
+  const lastByeRound = new Map<string, number>();
+  const bracketLosses = new Map<string, number>();
+  for (const id of teamIds) {
+    byeCount.set(id, 0);
+    bracketLosses.set(id, 0);
+  }
+
+  for (const m of matches) {
+    if (m.game?.status !== "FINAL") continue;
+    const advanced = m.homeIsBye ? m.game.awayTeamId : m.game.homeTeamId;
+    if (!advanced || !idSet.has(advanced)) continue;
+    byeCount.set(advanced, (byeCount.get(advanced) ?? 0) + 1);
+    const ri = m.bracketRound.roundIndex;
+    const prev = lastByeRound.get(advanced);
+    if (prev == null || ri > prev) lastByeRound.set(advanced, ri);
+  }
+
+  for (const g of sitOuts) {
+    const tid = g.homeTeamId ?? g.awayTeamId;
+    if (!tid || !idSet.has(tid)) continue;
+    byeCount.set(tid, (byeCount.get(tid) ?? 0) + 1);
+    const ri = g.bracketRound?.roundIndex ?? -1;
+    const prev = lastByeRound.get(tid);
+    if (prev == null || ri > prev) lastByeRound.set(tid, ri);
+  }
+
+  for (const g of finalGames) {
+    if (g.bracketId !== bracketId) continue;
+    // Count bracket losses only
+    const home = g.homeTeamId!;
+    const away = g.awayTeamId!;
+    let loser: string | null = null;
+    if (g.resultType === "FORFEIT_HOME_WINS") loser = away;
+    else if (g.resultType === "FORFEIT_AWAY_WINS") loser = home;
+    else if (g.homeRuns != null && g.awayRuns != null) {
+      if (g.homeRuns > g.awayRuns) loser = away;
+      else if (g.awayRuns > g.homeRuns) loser = home;
+    }
+    if (loser && idSet.has(loser)) {
+      bracketLosses.set(loser, (bracketLosses.get(loser) ?? 0) + 1);
+    }
+  }
+
+  const prevRound = currentRoundIndex - 1;
+  const candidates: ObaByeCandidate[] = teamIds.map((teamId) => ({
+    teamId,
+    bracketLosses: bracketLosses.get(teamId) ?? 0,
+    byeCount: byeCount.get(teamId) ?? 0,
+    hadByeInPreviousRound: (lastByeRound.get(teamId) ?? -999) === prevRound,
+  }));
+
+  const gamesForRp73: StandingsGameInput[] = finalGames.map((g) => ({
+    status: g.status,
+    resultType: g.resultType,
+    homeTeamId: g.homeTeamId,
+    awayTeamId: g.awayTeamId,
+    homeRuns: g.homeRuns,
+    awayRuns: g.awayRuns,
+    homeDefensiveInnings: g.homeDefensiveInnings,
+    awayDefensiveInnings: g.awayDefensiveInnings,
+    homeOffensiveInnings: g.homeOffensiveInnings,
+    awayOffensiveInnings: g.awayOffensiveInnings,
+  }));
+
+  return { candidates, gamesForRp73 };
 }
 
 async function placeIntoGrandFinalAway(bracketId: string, teamId: string): Promise<void> {
@@ -144,7 +308,30 @@ async function placeTeamIntoSideRound(opts: {
     });
   }
 
-  const pairing = pairTeamsAvoidingRematches([...teamIds], prior);
+  const teamIdList = [...teamIds];
+  let byeOpts: { selectByeRecipient: (ids: string[]) => string } | undefined;
+  if (teamIdList.length % 2 === 1) {
+    const { candidates, gamesForRp73 } = await loadObaByeCandidatesForTeams(
+      opts.bracketId,
+      teamIdList,
+      round.roundIndex,
+    );
+    const byId = new Map(candidates.map((c) => [c.teamId, c]));
+    byeOpts = {
+      selectByeRecipient: (ids) =>
+        selectObaByeRecipient(
+          ids.map((id) => byId.get(id) ?? {
+            teamId: id,
+            bracketLosses: 0,
+            byeCount: 0,
+            hadByeInPreviousRound: false,
+          }),
+          gamesForRp73,
+        ),
+    };
+  }
+
+  const pairing = pairTeamsAvoidingRematches(teamIdList, prior, Math.random, byeOpts);
   let gameIdx = 0;
   for (const [home, away] of pairing.matchups) {
     const gameId = seats[gameIdx]?.gameId;

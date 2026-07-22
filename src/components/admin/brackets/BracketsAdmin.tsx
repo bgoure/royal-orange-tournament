@@ -664,7 +664,9 @@ export function BracketsAdmin({
                           <span className="mt-0.5 block text-xs text-zinc-500">
                             Re-draw open losers / L2 rounds so teams that already played each other
                             are paired last. If every pairing is a rematch, a random optimal redraw is
-                            used (same idea as the 27-team poster).
+                            used (same idea as the 27-team poster). Odd-round byes follow OBA rules: no
+                            back-to-back byes, no second bye until all have one, undefeated preferred,
+                            then RP7.3 (draw if more than two still tied).
                           </span>
                         </span>
                       </label>

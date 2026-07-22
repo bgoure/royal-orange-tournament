@@ -295,7 +295,7 @@ function reliedOnCoinToss6(
 /**
  * Eligible = no forfeit loss. Ineligible teams sort after eligible in the same points bucket.
  */
-function orderEligibleByObaRP73(
+export function orderEligibleByObaRP73(
   teamIds: string[],
   games: StandingsGameInput[],
   aggs: Map<string, PoolTeamAggregate>,
@@ -418,4 +418,67 @@ export function orderTeamsManualStandings(
       return a.name.localeCompare(b.name);
     })
     .map((t) => t.id);
+}
+
+/**
+ * Pick one team among equals using OBA RP7.3 for bye awards.
+ * When more than 2 teams remain tied through RP7.3(a)/(b) numeric steps, RP7.3(a)(vii)
+ * is a random draw among those teams (not teamId lexicographic).
+ */
+export function pickTeamByObaRP73ForBye(
+  teamIds: string[],
+  games: StandingsGameInput[],
+  rng: () => number = Math.random,
+): string {
+  const unique = [...new Set(teamIds.filter(Boolean))];
+  if (unique.length === 0) {
+    throw new Error("pickTeamByObaRP73ForBye: no teams");
+  }
+  if (unique.length === 1) return unique[0]!;
+
+  const aggs = buildAggregates(unique, games);
+  // For bye selection, treat all candidates as one tied group (ignore points clustering).
+  const emptyOverrides = new Map<string, number | null>();
+
+  if (unique.length === 2) {
+    const { order } = orderEligibleByObaRP73(unique, games, aggs, emptyOverrides);
+    // If coin-toss placeholder (teamId), use rng instead for fairness
+    const pair = new Set(unique);
+    const scoped = scopedAmongTied(games, pair);
+    const ka = tiebreakKeyRP73a(unique[0]!, aggs, scoped, null);
+    const kb = tiebreakKeyRP73a(unique[1]!, aggs, scoped, null);
+    if (reliedOnCoinToss7(ka, kb)) {
+      return unique[Math.floor(rng() * unique.length)]!;
+    }
+    return order[0]!;
+  }
+
+  // 3+: RP7.3(b) steps — if entire group still tied on all numeric keys, draw among all
+  const groupSet = new Set(unique);
+  const scoped = scopedAmongTied(games, groupSet);
+  const rows = unique.map((tid) => ({
+    tid,
+    key: tiebreakKeyRP73b(tid, aggs, scoped, null),
+  }));
+  rows.sort((x, y) => compareTiebreakKeys6(x.key, y.key));
+
+  // Collect top cluster that ties with first on all numeric (non-id) fields
+  const topKey = rows[0]!.key;
+  const topCluster = rows.filter((r) => {
+    for (let i = 0; i < 5; i++) {
+      if (!nearEqualNumbers(r.key[i] as number, topKey[i] as number)) return false;
+    }
+    return true;
+  });
+
+  if (topCluster.length === 1) return topCluster[0]!.tid;
+  if (topCluster.length === 2) {
+    return pickTeamByObaRP73ForBye(
+      topCluster.map((r) => r.tid),
+      games,
+      rng,
+    );
+  }
+  // >2 still tied through RP7.3 → draw (RP7.3 a. vii)
+  return topCluster[Math.floor(rng() * topCluster.length)]!.tid;
 }

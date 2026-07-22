@@ -106,14 +106,21 @@ function greedyPairings(
   return best ?? { matchups: [], byeTeamId: null, rematchCount: 0, forced: false };
 }
 
+export type RematchPairingByeOptions = {
+  /** When the cohort is odd, choose the bye recipient (e.g. OBA rules). */
+  selectByeRecipient: (teamIds: string[]) => string;
+};
+
 /**
  * Pair `teamIds` minimizing rematches vs `priorMeetings` (keys from {@link meetingKey}).
  * Among optimal pairings, picks randomly via `rng` (injectable for tests).
+ * When odd and `byeOpts` is set, bye is chosen first via OBA (or custom) rules, then the rest are paired.
  */
 export function pairTeamsAvoidingRematches(
   teamIds: string[],
   priorMeetings: ReadonlySet<string>,
   rng: () => number = Math.random,
+  byeOpts?: RematchPairingByeOptions,
 ): RematchPairingResult {
   const unique = [...new Set(teamIds.filter(Boolean))];
   if (unique.length === 0) {
@@ -123,34 +130,25 @@ export function pairTeamsAvoidingRematches(
     return { matchups: [], byeTeamId: unique[0]!, rematchCount: 0, forced: false };
   }
 
-  // Exact search is factorial; use greedy trials beyond 10 teams.
-  if (unique.length > 10) {
-    return greedyPairings(unique, priorMeetings, 48, rng);
+  let byeTeamId: string | null = null;
+  let pool = unique;
+  if (unique.length % 2 === 1) {
+    byeTeamId = byeOpts?.selectByeRecipient(unique) ?? unique[unique.length - 1]!;
+    pool = unique.filter((id) => id !== byeTeamId);
   }
 
-  type Candidate = { matchups: Array<[string, string]>; byeTeamId: string | null; rematchCount: number };
-  const candidates: Candidate[] = [];
+  if (pool.length > 10) {
+    const greedy = greedyPairings(pool, priorMeetings, 48, rng);
+    return { ...greedy, byeTeamId };
+  }
 
-  if (unique.length % 2 === 0) {
-    for (const matchups of allPerfectMatchings(unique)) {
-      candidates.push({
-        matchups,
-        byeTeamId: null,
-        rematchCount: rematchCountForMatching(matchups, priorMeetings),
-      });
-    }
-  } else {
-    for (let b = 0; b < unique.length; b++) {
-      const byeTeamId = unique[b]!;
-      const rest = unique.filter((_, i) => i !== b);
-      for (const matchups of allPerfectMatchings(rest)) {
-        candidates.push({
-          matchups,
-          byeTeamId,
-          rematchCount: rematchCountForMatching(matchups, priorMeetings),
-        });
-      }
-    }
+  type Candidate = { matchups: Array<[string, string]>; rematchCount: number };
+  const candidates: Candidate[] = [];
+  for (const matchups of allPerfectMatchings(pool)) {
+    candidates.push({
+      matchups,
+      rematchCount: rematchCountForMatching(matchups, priorMeetings),
+    });
   }
 
   let min = Infinity;
@@ -161,7 +159,7 @@ export function pairTeamsAvoidingRematches(
   const pick = best[Math.floor(rng() * best.length)] ?? best[0]!;
   return {
     matchups: pick.matchups,
-    byeTeamId: pick.byeTeamId,
+    byeTeamId,
     rematchCount: pick.rematchCount,
     forced: pick.rematchCount > 0,
   };

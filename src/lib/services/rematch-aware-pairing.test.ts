@@ -54,6 +54,15 @@ describe("pairTeamsAvoidingRematches", () => {
     assert.equal(result.rematchCount, 0);
   });
 
+  it("uses custom bye selector when provided", () => {
+    const result = pairTeamsAvoidingRematches(["A", "B", "C"], new Set(), () => 0, {
+      selectByeRecipient: () => "B",
+    });
+    assert.equal(result.byeTeamId, "B");
+    assert.equal(result.matchups.length, 1);
+    assert.ok(!result.matchups[0]!.includes("B"));
+  });
+
   it("randomizes among equally good pairings", () => {
     const prior = new Set<string>();
     const a = pairTeamsAvoidingRematches(["A", "B", "C", "D"], prior, seqRng([0.9, 0.1, 0.5]));
