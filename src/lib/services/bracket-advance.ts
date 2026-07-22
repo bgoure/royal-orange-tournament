@@ -58,7 +58,7 @@ async function loadBracketPriorMeetings(bracketId: string): Promise<Set<string>>
 }
 
 /**
- * Build OBA bye candidates + RP7.3 game inputs for an odd pairing cohort.
+ * Build RP5.2 bye candidates + RP7.3 game inputs for an odd pairing cohort.
  * Bye history: structural R0 BYE advances + prior sit-out games (one team assigned, opponent null).
  */
 async function loadObaByeCandidatesForTeams(
