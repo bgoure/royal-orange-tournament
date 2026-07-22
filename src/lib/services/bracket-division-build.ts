@@ -1,12 +1,18 @@
 import { BracketFormat, BracketRoundType, GameStatus } from "@prisma/client";
 import { prisma } from "@/lib/db";
-import { isValidEntryTeamCount, singleElimRoundName } from "./bracket-engine";
+import {
+  isValidEntryTeamCount,
+  singleElimRoundName,
+} from "./bracket-engine";
 import { resolveBracketTeamsFromStandings } from "./bracket-resolution";
 import { isDivisionRoundRobinCompleteForSeeding } from "./round-robin-division";
+import { advanceByeWinnersInRound0 } from "./bracket-advance";
+
+export type FirstRoundSide = { poolId: string; rank: number } | { bye: true };
 
 export type FirstRoundSlot = {
-  home: { poolId: string; rank: number };
-  away: { poolId: string; rank: number };
+  home: FirstRoundSide;
+  away: FirstRoundSide;
 };
 
 export type CreateDivisionPlayoffOptions = {
@@ -16,14 +22,19 @@ export type CreateDivisionPlayoffOptions = {
   fieldId: string;
   startsAt: Date;
   hoursBetweenRounds?: number;
-  /** Pairings for round 1 (field size = 2 × length). */
+  /** Pairings for round 1 (field size = 2 × length). Sides may be byes. */
   firstRound: FirstRoundSlot[];
   /** When true, bracket is visible on the public site (still respects per-game schedule placeholders). */
   published?: boolean;
+  format?: BracketFormat;
 };
 
 function slotKey(poolId: string, rank: number) {
   return `${poolId}:${rank}`;
+}
+
+function isByeSide(side: FirstRoundSide): side is { bye: true } {
+  return "bye" in side && side.bye === true;
 }
 
 export async function createDivisionPlayoffBracket(opts: CreateDivisionPlayoffOptions): Promise<string> {
@@ -36,6 +47,7 @@ export async function createDivisionPlayoffBracket(opts: CreateDivisionPlayoffOp
     hoursBetweenRounds = 2,
     firstRound,
     published = false,
+    format = BracketFormat.SINGLE_ELIMINATION,
   } = opts;
 
   const division = await prisma.division.findFirst({
@@ -55,14 +67,18 @@ export async function createDivisionPlayoffBracket(opts: CreateDivisionPlayoffOp
 
   const n = firstRound.length * 2;
   if (!isValidEntryTeamCount(n)) {
-    throw new Error("Playoff field size must be a power of 2 between 2 and 64.");
+    throw new Error("Playoff bracket size must be a power of 2 between 2 and 64 (pad with byes if needed).");
   }
 
   const poolIds = new Set(division.pools.map((p) => p.id));
   const used = new Set<string>();
 
   for (const slot of firstRound) {
+    if (isByeSide(slot.home) && isByeSide(slot.away)) {
+      throw new Error("A first-round game cannot be BYE vs BYE.");
+    }
     for (const side of [slot.home, slot.away] as const) {
+      if (isByeSide(side)) continue;
       if (!poolIds.has(side.poolId)) throw new Error("Each pool must belong to the selected division.");
       const pool = division.pools.find((p) => p.id === side.poolId)!;
       const maxRank = pool.teams.length;
@@ -94,7 +110,7 @@ export async function createDivisionPlayoffBracket(opts: CreateDivisionPlayoffOp
         divisionId,
         name,
         sortOrder,
-        format: BracketFormat.SINGLE_ELIMINATION,
+        format,
         published,
         needsResolutionRefresh: false,
       },
@@ -116,6 +132,61 @@ export async function createDivisionPlayoffBracket(opts: CreateDivisionPlayoffOp
       });
     }
 
+    // Double-elim: append losers bracket rounds + grand final already as FINAL above.
+    // Losers tree has (n - 2) games across ~2*log2(n)-1 rounds; we create parallel LOSERS rounds
+    // with enough slots for drop-ins from winners.
+    if (format === BracketFormat.DOUBLE_ELIMINATION || format === BracketFormat.TRIPLE_ELIMINATION) {
+      const losersRoundCount = Math.max(1, 2 * totalWinnerRounds - 2);
+      for (let lr = 0; lr < losersRoundCount; lr++) {
+        const roundIndex = totalWinnerRounds + lr;
+        const nameRound =
+          lr === losersRoundCount - 1 ? "Losers final" : `Losers round ${lr + 1}`;
+        await tx.bracketRound.create({
+          data: {
+            bracketId: bracket.id,
+            name: nameRound,
+            roundIndex,
+            roundType: BracketRoundType.LOSERS,
+          },
+        });
+      }
+      // Create loser round 0 games (n/2 - 1 slots typically) — minimal: n/2 games for first losers round
+      const firstLosers = await tx.bracketRound.findFirst({
+        where: { bracketId: bracket.id, roundType: BracketRoundType.LOSERS },
+        orderBy: { roundIndex: "asc" },
+      });
+      if (firstLosers) {
+        const loserSlots = Math.max(1, n / 2 - 1);
+        const baseMs = startsAt.getTime();
+        const stepMs = hoursBetweenRounds * 60 * 60 * 1000;
+        for (let m = 0; m < loserSlots; m++) {
+          const game = await tx.game.create({
+            data: {
+              tournamentId,
+              poolId: null,
+              fieldId,
+              homeTeamId: null,
+              awayTeamId: null,
+              scheduledAt: new Date(baseMs + totalWinnerRounds * stepMs),
+              schedulePlaceholder: true,
+              status: GameStatus.SCHEDULED,
+              resultType: "REGULAR",
+              bracketId: bracket.id,
+              bracketRoundId: firstLosers.id,
+              bracketPosition: m,
+            },
+          });
+          await tx.bracketMatch.create({
+            data: {
+              bracketRoundId: firstLosers.id,
+              matchIndex: m,
+              gameId: game.id,
+            },
+          });
+        }
+      }
+    }
+
     const baseMs = startsAt.getTime();
     const stepMs = hoursBetweenRounds * 60 * 60 * 1000;
 
@@ -129,13 +200,23 @@ export async function createDivisionPlayoffBracket(opts: CreateDivisionPlayoffOp
         let homeSourceRank: number | null = null;
         let awaySourcePoolId: string | null = null;
         let awaySourceRank: number | null = null;
+        let homeIsBye = false;
+        let awayIsBye = false;
 
         if (r === 0) {
           const fr = firstRound[m]!;
-          homeSourcePoolId = fr.home.poolId;
-          homeSourceRank = fr.home.rank;
-          awaySourcePoolId = fr.away.poolId;
-          awaySourceRank = fr.away.rank;
+          if (isByeSide(fr.home)) {
+            homeIsBye = true;
+          } else {
+            homeSourcePoolId = fr.home.poolId;
+            homeSourceRank = fr.home.rank;
+          }
+          if (isByeSide(fr.away)) {
+            awayIsBye = true;
+          } else {
+            awaySourcePoolId = fr.away.poolId;
+            awaySourceRank = fr.away.rank;
+          }
         }
 
         const game = await tx.game.create({
@@ -164,6 +245,8 @@ export async function createDivisionPlayoffBracket(opts: CreateDivisionPlayoffOp
             homeSourceRank,
             awaySourcePoolId,
             awaySourceRank,
+            homeIsBye,
+            awayIsBye,
           },
         });
       }
@@ -175,6 +258,7 @@ export async function createDivisionPlayoffBracket(opts: CreateDivisionPlayoffOp
   const rrDone = await isDivisionRoundRobinCompleteForSeeding(tournamentId, divisionId);
   if (rrDone) {
     await resolveBracketTeamsFromStandings(bracketId);
+    await advanceByeWinnersInRound0(bracketId);
   } else {
     await prisma.bracket.update({
       where: { id: bracketId },

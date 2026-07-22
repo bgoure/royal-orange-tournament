@@ -19,7 +19,10 @@ export default async function AdminLayout({ children }: { children: React.ReactN
   const canCreateTournament = role != null && can(role, "content:manage");
   const [tournament, hubRows, requestOrigin] = await Promise.all([
     getTournamentForRequest(),
-    listTournamentsForAdminHub(),
+    listTournamentsForAdminHub({
+      userId: session?.user?.id,
+      role: session?.user?.role,
+    }),
     getRequestPublicOrigin(),
   ]);
   const setupProgress = tournament ? await getTournamentSetupProgress(tournament.id) : null;
@@ -43,6 +46,7 @@ export default async function AdminLayout({ children }: { children: React.ReactN
       publicSiteAbsoluteUrl={publicSiteAbsoluteUrl}
       setupProgress={setupProgress}
       tournaments={tournaments}
+      staffRole={role ?? null}
     >
       {children}
     </CreateTournamentWizardRoot>

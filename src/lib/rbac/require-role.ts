@@ -32,7 +32,7 @@ export async function requireAdmin(): Promise<Session> {
   return requireRole("ADMIN");
 }
 
-/** Any staff who may access /admin — POWER_USER or ADMIN */
+/** Any staff who may access /admin — POWER_USER, SCOREKEEPER, or ADMIN */
 export async function requireStaff(): Promise<Session> {
-  return requireRole("POWER_USER", "ADMIN");
+  return requireRole("POWER_USER", "SCOREKEEPER", "ADMIN");
 }

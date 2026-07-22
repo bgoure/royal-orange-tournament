@@ -71,6 +71,13 @@ const powerUser: ReadonlySet<Permission> = new Set([
   "bracket:pushAndReset",
 ]);
 
+const scorekeeper: ReadonlySet<Permission> = new Set([
+  "game:read",
+  "game:update",
+  "schedule:update",
+  "team:read",
+]);
+
 const publicPerms: ReadonlySet<Permission> = new Set(["game:read", "team:read"]);
 
 function permissionsForRole(role: Role): ReadonlySet<Permission> {
@@ -79,6 +86,8 @@ function permissionsForRole(role: Role): ReadonlySet<Permission> {
       return admin;
     case "POWER_USER":
       return powerUser;
+    case "SCOREKEEPER":
+      return scorekeeper;
     case "PUBLIC":
       return publicPerms;
   }
@@ -97,8 +106,8 @@ export function assertCan(role: Role, permission: Permission): void {
 }
 
 /**
- * For POWER_USER: check that the target division is in their assigned set.
- * ADMINs always pass. Returns false for POWER_USER with no matching assignment.
+ * For POWER_USER / SCOREKEEPER: check that the target division is in their assigned set.
+ * ADMINs always pass. Returns false for roles without division scope.
  */
 export function canAccessDivision(
   role: Role,
@@ -106,6 +115,11 @@ export function canAccessDivision(
   targetDivisionId: string,
 ): boolean {
   if (role === "ADMIN") return true;
-  if (role !== "POWER_USER") return false;
+  if (role !== "POWER_USER" && role !== "SCOREKEEPER") return false;
   return assignedDivisionIds.has(targetDivisionId);
+}
+
+/** Roles that may enter /admin at all. */
+export function isStaffRole(role: Role | string | undefined | null): boolean {
+  return role === "ADMIN" || role === "POWER_USER" || role === "SCOREKEEPER";
 }

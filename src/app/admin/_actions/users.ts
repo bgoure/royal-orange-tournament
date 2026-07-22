@@ -86,7 +86,7 @@ export async function updateUserRole(
       where: { id: target.id },
       data: { role: parsed.data.role },
     });
-    if (parsed.data.role === "POWER_USER") {
+    if (parsed.data.role === "POWER_USER" || parsed.data.role === "SCOREKEEPER") {
       await setUserDivisionAssignments(target.id, parsed.data.divisionIds);
     } else {
       await setUserDivisionAssignments(target.id, []);
@@ -104,6 +104,8 @@ function roleInviteLabel(role: Role): string {
       return "Admin";
     case "POWER_USER":
       return "Power user";
+    case "SCOREKEEPER":
+      return "Scorekeeper";
     case "PUBLIC":
       return "Public";
     default:
@@ -151,7 +153,10 @@ export async function inviteUser(
     return { ok: false, error: e instanceof Error ? e.message : "Failed to create user" };
   }
 
-  if (parsed.data.role === "POWER_USER" && parsed.data.divisionIds.length > 0) {
+  if (
+    (parsed.data.role === "POWER_USER" || parsed.data.role === "SCOREKEEPER") &&
+    parsed.data.divisionIds.length > 0
+  ) {
     await setUserDivisionAssignments(userId, parsed.data.divisionIds);
   }
 

@@ -5,7 +5,7 @@ import { revalidatePublishedTournamentSites } from "@/lib/revalidate-public-tour
 import { auth } from "@/auth";
 import { prisma } from "@/lib/db";
 import { can } from "@/lib/rbac/permissions";
-import { assertGameDivisionScope } from "@/lib/rbac/division-scope";
+import { assertGameDivisionScope, assertPoolDivisionScope } from "@/lib/rbac/division-scope";
 import {
   assertFieldInTournament,
   assertGameInTournament,
@@ -86,6 +86,13 @@ export async function createGame(
     };
   }
 
+  const createScopeErr = await assertPoolDivisionScope(
+    session.user.id,
+    session.user.role,
+    parsed.data.poolId,
+  );
+  if (createScopeErr) return { ok: false, error: createScopeErr };
+
   try {
     await assertPoolInTournament(parsed.data.poolId, tournament.id);
     await assertFieldInTournament(parsed.data.fieldId, tournament.id);
@@ -153,6 +160,13 @@ export async function generatePoolRoundRobin(
       error: parsed.error.issues.map((i) => i.message).join(", ") || "Invalid input",
     };
   }
+
+  const rrScopeErr = await assertPoolDivisionScope(
+    session.user.id,
+    session.user.role,
+    parsed.data.poolId,
+  );
+  if (rrScopeErr) return { ok: false, error: rrScopeErr };
 
   try {
     await assertPoolInTournament(parsed.data.poolId, tournament.id);
@@ -350,6 +364,13 @@ export async function updateBracketGameSchedule(
     return { ok: false, error: "Invalid field, time, or game number" };
   }
 
+  const bracketSchedScopeErr = await assertGameDivisionScope(
+    ctx.session.user.id,
+    ctx.session.user.role,
+    parsed.data.id,
+  );
+  if (bracketSchedScopeErr) return { ok: false, error: bracketSchedScopeErr };
+
   try {
     const existing = await assertGameInTournament(parsed.data.id, ctx.tournament.id);
     if (!existing.bracketId && existing.gameKind !== GameKind.CONSOLATION) {
@@ -403,6 +424,13 @@ export async function updateBracketGameTeams(
     return { ok: false, error: "Invalid teams" };
   }
 
+  const bracketTeamsScopeErr = await assertGameDivisionScope(
+    ctx.session.user.id,
+    ctx.session.user.role,
+    parsed.data.id,
+  );
+  if (bracketTeamsScopeErr) return { ok: false, error: bracketTeamsScopeErr };
+
   try {
     const existing = await assertGameInTournament(parsed.data.id, ctx.tournament.id);
     if (!existing.bracketId && existing.gameKind !== GameKind.CONSOLATION) {
@@ -452,6 +480,13 @@ export async function updateGameMeta(
 
   const metaScopeErr = await assertGameDivisionScope(ctx.session.user.id, ctx.session.user.role, parsed.data.id);
   if (metaScopeErr) return { ok: false, error: metaScopeErr };
+
+  const destPoolScopeErr = await assertPoolDivisionScope(
+    ctx.session.user.id,
+    ctx.session.user.role,
+    parsed.data.poolId,
+  );
+  if (destPoolScopeErr) return { ok: false, error: destPoolScopeErr };
 
   try {
     const existing = await assertGameInTournament(parsed.data.id, ctx.tournament.id);
@@ -505,6 +540,13 @@ export async function updateGameNumber(
     return { ok: false, error: "Invalid game ID or number" };
   }
 
+  const numScopeErr = await assertGameDivisionScope(
+    ctx.session.user.id,
+    ctx.session.user.role,
+    parsed.data.id,
+  );
+  if (numScopeErr) return { ok: false, error: numScopeErr };
+
   try {
     await assertGameInTournament(parsed.data.id, ctx.tournament.id);
     await prisma.game.update({
@@ -531,6 +573,9 @@ export async function deleteGame(
 
   const id = formData.get("id")?.toString();
   if (!id) return { ok: false, error: "Missing id" };
+
+  const deleteScopeErr = await assertGameDivisionScope(ctx.session.user.id, ctx.session.user.role, id);
+  if (deleteScopeErr) return { ok: false, error: deleteScopeErr };
 
   try {
     const existing = await assertGameInTournament(id, ctx.tournament.id);

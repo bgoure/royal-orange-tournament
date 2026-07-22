@@ -7,6 +7,7 @@ import {
   expectedRoundRobinGameCount,
   scheduleRoundRobinSlots,
   scheduleRoundRobinSlotsInWindow,
+  travelMinutesBetween,
 } from "./round-robin-schedule";
 
 describe("buildRoundRobinPairings", () => {
@@ -183,5 +184,77 @@ describe("emptySchedulePackingCursor", () => {
     const c = emptySchedulePackingCursor();
     assert.equal(c.nextWaveAt, null);
     assert.equal(c.fieldFreeAt.size, 0);
+  });
+});
+
+describe("travelMinutesBetween", () => {
+  it("uses uniform default when no matrix", () => {
+    assert.equal(
+      travelMinutesBetween("f1", "f2", {
+        fieldIds: ["f1", "f2"],
+        travelMinutesBetweenFields: 12,
+      }),
+      12,
+    );
+    assert.equal(
+      travelMinutesBetween("f1", "f1", {
+        fieldIds: ["f1", "f2"],
+        travelMinutesBetweenFields: 12,
+      }),
+      0,
+    );
+  });
+
+  it("reads pairwise matrix cells when provided", () => {
+    const matrix = [
+      [0, 5],
+      [40, 0],
+    ];
+    assert.equal(
+      travelMinutesBetween("f1", "f2", {
+        fieldIds: ["f1", "f2"],
+        travelMinutesBetweenFields: 99,
+        fieldTravelMatrix: matrix,
+      }),
+      5,
+    );
+    assert.equal(
+      travelMinutesBetween("f2", "f1", {
+        fieldIds: ["f1", "f2"],
+        travelMinutesBetweenFields: 99,
+        fieldTravelMatrix: matrix,
+      }),
+      40,
+    );
+  });
+
+  it("applies matrix travel when packing switches fields", () => {
+    const pairings = buildRoundRobinPairings(["a", "b", "c", "d"]);
+    const { slots: withMatrix } = scheduleRoundRobinSlotsInWindow(pairings, {
+      ...baseWindow,
+      fieldIds: ["f1", "f2"],
+      travelMinutesBetweenFields: 0,
+      fieldTravelMatrix: [
+        [0, 90],
+        [90, 0],
+      ],
+      gameDurationMinutes: 30,
+      minRestMinutes: 0,
+      slotMinutes: 30,
+      endDateYmd: "2026-07-03",
+    });
+    const { slots: noTravel } = scheduleRoundRobinSlotsInWindow(pairings, {
+      ...baseWindow,
+      fieldIds: ["f1", "f2"],
+      travelMinutesBetweenFields: 0,
+      gameDurationMinutes: 30,
+      minRestMinutes: 0,
+      slotMinutes: 30,
+      endDateYmd: "2026-07-03",
+    });
+    assert.equal(withMatrix.length, noTravel.length);
+    const lastWith = withMatrix[withMatrix.length - 1]!.scheduledAt.getTime();
+    const lastNo = noTravel[noTravel.length - 1]!.scheduledAt.getTime();
+    assert.ok(lastWith >= lastNo);
   });
 });

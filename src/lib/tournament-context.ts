@@ -180,10 +180,32 @@ export async function getTournamentForRequest(): Promise<TournamentForRequest | 
   });
 }
 
-/** All published tournaments for the admin hub (live + archived). */
-export async function listTournamentsForAdminHub() {
+/** All published tournaments for the admin hub (live + archived).
+ * Non-ADMIN staff only see tournaments owned by their organization(s).
+ */
+export async function listTournamentsForAdminHub(opts?: {
+  userId?: string;
+  role?: string;
+}) {
+  const where: {
+    isPublished: true;
+    organizationId?: { in: string[] } | null;
+  } = { isPublished: true };
+
+  if (opts?.userId && opts.role && opts.role !== "ADMIN") {
+    const memberships = await prisma.organizationMember.findMany({
+      where: { userId: opts.userId },
+      select: { organizationId: true },
+    });
+    const orgIds = memberships.map((m) => m.organizationId);
+    if (orgIds.length === 0) {
+      return [];
+    }
+    where.organizationId = { in: orgIds };
+  }
+
   return prisma.tournament.findMany({
-    where: { isPublished: true },
+    where,
     orderBy: [
       { publicSwitcherOrder: "asc" },
       { startDate: "asc" },
@@ -199,6 +221,7 @@ export async function listTournamentsForAdminHub() {
       startDate: true,
       endDate: true,
       locationLabel: true,
+      organizationId: true,
     },
   });
 }

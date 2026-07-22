@@ -6,7 +6,7 @@ import { auth } from "@/auth";
 import { GameKind, type Role } from "@prisma/client";
 import { prisma } from "@/lib/db";
 import { can } from "@/lib/rbac/permissions";
-import { assertDivisionScope } from "@/lib/rbac/division-scope";
+import { assertDivisionScope, assertPoolDivisionScope } from "@/lib/rbac/division-scope";
 import { assertFieldInTournament } from "@/lib/services/admin-games";
 import { assertPoolInTournament } from "@/lib/services/admin-structure";
 import { assertConsolationSlotsAvailable } from "@/lib/services/consolation-slots";
@@ -112,6 +112,12 @@ export async function updatePoolTeamsAdvancing(
 
   try {
     await assertPoolInTournament(parsed.data.poolId, ctx.tournament.id);
+    const poolScopeErr = await assertPoolDivisionScope(
+      ctx.session.user.id,
+      ctx.session.user.role,
+      parsed.data.poolId,
+    );
+    if (poolScopeErr) return { ok: false, error: poolScopeErr };
     await prisma.pool.update({
       where: { id: parsed.data.poolId },
       data: { teamsAdvancing: parsed.data.teamsAdvancing },
@@ -166,6 +172,13 @@ export async function createDivisionPlayoffBracketAction(
   });
   if (!field) return { ok: false, error: "Field not found" };
 
+  const createBracketScopeErr = await assertDivisionScope(
+    ctx.session.user.id,
+    ctx.session.user.role,
+    parsed.data.divisionId,
+  );
+  if (createBracketScopeErr) return { ok: false, error: createBracketScopeErr };
+
   try {
     await createDivisionPlayoffBracket({
       tournamentId: ctx.tournament.id,
@@ -176,6 +189,7 @@ export async function createDivisionPlayoffBracketAction(
       hoursBetweenRounds: parsed.data.hoursBetweenRounds,
       firstRound: parsed.data.firstRound,
       published: parsed.data.published ?? false,
+      format: parsed.data.format,
     });
     revalidatePath("/admin/brackets");
     revalidatePath("/admin/games");
@@ -204,6 +218,17 @@ export async function toggleBracketPublished(
   }
 
   try {
+    const existing = await prisma.bracket.findFirst({
+      where: { id: parsed.data.bracketId, tournamentId: ctx.tournament.id },
+      select: { id: true, divisionId: true },
+    });
+    if (!existing) return { ok: false, error: "Bracket not found" };
+    const toggleScopeErr = await assertDivisionScope(
+      ctx.session.user.id,
+      ctx.session.user.role,
+      existing.divisionId,
+    );
+    if (toggleScopeErr) return { ok: false, error: toggleScopeErr };
     const ok = await prisma.bracket.updateMany({
       where: { id: parsed.data.bracketId, tournamentId: ctx.tournament.id },
       data: { published: parsed.data.published },
@@ -277,6 +302,12 @@ export async function createConsolationGameAction(
 
   try {
     await assertDivisionInTournament(parsed.data.divisionId, ctx.tournament.id);
+    const consolScopeErr = await assertDivisionScope(
+      ctx.session.user.id,
+      ctx.session.user.role,
+      parsed.data.divisionId,
+    );
+    if (consolScopeErr) return { ok: false, error: consolScopeErr };
     await assertPoolInDivision(parsed.data.homePoolId, parsed.data.divisionId);
     await assertPoolInDivision(parsed.data.awayPoolId, parsed.data.divisionId);
     await assertFieldInTournament(parsed.data.fieldId, ctx.tournament.id);
@@ -347,9 +378,17 @@ export async function deleteConsolationGameAction(
         tournamentId: ctx.tournament.id,
         gameKind: GameKind.CONSOLATION,
       },
-      select: { id: true },
+      select: { id: true, divisionId: true },
     });
     if (!existing) return { ok: false, error: "Consolation game not found" };
+    if (existing.divisionId) {
+      const delConsolScopeErr = await assertDivisionScope(
+        ctx.session.user.id,
+        ctx.session.user.role,
+        existing.divisionId,
+      );
+      if (delConsolScopeErr) return { ok: false, error: delConsolScopeErr };
+    }
 
     await prisma.game.delete({ where: { id: existing.id } });
     revalidatePath("/admin/brackets");
@@ -436,9 +475,15 @@ export async function deletePlayoffBracket(
   try {
     const existing = await prisma.bracket.findFirst({
       where: { id: parsed.data.bracketId, tournamentId: ctx.tournament.id },
-      select: { id: true },
+      select: { id: true, divisionId: true },
     });
     if (!existing) return { ok: false, error: "Bracket not found" };
+    const deleteBracketScopeErr = await assertDivisionScope(
+      ctx.session.user.id,
+      ctx.session.user.role,
+      existing.divisionId,
+    );
+    if (deleteBracketScopeErr) return { ok: false, error: deleteBracketScopeErr };
 
     await prisma.bracket.delete({ where: { id: existing.id } });
     revalidatePath("/admin/brackets");

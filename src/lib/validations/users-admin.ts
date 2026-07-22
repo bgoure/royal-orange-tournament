@@ -1,17 +1,22 @@
 import { z } from "zod";
 
+const staffWithDivisions = z.enum(["POWER_USER", "SCOREKEEPER"]);
+
 export const updateUserRoleSchema = z
   .object({
     userId: z.string().min(1),
-    role: z.enum(["PUBLIC", "POWER_USER", "ADMIN"]),
+    role: z.enum(["PUBLIC", "POWER_USER", "SCOREKEEPER", "ADMIN"]),
     divisionIds: z.string().optional().transform((s) => {
       if (!s || s.trim() === "") return [];
       return s.split(",").map((id) => id.trim()).filter(Boolean);
     }),
   })
   .refine(
-    (data) => data.role !== "POWER_USER" || data.divisionIds.length > 0,
-    { message: "Power users must be assigned to at least one division.", path: ["divisionIds"] },
+    (data) => !staffWithDivisions.safeParse(data.role).success || data.divisionIds.length > 0,
+    {
+      message: "Power users and scorekeepers must be assigned to at least one division.",
+      path: ["divisionIds"],
+    },
   );
 
 export const removeUserSchema = z.object({
@@ -27,13 +32,16 @@ export const inviteUserSchema = z
       .max(120)
       .optional()
       .transform((s) => (s && s.length > 0 ? s : undefined)),
-    role: z.enum(["PUBLIC", "POWER_USER", "ADMIN"]),
+    role: z.enum(["PUBLIC", "POWER_USER", "SCOREKEEPER", "ADMIN"]),
     divisionIds: z.string().optional().transform((s) => {
       if (!s || s.trim() === "") return [];
       return s.split(",").map((id) => id.trim()).filter(Boolean);
     }),
   })
   .refine(
-    (data) => data.role !== "POWER_USER" || data.divisionIds.length > 0,
-    { message: "Power users must be assigned to at least one division.", path: ["divisionIds"] },
+    (data) => !staffWithDivisions.safeParse(data.role).success || data.divisionIds.length > 0,
+    {
+      message: "Power users and scorekeepers must be assigned to at least one division.",
+      path: ["divisionIds"],
+    },
   );

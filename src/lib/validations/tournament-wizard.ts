@@ -84,6 +84,13 @@ export const tournamentWizardSchema = z
     minRestMinutes: z.coerce.number().int().min(0).max(240),
     /** Extra travel minutes when a team's next game is on a different field. */
     travelMinutesBetweenFields: z.coerce.number().int().min(0).max(120),
+    /**
+     * Optional N×N travel matrix (minutes). When set, length must equal fieldCount;
+     * `matrix[i][j]` is travel from Field i+1 to Field j+1. Missing/invalid cells fall back to uniform travel.
+     */
+    fieldTravelMatrix: z
+      .array(z.array(z.coerce.number().int().min(0).max(240)))
+      .optional(),
     /** First allowed game start each day (HH:mm in tournament timezone). */
     dayStartTime: hmSchema,
     /** Games must start before this time each day (HH:mm). */
@@ -122,6 +129,26 @@ export const tournamentWizardSchema = z
         message: `At most ${WIZARD_MAX_TEAMS_TOURNAMENT} teams per tournament (got ${totalTeams}). Split into more events or fewer teams.`,
         path: ["divisions"],
       });
+    }
+    const matrix = d.fieldTravelMatrix;
+    if (matrix != null) {
+      if (matrix.length !== d.fieldCount) {
+        ctx.addIssue({
+          code: "custom",
+          message: `Travel matrix must be ${d.fieldCount}×${d.fieldCount} (one row per field).`,
+          path: ["fieldTravelMatrix"],
+        });
+      } else {
+        for (let i = 0; i < matrix.length; i++) {
+          if ((matrix[i]?.length ?? 0) !== d.fieldCount) {
+            ctx.addIssue({
+              code: "custom",
+              message: `Travel matrix row ${i + 1} must have ${d.fieldCount} columns.`,
+              path: ["fieldTravelMatrix", i],
+            });
+          }
+        }
+      }
     }
   });
 

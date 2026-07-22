@@ -69,9 +69,16 @@ async function hydrateBracketRoundZeroAndConsolationTx(
   for (const m of bms) {
     const g = m.game;
     if (!g) continue;
-    if (!m.homeSourcePoolId || !m.homeSourceRank || !m.awaySourcePoolId || !m.awaySourceRank) continue;
-    const homeId = await teamAtPoolRank(m.homeSourcePoolId, m.homeSourceRank);
-    const awayId = await teamAtPoolRank(m.awaySourcePoolId, m.awaySourceRank);
+    const homeId =
+      m.homeIsBye || !m.homeSourcePoolId || !m.homeSourceRank
+        ? null
+        : await teamAtPoolRank(m.homeSourcePoolId, m.homeSourceRank);
+    const awayId =
+      m.awayIsBye || !m.awaySourcePoolId || !m.awaySourceRank
+        ? null
+        : await teamAtPoolRank(m.awaySourcePoolId, m.awaySourceRank);
+    // Skip if neither side can be filled (and not a bye game)
+    if (!m.homeIsBye && !m.awayIsBye && (!m.homeSourcePoolId || !m.awaySourcePoolId)) continue;
     await tx.game.update({
       where: { id: g.id },
       data: {
@@ -126,6 +133,9 @@ export async function resolveBracketTeamsFromStandings(bracketId: string): Promi
   await prisma.$transaction(async (tx) => {
     await hydrateBracketRoundZeroAndConsolationTx(tx, bracketId, meta.tournamentId, meta.divisionId);
   });
+
+  const { advanceByeWinnersInRound0 } = await import("./bracket-advance");
+  await advanceByeWinnersInRound0(bracketId);
 }
 
 /**
@@ -142,4 +152,7 @@ export async function resolveBracketTeamsFromStandingsAllowIncomplete(bracketId:
   await prisma.$transaction(async (tx) => {
     await hydrateBracketRoundZeroAndConsolationTx(tx, bracketId, meta.tournamentId, meta.divisionId);
   });
+
+  const { advanceByeWinnersInRound0 } = await import("./bracket-advance");
+  await advanceByeWinnersInRound0(bracketId);
 }

@@ -19,7 +19,6 @@ import { ConfirmForm } from "@/components/admin/structure/ConfirmForm";
 import { formatJsDateAsDatetimeLocalInZone } from "@/lib/datetime-tournament";
 import { formatFieldWithLocation } from "@/lib/field-display";
 import { tournamentPathFromBase } from "@/lib/tournament-public-path";
-import type { FirstRoundSlot } from "@/lib/services/bracket-division-build";
 import type { Pool } from "@prisma/client";
 
 type PoolRow = Pool & { division: { name: string } };
@@ -83,6 +82,13 @@ type Props = {
   canConfigure: boolean;
 };
 
+type FirstRoundSide = { poolId: string; rank: number } | { bye: true };
+type FirstRoundSlot = { home: FirstRoundSide; away: FirstRoundSide };
+
+function isByeSide(side: FirstRoundSide): side is { bye: true } {
+  return "bye" in side && side.bye === true;
+}
+
 function defaultFirstRound(pools: { id: string; teamCount: number }[], entrySize: number): FirstRoundSlot[] {
   const pairs = entrySize / 2;
   const out: FirstRoundSlot[] = [];
@@ -125,16 +131,13 @@ function PlayoffFirstRoundRows({
     return Array.from({ length: Math.max(tc, 1) }, (_, i) => i + 1);
   };
 
-  const updateSlot = (index: number, side: "home" | "away", key: "poolId" | "rank", value: string | number) => {
+  const setSide = (index: number, side: "home" | "away", next: FirstRoundSide) => {
     setFirstRound((prev) => {
-      const next = [...prev];
-      const row = { ...next[index]! };
-      const sideObj = { ...row[side] };
-      if (key === "poolId") sideObj.poolId = value as string;
-      else sideObj.rank = value as number;
-      row[side] = sideObj;
-      next[index] = row;
-      return next;
+      const copy = [...prev];
+      const row = { ...copy[index]! };
+      row[side] = next;
+      copy[index] = row;
+      return copy;
     });
   };
 
@@ -143,6 +146,9 @@ function PlayoffFirstRoundRows({
       <input type="hidden" name="firstRound" value={JSON.stringify(firstRound)} />
       <div>
         <h3 className="text-xs font-semibold uppercase tracking-wide text-zinc-500">Round 1 pairings</h3>
+        <p className="mt-1 text-xs text-zinc-500">
+          Set a side to BYE when the field is larger than the advancing total (auto-advances on seed apply).
+        </p>
         <div className="mt-3 flex flex-col gap-4">
           {firstRound.map((row, idx) => (
             <div
@@ -151,60 +157,55 @@ function PlayoffFirstRoundRows({
             >
               <p className="text-[10px] font-semibold uppercase tracking-wide text-zinc-500">Game {idx + 1}</p>
               <div className="mt-2 grid gap-3 sm:grid-cols-2">
-                <div>
-                  <p className={labelClass}>Away</p>
-                  <div className="mt-1 flex flex-wrap gap-2">
-                    <select
-                      value={row.away.poolId}
-                      onChange={(e) => updateSlot(idx, "away", "poolId", e.target.value)}
-                      className={`${formClass} min-w-[140px]`}
-                    >
-                      {poolRows.map((p) => (
-                        <option key={p.id} value={p.id}>
-                          {p.name}
-                        </option>
-                      ))}
-                    </select>
-                    <select
-                      value={row.away.rank}
-                      onChange={(e) => updateSlot(idx, "away", "rank", Number(e.target.value))}
-                      className={`${formClass} w-24`}
-                    >
-                      {rankOptionsForPool(row.away.poolId).map((r) => (
-                        <option key={r} value={r}>
-                          {r}
-                        </option>
-                      ))}
-                    </select>
-                  </div>
-                </div>
-                <div>
-                  <p className={labelClass}>Home</p>
-                  <div className="mt-1 flex flex-wrap gap-2">
-                    <select
-                      value={row.home.poolId}
-                      onChange={(e) => updateSlot(idx, "home", "poolId", e.target.value)}
-                      className={`${formClass} min-w-[140px]`}
-                    >
-                      {poolRows.map((p) => (
-                        <option key={p.id} value={p.id}>
-                          {p.name}
-                        </option>
-                      ))}
-                    </select>
-                    <select
-                      value={row.home.rank}
-                      onChange={(e) => updateSlot(idx, "home", "rank", Number(e.target.value))}
-                      className={`${formClass} w-24`}
-                    >
-                      {rankOptionsForPool(row.home.poolId).map((r) => (
-                        <option key={r} value={r}>
-                          {r}
-                        </option>
-                      ))}
-                    </select>
-                  </div>
-                </div>
+                {(["away", "home"] as const).map((side) => {
+                  const s = row[side];
+                  const bye = isByeSide(s);
+                  return (
+                    <div key={side}>
+                      <p className={labelClass}>{side === "away" ? "Away" : "Home"}</p>
+                      <div className="mt-1 flex flex-wrap gap-2">
+                        <select
+                          value={bye ? "__BYE__" : s.poolId}
+                          onChange={(e) => {
+                            if (e.target.value === "__BYE__") {
+                              setSide(idx, side, { bye: true });
+                            } else {
+                              setSide(idx, side, {
+                                poolId: e.target.value,
+                                rank: bye ? 1 : s.rank,
+                              });
+                            }
+                          }}
+                          className={`${formClass} min-w-[140px]`}
+                        >
+                          <option value="__BYE__">BYE</option>
+                          {poolRows.map((p) => (
+                            <option key={p.id} value={p.id}>
+                              {p.name}
+                            </option>
+                          ))}
+                        </select>
+                        {!bye ? (
+                          <select
+                            value={s.rank}
+                            onChange={(e) =>
+                              setSide(idx, side, { poolId: s.poolId, rank: Number(e.target.value) })
+                            }
+                            className={`${formClass} w-24`}
+                          >
+                            {rankOptionsForPool(s.poolId).map((r) => (
+                              <option key={r} value={r}>
+                                #{r}
+                              </option>
+                            ))}
+                          </select>
+                        ) : (
+                          <span className="self-center text-xs font-semibold text-amber-800">BYE</span>
+                        )}
+                      </div>
+                    </div>
+                  );
+                })}
               </div>
             </div>
           ))}
@@ -596,7 +597,18 @@ export function BracketsAdmin({
                   </select>
                 </div>
                 <div>
-                  <label className={labelClass}>Field size (teams)</label>
+                  <label className={labelClass}>Format</label>
+                  <select name="format" defaultValue="SINGLE_ELIMINATION" className={`${formClass} mt-1 w-full`}>
+                    <option value="SINGLE_ELIMINATION">Single elimination</option>
+                    <option value="DOUBLE_ELIMINATION">Double elimination</option>
+                    <option value="TRIPLE_ELIMINATION">Triple elimination (experimental)</option>
+                  </select>
+                  <p className="mt-1 text-[11px] text-zinc-500">
+                    Double-elim: losers drop into a losers bracket. Grand final is one game (no forced rematch).
+                  </p>
+                </div>
+                <div>
+                  <label className={labelClass}>Field size (bracket slots)</label>
                   <select
                     value={entrySize}
                     onChange={(e) => setEntrySize(Number(e.target.value))}
@@ -604,7 +616,7 @@ export function BracketsAdmin({
                   >
                     {ENTRY_OPTIONS.map((n) => (
                       <option key={n} value={n}>
-                        {n} teams
+                        {n} slots (pad unused with BYE)
                       </option>
                     ))}
                   </select>

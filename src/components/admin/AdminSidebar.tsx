@@ -6,6 +6,7 @@ import { useEffect, useId, useRef, useState } from "react";
 import { signOut } from "next-auth/react";
 import { adminNavGroups, navItemIsActive } from "@/components/admin/admin-nav";
 import { useCreateTournamentWizard } from "@/components/admin/tournament/CreateTournamentWizardContext";
+import type { Role } from "@prisma/client";
 
 export type AdminSidebarTournamentOption = {
   name: string;
@@ -21,6 +22,7 @@ type Props = {
   /** When true, drawer is open on small screens (controlled by shell). */
   mobileOpen?: boolean;
   onMobileClose?: () => void;
+  staffRole?: Role | null;
 };
 
 function selectHref(slug: string, nextPath: string): string {
@@ -33,12 +35,14 @@ function SidebarPanel({
   currentTournamentSlug,
   tournaments,
   onNavigate,
+  staffRole,
 }: {
   publicSiteHref: string;
   currentTournamentName: string | null;
   currentTournamentSlug: string | null;
   tournaments: AdminSidebarTournamentOption[];
   onNavigate?: () => void;
+  staffRole?: Role | null;
 }) {
   const pathname = usePathname() ?? "";
   const searchParams = useSearchParams();
@@ -166,7 +170,15 @@ function SidebarPanel({
       </div>
 
       <nav className="flex flex-1 flex-col gap-4 overflow-y-auto p-3" aria-label="Admin">
-        {adminNavGroups.map((group) => (
+        {(staffRole === "SCOREKEEPER"
+          ? adminNavGroups
+              .filter((g) => g.id === "ops")
+              .map((g) => ({
+                ...g,
+                items: g.items.filter((i) => i.segment === "games-scorekeeper"),
+              }))
+          : adminNavGroups
+        ).map((group) => (
           <div key={group.id}>
             <p className="mb-1 px-3 text-[10px] font-semibold uppercase tracking-wider text-zinc-500">
               {group.label}
@@ -222,6 +234,7 @@ export function AdminSidebar({
   tournaments,
   mobileOpen = false,
   onMobileClose,
+  staffRole = null,
 }: Props) {
   const pathname = usePathname() ?? "";
 
@@ -238,6 +251,7 @@ export function AdminSidebar({
     currentTournamentName,
     currentTournamentSlug,
     tournaments,
+    staffRole,
   };
 
   return (

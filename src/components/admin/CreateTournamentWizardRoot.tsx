@@ -2,6 +2,7 @@
 
 import { Suspense, useCallback, useEffect, useState } from "react";
 import { usePathname, useSearchParams } from "next/navigation";
+import type { Role } from "@prisma/client";
 import {
   AdminSidebar,
   type AdminSidebarTournamentOption,
@@ -23,6 +24,8 @@ type Props = {
   publicSiteAbsoluteUrl: string;
   setupProgress: SetupProgress | null;
   tournaments: AdminSidebarTournamentOption[];
+  /** Session role — used to scope the sidebar for least-privilege roles (e.g. SCOREKEEPER). */
+  staffRole?: Role | null;
 };
 
 function AdminShell({
@@ -35,6 +38,7 @@ function AdminShell({
   publicSiteAbsoluteUrl,
   setupProgress,
   tournaments,
+  staffRole,
 }: Props) {
   const pathname = usePathname() ?? "";
   const searchParams = useSearchParams();
@@ -74,6 +78,7 @@ function AdminShell({
             tournaments={tournaments}
             mobileOpen={mobileNavOpen}
             onMobileClose={closeMobileNav}
+            staffRole={staffRole}
           />
         )}
         <div className="flex min-h-full min-w-0 flex-1 flex-col print:w-full">

@@ -1,11 +1,11 @@
 import { GameKind } from "@prisma/client";
 import { prisma } from "@/lib/db";
 import { parseDatetimeLocalInTimeZone } from "@/lib/datetime-tournament";
+import { isValidAdvancingTeamCount, padSlotsWithByes } from "@/lib/services/bracket-engine";
 import {
   createDivisionPlayoffBracket,
   type FirstRoundSlot,
 } from "@/lib/services/bracket-division-build";
-import { isValidEntryTeamCount } from "@/lib/services/bracket-engine";
 import {
   buildRoundRobinPairings,
   emptySchedulePackingCursor,
@@ -64,6 +64,7 @@ export type WizardScheduleParams = {
   gameDurationMinutes: number;
   minRestMinutes: number;
   travelMinutesBetweenFields: number;
+  fieldTravelMatrix?: number[][];
   fieldIds: string[];
 };
 
@@ -112,6 +113,7 @@ export async function generateWizardPoolSchedules(
     gameDurationMinutes: opts.gameDurationMinutes,
     minRestMinutes: opts.minRestMinutes,
     travelMinutesBetweenFields: opts.travelMinutesBetweenFields,
+    fieldTravelMatrix: opts.fieldTravelMatrix,
     fieldIds: opts.fieldIds,
   };
 
@@ -165,7 +167,8 @@ export async function generateWizardPoolSchedules(
 }
 
 /**
- * Create a single-elim playoff per division when sum(teamsAdvancing) is a valid power of 2.
+ * Create a single-elim playoff per division when sum(teamsAdvancing) is 2–64
+ * (pads with byes to the next power of 2).
  */
 export async function createWizardSingleElimBrackets(opts: {
   tournamentId: string;
@@ -194,9 +197,9 @@ export async function createWizardSingleElimBrackets(opts: {
     }
 
     const advancing = division.pools.reduce((sum, p) => sum + p.teamsAdvancing, 0);
-    if (!isValidEntryTeamCount(advancing)) {
+    if (!isValidAdvancingTeamCount(advancing)) {
       notes.push(
-        `Skipped bracket for ${division.name}: advancing total is ${advancing} (need a power of 2 between 2 and 64). Adjust advancing counts under Divisions or create the bracket manually.`,
+        `Skipped bracket for ${division.name}: advancing total is ${advancing} (need 2–64). Adjust advancing counts under Divisions or create the bracket manually.`,
       );
       continue;
     }
@@ -210,7 +213,22 @@ export async function createWizardSingleElimBrackets(opts: {
       continue;
     }
 
-    const firstRound = defaultFirstRound(poolRows, advancing);
+    // Build interleaved pool/rank slots then pad with byes to power-of-2
+    const teamSlots: { poolId: string; rank: number }[] = [];
+    const maxAdv = Math.max(...division.pools.map((p) => p.teamsAdvancing), 0);
+    for (let rank = 1; rank <= maxAdv; rank++) {
+      for (const p of division.pools) {
+        if (rank <= p.teamsAdvancing) {
+          teamSlots.push({ poolId: p.id, rank });
+        }
+      }
+    }
+    const { firstRound: seeded, bracketSize } = padSlotsWithByes(teamSlots.slice(0, advancing));
+    const firstRound: FirstRoundSlot[] = seeded.map((s) => ({
+      home: s.home.kind === "bye" ? { bye: true as const } : { poolId: s.home.poolId, rank: s.home.rank },
+      away: s.away.kind === "bye" ? { bye: true as const } : { poolId: s.away.poolId, rank: s.away.rank },
+    }));
+
     try {
       await createDivisionPlayoffBracket({
         tournamentId: opts.tournamentId,
@@ -223,6 +241,11 @@ export async function createWizardSingleElimBrackets(opts: {
         published: false,
       });
       bracketsCreated += 1;
+      if (bracketSize > advancing) {
+        notes.push(
+          `${division.name}: ${advancing}-team field padded to ${bracketSize} with ${bracketSize - advancing} bye(s).`,
+        );
+      }
     } catch (e) {
       const msg = e instanceof Error ? e.message : "Failed to create bracket";
       notes.push(`Skipped bracket for ${division.name}: ${msg}`);

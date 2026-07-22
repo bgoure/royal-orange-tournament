@@ -11,6 +11,7 @@ import { slugifyTournamentName } from "@/lib/slug";
 import { getTournamentSetupProgress } from "@/lib/services/admin-setup-progress";
 import { recomputeAllPoolsForTournament } from "@/lib/services/standings";
 import { runWizardFinishOptions } from "@/lib/services/wizard-finish";
+import { assertCanCreateTournamentInOrg } from "@/lib/services/organizations";
 import { revalidatePublishedTournamentSites } from "@/lib/revalidate-public-tournament-site";
 import { ADMIN_TOURNAMENT_SLUG_COOKIE, TOURNAMENT_SLUG_COOKIE } from "@/lib/tournament-context";
 import {
@@ -53,6 +54,7 @@ async function allocateUniqueSlugTx(tx: Prisma.TransactionClient, displayName: s
 
 async function persistSkeleton(
   data: TournamentWizardInput,
+  organizationId: string | null,
 ): Promise<{ id: string; slug: string; fieldIds: string[] }> {
   return prisma.$transaction(async (tx) => {
     const slug = await allocateUniqueSlugTx(tx, data.tournamentName);
@@ -67,6 +69,7 @@ async function persistSkeleton(
         timezone: data.timezone,
         locationLabel: data.venueAddress.trim(),
         isPublished: true,
+        organizationId: organizationId ?? undefined,
       },
     });
 
@@ -165,7 +168,29 @@ export async function createTournamentFromWizard(input: unknown): Promise<Tourna
   }
 
   try {
-    const { id, slug, fieldIds } = await persistSkeleton(parsed.data);
+    let organizationId: string | null = null;
+    const membership = await prisma.organizationMember.findFirst({
+      where: { userId: session.user.id },
+      select: { organizationId: true },
+    });
+    if (membership) {
+      organizationId = membership.organizationId;
+    } else if (session.user.role === "ADMIN") {
+      const { createOrganizationForUser } = await import("@/lib/services/organizations");
+      const created = await createOrganizationForUser({
+        userId: session.user.id,
+        name: session.user.name ? `${session.user.name}'s org` : "Default organization",
+      });
+      organizationId = created.id;
+    }
+
+    const planErr = await assertCanCreateTournamentInOrg({
+      organizationId,
+      isGlobalAdmin: session.user.role === "ADMIN",
+    });
+    if (planErr) return { ok: false, error: planErr };
+
+    const { id, slug, fieldIds } = await persistSkeleton(parsed.data, organizationId);
     await recomputeAllPoolsForTournament(id);
 
     const finishNotes: string[] = [];
@@ -181,6 +206,7 @@ export async function createTournamentFromWizard(input: unknown): Promise<Tourna
         gameDurationMinutes: parsed.data.gameDurationMinutes,
         minRestMinutes: parsed.data.minRestMinutes,
         travelMinutesBetweenFields: parsed.data.travelMinutesBetweenFields,
+        fieldTravelMatrix: parsed.data.fieldTravelMatrix,
         fieldIds,
         generateSchedules: parsed.data.generateSchedules,
         createBrackets: parsed.data.createBrackets,

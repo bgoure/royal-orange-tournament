@@ -37,7 +37,7 @@ export const metadata: Metadata = {
   metadataBase: metadataBaseUrl,
   title: "R&O 2026",
   description: "Royal & Orange 2026 — schedules, scores, standings, and brackets.",
-  manifest: "/manifest.json",
+  manifest: "/manifest.webmanifest",
   themeColor: "#1a1a2e",
   icons: {
     icon: [

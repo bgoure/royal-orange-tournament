@@ -16,7 +16,7 @@ import {
   WIZARD_MAX_TEAMS_TOURNAMENT,
   type TournamentWizardInput,
 } from "@/lib/validations/tournament-wizard";
-import { isValidEntryTeamCount } from "@/lib/services/bracket-engine";
+import { isValidAdvancingTeamCount } from "@/lib/services/bracket-engine";
 import { estimateScheduleCapacity } from "@/lib/services/round-robin-schedule";
 
 const TIMEZONES = [
@@ -119,7 +119,7 @@ export function CreateTournamentWizardModal({ onClose }: Props) {
     );
   }, [divisionNames, poolsByDivision]);
 
-  const bracketsPossible = advancingByDivision.some((n) => isValidEntryTeamCount(n));
+  const bracketsPossible = advancingByDivision.some((n) => isValidAdvancingTeamCount(n));
 
   const scheduleCapacity = useMemo(() => {
     if (!startDate || !endDate || dayStartTime >= dayEndTime) {
@@ -861,9 +861,9 @@ export function CreateTournamentWizardModal({ onClose }: Props) {
                   <span>
                     <span className="font-medium">Create single-elim playoff brackets</span>
                     <span className="mt-0.5 block text-xs text-zinc-500">
-                      Only when a division’s advancing total is a power of 2 (2–64). Unpublished until you publish.
+                      When a division advances 2–64 teams (BYEs pad non–power-of-2 fields). Unpublished until you publish.
                       {!bracketsPossible
-                        ? " None of your advancing totals qualify yet — adjust advancing counts or create brackets later."
+                        ? " None of your advancing totals qualify yet — set advancing ≥2 in a division or create brackets later."
                         : " Apply standings to seeds after pool play finishes."}
                     </span>
                   </span>

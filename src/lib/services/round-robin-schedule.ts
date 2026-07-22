@@ -128,10 +128,37 @@ export type ScheduleWindowOpts = {
   gameDurationMinutes: number;
   /** Minutes after a game ends before that team may start another. */
   minRestMinutes: number;
-  /** Extra minutes when a team's next game is on a different field (travel). */
+  /** Extra minutes when a team's next game is on a different field (travel). Used when matrix has no pair. */
   travelMinutesBetweenFields: number;
+  /**
+   * Optional N×N travel minutes aligned with `fieldIds` order.
+   * `matrix[i][j]` = minutes from `fieldIds[i]` to `fieldIds[j]`. Diagonal ignored.
+   */
+  fieldTravelMatrix?: number[][];
   fieldIds: string[];
 };
+
+/** Travel minutes from one field to another (matrix pair, else uniform default). */
+export function travelMinutesBetween(
+  fromFieldId: string,
+  toFieldId: string,
+  opts: Pick<ScheduleWindowOpts, "fieldIds" | "travelMinutesBetweenFields" | "fieldTravelMatrix">,
+): number {
+  if (fromFieldId === toFieldId) return 0;
+  const matrix = opts.fieldTravelMatrix;
+  if (matrix && matrix.length === opts.fieldIds.length) {
+    const i = opts.fieldIds.indexOf(fromFieldId);
+    const j = opts.fieldIds.indexOf(toFieldId);
+    if (i >= 0 && j >= 0) {
+      const row = matrix[i];
+      const cell = row?.[j];
+      if (typeof cell === "number" && Number.isFinite(cell) && cell >= 0) {
+        return Math.floor(cell);
+      }
+    }
+  }
+  return opts.travelMinutesBetweenFields;
+}
 
 function parseHm(hm: string): { hour: number; minute: number } {
   const m = /^(\d{2}):(\d{2})$/.exec(hm.trim());
@@ -362,7 +389,9 @@ export function scheduleRoundRobinSlotsInWindow(
     if (!ready) return null;
     const lastField = state.teamLastFieldId.get(teamId);
     const travel =
-      lastField && lastField !== fieldId ? opts.travelMinutesBetweenFields : 0;
+      lastField && lastField !== fieldId
+        ? travelMinutesBetween(lastField, fieldId, opts)
+        : 0;
     return ready.plus({ minutes: travel });
   };
 

@@ -12,7 +12,9 @@ export async function assertDivisionScope(
   targetDivisionId: string,
 ): Promise<string | null> {
   if (role === "ADMIN") return null;
-  if (role !== "POWER_USER") return "You don't have permission for this action.";
+  if (role !== "POWER_USER" && role !== "SCOREKEEPER") {
+    return "You don't have permission for this action.";
+  }
 
   const assignments = await prisma.userDivisionAssignment.findMany({
     where: { userId },

@@ -5,6 +5,7 @@ import { revalidatePublishedTournamentSites } from "@/lib/revalidate-public-tour
 import { auth } from "@/auth";
 import { prisma } from "@/lib/db";
 import { can } from "@/lib/rbac/permissions";
+import { assertPoolDivisionScope } from "@/lib/rbac/division-scope";
 import { assertPoolInTournament } from "@/lib/services/admin-structure";
 import { recomputePoolStandings } from "@/lib/services/standings";
 import { getTournamentForRequest, type TournamentForRequest } from "@/lib/tournament-context";
@@ -47,6 +48,9 @@ export async function enablePoolStandingsManualMode(
   const poolIdRaw = poolIdSchema.safeParse(formData.get("poolId")?.toString());
   if (!poolIdRaw.success) return { ok: false, error: "Invalid pool" };
   const poolId = poolIdRaw.data;
+
+  const scopeErr = await assertPoolDivisionScope(ctx.session.user.id, ctx.session.user.role, poolId);
+  if (scopeErr) return { ok: false, error: scopeErr };
 
   try {
     await assertPoolInTournament(poolId, ctx.tournament.id);
@@ -105,6 +109,13 @@ export async function disablePoolStandingsManualMode(
   if (!poolIdRaw.success) return { ok: false, error: "Invalid pool" };
   const poolId = poolIdRaw.data;
 
+  const disableScopeErr = await assertPoolDivisionScope(
+    ctx.session.user.id,
+    ctx.session.user.role,
+    poolId,
+  );
+  if (disableScopeErr) return { ok: false, error: disableScopeErr };
+
   try {
     await assertPoolInTournament(poolId, ctx.tournament.id);
     await prisma.pool.update({
@@ -138,6 +149,9 @@ export async function savePoolAutoTiebreakRanks(
   const parsed = parseManualRankFields(formData);
   if (!parsed.ok) return { ok: false, error: parsed.error };
   const { poolId, ranks } = parsed;
+
+  const autoScopeErr = await assertPoolDivisionScope(ctx.session.user.id, ctx.session.user.role, poolId);
+  if (autoScopeErr) return { ok: false, error: autoScopeErr };
 
   try {
     await assertPoolInTournament(poolId, ctx.tournament.id);
@@ -198,6 +212,9 @@ export async function savePoolManualStandingsRanks(
   const parsed = parseManualRankFields(formData);
   if (!parsed.ok) return { ok: false, error: parsed.error };
   const { poolId, ranks } = parsed;
+
+  const manualScopeErr = await assertPoolDivisionScope(ctx.session.user.id, ctx.session.user.role, poolId);
+  if (manualScopeErr) return { ok: false, error: manualScopeErr };
 
   try {
     await assertPoolInTournament(poolId, ctx.tournament.id);

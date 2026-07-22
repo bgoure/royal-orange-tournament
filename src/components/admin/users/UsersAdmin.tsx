@@ -34,6 +34,8 @@ function roleLabel(role: Role): string {
       return "Admin";
     case "POWER_USER":
       return "Power user";
+    case "SCOREKEEPER":
+      return "Scorekeeper";
     case "PUBLIC":
       return "Public";
     default:
@@ -114,7 +116,7 @@ function UserTableRow({
     new Set(user.divisionAssignments.map((a) => a.divisionId)),
   );
 
-  const isPowerUser = selectedRole === "POWER_USER";
+  const needsDivisions = selectedRole === "POWER_USER" || selectedRole === "SCOREKEEPER";
 
   return (
     <tr className="border-b border-zinc-100 last:border-0">
@@ -131,7 +133,8 @@ function UserTableRow({
         <span className="inline-flex rounded-full bg-zinc-100 px-2.5 py-0.5 text-xs font-medium text-zinc-800">
           {roleLabel(user.role)}
         </span>
-        {user.role === "POWER_USER" && user.divisionAssignments.length > 0 ? (
+        {(user.role === "POWER_USER" || user.role === "SCOREKEEPER") &&
+        user.divisionAssignments.length > 0 ? (
           <div className="mt-1 flex flex-wrap gap-1">
             {user.divisionAssignments.map((a) => (
               <span
@@ -167,18 +170,19 @@ function UserTableRow({
                   className={`${formClass} min-w-[10rem]`}
                 >
                   <option value="PUBLIC">Public</option>
+                  <option value="SCOREKEEPER">Scorekeeper</option>
                   <option value="POWER_USER">Power user</option>
                   <option value="ADMIN">Admin</option>
                 </select>
                 <button
                   type="submit"
-                  disabled={rolePending || (isPowerUser && selectedDivisions.size === 0)}
+                  disabled={rolePending || (needsDivisions && selectedDivisions.size === 0)}
                   className={btnSecondary}
                 >
                   {rolePending ? "Saving…" : "Update role"}
                 </button>
               </div>
-              {isPowerUser ? (
+              {needsDivisions ? (
                 <DivisionCheckboxes
                   divisions={divisionOptions}
                   selected={selectedDivisions}

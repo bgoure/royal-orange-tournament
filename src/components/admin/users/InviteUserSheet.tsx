@@ -57,7 +57,8 @@ export function InviteUserSheet({
 
   if (!canInvite) return null;
 
-  const isPowerUser = selectedRole === "POWER_USER";
+  const needsDivisions = selectedRole === "POWER_USER" || selectedRole === "SCOREKEEPER";
+  const isPowerUser = needsDivisions;
   const canSubmit = !isPowerUser || selectedDivisions.size > 0;
 
   return (
@@ -133,9 +134,12 @@ export function InviteUserSheet({
                     value={selectedRole}
                     onChange={(e) => {
                       setSelectedRole(e.target.value);
-                      if (e.target.value !== "POWER_USER") setSelectedDivisions(new Set());
+                      if (e.target.value !== "POWER_USER" && e.target.value !== "SCOREKEEPER") {
+                        setSelectedDivisions(new Set());
+                      }
                     }}
                   >
+                    <option value="SCOREKEEPER">Scorekeeper</option>
                     <option value="POWER_USER">Power user</option>
                     <option value="ADMIN">Admin</option>
                     <option value="PUBLIC">Public</option>
@@ -148,7 +152,9 @@ export function InviteUserSheet({
                       Assigned divisions <span className="text-red-500">*</span>
                     </legend>
                     <p className="text-xs text-zinc-500">
-                      Power users can only manage games, teams, and content within their assigned divisions.
+                      {selectedRole === "SCOREKEEPER"
+                        ? "Scorekeepers can only score games in their assigned divisions."
+                        : "Power users can only manage games, teams, and content within their assigned divisions."}
                     </p>
                     {divisionOptions.length === 0 ? (
                       <p className="rounded-md bg-amber-50 px-3 py-2 text-xs text-amber-800 ring-1 ring-amber-200">

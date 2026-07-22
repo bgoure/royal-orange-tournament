@@ -4,6 +4,10 @@ import {
   bracketWinnerTeamId,
   collectAdvancingTeamIds,
   isPowerOfTwo,
+  isValidAdvancingTeamCount,
+  isValidEntryTeamCount,
+  nextPowerOfTwo,
+  padSlotsWithByes,
   singleElimRoundName,
 } from "./bracket-engine";
 
@@ -13,6 +17,28 @@ describe("isPowerOfTwo", () => {
     assert.equal(isPowerOfTwo(4), true);
     assert.equal(isPowerOfTwo(3), false);
     assert.equal(isPowerOfTwo(0), false);
+  });
+});
+
+describe("nextPowerOfTwo / byes", () => {
+  it("pads advancing counts", () => {
+    assert.equal(nextPowerOfTwo(6), 8);
+    assert.equal(nextPowerOfTwo(8), 8);
+    assert.equal(isValidAdvancingTeamCount(6), true);
+    assert.equal(isValidEntryTeamCount(6), false);
+    assert.equal(isValidEntryTeamCount(8), true);
+    const { bracketSize, firstRound } = padSlotsWithByes([
+      { poolId: "a", rank: 1 },
+      { poolId: "a", rank: 2 },
+      { poolId: "a", rank: 3 },
+      { poolId: "a", rank: 4 },
+      { poolId: "a", rank: 5 },
+      { poolId: "a", rank: 6 },
+    ]);
+    assert.equal(bracketSize, 8);
+    assert.equal(firstRound.length, 4);
+    const byes = firstRound.flatMap((g) => [g.home, g.away]).filter((s) => s.kind === "bye");
+    assert.equal(byes.length, 2);
   });
 });
 

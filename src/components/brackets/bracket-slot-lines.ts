@@ -28,7 +28,11 @@ export function slotLines(
   bracketMatchIndex: number,
   slot: "home" | "away",
   prevRoundName: string | null,
+  isBye = false,
 ): SlotLine {
+  if (isBye) {
+    return { primary: "BYE", secondary: null, team: null, isPlaceholder: true };
+  }
   if (team) {
     const secondary = team.pool
       ? `${team.pool.division.name} · ${team.pool.name}`

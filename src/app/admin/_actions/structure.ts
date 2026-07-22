@@ -177,6 +177,12 @@ export async function updatePool(_prev: ActionResult | undefined, formData: Form
   if (!parsed.success) return { ok: false, error: "Invalid input" };
 
   await assertPoolInTournament(parsed.data.id, ctx.tournament.id);
+  const poolScopeErr = await assertPoolDivisionScope(
+    ctx.session.user.id,
+    ctx.session.user.role,
+    parsed.data.id,
+  );
+  if (poolScopeErr) return { ok: false, error: poolScopeErr };
   await prisma.pool.update({
     where: { id: parsed.data.id },
     data: {
@@ -199,6 +205,8 @@ export async function deletePool(_prev: ActionResult | undefined, formData: Form
   const id = formData.get("id")?.toString();
   if (!id) return { ok: false, error: "Missing id" };
   await assertPoolInTournament(id, ctx.tournament.id);
+  const deletePoolScopeErr = await assertPoolDivisionScope(ctx.session.user.id, ctx.session.user.role, id);
+  if (deletePoolScopeErr) return { ok: false, error: deletePoolScopeErr };
   const poolRow = await prisma.pool.findFirst({
     where: { id, division: { tournamentId: ctx.tournament.id } },
     select: { divisionId: true, _count: { select: { teams: true } } },
@@ -351,6 +359,12 @@ export async function updateTeam(_prev: ActionResult | undefined, formData: Form
   await assertPoolInTournament(parsed.data.poolId, ctx.tournament.id);
   const teamScopeErr = await assertTeamDivisionScope(ctx.session.user.id, ctx.session.user.role, parsed.data.id);
   if (teamScopeErr) return { ok: false, error: teamScopeErr };
+  const destPoolScopeErr = await assertPoolDivisionScope(
+    ctx.session.user.id,
+    ctx.session.user.role,
+    parsed.data.poolId,
+  );
+  if (destPoolScopeErr) return { ok: false, error: destPoolScopeErr };
   const existingTeam = await prisma.team.findFirst({
     where: { id: parsed.data.id, pool: { division: { tournamentId: ctx.tournament.id } } },
     select: { poolId: true },
@@ -383,6 +397,8 @@ export async function deleteTeam(_prev: ActionResult | undefined, formData: Form
   const id = formData.get("id")?.toString();
   if (!id) return { ok: false, error: "Missing id" };
   await assertTeamInTournament(id, ctx.tournament.id);
+  const deleteTeamScopeErr = await assertTeamDivisionScope(ctx.session.user.id, ctx.session.user.role, id);
+  if (deleteTeamScopeErr) return { ok: false, error: deleteTeamScopeErr };
   const inPlayoffGame = await prisma.game.findFirst({
     where: {
       tournamentId: ctx.tournament.id,
@@ -427,6 +443,8 @@ export async function uploadTeamLogo(_prev: ActionResult | undefined, formData: 
   }
 
   await assertTeamInTournament(teamId, ctx.tournament.id);
+  const logoScopeErr = await assertTeamDivisionScope(ctx.session.user.id, ctx.session.user.role, teamId);
+  if (logoScopeErr) return { ok: false, error: logoScopeErr };
 
   if (file.size > MAX_TEAM_LOGO_BYTES) {
     return { ok: false, error: "Logo must be 200KB or smaller." };
@@ -458,6 +476,8 @@ export async function clearTeamLogo(_prev: ActionResult | undefined, formData: F
   if (!teamId) return { ok: false, error: "Missing team" };
 
   await assertTeamInTournament(teamId, ctx.tournament.id);
+  const clearLogoScopeErr = await assertTeamDivisionScope(ctx.session.user.id, ctx.session.user.role, teamId);
+  if (clearLogoScopeErr) return { ok: false, error: clearLogoScopeErr };
 
   await prisma.teamLogo.deleteMany({ where: { teamId } });
 

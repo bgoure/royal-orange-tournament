@@ -14,8 +14,24 @@ Tournament Hub (`tourney-app`) — a Next.js 16 / React 19 / TypeScript full-sta
 
 - **Day-to-day work** happens on the **`staging`** Git branch (pushes deploy the **staging** Vercel project, e.g. `royal-orange.goure.ca`).
 - **Production** (`royalorange.ca`) updates only when **`staging` is merged into `main`** (the production Vercel project tracks **`main`**).
-- **Auth URL per Vercel project:** In each project’s **Production** env, set **`AUTH_URL`** and **`NEXTAUTH_URL`** to that project’s public origin (staging → `https://royal-orange.goure.ca`, production → `https://royalorange.ca`). If production still has staging’s values, Google’s OAuth step will use the **staging** `redirect_uri`, so the browser finishes sign-in on the wrong host and cookies/sessions won’t match production (“can’t sign in” on `royalorange.ca`). As a fallback, try **removing** both URL vars on a project so Auth.js uses `trustHost: true` + Vercel’s `x-forwarded-host` (then redeploy). Google Cloud OAuth client must list **every** callback you use, e.g. `https://royalorange.ca/api/auth/callback/google` and `https://royal-orange.goure.ca/api/auth/callback/google`.
 - Do not assume **`main`** has the latest changes until that merge; treat **`staging`** as the integration branch for new work.
+
+### Staging vs Production Auth checklist
+
+Copy-paste verify for **each** Vercel project (staging and production) after env changes or a new domain:
+
+1. **`AUTH_URL`** and **`NEXTAUTH_URL`** both equal that project’s public origin (no trailing slash):
+   - Staging: `https://royal-orange.goure.ca`
+   - Production: `https://royalorange.ca`
+2. If either URL still points at the **other** environment, Google OAuth finishes on the wrong host and sessions/cookies won’t match (“can’t sign in”).
+3. Fallback: remove both URL vars on that project so Auth.js uses `trustHost: true` + Vercel’s `x-forwarded-host`, then redeploy.
+4. Google Cloud OAuth client **Authorized redirect URIs** must include every callback you use, e.g.:
+   - `https://royalorange.ca/api/auth/callback/google`
+   - `https://royal-orange.goure.ca/api/auth/callback/google`
+5. Confirm `AUTH_SECRET` is set (same value can be shared; rotating it signs everyone out).
+6. Smoke-test: open the project origin → Login → Google → land back on **that** origin with `/admin` accessible for a staff user.
+
+JWT sessions refresh `User.role` from the DB about once per minute (`src/auth.ts`); demotions take effect without a full sign-out within that window.
 
 ### Prerequisites
 
