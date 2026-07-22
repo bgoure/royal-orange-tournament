@@ -14,6 +14,9 @@ const firstRoundSideSchema = z.union([
     poolId: z.string().min(1),
     rank: z.coerce.number().int().min(1).max(64),
   }),
+  z.object({
+    teamId: z.string().min(1),
+  }),
 ]);
 
 const firstRoundSlotSchema = z.object({
@@ -63,6 +66,34 @@ export const createDivisionBracketSchema = z
           path: ["firstRound", i],
         });
       }
+      const homeKind =
+        "bye" in s.home ? "bye" : "teamId" in s.home ? "team" : "pool";
+      const awayKind =
+        "bye" in s.away ? "bye" : "teamId" in s.away ? "team" : "pool";
+      if (
+        (homeKind === "team" && awayKind === "pool") ||
+        (homeKind === "pool" && awayKind === "team")
+      ) {
+        ctx.addIssue({
+          code: z.ZodIssueCode.custom,
+          message: "Mix pool-rank and direct-team sides in the same game is not allowed.",
+          path: ["firstRound", i],
+        });
+      }
+    }
+    const kinds = new Set<string>();
+    for (const s of data.firstRound) {
+      for (const side of [s.home, s.away]) {
+        if ("bye" in side) continue;
+        kinds.add("teamId" in side ? "team" : "pool");
+      }
+    }
+    if (kinds.has("team") && kinds.has("pool")) {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        message: "Use either pool standings slots or direct team picks for the whole first round, not both.",
+        path: ["firstRound"],
+      });
     }
   })
   .transform((data) => {

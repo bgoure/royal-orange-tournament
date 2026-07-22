@@ -41,7 +41,8 @@ export function BracketRoundRobinProgress({ tournamentId, rows }: Props) {
         const complete = Math.max(0, total - incomplete);
         const pct = total > 0 ? Math.round((complete / total) * 100) : 0;
         const roundRobinComplete = total > 0 && incomplete === 0;
-        const actionsEnabled = roundRobinComplete;
+        const canPush = row.usesPoolSeeding && roundRobinComplete;
+        const canReset = row.usesPoolSeeding ? roundRobinComplete : true;
 
         return (
           <div
@@ -53,14 +54,19 @@ export function BracketRoundRobinProgress({ tournamentId, rows }: Props) {
                 {row.bracketName}
                 <span className="font-normal text-zinc-500 dark:text-zinc-400"> · {row.divisionName}</span>
               </p>
-              {row.needsResolutionRefresh ? (
+              {row.needsResolutionRefresh && row.usesPoolSeeding ? (
                 <span className="text-xs font-medium text-amber-800 dark:text-amber-200">
                   Standings changed — re-push when ready
                 </span>
               ) : null}
             </div>
 
-            {total === 0 ? (
+            {!row.usesPoolSeeding ? (
+              <p className="mt-2 text-xs text-zinc-600 dark:text-zinc-400">
+                Teams were assigned when the bracket was created (or in Games). Pool round robin is not
+                required for this bracket.
+              </p>
+            ) : total === 0 ? (
               <p className="mt-2 text-xs text-zinc-600 dark:text-zinc-400">
                 No pool games in this division yet. Schedule pool play before tracking progression.
               </p>
@@ -90,13 +96,15 @@ export function BracketRoundRobinProgress({ tournamentId, rows }: Props) {
             )}
 
             <div className="mt-3 flex flex-wrap gap-2">
-              <form action={applyAction}>
-                <input type="hidden" name="tournamentId" value={tournamentId} />
-                <input type="hidden" name="bracketId" value={row.bracketId} />
-                <button type="submit" className={btnPrimary} disabled={!actionsEnabled || applyPending}>
-                  {applyPending ? "Pushing…" : "Push to bracket"}
-                </button>
-              </form>
+              {row.usesPoolSeeding ? (
+                <form action={applyAction}>
+                  <input type="hidden" name="tournamentId" value={tournamentId} />
+                  <input type="hidden" name="bracketId" value={row.bracketId} />
+                  <button type="submit" className={btnPrimary} disabled={!canPush || applyPending}>
+                    {applyPending ? "Pushing…" : "Push to bracket"}
+                  </button>
+                </form>
+              ) : null}
               <ConfirmForm
                 action={resetAction}
                 message={`Reset “${row.bracketName}” for ${row.divisionName}? Playoff and consolation games will be cleared to TBD so you can adjust pool results and push seeds again.`}
@@ -104,7 +112,7 @@ export function BracketRoundRobinProgress({ tournamentId, rows }: Props) {
               >
                 <input type="hidden" name="tournamentId" value={tournamentId} />
                 <input type="hidden" name="bracketId" value={row.bracketId} />
-                <button type="submit" className={btnDangerish} disabled={!actionsEnabled || resetPending}>
+                <button type="submit" className={btnDangerish} disabled={!canReset || resetPending}>
                   {resetPending ? "Resetting…" : "Reset bracket"}
                 </button>
               </ConfirmForm>

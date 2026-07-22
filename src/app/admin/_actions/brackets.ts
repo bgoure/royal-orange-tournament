@@ -11,6 +11,7 @@ import { assertFieldInTournament } from "@/lib/services/admin-games";
 import { assertPoolInTournament } from "@/lib/services/admin-structure";
 import { assertConsolationSlotsAvailable } from "@/lib/services/consolation-slots";
 import { createDivisionPlayoffBracket } from "@/lib/services/bracket-division-build";
+import { bracketUsesPoolSeeding } from "@/lib/services/admin-brackets";
 import { gameCompetitiveResetData } from "@/lib/services/game-competitive-reset";
 import { resolveBracketTeamsFromStandings } from "@/lib/services/bracket-resolution";
 import { assertDivisionRoundRobinCompleteForSeeding } from "@/lib/services/round-robin-division";
@@ -138,10 +139,10 @@ export async function createDivisionPlayoffBracketAction(
   if ("error" in ctx) return { ok: false, error: ctx.error };
   if (!can(ctx.session.user.role, "bracket:configure")) return deny();
 
-  let firstRound: { home: { poolId: string; rank: number }; away: { poolId: string; rank: number } }[];
+  let firstRound: unknown;
   try {
     const raw = formData.get("firstRound")?.toString() ?? "";
-    firstRound = JSON.parse(raw) as typeof firstRound;
+    firstRound = JSON.parse(raw);
     if (!Array.isArray(firstRound)) throw new Error("Invalid first round");
   } catch {
     return { ok: false, error: "Invalid first-round configuration" };
@@ -270,6 +271,12 @@ export async function applyBracketResolution(
     if (!b) return { ok: false, error: "Bracket not found" };
     const scopeErr = await assertDivisionScope(ctx.session.user.id, ctx.session.user.role, b.divisionId);
     if (scopeErr) return { ok: false, error: scopeErr };
+    if (!(await bracketUsesPoolSeeding(parsed.data.bracketId))) {
+      return {
+        ok: false,
+        error: "This bracket was seeded with teams directly — Apply standings is only for pool-seeded brackets.",
+      };
+    }
     await resolveBracketTeamsFromStandings(parsed.data.bracketId);
     revalidatePath("/admin/brackets");
     revalidatePath("/admin/games");
@@ -427,10 +434,17 @@ export async function resetPlayoffBracket(
     });
     if (!existing) return { ok: false, error: "Bracket not found" };
 
-    const scopeErr = await assertDivisionScope(ctx.session.user.id, ctx.session.user.role, existing.divisionId);
+    const scopeErr = await assertDivisionScope(
+      ctx.session.user.id,
+      ctx.session.user.role,
+      existing.divisionId,
+    );
     if (scopeErr) return { ok: false, error: scopeErr };
 
-    await assertDivisionRoundRobinCompleteForSeeding(ctx.tournament.id, existing.divisionId);
+    const usesPoolSeeding = await bracketUsesPoolSeeding(existing.id);
+    if (usesPoolSeeding) {
+      await assertDivisionRoundRobinCompleteForSeeding(ctx.tournament.id, existing.divisionId);
+    }
 
     await prisma.$transaction(async (tx) => {
       await tx.game.updateMany({

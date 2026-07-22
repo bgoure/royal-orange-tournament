@@ -132,11 +132,10 @@ export function PublicSettingsPortal({
                   </button>
                   {showBracketProgressSection ? (
                     <div className="border-t border-zinc-200 pt-4 dark:border-zinc-600">
-                      <h3 className="text-sm font-bold text-zinc-900 dark:text-zinc-100">Playoff bracket (pool play)</h3>
+                      <h3 className="text-sm font-bold text-zinc-900 dark:text-zinc-100">Playoff bracket</h3>
                       <p className="mt-1 text-sm text-zinc-600 dark:text-zinc-400">
-                        When every pool game in the division is final or cancelled, you can push current standings into
-                        the playoff seeds, or reset the bracket to TBD and re-score pool games before pushing again.
-                        Creating the bracket structure is still under{" "}
+                        For pool-seeded brackets, push standings into Round 1 when pool play is done, or reset to TBD.
+                        Creating the bracket (format, pairing style, assign teams vs pool seeds) is under{" "}
                         {canManageTournament ? (
                           <a href={adminHref} className="font-medium text-royal underline-offset-2 hover:underline">
                             Tournament Admin → Brackets

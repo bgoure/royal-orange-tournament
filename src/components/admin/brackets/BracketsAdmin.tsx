@@ -1,6 +1,6 @@
 "use client";
 
-import { useActionState, useMemo, useState } from "react";
+import { useActionState, useEffect, useMemo, useState } from "react";
 import Link from "next/link";
 import type { BracketFormat } from "@prisma/client";
 import {
@@ -27,7 +27,12 @@ type PoolRow = Pool & { division: { name: string } };
 type DivisionWizardRow = {
   id: string;
   name: string;
-  pools: { id: string; name: string; teamCount: number }[];
+  pools: {
+    id: string;
+    name: string;
+    teamCount: number;
+    teams: { id: string; name: string }[];
+  }[];
   hasBracket: boolean;
 };
 
@@ -42,6 +47,7 @@ type BracketRow = {
   _count: { rounds: number; games: number };
   poolGamesTotal: number;
   poolGamesIncomplete: number;
+  usesPoolSeeding: boolean;
 };
 
 type ConsolationAdminRow = {
@@ -84,11 +90,19 @@ type Props = {
   canConfigure: boolean;
 };
 
-type FirstRoundSide = { poolId: string; rank: number } | { bye: true };
+type FirstRoundSide = { poolId: string; rank: number } | { teamId: string } | { bye: true };
 type FirstRoundSlot = { home: FirstRoundSide; away: FirstRoundSide };
 
 function isByeSide(side: FirstRoundSide): side is { bye: true } {
   return "bye" in side && side.bye === true;
+}
+
+function isTeamSide(side: FirstRoundSide): side is { teamId: string } {
+  return "teamId" in side;
+}
+
+function isPoolSide(side: FirstRoundSide): side is { poolId: string; rank: number } {
+  return "poolId" in side;
 }
 
 /**
@@ -119,14 +133,41 @@ function defaultFirstRound(pools: { id: string; teamCount: number }[], entrySize
   return out;
 }
 
+function defaultFirstRoundTeams(
+  teams: { id: string; name: string }[],
+  entrySize: number,
+): FirstRoundSlot[] {
+  const half = entrySize / 2;
+  const realSlots = teams.slice(0, entrySize).map((t) => ({ teamId: t.id }));
+  const order = classicSingleElimOrder(entrySize);
+  const sideFor = (seedIndex: number): FirstRoundSide =>
+    seedIndex < realSlots.length ? realSlots[seedIndex]! : { bye: true };
+  const out: FirstRoundSlot[] = [];
+  for (let m = 0; m < half; m++) {
+    out.push({ home: sideFor(order[m * 2]!), away: sideFor(order[m * 2 + 1]!) });
+  }
+  return out;
+}
+
 function PlayoffFirstRoundRows({
+  seedMode,
   poolRows,
+  teams,
   entrySize,
 }: {
+  seedMode: "pool_standings" | "assign_teams";
   poolRows: DivisionWizardRow["pools"];
+  teams: { id: string; name: string; poolName: string }[];
   entrySize: number;
 }) {
-  const [firstRound, setFirstRound] = useState(() => defaultFirstRound(poolRows, entrySize));
+  const [firstRound, setFirstRound] = useState(() =>
+    seedMode === "assign_teams"
+      ? defaultFirstRoundTeams(
+          teams.map((t) => ({ id: t.id, name: t.name })),
+          entrySize,
+        )
+      : defaultFirstRound(poolRows, entrySize),
+  );
 
   const rankOptionsForPool = (poolId: string) => {
     const tc = poolRows.find((p) => p.id === poolId)?.teamCount ?? 0;
@@ -149,7 +190,9 @@ function PlayoffFirstRoundRows({
       <div>
         <h3 className="text-xs font-semibold uppercase tracking-wide text-zinc-500">Round 1 pairings</h3>
         <p className="mt-1 text-xs text-zinc-500">
-          Set a side to BYE when the field is larger than the advancing total (auto-advances on seed apply).
+          {seedMode === "assign_teams"
+            ? "Pick teams now (or BYE). Format and pairing style do not require pool round robin."
+            : "Label sides as finishing place in a pool. Teams fill after pool play when you Apply standings."}
         </p>
         <div className="mt-3 flex flex-col gap-4">
           {firstRound.map((row, idx) => (
@@ -162,19 +205,52 @@ function PlayoffFirstRoundRows({
                 {(["away", "home"] as const).map((side) => {
                   const s = row[side];
                   const bye = isByeSide(s);
+                  if (seedMode === "assign_teams") {
+                    const teamId = isTeamSide(s) ? s.teamId : "";
+                    return (
+                      <div key={side}>
+                        <p className={labelClass}>{side === "away" ? "Away" : "Home"}</p>
+                        <div className="mt-1 flex flex-wrap gap-2">
+                          <select
+                            value={bye ? "__BYE__" : teamId}
+                            onChange={(e) => {
+                              if (e.target.value === "__BYE__") {
+                                setSide(idx, side, { bye: true });
+                              } else {
+                                setSide(idx, side, { teamId: e.target.value });
+                              }
+                            }}
+                            className={`${formClass} min-w-[180px]`}
+                          >
+                            <option value="__BYE__">BYE</option>
+                            {teams.map((t) => (
+                              <option key={t.id} value={t.id}>
+                                {t.name} ({t.poolName})
+                              </option>
+                            ))}
+                          </select>
+                          {bye ? (
+                            <span className="self-center text-xs font-semibold text-amber-800">BYE</span>
+                          ) : null}
+                        </div>
+                      </div>
+                    );
+                  }
+                  const poolId = isPoolSide(s) ? s.poolId : poolRows[0]?.id ?? "";
+                  const rank = isPoolSide(s) ? s.rank : 1;
                   return (
                     <div key={side}>
                       <p className={labelClass}>{side === "away" ? "Away" : "Home"}</p>
                       <div className="mt-1 flex flex-wrap gap-2">
                         <select
-                          value={bye ? "__BYE__" : s.poolId}
+                          value={bye ? "__BYE__" : poolId}
                           onChange={(e) => {
                             if (e.target.value === "__BYE__") {
                               setSide(idx, side, { bye: true });
                             } else {
                               setSide(idx, side, {
                                 poolId: e.target.value,
-                                rank: bye ? 1 : s.rank,
+                                rank: bye ? 1 : rank,
                               });
                             }
                           }}
@@ -189,13 +265,13 @@ function PlayoffFirstRoundRows({
                         </select>
                         {!bye ? (
                           <select
-                            value={s.rank}
+                            value={rank}
                             onChange={(e) =>
-                              setSide(idx, side, { poolId: s.poolId, rank: Number(e.target.value) })
+                              setSide(idx, side, { poolId, rank: Number(e.target.value) })
                             }
                             className={`${formClass} w-24`}
                           >
-                            {rankOptionsForPool(s.poolId).map((r) => (
+                            {rankOptionsForPool(poolId).map((r) => (
                               <option key={r} value={r}>
                                 #{r}
                               </option>
@@ -282,6 +358,27 @@ export function BracketsAdmin({
     "SINGLE_ELIMINATION" | "DOUBLE_ELIMINATION" | "TRIPLE_ELIMINATION"
   >("SINGLE_ELIMINATION");
   const [pairingMode, setPairingMode] = useState<"classic" | "avoid_rematches">("classic");
+  const [seedMode, setSeedMode] = useState<"pool_standings" | "assign_teams">("pool_standings");
+
+  const divisionTeams = useMemo(() => {
+    if (!selectedDivision) return [];
+    return selectedDivision.pools.flatMap((p) =>
+      p.teams.map((t) => ({ id: t.id, name: t.name, poolName: p.name })),
+    );
+  }, [selectedDivision]);
+
+  useEffect(() => {
+    if (!selectedDivision) return;
+    if (selectedDivision.pools.length === 0 && divisionTeams.length > 0) {
+      setSeedMode("assign_teams");
+    } else if (selectedDivision.pools.length > 0 && seedMode === "assign_teams" && divisionTeams.length === 0) {
+      setSeedMode("pool_standings");
+    } else if (selectedDivision.pools.length === 0) {
+      setSeedMode("assign_teams");
+    }
+    // Only re-evaluate when the division (or its teams) changes — not on every seedMode toggle.
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- intentional: seedMode is written, not read for branching beyond defaults
+  }, [selectedDivision, divisionTeams.length]);
 
   const divisionsWithPools = useMemo(() => divisions.filter((d) => d.pools.length > 0), [divisions]);
   const [consolationDivisionId, setConsolationDivisionId] = useState(
@@ -326,10 +423,11 @@ export function BracketsAdmin({
         </p>
       ) : (
         <p className="text-sm text-zinc-600">
-          Playoffs are scoped to one division. First-round slots are labeled as &quot;kᵗʰ in pool&quot; when you create
-          the bracket. After pool play finishes, use{" "}
-          <strong className="font-medium text-zinc-800">Apply standings to seeds</strong> to fill those slots with
-          the current standings (it does not rebuild the bracket tree). Re-apply if standings change.
+          Playoffs are scoped to one division. Choose single, double, or triple elimination (and classic vs
+          avoid-duplicates for multi-elim) whether or not pool round robin exists. Seed Round 1 from pool
+          standings after RR, or assign teams now. For pool-seeded brackets, use{" "}
+          <strong className="font-medium text-zinc-800">Apply standings to seeds</strong> after pool play
+          finishes.
         </p>
       )}
 
@@ -565,8 +663,8 @@ export function BracketsAdmin({
         <section className="rounded-xl border border-zinc-200 bg-white p-6 shadow-sm">
           <h2 className="text-sm font-semibold text-zinc-900">Create division playoff (wizard)</h2>
           <p className="mt-1 text-xs text-zinc-500">
-            One single-elimination bracket per division. First round uses pool finishing order (1 = top of
-            standings). You can publish even while times still show as TBD.
+            One bracket per division. Pick format and losers pairing style anytime — round robin is optional.
+            Seed from pool finishing places after RR, or assign teams at create.
           </p>
           {selectedDivision ? (
             <form action={createAction} className="mt-4 flex flex-col gap-5">
@@ -673,6 +771,47 @@ export function BracketsAdmin({
                     </div>
                   </div>
                 ) : null}
+                <div className="sm:col-span-2">
+                  <p className={labelClass}>Round 1 seeding</p>
+                  <div className="mt-2 flex flex-col gap-2">
+                    <label className="flex items-start gap-2 text-sm text-zinc-700">
+                      <input
+                        type="radio"
+                        name="seedMode"
+                        value="pool_standings"
+                        checked={seedMode === "pool_standings"}
+                        onChange={() => setSeedMode("pool_standings")}
+                        className="mt-1"
+                        disabled={!selectedDivision || selectedDivision.pools.length === 0}
+                      />
+                      <span>
+                        <span className="font-medium">From pool standings (after round robin)</span>
+                        <span className="mt-0.5 block text-xs text-zinc-500">
+                          Label slots as kᵗʰ in pool. Apply standings fills teams when pool play is
+                          complete.
+                        </span>
+                      </span>
+                    </label>
+                    <label className="flex items-start gap-2 text-sm text-zinc-700">
+                      <input
+                        type="radio"
+                        name="seedMode"
+                        value="assign_teams"
+                        checked={seedMode === "assign_teams"}
+                        onChange={() => setSeedMode("assign_teams")}
+                        className="mt-1"
+                        disabled={divisionTeams.length === 0}
+                      />
+                      <span>
+                        <span className="font-medium">Assign teams now</span>
+                        <span className="mt-0.5 block text-xs text-zinc-500">
+                          No round robin required — pick Round 1 teams (or BYEs) immediately. Edit
+                          later under Games if needed.
+                        </span>
+                      </span>
+                    </label>
+                  </div>
+                </div>
                 <div>
                   <label className={labelClass}>Field size (bracket slots)</label>
                   <select
@@ -717,12 +856,23 @@ export function BracketsAdmin({
               </div>
 
               <PlayoffFirstRoundRows
-                key={`${effectiveDivisionId}-${entrySize}`}
+                key={`${effectiveDivisionId}-${entrySize}-${seedMode}`}
+                seedMode={seedMode}
                 poolRows={selectedDivision.pools}
+                teams={divisionTeams}
                 entrySize={entrySize}
               />
 
-              <button type="submit" disabled={createPending || !selectedDivision} className={btnPrimary}>
+              <button
+                type="submit"
+                disabled={
+                  createPending ||
+                  !selectedDivision ||
+                  (seedMode === "pool_standings" && selectedDivision.pools.length === 0) ||
+                  (seedMode === "assign_teams" && divisionTeams.length === 0)
+                }
+                className={btnPrimary}
+              >
                 {createPending ? "Creating…" : "Create bracket"}
               </button>
             </form>
@@ -736,16 +886,17 @@ export function BracketsAdmin({
         <section className="rounded-xl border border-zinc-200 bg-white p-6 shadow-sm">
           <h2 className="text-sm font-semibold text-zinc-900">Playoff brackets</h2>
           <p className="mt-1 text-xs text-zinc-500">
-            Unpublished brackets stay hidden on the public site. Applying standings only runs when every pool game
-            in that division is final or cancelled.{" "}
-            <strong className="font-medium text-zinc-700">Reset bracket</strong> clears teams/scores on the existing
-            tree (same pool-play requirement).{" "}
-            <strong className="font-medium text-zinc-700">Delete bracket</strong> removes the playoff tree so you can
-            run the create wizard again.
+            Unpublished brackets stay hidden on the public site. For pool-seeded brackets, Apply standings
+            runs when every pool game in that division is final or cancelled.{" "}
+            <strong className="font-medium text-zinc-700">Reset bracket</strong> clears teams/scores on the
+            existing tree. <strong className="font-medium text-zinc-700">Delete bracket</strong> removes the
+            playoff tree so you can run the create wizard again.
           </p>
           <ul className="mt-4 flex flex-col gap-4">
             {brackets.map((b) => {
               const rrComplete = b.poolGamesTotal > 0 && b.poolGamesIncomplete === 0;
+              const canApplyStandings = b.usesPoolSeeding && rrComplete;
+              const canReset = b.usesPoolSeeding ? rrComplete : true;
               const complete = Math.max(0, b.poolGamesTotal - b.poolGamesIncomplete);
               const pct =
                 b.poolGamesTotal > 0 ? Math.round((complete / b.poolGamesTotal) * 100) : 0;
@@ -769,7 +920,8 @@ export function BracketsAdmin({
                         : b.format === "TRIPLE_ELIMINATION"
                           ? "Triple elimination"
                           : "Single elimination"}
-                      {b.avoidRematchesUntilForced ? " · avoid duplicate matchups" : b.format !== "SINGLE_ELIMINATION" ? " · classic paths" : ""} · {b._count.rounds} rounds ·{" "}
+                      {b.avoidRematchesUntilForced ? " · avoid duplicate matchups" : b.format !== "SINGLE_ELIMINATION" ? " · classic paths" : ""}
+                      {b.usesPoolSeeding ? " · pool-seeded" : " · teams assigned"} · {b._count.rounds} rounds ·{" "}
                       {b._count.games} games ·{" "}
                       {b.published ? (
                         <span className="font-medium text-emerald-700">Published</span>
@@ -778,7 +930,7 @@ export function BracketsAdmin({
                       )}
                     </p>
 
-                    {b.poolGamesTotal > 0 ? (
+                    {b.usesPoolSeeding && b.poolGamesTotal > 0 ? (
                       <div className="mt-3 max-w-md">
                         <div className="flex flex-wrap items-baseline justify-between gap-2 text-xs text-zinc-600">
                           <span>
@@ -806,14 +958,24 @@ export function BracketsAdmin({
                           />
                         </div>
                       </div>
-                    ) : (
+                    ) : b.usesPoolSeeding ? (
                       <p className="mt-2 text-xs text-amber-800">
-                        No pool games in this division yet — schedule pool play before seeding.
+                        No pool games in this division yet — schedule pool play before applying standings.
+                      </p>
+                    ) : (
+                      <p className="mt-2 text-xs text-zinc-600">
+                        Round 1 teams were assigned at create (or in Games). Pool round robin is not required.
                       </p>
                     )}
 
                     <div className="mt-3 rounded-lg border border-zinc-200 bg-white px-3 py-2.5 text-xs leading-relaxed text-zinc-600">
-                      {b.needsResolutionRefresh ? (
+                      {!b.usesPoolSeeding ? (
+                        <p>
+                          <span className="font-medium text-zinc-800">Direct-seeded bracket.</span> Adjust
+                          Round 1 teams under Games if needed. Apply standings is only for pool-seeded
+                          brackets.
+                        </p>
+                      ) : b.needsResolutionRefresh ? (
                         <p className="font-medium text-amber-900">
                           Standings changed since the last apply — re-apply to refresh first-round and consolation
                           teams from current rankings.
@@ -858,13 +1020,15 @@ export function BracketsAdmin({
                       <input type="hidden" name="bracketId" value={b.id} />
                       <button
                         type="submit"
-                        disabled={resolvePending || !rrComplete}
+                        disabled={resolvePending || !canApplyStandings}
                         title={
-                          !rrComplete
-                            ? "Finish all pool games (final or cancelled) first"
-                            : "Fill first-round teams from current pool standings"
+                          !b.usesPoolSeeding
+                            ? "This bracket was seeded with teams at create"
+                            : !rrComplete
+                              ? "Finish all pool games (final or cancelled) first"
+                              : "Fill first-round teams from current pool standings"
                         }
-                        className={rrComplete ? btnPrimary : btnSecondary}
+                        className={canApplyStandings ? btnPrimary : btnSecondary}
                       >
                         {resolvePending
                           ? "Applying…"
@@ -879,7 +1043,7 @@ export function BracketsAdmin({
                       className="inline"
                     >
                       <input type="hidden" name="bracketId" value={b.id} />
-                      <button type="submit" disabled={resetPending || !rrComplete} className={btnSecondary}>
+                      <button type="submit" disabled={resetPending || !canReset} className={btnSecondary}>
                         {resetPending ? "Resetting…" : "Reset bracket"}
                       </button>
                     </ConfirmForm>

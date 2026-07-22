@@ -36,6 +36,7 @@ export default async function AdminBracketsPage() {
       id: p.id,
       name: p.name,
       teamCount: p._count.teams,
+      teams: p.teams,
     })),
     hasBracket: d._count.brackets > 0,
   }));

@@ -48,16 +48,17 @@ export async function listBracketsSummary(tournamentId: string) {
   });
   return Promise.all(
     brackets.map(async (b) => {
-      const [poolGamesTotal, poolGamesIncomplete] = await Promise.all([
+      const [poolGamesTotal, poolGamesIncomplete, usesPoolSeeding] = await Promise.all([
         countTotalDivisionPoolGames(tournamentId, b.division.id),
         countIncompleteDivisionPoolGames(tournamentId, b.division.id),
+        bracketUsesPoolSeeding(b.id),
       ]);
-      return { ...b, poolGamesTotal, poolGamesIncomplete };
+      return { ...b, poolGamesTotal, poolGamesIncomplete, usesPoolSeeding };
     }),
   );
 }
 
-/** Divisions with pools (team counts) for the playoff wizard; includes whether a bracket already exists. */
+/** Divisions with pools/teams for the playoff wizard; includes whether a bracket already exists. */
 export function listDivisionsForPlayoffWizard(tournamentId: string) {
   return prisma.division.findMany({
     where: { tournamentId },
@@ -67,9 +68,25 @@ export function listDivisionsForPlayoffWizard(tournamentId: string) {
         orderBy: { sortOrder: "asc" },
         include: {
           _count: { select: { teams: true } },
+          teams: {
+            orderBy: { name: "asc" },
+            select: { id: true, name: true },
+          },
         },
       },
       _count: { select: { brackets: true } },
     },
   });
+}
+
+/** True when Round 1 was labeled with pool finishing ranks (Apply standings applies). */
+export async function bracketUsesPoolSeeding(bracketId: string): Promise<boolean> {
+  const hit = await prisma.bracketMatch.findFirst({
+    where: {
+      bracketRound: { bracketId, roundIndex: 0 },
+      OR: [{ homeSourcePoolId: { not: null } }, { awaySourcePoolId: { not: null } }],
+    },
+    select: { id: true },
+  });
+  return hit != null;
 }

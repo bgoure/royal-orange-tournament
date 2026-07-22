@@ -1,6 +1,7 @@
 import type { Role } from "@prisma/client";
 import { prisma } from "@/lib/db";
 import { can } from "@/lib/rbac/permissions";
+import { bracketUsesPoolSeeding } from "@/lib/services/admin-brackets";
 import { countIncompleteDivisionPoolGames, countTotalDivisionPoolGames } from "@/lib/services/round-robin-division";
 import { getUserAssignedDivisionIds } from "@/lib/services/users-admin";
 
@@ -12,6 +13,7 @@ export type BracketProgressForPublicSettings = {
   poolGamesTotal: number;
   poolGamesIncomplete: number;
   needsResolutionRefresh: boolean;
+  usesPoolSeeding: boolean;
 };
 
 /**
@@ -61,9 +63,10 @@ export async function listBracketProgressForPublicSettings(
 
   const enriched = await Promise.all(
     brackets.map(async (b) => {
-      const [poolGamesTotal, poolGamesIncomplete] = await Promise.all([
+      const [poolGamesTotal, poolGamesIncomplete, usesPoolSeeding] = await Promise.all([
         countTotalDivisionPoolGames(tournamentId, b.division.id),
         countIncompleteDivisionPoolGames(tournamentId, b.division.id),
+        bracketUsesPoolSeeding(b.id),
       ]);
       return {
         bracketId: b.id,
@@ -73,6 +76,7 @@ export async function listBracketProgressForPublicSettings(
         poolGamesTotal,
         poolGamesIncomplete,
         needsResolutionRefresh: b.needsResolutionRefresh,
+        usesPoolSeeding,
       } satisfies BracketProgressForPublicSettings;
     }),
   );

@@ -10,7 +10,10 @@ import { resolveBracketTeamsFromStandings } from "./bracket-resolution";
 import { isDivisionRoundRobinCompleteForSeeding } from "./round-robin-division";
 import { advanceByeWinnersInRound0 } from "./bracket-advance";
 
-export type FirstRoundSide = { poolId: string; rank: number } | { bye: true };
+export type FirstRoundSide =
+  | { poolId: string; rank: number }
+  | { teamId: string }
+  | { bye: true };
 
 export type FirstRoundSlot = {
   home: FirstRoundSide;
@@ -42,6 +45,14 @@ function slotKey(poolId: string, rank: number) {
 
 function isByeSide(side: FirstRoundSide): side is { bye: true } {
   return "bye" in side && side.bye === true;
+}
+
+function isTeamSide(side: FirstRoundSide): side is { teamId: string } {
+  return "teamId" in side && typeof side.teamId === "string";
+}
+
+function isPoolSide(side: FirstRoundSide): side is { poolId: string; rank: number } {
+  return "poolId" in side && typeof side.poolId === "string";
 }
 
 type Tx = Parameters<Parameters<typeof prisma.$transaction>[0]>[0];
@@ -140,7 +151,13 @@ export async function createDivisionPlayoffBracket(opts: CreateDivisionPlayoffOp
   }
 
   const poolIds = new Set(division.pools.map((p) => p.id));
-  const used = new Set<string>();
+  const teamIdsInDivision = new Set(
+    division.pools.flatMap((p) => p.teams.map((t) => t.id)),
+  );
+  const usedPoolSlots = new Set<string>();
+  const usedTeamIds = new Set<string>();
+  let usesDirectTeams = false;
+  let usesPoolSlots = false;
 
   for (const slot of firstRound) {
     if (isByeSide(slot.home) && isByeSide(slot.away)) {
@@ -148,16 +165,39 @@ export async function createDivisionPlayoffBracket(opts: CreateDivisionPlayoffOp
     }
     for (const side of [slot.home, slot.away] as const) {
       if (isByeSide(side)) continue;
-      if (!poolIds.has(side.poolId)) throw new Error("Each pool must belong to the selected division.");
-      const pool = division.pools.find((p) => p.id === side.poolId)!;
-      const maxRank = pool.teams.length;
-      if (side.rank < 1 || side.rank > maxRank) {
-        throw new Error(`Invalid rank ${side.rank} for pool (has ${maxRank} teams).`);
+      if (isTeamSide(side)) {
+        usesDirectTeams = true;
+        if (!teamIdsInDivision.has(side.teamId)) {
+          throw new Error("Each team must belong to the selected division.");
+        }
+        if (usedTeamIds.has(side.teamId)) {
+          throw new Error("Duplicate team in the first round.");
+        }
+        usedTeamIds.add(side.teamId);
+        continue;
       }
-      const key = slotKey(side.poolId, side.rank);
-      if (used.has(key)) throw new Error("Duplicate pool/rank slot in the first round.");
-      used.add(key);
+      if (isPoolSide(side)) {
+        usesPoolSlots = true;
+        if (!poolIds.has(side.poolId)) throw new Error("Each pool must belong to the selected division.");
+        const pool = division.pools.find((p) => p.id === side.poolId)!;
+        const maxRank = pool.teams.length;
+        if (side.rank < 1 || side.rank > maxRank) {
+          throw new Error(`Invalid rank ${side.rank} for pool (has ${maxRank} teams).`);
+        }
+        const key = slotKey(side.poolId, side.rank);
+        if (usedPoolSlots.has(key)) throw new Error("Duplicate pool/rank slot in the first round.");
+        usedPoolSlots.add(key);
+      }
     }
+  }
+  if (usesDirectTeams && usesPoolSlots) {
+    throw new Error("Use either pool standings slots or direct team picks for the whole first round, not both.");
+  }
+  if (usesPoolSlots && division.pools.length === 0) {
+    throw new Error("This division has no pools — assign teams directly, or add pools first.");
+  }
+  if (usesDirectTeams && teamIdsInDivision.size === 0) {
+    throw new Error("This division has no teams to assign.");
   }
 
   const field = await prisma.field.findFirst({
@@ -261,20 +301,26 @@ export async function createDivisionPlayoffBracket(opts: CreateDivisionPlayoffOp
         let awaySourceRank: number | null = null;
         let homeIsBye = false;
         let awayIsBye = false;
+        let homeTeamId: string | null = null;
+        let awayTeamId: string | null = null;
 
         if (r === 0) {
           const fr = firstRound[m]!;
           if (isByeSide(fr.home)) {
             homeIsBye = true;
-          } else {
+          } else if (isPoolSide(fr.home)) {
             homeSourcePoolId = fr.home.poolId;
             homeSourceRank = fr.home.rank;
+          } else if (isTeamSide(fr.home)) {
+            homeTeamId = fr.home.teamId;
           }
           if (isByeSide(fr.away)) {
             awayIsBye = true;
-          } else {
+          } else if (isPoolSide(fr.away)) {
             awaySourcePoolId = fr.away.poolId;
             awaySourceRank = fr.away.rank;
+          } else if (isTeamSide(fr.away)) {
+            awayTeamId = fr.away.teamId;
           }
         }
 
@@ -283,8 +329,8 @@ export async function createDivisionPlayoffBracket(opts: CreateDivisionPlayoffOp
             tournamentId,
             poolId: null,
             fieldId,
-            homeTeamId: null,
-            awayTeamId: null,
+            homeTeamId,
+            awayTeamId,
             scheduledAt,
             schedulePlaceholder: true,
             status: GameStatus.SCHEDULED,
@@ -314,15 +360,19 @@ export async function createDivisionPlayoffBracket(opts: CreateDivisionPlayoffOp
     return bracket.id;
   });
 
-  const rrDone = await isDivisionRoundRobinCompleteForSeeding(tournamentId, divisionId);
-  if (rrDone) {
-    await resolveBracketTeamsFromStandings(bracketId);
+  if (usesDirectTeams) {
     await advanceByeWinnersInRound0(bracketId);
   } else {
-    await prisma.bracket.update({
-      where: { id: bracketId },
-      data: { needsResolutionRefresh: true },
-    });
+    const rrDone = await isDivisionRoundRobinCompleteForSeeding(tournamentId, divisionId);
+    if (rrDone) {
+      await resolveBracketTeamsFromStandings(bracketId);
+      await advanceByeWinnersInRound0(bracketId);
+    } else {
+      await prisma.bracket.update({
+        where: { id: bracketId },
+        data: { needsResolutionRefresh: true },
+      });
+    }
   }
   return bracketId;
 }
