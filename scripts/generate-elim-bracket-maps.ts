@@ -1,482 +1,625 @@
 /**
- * Generate review PDFs: double- and triple-elimination bracket maps for 6–50 teams.
+ * Generate double-elimination bracket map PDFs in the “center R1 / winners right / losers left”
+ * poster style (see reference 27-team schedule). Covers every field size from 6–50 teams.
  *
- * Usage: npx tsx scripts/generate-elim-bracket-maps.ts
+ * Usage: npm run bracket-maps:generate
  * Output: docs/bracket-maps/double-elimination-6-to-50.pdf
- *         docs/bracket-maps/triple-elimination-6-to-50.pdf
- *
- * Conventions (documented on cover pages):
- * - Field size pads to next power of 2 with BYEs (same as Tournament Hub).
- * - Double-elim: winners + losers + one grand final (no forced rematch series).
- * - Triple-elim: proposed W / L1 / L2 model (not shipped in the app yet) — for review only.
+ *         docs/bracket-maps/triple-elimination-6-to-50.pdf (adapted 3-life layout)
  */
 
 import fs from "node:fs";
 import path from "node:path";
 import PDFDocument from "pdfkit";
-import {
-  byeCountForField,
-  classicSingleElimOrder,
-  nextPowerOfTwo,
-  singleElimRoundName,
-} from "../src/lib/services/bracket-engine";
 
 const OUT_DIR = path.join(process.cwd(), "docs", "bracket-maps");
 const TEAM_MIN = 6;
 const TEAM_MAX = 50;
 
-type Side = { label: string; isBye: boolean };
+// --- colors matching the reference poster ---
+const BLUE = "#1e3a8a";
+const BLUE_MID = "#2563eb";
+const BLUE_LIGHT = "#dbeafe";
+const CARD = "#1d4ed8";
+const CARD_EDGE = "#1e40af";
+const RED = "#b91c1c";
+const GREEN = "#15803d";
+const YELLOW = "#fef08a";
+const YELLOW_EDGE = "#ca8a04";
+const SLATE = "#334155";
+const MUTED = "#64748b";
+const COL_BAND = "#eff6ff";
+const COL_BAND_ALT = "#f8fafc";
 
-function firstRoundSides(teamCount: number): { home: Side; away: Side }[] {
-  const size = nextPowerOfTwo(teamCount);
-  const order = classicSingleElimOrder(size);
-  const placed: Side[] = order.map((seedIndex) => {
-    if (seedIndex < teamCount) {
-      return { label: `S${seedIndex + 1}`, isBye: false };
+type SideRef =
+  | { kind: "seed"; n: number }
+  | { kind: "bye" }
+  | { kind: "winner"; gameId: number }
+  | { kind: "loser"; gameId: number }
+  | { kind: "redraw"; label: string };
+
+type GameCard = {
+  id: number;
+  /** Global schedule round (1 = center column). */
+  round: number;
+  /** Horizontal lane: negative = losers (left), 0 = R1, positive = winners (right). */
+  lane: number;
+  home: SideRef;
+  away: SideRef;
+  /** Shown under card */
+  note?: string;
+  noteColor?: "red" | "green" | "amber";
+  redraw?: boolean;
+};
+
+type BracketPlan = {
+  teamCount: number;
+  games: GameCard[];
+  maxRound: number;
+  minLane: number;
+  maxLane: number;
+  byeSeeds: number[];
+  notes: string[];
+};
+
+function refLabel(r: SideRef): string {
+  switch (r.kind) {
+    case "seed":
+      return `Seed ${r.n}`;
+    case "bye":
+      return "BYE";
+    case "winner":
+      return `G${r.gameId} Winner`;
+    case "loser":
+      return `G${r.gameId} Loser`;
+    case "redraw":
+      return r.label;
+  }
+}
+
+/** Pair list into games; leftover seeds get byes (returned separately). */
+function pairSeeds(seeds: number[]): { pairs: [number, number][]; byes: number[] } {
+  const byes: number[] = [];
+  const work = [...seeds];
+  if (work.length % 2 === 1) {
+    // Highest seed (lowest number) gets the bye — classic.
+    byes.push(work.shift()!);
+  }
+  const pairs: [number, number][] = [];
+  // High vs low pairing within remaining
+  while (work.length >= 2) {
+    const a = work.shift()!;
+    const b = work.pop()!;
+    pairs.push([a, b]);
+  }
+  return { pairs, byes };
+}
+
+/**
+ * Build a schedule-style double-elim like the reference poster:
+ * - R1 center: floor(N/2) games + bye(s)
+ * - Winners lanes to the right, losers lanes to the left
+ * - Late rounds become rematch-avoiding re-draws when ≤6 teams remain in play
+ */
+function buildDoubleElimPlan(teamCount: number): BracketPlan {
+  const games: GameCard[] = [];
+  let nextId = 1;
+  const notes: string[] = [];
+
+  const allSeeds = Array.from({ length: teamCount }, (_, i) => i + 1);
+  const { pairs, byes } = pairSeeds(allSeeds);
+  const byeSeeds = byes;
+
+  // --- Round 1 (lane 0) ---
+  const r1Games: GameCard[] = [];
+  for (const [a, b] of pairs) {
+    const g: GameCard = {
+      id: nextId++,
+      round: 1,
+      lane: 0,
+      home: { kind: "seed", n: a },
+      away: { kind: "seed", n: b },
+      note: `Loser → losers bracket`,
+      noteColor: "amber",
+    };
+    r1Games.push(g);
+    games.push(g);
+  }
+  if (byeSeeds.length) {
+    notes.push(
+      `Round 1 bye(s): ${byeSeeds.map((s) => `Seed ${s}`).join(", ")} advance undefeated (no game).`,
+    );
+  }
+
+  // Track undefeated sources and one-loss sources as SideRefs for pairing
+  type Slot = { ref: SideRef; losses: 0 | 1 };
+  let undefeated: Slot[] = [
+    ...r1Games.map((g) => ({ ref: { kind: "winner" as const, gameId: g.id }, losses: 0 as const })),
+    ...byeSeeds.map((n) => ({ ref: { kind: "seed" as const, n }, losses: 0 as const })),
+  ];
+  let oneLoss: Slot[] = r1Games.map((g) => ({
+    ref: { kind: "loser" as const, gameId: g.id },
+    losses: 1 as const,
+  }));
+
+  let round = 2;
+  let wLane = 1;
+  let lLane = -1;
+
+  // Continue until we can form a championship path
+  // Cap rounds for safety
+  for (let guard = 0; guard < 40; guard++) {
+    const alive = undefeated.length + oneLoss.length;
+    if (alive <= 2) break;
+
+    // Late-stage: rematch-avoiding redraw when total alive <= 6 and we've had a few rounds
+    const useRedraw = alive <= 6 && round >= 4;
+
+    if (useRedraw) {
+      const pool = [...undefeated, ...oneLoss];
+      pool.sort((a, b) => refLabel(a.ref).localeCompare(refLabel(b.ref)));
+      const work = [...pool];
+      let byeSlot: Slot | null = null;
+      if (work.length % 2 === 1) byeSlot = work.shift()!;
+
+      const redrawGames: GameCard[] = [];
+      const paired: Array<{ a: Slot; b: Slot; g: GameCard }> = [];
+      while (work.length >= 2) {
+        const a = work.shift()!;
+        const b = work.shift()!;
+        const eitherAlreadyOneLoss = a.losses === 1 || b.losses === 1;
+        const g: GameCard = {
+          id: nextId++,
+          round,
+          lane: wLane,
+          home: a.ref,
+          away: b.ref,
+          redraw: true,
+          note: eitherAlreadyOneLoss
+            ? "Re-draw · loser eliminated if already 1-loss"
+            : "Re-draw · avoid prior matchups where possible",
+          noteColor: eitherAlreadyOneLoss ? "red" : "amber",
+        };
+        redrawGames.push(g);
+        paired.push({ a, b, g });
+        games.push(g);
+      }
+
+      notes.push(
+        `Round ${round}: ${alive} teams remain — matchups re-drawn avoiding previous matchups where possible; otherwise a draw decides pairings.`,
+      );
+      if (byeSlot) {
+        notes.push(`Round ${round}: ${refLabel(byeSlot.ref)} draws a bye this wave.`);
+      }
+
+      // Next wave: keep winner refs; drop undefeated-losers into oneLoss; eliminate 1-loss losers
+      const nextU: Slot[] = [];
+      const nextO: Slot[] = [];
+      if (byeSlot) {
+        if (byeSlot.losses === 0) nextU.push(byeSlot);
+        else nextO.push(byeSlot);
+      }
+      for (const { a, b, g } of paired) {
+        nextU.push({ ref: { kind: "winner", gameId: g.id }, losses: 0 });
+        // Unknown who loses — for structure maps, place a "loser" slot into oneLoss only when BOTH were undefeated
+        if (a.losses === 0 && b.losses === 0) {
+          nextO.push({ ref: { kind: "loser", gameId: g.id }, losses: 1 });
+        }
+      }
+      undefeated = nextU;
+      oneLoss = nextO;
+
+      if (undefeated.length + oneLoss.length <= 2) {
+        notes.push(
+          `Rounds ${round + 1}+ : championship — undefeated vs last 1-loss survivor; if 1-loss wins, optional IF rematch (policy TBD).`,
+        );
+      }
+      round++;
+      wLane++;
+      continue;
     }
-    return { label: "BYE", isBye: true };
-  });
-  const rounds: { home: Side; away: Side }[] = [];
-  for (let i = 0; i < size; i += 2) {
-    rounds.push({ home: placed[i]!, away: placed[i + 1]! });
+
+    // --- Winners games (undefeated vs undefeated) ---
+    const wWork = [...undefeated];
+    wWork.sort((a, b) => refLabel(a.ref).localeCompare(refLabel(b.ref)));
+    let wBye: Slot | null = null;
+    if (wWork.length % 2 === 1) wBye = wWork.shift()!;
+    const wGames: GameCard[] = [];
+    const nextUndefeated: Slot[] = wBye ? [wBye] : [];
+    const dropToLosers: SideRef[] = [];
+
+    while (wWork.length >= 2) {
+      const a = wWork.shift()!;
+      const b = wWork.shift()!;
+      const g: GameCard = {
+        id: nextId++,
+        round,
+        lane: wLane,
+        home: a.ref,
+        away: b.ref,
+        note: "Loser → losers bracket",
+        noteColor: "amber",
+      };
+      wGames.push(g);
+      games.push(g);
+      nextUndefeated.push({ ref: { kind: "winner", gameId: g.id }, losses: 0 });
+      dropToLosers.push({ kind: "loser", gameId: g.id });
+    }
+
+    // --- Losers games ---
+    // Incoming: existing oneLoss + drops from this winners round
+    const lPool: Slot[] = [
+      ...oneLoss,
+      ...dropToLosers.map((ref) => ({ ref, losses: 1 as const })),
+    ];
+    lPool.sort((a, b) => refLabel(a.ref).localeCompare(refLabel(b.ref)));
+    let lBye: Slot | null = null;
+    if (lPool.length % 2 === 1) lBye = lPool.shift()!;
+    const lGames: GameCard[] = [];
+    const nextOneLoss: Slot[] = lBye ? [lBye] : [];
+
+    while (lPool.length >= 2) {
+      const a = lPool.shift()!;
+      const b = lPool.shift()!;
+      const g: GameCard = {
+        id: nextId++,
+        round,
+        lane: lLane,
+        home: a.ref,
+        away: b.ref,
+        note: "Loser is eliminated",
+        noteColor: "red",
+      };
+      lGames.push(g);
+      games.push(g);
+      nextOneLoss.push({ ref: { kind: "winner", gameId: g.id }, losses: 1 });
+    }
+
+    if (wGames.length === 0 && lGames.length === 0) break;
+
+    undefeated = nextUndefeated;
+    oneLoss = nextOneLoss;
+    round++;
+    wLane++;
+    lLane--;
   }
-  return rounds;
-}
 
-function winnersRoundGameCounts(slots: number): number[] {
-  const counts: number[] = [];
-  for (let g = slots / 2; g >= 1; g /= 2) counts.push(g);
-  return counts;
-}
+  // Championship card(s) on far right
+  const finalRound = round;
+  const gf: GameCard = {
+    id: nextId++,
+    round: finalRound,
+    lane: wLane,
+    home: { kind: "redraw", label: "Undefeated champ" },
+    away: { kind: "redraw", label: "Losers champ" },
+    note: "Grand Final · if losers champ wins, optional IF (policy TBD)",
+    noteColor: "green",
+  };
+  games.push(gf);
 
-/** Canonical double-elim losers round game counts for a power-of-2 field. */
-function doubleLosersRoundGameCounts(slots: number): number[] {
-  // Standard: losers has 2*log2(P)-1 rounds with pattern P/2-1, P/2-1, P/4-1, P/4-1, ... then 1
-  const rounds = 2 * Math.log2(slots) - 1;
-  const out: number[] = [];
-  let games = slots / 2 - 1;
-  for (let r = 0; r < rounds; r++) {
-    out.push(Math.max(1, games));
-    // Alternate: after every two losers rounds, halve (when dropping from next winners round)
-    if (r % 2 === 1) games = Math.max(1, Math.floor(games / 2));
-  }
-  // Ensure last is losers final (1)
-  out[out.length - 1] = 1;
-  return out;
-}
+  notes.push(
+    "Late rounds: when few teams remain, matchups are re-drawn avoiding previous meetings where possible (same idea as your 27-team Round 6+ notes).",
+  );
 
-/** Proposed triple-elim: L1 similar to double losers; L2 absorbs second losses. */
-function tripleL1RoundGameCounts(slots: number): number[] {
-  return doubleLosersRoundGameCounts(slots);
-}
-
-function tripleL2RoundGameCounts(slots: number): number[] {
-  // Roughly another full losers-depth tree for 2-loss teams; end with 1 finalist
-  const rounds = Math.max(1, 2 * Math.log2(slots) - 2);
-  const out: number[] = [];
-  let games = Math.max(1, slots / 2 - 2);
-  for (let r = 0; r < rounds; r++) {
-    out.push(Math.max(1, games));
-    if (r % 2 === 1) games = Math.max(1, Math.floor(games / 2));
-  }
-  out[out.length - 1] = 1;
-  return out;
-}
-
-function sum(nums: number[]) {
-  return nums.reduce((a, b) => a + b, 0);
-}
-
-function playedFirstRoundGames(first: { home: Side; away: Side }[]) {
-  return first.filter((g) => !g.home.isBye && !g.away.isBye).length;
-}
-
-function estimateDoubleElimGames(teamCount: number): {
-  slots: number;
-  byes: number;
-  winnersSlots: number;
-  losersSlots: number;
-  grandFinal: number;
-  approxTeamGames: number;
-} {
-  const slots = nextPowerOfTwo(teamCount);
-  const byes = byeCountForField(teamCount);
-  const w = winnersRoundGameCounts(slots);
-  const l = doubleLosersRoundGameCounts(slots);
-  // Real contested games ≈ 2*teamCount - 2 (classic double-elim identity)
+  const lanes = games.map((g) => g.lane);
   return {
-    slots,
-    byes,
-    winnersSlots: sum(w),
-    losersSlots: sum(l),
-    grandFinal: 1,
-    approxTeamGames: 2 * teamCount - 2,
+    teamCount,
+    games,
+    maxRound: Math.max(...games.map((g) => g.round)),
+    minLane: Math.min(...lanes),
+    maxLane: Math.max(...lanes),
+    byeSeeds,
+    notes,
   };
 }
 
-function estimateTripleElimGames(teamCount: number) {
-  const slots = nextPowerOfTwo(teamCount);
-  const byes = byeCountForField(teamCount);
-  const w = winnersRoundGameCounts(slots);
-  const l1 = tripleL1RoundGameCounts(slots);
-  const l2 = tripleL2RoundGameCounts(slots);
+/** Triple-elim adaptation: same poster layout but L2 lane further left; third loss eliminates. */
+function buildTripleElimPlan(teamCount: number): BracketPlan {
+  // Start from double plan then retarget: losers-lane games that would eliminate instead drop to L2.
+  const base = buildDoubleElimPlan(teamCount);
+  const games: GameCard[] = [];
+  let nextId = Math.max(...base.games.map((g) => g.id)) + 1;
+  const l2Lane = base.minLane - 1;
+  const notes = [
+    "PROPOSED triple-elim poster (not shipped). Same center/right/left idea; third loss eliminates in L2.",
+    ...base.notes.filter((n) => !n.startsWith("Late rounds")),
+  ];
+
+  for (const g of base.games) {
+    if (g.lane < 0 && g.noteColor === "red") {
+      // Convert elimination losers games into “drop to L2”
+      games.push({
+        ...g,
+        note: "Loser → L2 (2-loss bracket)",
+        noteColor: "amber",
+      });
+      games.push({
+        id: nextId++,
+        round: g.round,
+        lane: l2Lane,
+        home: { kind: "loser", gameId: g.id },
+        away: { kind: "redraw", label: "L2 opponent / bye" },
+        note: "Loser is eliminated (3rd loss)",
+        noteColor: "red",
+      });
+    } else {
+      games.push(g);
+    }
+  }
+
+  const lanes = games.map((g) => g.lane);
   return {
-    slots,
-    byes,
-    winnersSlots: sum(w),
-    l1Slots: sum(l1),
-    l2Slots: sum(l2),
-    grandFinal: 1,
-    // Rough: ~3n - c contested games
-    approxTeamGames: 3 * teamCount - 3,
+    teamCount,
+    games,
+    maxRound: Math.max(...games.map((g) => g.round)),
+    minLane: Math.min(...lanes),
+    maxLane: Math.max(...lanes),
+    byeSeeds: base.byeSeeds,
+    notes,
   };
 }
 
-function drawBox(
+// --- Drawing ---
+
+const CARD_W = 118;
+const CARD_H = 52;
+const COL_GAP = 28;
+const HEADER_H = 36;
+
+function pageSizeFor(plan: BracketPlan): [number, number] {
+  const lanes = plan.maxLane - plan.minLane + 1;
+  const width = Math.max(1100, 80 + lanes * (CARD_W + COL_GAP) + 80);
+  // Tallest column game count
+  const byLane = new Map<number, number>();
+  for (const g of plan.games) {
+    byLane.set(g.lane, (byLane.get(g.lane) ?? 0) + 1);
+  }
+  let maxGames = 1;
+  for (const c of byLane.values()) maxGames = Math.max(maxGames, c);
+  const height = Math.max(720, 100 + maxGames * (CARD_H + 14) + 120);
+  return [width, height];
+}
+
+function drawGameCard(
   doc: PDFKit.PDFDocument,
+  g: GameCard,
   x: number,
   y: number,
-  w: number,
-  h: number,
-  text: string,
-  opts?: { fill?: string; fontSize?: number },
 ) {
+  // meta line
+  doc.fontSize(5.5).fillColor(MUTED).font("Helvetica");
+  doc.text(`Field · TBD`, x, y - 9, { width: CARD_W, align: "left", lineBreak: false });
+
+  const fill = g.redraw ? "#1e40af" : CARD;
+  doc.roundedRect(x, y, CARD_W, CARD_H, 3).fillAndStroke(fill, CARD_EDGE);
+
+  // G# badge
+  doc.roundedRect(x + 3, y + 3, 28, 12, 2).fill("#eff6ff");
+  doc.fillColor(BLUE).fontSize(7).font("Helvetica-Bold");
+  doc.text(`G${g.id}`, x + 3, y + 4, { width: 28, align: "center", lineBreak: false });
+
+  if (g.redraw) {
+    doc.fillColor(YELLOW).fontSize(5.5).font("Helvetica-Bold");
+    doc.text("RE-DRAW", x + 34, y + 5, { lineBreak: false });
+  }
+
+  // team rows + score boxes
+  const rows = [refLabel(g.home), refLabel(g.away)];
+  for (let i = 0; i < 2; i++) {
+    const ty = y + 18 + i * 15;
+    doc.fillColor("#ffffff").fontSize(6.5).font("Helvetica");
+    doc.text(rows[i]!, x + 6, ty, { width: CARD_W - 34, lineBreak: false, ellipsis: true });
+    doc.rect(x + CARD_W - 24, ty - 1, 9, 10).fillAndStroke("#fff", "#93c5fd");
+    doc.rect(x + CARD_W - 13, ty - 1, 9, 10).fillAndStroke("#86efac", "#16a34a");
+  }
+
+  if (g.note) {
+    const c = g.noteColor === "red" ? RED : g.noteColor === "green" ? GREEN : "#a16207";
+    doc.fillColor(c).fontSize(5).font("Helvetica");
+    doc.text(g.note, x, y + CARD_H + 2, { width: CARD_W, align: "left" });
+  }
+}
+
+function laneTitle(lane: number, round: number, teamCountApprox: number): string {
+  if (lane === 0) return `Round ${round} · Opening`;
+  if (lane > 0) return `Round ${round} · Winners`;
+  return `Round ${round} · Losers`;
+}
+
+function drawPlanPage(doc: PDFKit.PDFDocument, plan: BracketPlan, kind: "double" | "triple") {
+  const [W, H] = pageSizeFor(plan);
+  doc.addPage({ size: [W, H], margins: 0 });
+
+  // background
+  doc.rect(0, 0, W, H).fill("#ffffff");
+
+  // title bar
+  doc.rect(0, 0, W, 44).fill(BLUE);
+  doc.fillColor("#fff").fontSize(14).font("Helvetica-Bold");
+  const title =
+    kind === "double"
+      ? `Double Elimination · ${plan.teamCount} Teams`
+      : `Triple Elimination (proposed) · ${plan.teamCount} Teams`;
+  doc.text(title, 24, 14, { lineBreak: false });
+  doc.fontSize(9).font("Helvetica");
+  doc.text(
+    `G1–G${Math.max(...plan.games.map((g) => g.id))} · losers left · winners right · center = Round 1`,
+    24,
+    30,
+    { lineBreak: false },
+  );
+
+  // column bands
+  const lanes: number[] = [];
+  for (let L = plan.minLane; L <= plan.maxLane; L++) lanes.push(L);
+  const totalCols = lanes.length;
+  const usableW = W - 48;
+  const colW = usableW / totalCols;
+  const originX = 24;
+  const originY = 70;
+
+  for (let i = 0; i < lanes.length; i++) {
+    const L = lanes[i]!;
+    const x = originX + i * colW;
+    doc.rect(x, originY - 8, colW - 4, H - originY - 40).fill(i % 2 === 0 ? COL_BAND : COL_BAND_ALT);
+  }
+
+  // headers + cards
+  const positions = new Map<number, { x: number; y: number; cx: number; cy: number }>();
+
+  for (let i = 0; i < lanes.length; i++) {
+    const L = lanes[i]!;
+    const colX = originX + i * colW;
+    const colGames = plan.games
+      .filter((g) => g.lane === L)
+      .sort((a, b) => a.id - b.id);
+
+    const roundNum = colGames[0]?.round ?? 1;
+    const aliveGuess =
+      L === 0
+        ? plan.teamCount
+        : Math.max(2, Math.round(plan.teamCount * Math.pow(0.75, Math.abs(L))));
+
+    // header pill
+    doc.roundedRect(colX + 4, originY - 4, colW - 12, HEADER_H - 8, 3).fill(BLUE);
+    doc.fillColor("#fff").fontSize(7).font("Helvetica-Bold");
+    const head =
+      L < 0
+        ? `Losers · R${roundNum}`
+        : L === 0
+          ? `Round 1`
+          : L === plan.maxLane
+            ? `Finals`
+            : `Winners · R${roundNum}`;
+    doc.text(head, colX + 8, originY + 2, { width: colW - 20, align: "center", lineBreak: false });
+    doc.fontSize(5.5).font("Helvetica");
+    doc.text(
+      L === 0
+        ? `${colGames.length} games` +
+            (plan.byeSeeds.length ? ` · ${plan.byeSeeds.length} bye` : "")
+        : `~${aliveGuess} teams remaining`,
+      colX + 8,
+      originY + 14,
+      { width: colW - 20, align: "center", lineBreak: false },
+    );
+
+    const stackH = colGames.length * (CARD_H + 18);
+    let y = originY + HEADER_H + Math.max(0, (H - originY - 80 - stackH) / 2);
+
+    for (const g of colGames) {
+      const x = colX + (colW - CARD_W) / 2 - 2;
+      drawGameCard(doc, g, x, y);
+      positions.set(g.id, {
+        x,
+        y,
+        cx: x + CARD_W / 2,
+        cy: y + CARD_H / 2,
+      });
+      y += CARD_H + 18;
+    }
+  }
+
+  // connector lines: winner of G feeds into cards that reference it
   doc.save();
-  doc.roundedRect(x, y, w, h, 2).fillAndStroke(opts?.fill ?? "#ffffff", "#334155");
-  doc.fillColor("#0f172a").fontSize(opts?.fontSize ?? 7).font("Helvetica");
-  doc.text(text, x + 2, y + (h - (opts?.fontSize ?? 7)) / 2 - 1, {
-    width: w - 4,
-    align: "center",
-    lineBreak: false,
-  });
-  doc.restore();
-}
-
-function drawWinnersTree(
-  doc: PDFKit.PDFDocument,
-  teamCount: number,
-  originX: number,
-  originY: number,
-  maxWidth: number,
-  maxHeight: number,
-) {
-  const slots = nextPowerOfTwo(teamCount);
-  const first = firstRoundSides(teamCount);
-  const roundCounts = winnersRoundGameCounts(slots);
-  const rounds = roundCounts.length;
-
-  // Cap visual density
-  const boxH = Math.min(14, Math.max(8, (maxHeight - 20) / Math.max(first.length, 1) - 2));
-  const boxW = Math.min(72, maxWidth / (rounds + 1) - 12);
-  const gapY = boxH + 2;
-
-  doc.fontSize(9).fillColor("#1e3a8a").font("Helvetica-Bold").text("Winners bracket", originX, originY - 14);
-
-  // Round 0 positions
-  const colXs: number[] = [];
-  for (let r = 0; r < rounds; r++) {
-    colXs.push(originX + r * (boxW + 18));
-  }
-
-  type Node = { x: number; y: number; label: string };
-  const nodes: Node[][] = [];
-
-  // Round 0
-  const r0: Node[] = [];
-  const totalH = first.length * gapY;
-  const startY = originY + Math.max(0, (maxHeight - totalH) / 2);
-  for (let i = 0; i < first.length; i++) {
-    const g = first[i]!;
-    const label =
-      g.home.isBye || g.away.isBye
-        ? `${g.home.label} / ${g.away.label}`
-        : `${g.home.label} vs ${g.away.label}`;
-    const y = startY + i * gapY;
-    const x = colXs[0]!;
-    drawBox(doc, x, y, boxW, boxH, label, {
-      fill: g.home.isBye || g.away.isBye ? "#ffedd5" : "#eff6ff",
-      fontSize: slots >= 32 ? 5.5 : 6.5,
-    });
-    r0.push({ x: x + boxW, y: y + boxH / 2, label });
-  }
-  nodes.push(r0);
-
-  // Later rounds: abstract winners
-  for (let r = 1; r < rounds; r++) {
-    const count = roundCounts[r]!;
-    const prev = nodes[r - 1]!;
-    const row: Node[] = [];
-    const name = singleElimRoundName(r, rounds);
-    for (let i = 0; i < count; i++) {
-      const a = prev[i * 2];
-      const b = prev[i * 2 + 1];
-      const y = a && b ? (a.y + b.y) / 2 - boxH / 2 : startY + i * (maxHeight / count);
-      const x = colXs[r]!;
-      const label = r === rounds - 1 ? "W Final" : `${name} ${i + 1}`;
-      drawBox(doc, x, y, boxW, boxH, label, { fill: "#dbeafe", fontSize: 6.5 });
-      if (a) {
-        doc
-          .strokeColor("#94a3b8")
-          .moveTo(a.x, a.y)
-          .lineTo(x, y + boxH / 2)
-          .stroke();
-      }
-      if (b) {
-        doc
-          .strokeColor("#94a3b8")
-          .moveTo(b.x, b.y)
-          .lineTo(x, y + boxH / 2)
-          .stroke();
-      }
-      row.push({ x: x + boxW, y: y + boxH / 2, label });
-    }
-    nodes.push(row);
-  }
-
-  return { endX: colXs[rounds - 1]! + boxW, endY: startY + first.length * gapY };
-}
-
-function drawRoundLadder(
-  doc: PDFKit.PDFDocument,
-  title: string,
-  counts: number[],
-  x: number,
-  y: number,
-  width: number,
-  color: string,
-) {
-  doc.fontSize(9).fillColor(color).font("Helvetica-Bold").text(title, x, y);
-  let cy = y + 16;
-  doc.font("Helvetica").fillColor("#334155").fontSize(7.5);
-  for (let i = 0; i < counts.length; i++) {
-    const g = counts[i]!;
-    const label =
-      i === counts.length - 1
-        ? `Final · ${g} game`
-        : `Round ${i + 1} · ${g} game${g === 1 ? "" : "s"}`;
-    doc.roundedRect(x, cy, width, 14, 2).fillAndStroke("#fff", color);
-    doc.fillColor("#0f172a").text(label, x + 6, cy + 3, { width: width - 12 });
-    if (i < counts.length - 1) {
+  for (const g of plan.games) {
+    const to = positions.get(g.id);
+    if (!to) continue;
+    for (const side of [g.home, g.away]) {
+      if (side.kind !== "winner" && side.kind !== "loser") continue;
+      const from = positions.get(side.gameId);
+      if (!from) continue;
+      const isDrop = side.kind === "loser";
+      doc.strokeColor(isDrop ? "#94a3b8" : BLUE_MID).lineWidth(0.8);
+      const x1 = from.x + (from.x < to.x ? CARD_W : 0);
+      const y1 = from.cy;
+      const x2 = to.x + (from.x < to.x ? 0 : CARD_W);
+      const y2 = to.y + 24;
+      const mid = (x1 + x2) / 2;
       doc
-        .strokeColor("#cbd5e1")
-        .moveTo(x + width / 2, cy + 14)
-        .lineTo(x + width / 2, cy + 20)
+        .moveTo(x1, y1)
+        .bezierCurveTo(mid, y1, mid, y2, x2, y2)
         .stroke();
     }
-    cy += 20;
   }
-  return cy;
+  doc.restore();
+
+  // bye callout
+  if (plan.byeSeeds.length) {
+    doc.roundedRect(24, H - 36, 320, 22, 3).fillAndStroke(YELLOW, YELLOW_EDGE);
+    doc.fillColor(SLATE).fontSize(7).font("Helvetica");
+    doc.text(
+      `BYE Round 1: ${plan.byeSeeds.map((s) => `Seed ${s}`).join(", ")} (no game — undefeated)`,
+      30,
+      H - 30,
+      { lineBreak: false },
+    );
+  }
+
+  // footer notes (truncated)
+  const note = plan.notes[0];
+  if (note) {
+    doc.fillColor(MUTED).fontSize(6).font("Helvetica");
+    doc.text(note, 360, H - 32, { width: W - 380, lineBreak: false, ellipsis: true });
+  }
 }
 
-function addCover(
-  doc: PDFKit.PDFDocument,
-  kind: "double" | "triple",
-) {
-  doc.addPage({ size: "LETTER", layout: "landscape", margin: 36 });
-  doc.fontSize(22).fillColor("#1e3a8a").font("Helvetica-Bold");
+function addCover(doc: PDFKit.PDFDocument, kind: "double" | "triple") {
+  doc.addPage({ size: "LETTER", layout: "landscape", margin: 40 });
+  doc.rect(0, 0, 800, 60).fill(BLUE);
+  doc.fillColor("#fff").fontSize(18).font("Helvetica-Bold");
   doc.text(
-    kind === "double" ? "Double Elimination Bracket Maps" : "Triple Elimination Bracket Maps",
-    { align: "center" },
+    kind === "double"
+      ? "Double Elimination Bracket Maps (poster style)"
+      : "Triple Elimination Bracket Maps (proposed)",
+    40,
+    22,
   );
-  doc.moveDown(0.5);
-  doc.fontSize(12).fillColor("#334155").font("Helvetica");
-  doc.text(`Playoff fields for ${TEAM_MIN}–${TEAM_MAX} teams`, { align: "center" });
-  doc.moveDown(1);
-  doc.fontSize(10).fillColor("#0f172a");
-  const bullets =
+  doc.fillColor(SLATE).fontSize(11).font("Helvetica");
+  doc.text(`One landscape poster page per field size · ${TEAM_MIN}–${TEAM_MAX} teams`, 40, 80);
+  doc.moveDown();
+  doc.fontSize(10);
+  const lines =
     kind === "double"
       ? [
-          "Padding: each team count pads to the next power of 2 with BYEs (Tournament Hub rule).",
-          "Seeding: classic single-elim positions (S1 meets lowest seed late); top seeds get BYEs first.",
-          "Structure: Winners bracket → Losers bracket → one Grand Final (no IF necessary rematch series).",
-          "Orange boxes = first-round games involving a BYE (auto-advance).",
-          "Contested-game estimate uses the classic identity ≈ 2N − 2 for N real teams.",
-          "Losers round sizes follow a canonical feed-in pattern for review (may differ slightly from app v1 slot counts).",
+          "Layout matches your 27-team reference: Round 1 in the center, winners bracket to the right, losers bracket to the left.",
+          "Each card: game number (G#), two slots, score boxes, and fate notes (drop / eliminated / re-draw).",
+          "Grey curves = loser drops into the losers bracket; blue curves = winner advances.",
+          "When few teams remain, cards marked RE-DRAW use rematch-avoiding pairing notes (same idea as your Round 6+).",
+          "Seeds are placeholders (Seed 1…N). Field/time are TBD for scheduling later.",
+          "This is a review packet for structure — not a live schedule export from the app.",
         ]
       : [
-          "PROPOSED model for review — triple elimination is NOT shipped in Tournament Hub yet.",
-          "Padding / seeding: same power-of-2 + BYE + classic seed order as double-elim.",
-          "Three lives: lose in W → L1 (1 loss); lose in L1 → L2 (2 losses); lose in L2 → eliminated.",
-          "Grand Final: W champion vs L2 champion (one game for these maps; reset rules TBD).",
-          "L1 / L2 ladders are schematic round counts for planning day length — validate before coding.",
-          "Contested-game estimate ≈ 3N − 3 (order-of-magnitude for field/time planning).",
+          "Same poster layout as double-elim, extended with an L2 (2-loss) lane further left.",
+          "PROPOSED only — triple elimination is not implemented in Tournament Hub yet.",
+          "Third loss eliminates; late re-draw notes still apply when the field is small.",
         ];
-  for (const b of bullets) {
-    doc.text(`•  ${b}`, { indent: 24, paragraphGap: 4 });
+  for (const line of lines) {
+    doc.fillColor(SLATE).text(`•  ${line}`, { paragraphGap: 6 });
   }
-  doc.moveDown(1);
-  doc.fontSize(9).fillColor("#64748b");
-  doc.text(`Generated ${new Date().toISOString().slice(0, 10)} · Tournament Hub review packet`, {
-    align: "center",
-  });
 }
 
-function addIndexTable(doc: PDFKit.PDFDocument, kind: "double" | "triple") {
+function addIndex(doc: PDFKit.PDFDocument, kind: "double" | "triple") {
   doc.addPage({ size: "LETTER", layout: "landscape", margin: 36 });
-  doc.fontSize(14).fillColor("#1e3a8a").font("Helvetica-Bold").text("Index — all sizes at a glance");
+  doc.fontSize(14).fillColor(BLUE).font("Helvetica-Bold").text("Index");
   doc.moveDown(0.5);
-
-  const startY = doc.y;
-  const colW = [40, 40, 40, 55, 55, 55, 70, 90];
-  const headers =
-    kind === "double"
-      ? ["N", "Slots", "Byes", "W games*", "L games*", "GF", "≈ Contested", "Page"]
-      : ["N", "Slots", "Byes", "W*", "L1*", "L2*", "≈ Contested", "Page"];
-
+  doc.fontSize(8).fillColor(SLATE).font("Helvetica");
+  let y = 70;
   let x = 36;
-  doc.fontSize(8).font("Helvetica-Bold").fillColor("#0f172a");
-  for (let i = 0; i < headers.length; i++) {
-    doc.text(headers[i]!, x, startY, { width: colW[i], align: "left" });
-    x += colW[i]!;
-  }
-  doc
-    .moveTo(36, startY + 12)
-    .lineTo(760, startY + 12)
-    .strokeColor("#cbd5e1")
-    .stroke();
-
-  let y = startY + 16;
-  doc.font("Helvetica").fontSize(8);
   for (let n = TEAM_MIN; n <= TEAM_MAX; n++) {
-    if (y > 560) {
-      doc.addPage({ size: "LETTER", layout: "landscape", margin: 36 });
-      y = 48;
-    }
-    const pageNum = n - TEAM_MIN + 3; // cover + index ≈ pages 1-2, then detail
-    x = 36;
-    const row =
-      kind === "double"
-        ? (() => {
-            const e = estimateDoubleElimGames(n);
-            return [
-              String(n),
-              String(e.slots),
-              String(e.byes),
-              String(e.winnersSlots),
-              String(e.losersSlots),
-              "1",
-              String(e.approxTeamGames),
-              `~${pageNum}`,
-            ];
-          })()
-        : (() => {
-            const e = estimateTripleElimGames(n);
-            return [
-              String(n),
-              String(e.slots),
-              String(e.byes),
-              String(e.winnersSlots),
-              String(e.l1Slots),
-              String(e.l2Slots),
-              String(e.approxTeamGames),
-              `~${pageNum}`,
-            ];
-          })();
-    doc.fillColor(n % 2 === 0 ? "#0f172a" : "#334155");
-    for (let i = 0; i < row.length; i++) {
-      doc.text(row[i]!, x, y, { width: colW[i], align: "left" });
-      x += colW[i]!;
-    }
+    const plan = kind === "double" ? buildDoubleElimPlan(n) : buildTripleElimPlan(n);
+    const losers = plan.games.filter((g) => g.lane < 0).length;
+    const winners = plan.games.filter((g) => g.lane > 0).length;
+    const r1 = plan.games.filter((g) => g.lane === 0).length;
+    doc.text(
+      `${n} teams · ${plan.games.length} games (R1 ${r1} · W ${winners} · L ${losers}) · byes ${plan.byeSeeds.length}`,
+      x,
+      y,
+    );
     y += 11;
+    if (y > 560) {
+      y = 70;
+      x += 380;
+    }
   }
-  doc.fontSize(7).fillColor("#64748b").text(
-    "* Slot/game counts include bracket positions (BYE auto-advances still occupy a first-round slot). ≈ Contested estimates real team-vs-team games.",
-    36,
-    575,
-    { width: 720 },
-  );
-}
-
-function addDetailPage(doc: PDFKit.PDFDocument, kind: "double" | "triple", teamCount: number) {
-  doc.addPage({ size: "LETTER", layout: "landscape", margin: 28 });
-  const slots = nextPowerOfTwo(teamCount);
-  const byes = byeCountForField(teamCount);
-
-  doc.fontSize(13).fillColor("#1e3a8a").font("Helvetica-Bold");
-  doc.text(
-    `${kind === "double" ? "Double" : "Triple"} elimination · ${teamCount} teams → ${slots}-slot field (${byes} BYE${byes === 1 ? "" : "s"})`,
-    28,
-    24,
-  );
-
-  if (kind === "double") {
-    const e = estimateDoubleElimGames(teamCount);
-    doc.fontSize(8).fillColor("#334155").font("Helvetica");
-    doc.text(
-      `Winners slots ${e.winnersSlots} · Losers slots ${e.losersSlots} · Grand final 1 · ≈ ${e.approxTeamGames} contested games (2N−2)`,
-      28,
-      42,
-    );
-  } else {
-    const e = estimateTripleElimGames(teamCount);
-    doc.fontSize(8).fillColor("#9a3412").font("Helvetica-Bold");
-    doc.text("PROPOSED — not implemented in app", 28, 42);
-    doc.font("Helvetica").fillColor("#334155");
-    doc.text(
-      `W ${e.winnersSlots} · L1 ${e.l1Slots} · L2 ${e.l2Slots} · GF 1 · ≈ ${e.approxTeamGames} contested (3N−3)`,
-      200,
-      42,
-    );
-  }
-
-  // Winners tree (left)
-  const treeMaxH = slots <= 16 ? 480 : slots <= 32 ? 500 : 520;
-  drawWinnersTree(doc, teamCount, 28, 70, slots <= 16 ? 420 : 380, treeMaxH);
-
-  // Right side ladders
-  const lx = slots <= 16 ? 470 : 430;
-  if (kind === "double") {
-    const lCounts = doubleLosersRoundGameCounts(slots);
-    let y = drawRoundLadder(doc, "Losers bracket (feed-in)", lCounts, lx, 70, 280, "#c2410c");
-    y += 12;
-    drawBox(doc, lx, y, 280, 22, "Grand Final · W champ vs L champ (1 game)", {
-      fill: "#fef3c7",
-      fontSize: 8,
-    });
-    doc.fontSize(7).fillColor("#64748b").font("Helvetica");
-    doc.text(
-      "Drops: every winners-bracket loss feeds the losers bracket. Lose in losers → eliminated. Win losers → grand final.",
-      lx,
-      y + 30,
-      { width: 300 },
-    );
-  } else {
-    const l1 = tripleL1RoundGameCounts(slots);
-    const l2 = tripleL2RoundGameCounts(slots);
-    let y = drawRoundLadder(doc, "L1 — one loss", l1, lx, 70, 150, "#c2410c");
-    y = drawRoundLadder(doc, "L2 — two losses", l2, lx + 160, 70, 150, "#9a3412");
-    y = Math.max(y, 70 + 16 + l1.length * 20) + 16;
-    drawBox(doc, lx, y, 310, 22, "Grand Final · W champ vs L2 champ (1 game)", {
-      fill: "#fef3c7",
-      fontSize: 8,
-    });
-    doc.fontSize(7).fillColor("#64748b").font("Helvetica");
-    doc.text(
-      "Flow: W loss → L1; L1 loss → L2; L2 loss → out. Rematch-avoidance (optional) can re-pair open L1/L2 rounds.",
-      lx,
-      y + 30,
-      { width: 310 },
-    );
-  }
-
-  // First-round list footnote for large fields
-  if (slots >= 32) {
-    doc.fontSize(6.5).fillColor("#64748b").text(
-      "Large field: winners boxes are compacted; first-round labels show S# seeds and BYEs. See index for totals.",
-      28,
-      575,
-      { width: 400 },
-    );
-  }
-
-  const first = firstRoundSides(teamCount);
-  const played = playedFirstRoundGames(first);
-  doc.fontSize(7).fillColor("#475569");
-  doc.text(
-    `First round: ${first.length} slots · ${played} played now · ${first.length - played} BYE advances`,
-    28,
-    560,
-  );
 }
 
 async function writePdf(kind: "double" | "triple", fileName: string) {
@@ -487,9 +630,10 @@ async function writePdf(kind: "double" | "triple", fileName: string) {
   doc.pipe(stream);
 
   addCover(doc, kind);
-  addIndexTable(doc, kind);
+  addIndex(doc, kind);
   for (let n = TEAM_MIN; n <= TEAM_MAX; n++) {
-    addDetailPage(doc, kind, n);
+    const plan = kind === "double" ? buildDoubleElimPlan(n) : buildTripleElimPlan(n);
+    drawPlanPage(doc, plan, kind);
   }
 
   doc.end();
@@ -501,8 +645,19 @@ async function writePdf(kind: "double" | "triple", fileName: string) {
 }
 
 async function main() {
-  const d = await writePdf("double", "double-elimination-6-to-50.pdf");
-  const t = await writePdf("triple", "triple-elimination-6-to-50.pdf");
+  const d = await writePdf("double", "double-elimination-6-to-50-poster.pdf");
+  const t = await writePdf("triple", "triple-elimination-6-to-50-poster.pdf");
+  // Also refresh canonical names when not locked
+  for (const [src, dest] of [
+    ["double-elimination-6-to-50-poster.pdf", "double-elimination-6-to-50.pdf"],
+    ["triple-elimination-6-to-50-poster.pdf", "triple-elimination-6-to-50.pdf"],
+  ] as const) {
+    try {
+      await fs.promises.copyFile(path.join(OUT_DIR, src), path.join(OUT_DIR, dest));
+    } catch {
+      console.warn(`Could not overwrite ${dest} (file open?) — use ${src}`);
+    }
+  }
   console.log("Wrote:");
   console.log(" ", d);
   console.log(" ", t);

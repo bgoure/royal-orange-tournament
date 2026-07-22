@@ -6,16 +6,20 @@ Generated with:
 npm run bracket-maps:generate
 ```
 
-## Files
+## Files (poster style)
 
 | File | Contents |
 |------|----------|
-| [double-elimination-6-to-50.pdf](./double-elimination-6-to-50.pdf) | Cover, index table, one landscape page per team count 6–50 |
-| [triple-elimination-6-to-50.pdf](./triple-elimination-6-to-50.pdf) | Same for **proposed** triple-elim (not shipped in the app) |
+| [double-elimination-6-to-50-poster.pdf](./double-elimination-6-to-50-poster.pdf) | **Use this** — center Round 1, winners right, losers left (like the 27-team reference) |
+| [triple-elimination-6-to-50-poster.pdf](./triple-elimination-6-to-50-poster.pdf) | Same layout + L2 lane (proposed) |
+| [reference-27-team-double-elim.png](./reference-27-team-double-elim.png) | Your reference poster |
 
-## Conventions
+If `double-elimination-6-to-50.pdf` is open in a viewer, regenerate writes `*-poster.pdf` first so generation still succeeds.
 
-- Field size pads to the next power of 2 with **BYE**s (same as Tournament Hub).
-- Seeds use classic single-elim order (`S1`…); top seeds receive byes first.
-- **Double:** winners + losers + one grand final (no IF necessary rematch series).
-- **Triple:** review-only W / L1 / L2 model — validate before implementing.
+## Layout
+
+- **Center:** Round 1 games (Seed vs Seed) + bye callout
+- **Right:** Winners-bracket rounds (blue feed lines)
+- **Left:** Losers-bracket rounds (grey drop lines; red “eliminated” notes)
+- **Late rounds:** `RE-DRAW` cards when ≤6 teams remain (avoid rematches where possible)
+- Each card: **G#**, two slots, score boxes, fate note
