@@ -19,6 +19,7 @@ import { ConfirmForm } from "@/components/admin/structure/ConfirmForm";
 import { formatJsDateAsDatetimeLocalInZone } from "@/lib/datetime-tournament";
 import { formatFieldWithLocation } from "@/lib/field-display";
 import { tournamentPathFromBase } from "@/lib/tournament-public-path";
+import { classicSingleElimOrder } from "@/lib/services/bracket-engine";
 import type { Pool } from "@prisma/client";
 
 type PoolRow = Pool & { division: { name: string } };
@@ -89,30 +90,30 @@ function isByeSide(side: FirstRoundSide): side is { bye: true } {
   return "bye" in side && side.bye === true;
 }
 
+/**
+ * Interleave pools by finish rank (pool #1 seeds, then pool #2 seeds, …) up to `entrySize` real
+ * slots, then place them via classic single-elim seeding so any shortfall becomes BYEs on the
+ * top seeds (standard tournament convention — see `classicSingleElimOrder`).
+ */
 function defaultFirstRound(pools: { id: string; teamCount: number }[], entrySize: number): FirstRoundSlot[] {
-  const pairs = entrySize / 2;
-  const out: FirstRoundSlot[] = [];
-  if (pools.length === 0) return out;
-  if (pools.length >= 2) {
-    const a = pools[0]!;
-    const b = pools[1]!;
-    for (let m = 0; m < pairs; m++) {
-      const rank = m + 1;
-      out.push({
-        home: { poolId: a.id, rank: Math.min(rank, Math.max(1, a.teamCount)) },
-        away: { poolId: b.id, rank: Math.min(rank, Math.max(1, b.teamCount)) },
-      });
+  const half = entrySize / 2;
+  const realSlots: { poolId: string; rank: number }[] = [];
+  if (pools.length > 0) {
+    for (let rank = 1; realSlots.length < entrySize; rank++) {
+      const before = realSlots.length;
+      for (const p of pools) {
+        if (realSlots.length >= entrySize) break;
+        if (rank <= p.teamCount) realSlots.push({ poolId: p.id, rank });
+      }
+      if (realSlots.length === before) break; // no pool has a team at this rank — rest are byes
     }
-    return out;
   }
-  const p = pools[0]!;
-  for (let m = 0; m < pairs; m++) {
-    const r1 = m * 2 + 1;
-    const r2 = m * 2 + 2;
-    out.push({
-      home: { poolId: p.id, rank: Math.min(r1, p.teamCount) },
-      away: { poolId: p.id, rank: Math.min(r2, p.teamCount) },
-    });
+  const order = classicSingleElimOrder(entrySize);
+  const sideFor = (seedIndex: number): FirstRoundSide =>
+    seedIndex < realSlots.length ? realSlots[seedIndex]! : { bye: true };
+  const out: FirstRoundSlot[] = [];
+  for (let m = 0; m < half; m++) {
+    out.push({ home: sideFor(order[m * 2]!), away: sideFor(order[m * 2 + 1]!) });
   }
   return out;
 }

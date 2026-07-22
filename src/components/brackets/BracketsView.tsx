@@ -5,6 +5,7 @@ import { DIVISION_SWIPE_IGNORE } from "@/lib/division-swipe-ignore";
 import type { BracketRound } from "@prisma/client";
 import { EmptyState } from "@/components/ui/EmptyState";
 import { SectionTitle } from "@/components/ui/PublicHeading";
+import { BracketZoomShell } from "@/components/brackets/BracketZoomShell";
 import { BracketGameCard } from "@/components/brackets/BracketGameCard";
 import { ChampionCelebration } from "@/components/brackets/ChampionCelebration";
 import type { BracketWith, GameRow } from "@/components/brackets/bracket-types";
@@ -375,13 +376,15 @@ function BracketSection({
         {mobileView === "list" ? (
           <BracketMobileList games={gamesInScope} roundsVisible={visibleRounds} timeZone={tournamentTimezone} />
         ) : (
-          <MobileBracketRoundNav
-            key={`${b.id}-${scope}-${visibleRoundsKey}`}
-            visibleRounds={visibleRounds}
-            byRound={byRound}
-            timeZone={tournamentTimezone}
-            onRoundChange={setMobileRoundIdx}
-          />
+          <BracketZoomShell>
+            <MobileBracketRoundNav
+              key={`${b.id}-${scope}-${visibleRoundsKey}`}
+              visibleRounds={visibleRounds}
+              byRound={byRound}
+              timeZone={tournamentTimezone}
+              onRoundChange={setMobileRoundIdx}
+            />
+          </BracketZoomShell>
         )}
       </div>
 

@@ -55,6 +55,8 @@ export type GameListFilters = {
   fieldId?: string;
   /** Division tab id, or `all` / omitted for every division (+ bracket games with no pool). */
   divisionId?: string;
+  /** Exact game status filter (e.g. LIVE for Expo ticker / schedule filters). */
+  status?: GameStatus;
 };
 
 function compareGameNumberStrings(a: string, b: string): number {
@@ -102,6 +104,9 @@ export async function listGamesForTournament(tournamentId: string, filters: Game
   }
   const divW = divisionTabGameWhere(filters.divisionId);
   if (divW) conditions.push(divW);
+  if (filters.status) {
+    conditions.push({ status: filters.status });
+  }
 
   const rows = await prisma.game.findMany({
     where: { AND: conditions },

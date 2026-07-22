@@ -17,6 +17,20 @@ export async function GET(
       endDate: true,
       timezone: true,
       locationLabel: true,
+      latitude: true,
+      longitude: true,
+      locations: {
+        orderBy: { sortOrder: "asc" },
+        select: {
+          id: true,
+          name: true,
+          address: true,
+          latitude: true,
+          longitude: true,
+          isHeadquarters: true,
+          sortOrder: true,
+        },
+      },
       organization: {
         select: {
           id: true,

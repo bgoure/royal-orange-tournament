@@ -7,7 +7,7 @@ export async function GET(
 ) {
   const { slug } = await ctx.params;
   const t = await prisma.tournament.findFirst({
-    where: { slug, isPublished: true },
+    where: { slug, isPublished: true, archivedAt: null },
     select: { id: true },
   });
   if (!t) return jsonError("Tournament not found", 404);
@@ -35,5 +35,10 @@ export async function GET(
     },
   });
 
-  return jsonOk({ pools });
+  return jsonOk({
+    pools: pools.map((pool) => ({
+      ...pool,
+      standings: pool.standings.map((s, idx) => ({ rank: idx + 1, ...s })),
+    })),
+  });
 }

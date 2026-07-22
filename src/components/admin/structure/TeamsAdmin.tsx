@@ -84,7 +84,7 @@ export function TeamsAdmin({ teams, poolOptions, tournamentName, isAdmin }: Prop
       ) : null}
 
       {needsNaming && poolOptions.length > 0 ? (
-        <section className="rounded-xl border-2 border-emerald-200 bg-emerald-50/50 p-6">
+        <section id="paste-team-names" className="rounded-xl border-2 border-emerald-200 bg-emerald-50/50 p-6">
           <h2 className="text-sm font-semibold text-emerald-950">
             {teams.length === 0 ? "Add your teams" : "Rename placeholder teams"}
           </h2>
@@ -137,7 +137,7 @@ export function TeamsAdmin({ teams, poolOptions, tournamentName, isAdmin }: Prop
           </form>
         </section>
       ) : poolOptions.length > 0 ? (
-        <section className="rounded-xl border border-zinc-200 bg-zinc-50/80 p-6">
+        <section id="paste-team-names" className="rounded-xl border border-zinc-200 bg-zinc-50/80 p-6">
           <h2 className="text-sm font-semibold text-zinc-900">Paste team names</h2>
           <p className="mt-1 text-xs text-zinc-600">
             One name per line for a pool. Existing teams are renamed in order (seed, then created); extra lines create
@@ -233,7 +233,13 @@ export function TeamsAdmin({ teams, poolOptions, tournamentName, isAdmin }: Prop
 
       {teams.length === 0 ? (
         poolOptions.length > 0 ? null : (
-          <p className="text-sm text-zinc-500">No teams yet.</p>
+          <p className="text-sm text-zinc-500">
+            No teams in the table yet. Use{" "}
+            <a href="#paste-team-names" className="font-medium text-emerald-800 underline">
+              Paste team names
+            </a>{" "}
+            above to add your first roster.
+          </p>
         )
       ) : (
         <div className="overflow-x-auto rounded-xl border border-zinc-200 bg-white shadow-sm">

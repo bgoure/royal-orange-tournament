@@ -1,22 +1,16 @@
-import { jsonError, jsonOk, resolveApiUser, issueApiBearerToken } from "@/lib/api/v1/auth";
-import { can } from "@/lib/rbac/permissions";
+import { jsonError, jsonOk, resolveApiUser } from "@/lib/api/v1/auth";
 
-export async function GET(req: Request) {
-  const user = await resolveApiUser(req);
-  if (!user) return jsonError("Unauthorized", 401);
-  return jsonOk({ user });
-}
-
-/** Issue opaque Bearer for Expo secure store (requires existing session cookie). */
+/**
+ * Lets an Expo client verify its stored credential (bearer token or, in a webview, the session
+ * cookie) still maps to a signed-in user, and read the current role. See `docs/api-v1.md`.
+ */
 export async function POST(req: Request) {
   const user = await resolveApiUser(req);
   if (!user) return jsonError("Unauthorized", 401);
-  if (!can(user.role, "game:read")) return jsonError("Forbidden", 403);
-  const body = (await req.json().catch(() => ({}))) as { name?: string };
-  const issued = await issueApiBearerToken(user.id, body.name ?? "Expo");
-  return jsonOk({
-    token: issued.token,
-    expiresAt: issued.expiresAt.toISOString(),
-    user,
-  });
+  return jsonOk({ user: { id: user.id, email: user.email, role: user.role } });
+}
+
+/** Convenience alias for `POST` (some HTTP clients default session checks to GET). */
+export async function GET(req: Request) {
+  return POST(req);
 }

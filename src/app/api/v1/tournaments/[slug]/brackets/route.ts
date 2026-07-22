@@ -7,7 +7,7 @@ export async function GET(
 ) {
   const { slug } = await ctx.params;
   const t = await prisma.tournament.findFirst({
-    where: { slug, isPublished: true },
+    where: { slug, isPublished: true, archivedAt: null },
     select: { id: true },
   });
   if (!t) return jsonError("Tournament not found", 404);
@@ -50,5 +50,22 @@ export async function GET(
     },
   });
 
-  return jsonOk({ brackets });
+  return jsonOk({
+    brackets: brackets.map((b) => ({
+      ...b,
+      rounds: b.rounds.map((r) => ({
+        ...r,
+        matches: r.matches.map((m) => ({
+          ...m,
+          game: m.game
+            ? {
+                ...m.game,
+                homeRuns: m.game.status === "FINAL" ? m.game.homeRuns : null,
+                awayRuns: m.game.status === "FINAL" ? m.game.awayRuns : null,
+              }
+            : null,
+        })),
+      })),
+    })),
+  });
 }

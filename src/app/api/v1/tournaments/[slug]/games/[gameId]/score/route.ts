@@ -7,6 +7,11 @@ import { advanceBracketWinnerFromGame } from "@/lib/services/bracket-advance";
 import { recomputePoolStandings } from "@/lib/services/standings";
 import { revalidatePublishedTournamentSites } from "@/lib/revalidate-public-tournament-site";
 
+/**
+ * Staff score submission. Same RBAC as admin updateGameScoring.
+ * Optional `expectedUpdatedAt` (ISO) enables optimistic concurrency for Expo offline queues:
+ * if the server's Game.updatedAt is newer, respond 409 with the current game snapshot.
+ */
 export async function POST(
   req: Request,
   ctx: { params: Promise<{ slug: string; gameId: string }> },
@@ -17,7 +22,7 @@ export async function POST(
 
   const { slug, gameId } = await ctx.params;
   const t = await prisma.tournament.findFirst({
-    where: { slug },
+    where: { slug, isPublished: true, archivedAt: null },
     select: { id: true },
   });
   if (!t) return jsonError("Tournament not found", 404);
@@ -26,37 +31,76 @@ export async function POST(
   if (scopeErr) return jsonError(scopeErr, 403);
 
   const body = (await req.json().catch(() => null)) as {
-    homeRuns?: number;
-    awayRuns?: number;
-    status?: string;
+    homeRuns?: unknown;
+    awayRuns?: unknown;
+    status?: unknown;
+    expectedUpdatedAt?: unknown;
   } | null;
-  if (!body || typeof body.homeRuns !== "number" || typeof body.awayRuns !== "number") {
-    return jsonError("homeRuns and awayRuns are required numbers", 400);
+  const homeRuns = body?.homeRuns;
+  const awayRuns = body?.awayRuns;
+  if (
+    typeof homeRuns !== "number" ||
+    !Number.isInteger(homeRuns) ||
+    homeRuns < 0 ||
+    typeof awayRuns !== "number" ||
+    !Number.isInteger(awayRuns) ||
+    awayRuns < 0
+  ) {
+    return jsonError("homeRuns and awayRuns are required non-negative integers", 400);
+  }
+  if (body?.status !== undefined && body.status !== GameStatus.FINAL) {
+    return jsonError('status must be omitted or "FINAL"', 400);
+  }
+  const markFinal = body?.status === GameStatus.FINAL;
+
+  let expectedMs: number | null = null;
+  if (body?.expectedUpdatedAt !== undefined && body.expectedUpdatedAt !== null) {
+    if (typeof body.expectedUpdatedAt !== "string") {
+      return jsonError("expectedUpdatedAt must be an ISO timestamp string", 400);
+    }
+    expectedMs = Date.parse(body.expectedUpdatedAt);
+    if (Number.isNaN(expectedMs)) {
+      return jsonError("expectedUpdatedAt must be a valid ISO timestamp", 400);
+    }
   }
 
   const game = await prisma.game.findFirst({
     where: { id: gameId, tournamentId: t.id },
-    select: { id: true, poolId: true, bracketId: true },
+    select: {
+      id: true,
+      poolId: true,
+      bracketId: true,
+      updatedAt: true,
+      status: true,
+      homeRuns: true,
+      awayRuns: true,
+    },
   });
   if (!game) return jsonError("Game not found", 404);
 
-  const status =
-    body.status === "FINAL" || body.status == null ? GameStatus.FINAL : (body.status as GameStatus);
+  if (expectedMs != null && game.updatedAt.getTime() > expectedMs) {
+    return Response.json(
+      {
+        error: "Game was updated elsewhere. Refresh and retry.",
+        game: {
+          id: game.id,
+          updatedAt: game.updatedAt.toISOString(),
+          status: game.status,
+          homeRuns: game.homeRuns,
+          awayRuns: game.awayRuns,
+        },
+      },
+      { status: 409 },
+    );
+  }
 
   await prisma.game.update({
     where: { id: game.id },
-    data: {
-      homeRuns: body.homeRuns,
-      awayRuns: body.awayRuns,
-      status,
-      resultType: "REGULAR",
-    },
+    data: { homeRuns, awayRuns, ...(markFinal ? { status: GameStatus.FINAL } : {}) },
   });
 
   if (game.poolId) await recomputePoolStandings(game.poolId);
-  if (status === GameStatus.FINAL && game.bracketId) {
-    await advanceBracketWinnerFromGame(game.id);
-  }
+  if (markFinal && game.bracketId) await advanceBracketWinnerFromGame(game.id);
   await revalidatePublishedTournamentSites();
 
   const updated = await prisma.game.findUnique({
@@ -66,10 +110,18 @@ export async function POST(
       status: true,
       homeRuns: true,
       awayRuns: true,
+      updatedAt: true,
       homeTeam: { select: { id: true, name: true } },
       awayTeam: { select: { id: true, name: true } },
     },
   });
 
-  return jsonOk({ game: updated });
+  return jsonOk({
+    game: updated
+      ? {
+          ...updated,
+          updatedAt: updated.updatedAt.toISOString(),
+        }
+      : null,
+  });
 }
