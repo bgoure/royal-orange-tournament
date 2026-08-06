@@ -7,6 +7,9 @@ import { getTournamentSetupProgress } from "@/lib/services/admin-setup-progress"
 import { getTournamentForRequest, listTournamentsForAdminHub } from "@/lib/tournament-context";
 import { tournamentPublicBasePath } from "@/lib/tournament-public-path";
 
+/** Admin always depends on tournament cookies; never serve a stale selected-event shell. */
+export const dynamic = "force-dynamic";
+
 export const metadata: Metadata = {
   title: { default: "Admin · Tournament Hub", template: "%s · Admin · Tournament Hub" },
   robots: { index: false, follow: false },

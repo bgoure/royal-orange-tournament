@@ -76,6 +76,7 @@ export function TournamentSlugForm({
               required
               maxLength={120}
               defaultValue={tournamentSlug}
+              key={tournamentSlug}
               className={`${formClass} w-full font-mono`}
               autoComplete="off"
               spellCheck={false}

@@ -1,6 +1,5 @@
 "use client";
 
-import { useRouter } from "next/navigation";
 import { useMemo, useState } from "react";
 import { createTournamentFromWizard } from "@/app/admin/_actions/tournament-wizard";
 import {
@@ -42,17 +41,26 @@ function fillNames(count: number, raw: string[], skip: boolean, prefix: string):
   return out;
 }
 
-function evenlySplit<T>(items: T[], buckets: number): T[][] {
-  const n = Math.max(1, buckets);
-  const out: T[][] = Array.from({ length: n }, () => []);
-  items.forEach((item, i) => {
-    out[i % n]!.push(item);
-  });
+/** Unique team labels per division (avoids collisions when using Team1… placeholders). */
+function teamsForDivision(
+  divisionName: string,
+  count: number,
+  rawNames: string[],
+  skipNaming: boolean,
+): string[] {
+  const out: string[] = [];
+  for (let i = 0; i < count; i++) {
+    if (skipNaming) {
+      out.push(`${divisionName} · Team ${i + 1}`);
+    } else {
+      const n = (rawNames[i] ?? "").trim();
+      out.push(n || `${divisionName} · Team ${i + 1}`);
+    }
+  }
   return out;
 }
 
 export function CreateTournamentWizardModal({ onClose }: Props) {
-  const router = useRouter();
   const [step, setStep] = useState<Step>("basics");
   const [error, setError] = useState<string | null>(null);
   const [pending, setPending] = useState(false);
@@ -63,13 +71,14 @@ export function CreateTournamentWizardModal({ onClose }: Props) {
   const [divisionCount, setDivisionCount] = useState(1);
   const [skipDivisionNames, setSkipDivisionNames] = useState(false);
   const [divisionNameDrafts, setDivisionNameDrafts] = useState<string[]>(["Division1"]);
-  const [teamCount, setTeamCount] = useState(8);
+  /** Team count per division (flexible — e.g. 7 / 9 / 3). */
+  const [teamsPerDivision, setTeamsPerDivision] = useState<number[]>([8]);
   const [skipTeamNames, setSkipTeamNames] = useState(false);
-  const [teamNameDrafts, setTeamNameDrafts] = useState<string[]>(Array(8).fill(""));
+  /** Name drafts per division (one line per team). */
+  const [teamNameDraftsByDiv, setTeamNameDraftsByDiv] = useState<string[][]>([Array(8).fill("")]);
 
   // 2A
   const [poolCounts, setPoolCounts] = useState<number[]>([2]);
-  /** poolIndex by teamName (within active division view we use global map: divisionIndex:poolIndex or unassigned) */
   const [teamPlacement, setTeamPlacement] = useState<
     Record<string, { divisionIndex: number; poolIndex: number } | "unassigned">
   >({});
@@ -86,12 +95,22 @@ export function CreateTournamentWizardModal({ onClose }: Props) {
     () => fillNames(divisionCount, divisionNameDrafts, skipDivisionNames, "Division"),
     [divisionCount, divisionNameDrafts, skipDivisionNames],
   );
-  const teamNames = useMemo(
-    () => fillNames(teamCount, teamNameDrafts, skipTeamNames, "Team"),
-    [teamCount, teamNameDrafts, skipTeamNames],
+
+  const teamsByDivision = useMemo(
+    () =>
+      divisionNames.map((divName, di) =>
+        teamsForDivision(
+          divName,
+          teamsPerDivision[di] ?? 0,
+          teamNameDraftsByDiv[di] ?? [],
+          skipTeamNames,
+        ),
+      ),
+    [divisionNames, teamsPerDivision, teamNameDraftsByDiv, skipTeamNames],
   );
 
-  const teamsByDivision = useMemo(() => evenlySplit(teamNames, divisionCount), [teamNames, divisionCount]);
+  const teamNames = useMemo(() => teamsByDivision.flat(), [teamsByDivision]);
+  const teamCount = teamNames.length;
 
   function syncDivisionCount(n: number) {
     const count = Math.min(WIZARD_MAX_DIVISIONS, Math.max(1, n));
@@ -111,15 +130,31 @@ export function CreateTournamentWizardModal({ onClose }: Props) {
       while (next.length < count) next.push(8);
       return next.slice(0, count);
     });
+    setTeamsPerDivision((prev) => {
+      const next = [...prev];
+      while (next.length < count) next.push(4);
+      return next.slice(0, count);
+    });
+    setTeamNameDraftsByDiv((prev) => {
+      const next = [...prev];
+      while (next.length < count) next.push(Array(4).fill(""));
+      return next.slice(0, count);
+    });
   }
 
-  function syncTeamCount(n: number) {
-    const count = Math.min(WIZARD_MAX_TEAMS_TOURNAMENT, Math.max(2, n));
-    setTeamCount(count);
-    setTeamNameDrafts((prev) => {
+  function setDivisionTeamCount(di: number, n: number) {
+    const count = Math.min(64, Math.max(0, n));
+    setTeamsPerDivision((prev) => {
       const next = [...prev];
-      while (next.length < count) next.push("");
-      return next.slice(0, count);
+      next[di] = count;
+      return next;
+    });
+    setTeamNameDraftsByDiv((prev) => {
+      const next = prev.map((row) => [...row]);
+      const row = [...(next[di] ?? [])];
+      while (row.length < count) row.push("");
+      next[di] = row.slice(0, count);
+      return next;
     });
   }
 
@@ -149,7 +184,17 @@ export function CreateTournamentWizardModal({ onClose }: Props) {
       return;
     }
     if (teamCount < 2) {
-      setError("Add at least 2 teams.");
+      setError("Add at least 2 teams across your divisions.");
+      return;
+    }
+    for (let di = 0; di < divisionCount; di++) {
+      if ((teamsPerDivision[di] ?? 0) < 1) {
+        setError(`Give ${divisionNames[di]} at least one team (or remove the division).`);
+        return;
+      }
+    }
+    if (teamCount > WIZARD_MAX_TEAMS_TOURNAMENT) {
+      setError(`At most ${WIZARD_MAX_TEAMS_TOURNAMENT} teams total.`);
       return;
     }
     if (format === "round_robin") {
@@ -164,6 +209,14 @@ export function CreateTournamentWizardModal({ onClose }: Props) {
     return `Pool ${String.fromCharCode(65 + pi)}`;
   }
 
+  function finishNavigate(slug: string, openCustomBuilder: boolean) {
+    const next = openCustomBuilder ? "/admin/structure?builder=1" : "/admin/structure";
+    // Full navigation so layout + page both load the newly selected tournament cookies.
+    window.location.assign(
+      `/admin/select/${encodeURIComponent(slug)}?next=${encodeURIComponent(next)}`,
+    );
+  }
+
   async function submit() {
     setPending(true);
     setError(null);
@@ -173,9 +226,10 @@ export function CreateTournamentWizardModal({ onClose }: Props) {
       if (format === "round_robin") {
         const rrDivisions = divisionNames.map((name, di) => {
           const count = poolCounts[di] ?? 1;
+          const divTeams = teamsByDivision[di] ?? [];
           const pools = Array.from({ length: count }, (_, pi) => ({
             name: poolLabel(di, pi),
-            teamNames: teamNames.filter((t) => {
+            teamNames: divTeams.filter((t) => {
               const p = teamPlacement[t];
               return p !== "unassigned" && p && p.divisionIndex === di && p.poolIndex === pi;
             }),
@@ -206,6 +260,14 @@ export function CreateTournamentWizardModal({ onClose }: Props) {
           roundRobin: { divisions: rrDivisions },
         };
       } else {
+        for (let di = 0; di < divisionCount; di++) {
+          if ((teamsByDivision[di] ?? []).length < 2) {
+            setError(`${divisionNames[di]} needs at least 2 teams for a bracket.`);
+            setPending(false);
+            setStep("br_config");
+            return;
+          }
+        }
         const bracketDivisions = divisionNames.map((name, di) => {
           const teams = teamsByDivision[di] ?? [];
           const entrySize = entrySizeByDiv[di] ?? nextPowerOfTwoAtLeast(teams.length);
@@ -239,11 +301,8 @@ export function CreateTournamentWizardModal({ onClose }: Props) {
         return;
       }
 
-      router.push(
-        result.openCustomBuilder ? `/admin/structure?builder=1` : `/admin/structure`,
-      );
-      router.refresh();
       onClose();
+      finishNavigate(result.slug, Boolean(result.openCustomBuilder));
     } catch (e) {
       setError(e instanceof Error ? e.message : "Failed to create tournament");
       setPending(false);
@@ -337,29 +396,16 @@ export function CreateTournamentWizardModal({ onClose }: Props) {
                 </div>
               </div>
 
-              <div className="grid gap-4 sm:grid-cols-2">
-                <div>
-                  <label className={labelClass}>Number of divisions</label>
-                  <input
-                    type="number"
-                    min={1}
-                    max={WIZARD_MAX_DIVISIONS}
-                    value={divisionCount}
-                    onChange={(e) => syncDivisionCount(Number(e.target.value) || 1)}
-                    className={`${formClass} mt-1 w-full`}
-                  />
-                </div>
-                <div>
-                  <label className={labelClass}>Number of teams</label>
-                  <input
-                    type="number"
-                    min={2}
-                    max={WIZARD_MAX_TEAMS_TOURNAMENT}
-                    value={teamCount}
-                    onChange={(e) => syncTeamCount(Number(e.target.value) || 2)}
-                    className={`${formClass} mt-1 w-full`}
-                  />
-                </div>
+              <div>
+                <label className={labelClass}>Number of divisions</label>
+                <input
+                  type="number"
+                  min={1}
+                  max={WIZARD_MAX_DIVISIONS}
+                  value={divisionCount}
+                  onChange={(e) => syncDivisionCount(Number(e.target.value) || 1)}
+                  className={`${formClass} mt-1 w-32`}
+                />
               </div>
 
               <div>
@@ -397,35 +443,70 @@ export function CreateTournamentWizardModal({ onClose }: Props) {
 
               <div>
                 <div className="flex flex-wrap items-center justify-between gap-2">
-                  <p className={labelClass}>Team names</p>
+                  <p className={labelClass}>Teams per division</p>
                   <label className="flex items-center gap-2 text-xs text-zinc-600">
                     <input
                       type="checkbox"
                       checked={skipTeamNames}
                       onChange={(e) => setSkipTeamNames(e.target.checked)}
                     />
-                    Use Team1, Team2…
+                    Use placeholders (Division · Team N)
                   </label>
                 </div>
-                {!skipTeamNames ? (
-                  <textarea
-                    value={teamNameDrafts.join("\n")}
-                    onChange={(e) => {
-                      const lines = e.target.value.split(/\r?\n/);
-                      const next = Array.from({ length: teamCount }, (_, i) => lines[i] ?? "");
-                      setTeamNameDrafts(next);
-                    }}
-                    rows={Math.min(12, Math.max(4, teamCount))}
-                    placeholder={"One team per line\nRaptors\nThunder\n…"}
-                    className={`${formClass} mt-2 w-full font-mono text-xs`}
-                  />
-                ) : (
-                  <p className="mt-2 text-xs text-zinc-500">
-                    {teamNames.slice(0, 8).join(", ")}
-                    {teamNames.length > 8 ? ` … (+${teamNames.length - 8} more)` : ""}
-                  </p>
-                )}
                 <p className="mt-1 text-xs text-zinc-500">
+                  Each division can have a different count (e.g. 7, 9, and 3). Total:{" "}
+                  <span className="font-medium text-zinc-700">{teamCount}</span>
+                </p>
+                <div className="mt-3 flex flex-col gap-4">
+                  {divisionNames.map((divName, di) => {
+                    const count = teamsPerDivision[di] ?? 0;
+                    const drafts = teamNameDraftsByDiv[di] ?? [];
+                    return (
+                      <div key={di} className="rounded-lg border border-zinc-200 p-3">
+                        <div className="flex flex-wrap items-end gap-3">
+                          <div className="min-w-[120px] flex-1">
+                            <p className="text-sm font-medium text-zinc-900">{divName}</p>
+                          </div>
+                          <div>
+                            <label className={labelClass}>Teams</label>
+                            <input
+                              type="number"
+                              min={1}
+                              max={64}
+                              value={count}
+                              onChange={(e) => setDivisionTeamCount(di, Number(e.target.value) || 0)}
+                              className={`${formClass} mt-1 w-20`}
+                            />
+                          </div>
+                        </div>
+                        {!skipTeamNames ? (
+                          <textarea
+                            value={drafts.join("\n")}
+                            onChange={(e) => {
+                              const lines = e.target.value.split(/\r?\n/);
+                              setTeamNameDraftsByDiv((prev) => {
+                                const next = prev.map((row) => [...row]);
+                                next[di] = Array.from({ length: count }, (_, i) => lines[i] ?? "");
+                                return next;
+                              });
+                            }}
+                            rows={Math.min(8, Math.max(3, count))}
+                            placeholder={`One team per line for ${divName}`}
+                            className={`${formClass} mt-2 w-full font-mono text-xs`}
+                          />
+                        ) : (
+                          <p className="mt-2 text-xs text-zinc-500">
+                            {(teamsByDivision[di] ?? []).slice(0, 6).join(", ")}
+                            {(teamsByDivision[di] ?? []).length > 6
+                              ? ` … (+${(teamsByDivision[di] ?? []).length - 6} more)`
+                              : ""}
+                          </p>
+                        )}
+                      </div>
+                    );
+                  })}
+                </div>
+                <p className="mt-2 text-xs text-zinc-500">
                   Venue, dates, fields, and schedule windows are set later in tournament settings.
                 </p>
               </div>
@@ -468,74 +549,78 @@ export function CreateTournamentWizardModal({ onClose }: Props) {
           {step === "rr_assign" ? (
             <div className="flex flex-col gap-4">
               <p className="text-sm text-zinc-600">
-                Drag teams from the bank into a pool. Every team must be placed.
+                Drag each division’s teams into its pools. Teams stay in their own division.
               </p>
-              <div className="rounded-lg border border-dashed border-zinc-300 bg-zinc-50 p-3">
-                <p className={labelClass}>Unassigned</p>
-                <div className="mt-2 flex min-h-[48px] flex-wrap gap-2">
-                  {teamNames
-                    .filter((t) => teamPlacement[t] === "unassigned")
-                    .map((t) => (
-                      <button
-                        key={t}
-                        type="button"
-                        draggable
-                        onDragStart={() => setDragTeam(t)}
-                        onDragEnd={() => setDragTeam(null)}
-                        className="cursor-grab rounded-md border border-zinc-300 bg-white px-2 py-1 text-xs font-medium text-zinc-800 active:cursor-grabbing"
-                      >
-                        {t}
-                      </button>
-                    ))}
-                </div>
-              </div>
-              {divisionNames.map((divName, di) => (
-                <div key={di} className="rounded-lg border border-zinc-200 p-3">
-                  <p className="text-sm font-semibold text-zinc-900">{divName}</p>
-                  <div className="mt-3 grid gap-3 sm:grid-cols-2">
-                    {Array.from({ length: poolCounts[di] ?? 1 }, (_, pi) => (
-                      <div
-                        key={pi}
-                        onDragOver={(e) => e.preventDefault()}
-                        onDrop={() => {
-                          if (!dragTeam) return;
-                          setTeamPlacement((prev) => ({
-                            ...prev,
-                            [dragTeam]: { divisionIndex: di, poolIndex: pi },
-                          }));
-                          setDragTeam(null);
-                        }}
-                        className="min-h-[88px] rounded-md border border-zinc-200 bg-zinc-50/80 p-2"
-                      >
-                        <p className={labelClass}>{poolLabel(di, pi)}</p>
-                        <div className="mt-2 flex flex-wrap gap-1.5">
-                          {teamNames
-                            .filter((t) => {
-                              const p = teamPlacement[t];
-                              return p !== "unassigned" && p && p.divisionIndex === di && p.poolIndex === pi;
-                            })
-                            .map((t) => (
-                              <button
-                                key={t}
-                                type="button"
-                                draggable
-                                onDragStart={() => setDragTeam(t)}
-                                onDragEnd={() => setDragTeam(null)}
-                                onClick={() =>
-                                  setTeamPlacement((prev) => ({ ...prev, [t]: "unassigned" }))
-                                }
-                                className="cursor-grab rounded-md border border-emerald-200 bg-emerald-50 px-2 py-1 text-xs font-medium text-emerald-900"
-                                title="Click to unassign"
-                              >
-                                {t}
-                              </button>
-                            ))}
-                        </div>
+              {divisionNames.map((divName, di) => {
+                const divTeams = teamsByDivision[di] ?? [];
+                return (
+                  <div key={di} className="rounded-lg border border-zinc-200 p-3">
+                    <p className="text-sm font-semibold text-zinc-900">{divName}</p>
+                    <div className="mt-3 rounded-md border border-dashed border-zinc-300 bg-zinc-50 p-2">
+                      <p className={labelClass}>Unassigned</p>
+                      <div className="mt-2 flex min-h-[40px] flex-wrap gap-2">
+                        {divTeams
+                          .filter((t) => teamPlacement[t] === "unassigned")
+                          .map((t) => (
+                            <button
+                              key={t}
+                              type="button"
+                              draggable
+                              onDragStart={() => setDragTeam(t)}
+                              onDragEnd={() => setDragTeam(null)}
+                              className="cursor-grab rounded-md border border-zinc-300 bg-white px-2 py-1 text-xs font-medium text-zinc-800 active:cursor-grabbing"
+                            >
+                              {t}
+                            </button>
+                          ))}
                       </div>
-                    ))}
+                    </div>
+                    <div className="mt-3 grid gap-3 sm:grid-cols-2">
+                      {Array.from({ length: poolCounts[di] ?? 1 }, (_, pi) => (
+                        <div
+                          key={pi}
+                          onDragOver={(e) => e.preventDefault()}
+                          onDrop={() => {
+                            if (!dragTeam) return;
+                            if (!divTeams.includes(dragTeam)) return;
+                            setTeamPlacement((prev) => ({
+                              ...prev,
+                              [dragTeam]: { divisionIndex: di, poolIndex: pi },
+                            }));
+                            setDragTeam(null);
+                          }}
+                          className="min-h-[88px] rounded-md border border-zinc-200 bg-zinc-50/80 p-2"
+                        >
+                          <p className={labelClass}>{poolLabel(di, pi)}</p>
+                          <div className="mt-2 flex flex-wrap gap-1.5">
+                            {divTeams
+                              .filter((t) => {
+                                const p = teamPlacement[t];
+                                return p !== "unassigned" && p && p.divisionIndex === di && p.poolIndex === pi;
+                              })
+                              .map((t) => (
+                                <button
+                                  key={t}
+                                  type="button"
+                                  draggable
+                                  onDragStart={() => setDragTeam(t)}
+                                  onDragEnd={() => setDragTeam(null)}
+                                  onClick={() =>
+                                    setTeamPlacement((prev) => ({ ...prev, [t]: "unassigned" }))
+                                  }
+                                  className="cursor-grab rounded-md border border-emerald-200 bg-emerald-50 px-2 py-1 text-xs font-medium text-emerald-900"
+                                  title="Click to unassign"
+                                >
+                                  {t}
+                                </button>
+                              ))}
+                          </div>
+                        </div>
+                      ))}
+                    </div>
                   </div>
-                </div>
-              ))}
+                );
+              })}
             </div>
           ) : null}
 
@@ -704,7 +789,7 @@ export function CreateTournamentWizardModal({ onClose }: Props) {
                   })
                 : (
                   <p className="text-sm text-zinc-600">
-                    Teams are split across divisions evenly, then seeded automatically.
+                    Each division keeps its own team list and is seeded automatically.
                   </p>
                 )}
             </div>

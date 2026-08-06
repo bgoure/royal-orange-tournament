@@ -64,6 +64,7 @@ export function TournamentRenameForm({
           </label>
           <input
             id="tournament-name"
+            key={tournamentName}
             name="name"
             type="text"
             required

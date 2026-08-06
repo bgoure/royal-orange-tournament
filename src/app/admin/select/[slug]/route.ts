@@ -14,7 +14,14 @@ const cookieOpts = {
 function safeAdminNextPath(raw: string | null): string {
   if (!raw || !raw.startsWith("/") || raw.startsWith("//")) return "/admin/tournament-settings";
   if (!raw.startsWith("/admin")) return "/admin/tournament-settings";
-  return raw.split("?")[0] ?? "/admin/tournament-settings";
+  // Allow query string (e.g. /admin/structure?builder=1)
+  try {
+    const u = new URL(raw, "http://local.invalid");
+    if (!u.pathname.startsWith("/admin")) return "/admin/tournament-settings";
+    return `${u.pathname}${u.search}`;
+  } catch {
+    return "/admin/tournament-settings";
+  }
 }
 
 export async function GET(
