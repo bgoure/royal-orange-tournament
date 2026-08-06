@@ -1,9 +1,10 @@
 "use server";
 
 import { revalidatePath } from "next/cache";
-import { AnnouncementEmailStatus } from "@prisma/client";
+import { AnnouncementEmailStatus, type Role } from "@prisma/client";
 import { auth } from "@/auth";
 import { prisma } from "@/lib/db";
+import { can } from "@/lib/rbac/permissions";
 import { deliverAnnouncementEmail } from "@/lib/services/announcement-email";
 import { revalidatePublishedTournamentSites } from "@/lib/revalidate-public-tournament-site";
 import { getPublishedTournamentBySlugForActions } from "@/lib/tournament-context";
@@ -15,14 +16,21 @@ function deny(msg: string): PublicAnnouncementResult {
   return { ok: false, error: msg };
 }
 
-type AnnouncementCtxOk = { tournamentId: string; slug: string };
+type AnnouncementCtxOk = { tournamentId: string; slug: string; role: Role };
 
-async function assertAdminAnnouncementContext(
+async function assertStaffAnnouncementContext(
   formData: FormData,
+  permission: "announcement:update" | "announcement:delete",
 ): Promise<AnnouncementCtxOk | PublicAnnouncementResult> {
   const session = await auth();
-  if (!session?.user?.id) return deny("You must be signed in.");
-  if (session.user.role !== "ADMIN") return deny("Only ADMIN can edit announcements here.");
+  if (!session?.user?.id || !session.user.role) return deny("You must be signed in.");
+  if (!can(session.user.role, permission)) {
+    return deny(
+      permission === "announcement:delete"
+        ? "Only administrators can delete announcements here."
+        : "You don’t have permission to edit announcements.",
+    );
+  }
 
   const slug = String(formData.get("tournamentSlug") ?? "").trim();
   if (!slug) return deny("Missing tournament.");
@@ -30,7 +38,7 @@ async function assertAdminAnnouncementContext(
   const tournament = await getPublishedTournamentBySlugForActions(slug);
   if (!tournament) return deny("Tournament not found.");
 
-  return { tournamentId: tournament.id, slug: tournament.slug };
+  return { tournamentId: tournament.id, slug: tournament.slug, role: session.user.role };
 }
 
 function isCtxOk(v: AnnouncementCtxOk | PublicAnnouncementResult): v is AnnouncementCtxOk {
@@ -41,7 +49,7 @@ export async function updatePublicAnnouncementFromSite(
   _prev: PublicAnnouncementResult | undefined,
   formData: FormData,
 ): Promise<PublicAnnouncementResult> {
-  const ctx = await assertAdminAnnouncementContext(formData);
+  const ctx = await assertStaffAnnouncementContext(formData, "announcement:update");
   if (!isCtxOk(ctx)) return ctx;
 
   const parsed = announcementUpdateSchema.safeParse({
@@ -118,7 +126,7 @@ export async function deletePublicAnnouncementFromSite(
   _prev: PublicAnnouncementResult | undefined,
   formData: FormData,
 ): Promise<PublicAnnouncementResult> {
-  const ctx = await assertAdminAnnouncementContext(formData);
+  const ctx = await assertStaffAnnouncementContext(formData, "announcement:delete");
   if (!isCtxOk(ctx)) return ctx;
 
   const id = formData.get("id")?.toString();

@@ -16,12 +16,15 @@ export function AnnouncementList({
   seeMoreHref,
   compactMeta = false,
   adminEditable = false,
+  canDelete = false,
   tournamentSlug,
 }: {
   items: Announcement[];
   seeMoreHref?: string;
   compactMeta?: boolean;
   adminEditable?: boolean;
+  /** When editing on the public site, admins may delete; power users typically cannot. */
+  canDelete?: boolean;
   tournamentSlug?: string;
 }) {
   const [editing, setEditing] = useState<Announcement | null>(null);
@@ -124,6 +127,7 @@ export function AnnouncementList({
         <PublicAnnouncementEditModal
           announcement={editing}
           tournamentSlug={tournamentSlug}
+          canDelete={canDelete}
           onClose={() => setEditing(null)}
         />
       ) : null}

@@ -10,10 +10,13 @@ describe("RBAC permissions", () => {
     assert.equal(can("ADMIN", "user:manageRoles"), true);
   });
 
-  it("POWER_USER can score/create games but not configure brackets or manage users", () => {
+  it("POWER_USER can score/create games and update announcements but not configure brackets or manage users", () => {
     assert.equal(can("POWER_USER", "game:create"), true);
     assert.equal(can("POWER_USER", "game:update"), true);
     assert.equal(can("POWER_USER", "bracket:pushAndReset"), true);
+    assert.equal(can("POWER_USER", "announcement:create"), true);
+    assert.equal(can("POWER_USER", "announcement:update"), true);
+    assert.equal(can("POWER_USER", "announcement:delete"), false);
     assert.equal(can("POWER_USER", "bracket:configure"), false);
     assert.equal(can("POWER_USER", "user:manageRoles"), false);
     assert.equal(can("POWER_USER", "content:manage"), false);

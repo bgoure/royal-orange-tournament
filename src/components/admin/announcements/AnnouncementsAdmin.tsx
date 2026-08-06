@@ -69,10 +69,12 @@ export function AnnouncementsAdmin({
   items,
   tournamentName,
   canManage,
+  canDelete = false,
 }: {
   items: Announcement[];
   tournamentName: string;
   canManage: boolean;
+  canDelete?: boolean;
 }) {
   const [createState, createAction, createPending] = useActionState(
     createAnnouncement,
@@ -154,7 +156,7 @@ export function AnnouncementsAdmin({
             ) : (
               <ul className="mt-4 flex flex-col gap-6">
                 {items.map((a) => (
-                  <AnnouncementEditRow key={a.id} announcement={a} />
+                  <AnnouncementEditRow key={a.id} announcement={a} canDelete={canDelete} />
                 ))}
               </ul>
             )}
@@ -165,7 +167,13 @@ export function AnnouncementsAdmin({
   );
 }
 
-function AnnouncementEditRow({ announcement: a }: { announcement: Announcement }) {
+function AnnouncementEditRow({
+  announcement: a,
+  canDelete,
+}: {
+  announcement: Announcement;
+  canDelete: boolean;
+}) {
   const [updState, updAction, updPending] = useActionState(
     updateAnnouncement,
     undefined as AnnouncementActionResult | undefined,
@@ -188,12 +196,14 @@ function AnnouncementEditRow({ announcement: a }: { announcement: Announcement }
             </span>
           ) : null}
         </p>
-        <ConfirmForm message="Delete this announcement?" action={delAction} className="inline">
-          <input type="hidden" name="id" value={a.id} />
-          <button type="submit" disabled={delPending} className={btnDanger}>
-            Delete
-          </button>
-        </ConfirmForm>
+        {canDelete ? (
+          <ConfirmForm message="Delete this announcement?" action={delAction} className="inline">
+            <input type="hidden" name="id" value={a.id} />
+            <button type="submit" disabled={delPending} className={btnDanger}>
+              Delete
+            </button>
+          </ConfirmForm>
+        ) : null}
       </div>
       {a.emailError ? (
         <p className="mb-3 rounded-md bg-amber-50 px-2 py-1 text-xs text-amber-900">{a.emailError}</p>

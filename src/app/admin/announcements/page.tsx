@@ -20,8 +20,14 @@ export default async function AdminAnnouncementsPage() {
     (can(role, "announcement:create") ||
       can(role, "announcement:update") ||
       can(role, "announcement:delete"));
+  const canDelete = role != null && can(role, "announcement:delete");
 
   return (
-    <AnnouncementsAdmin items={items} tournamentName={tournament.name} canManage={canManage} />
+    <AnnouncementsAdmin
+      items={items}
+      tournamentName={tournament.name}
+      canManage={canManage}
+      canDelete={canDelete}
+    />
   );
 }

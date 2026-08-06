@@ -578,6 +578,39 @@ function QuickGameModal({
             </div>
           ) : null}
 
+          {dbCompleted ? (
+            <div className="flex flex-col gap-2 rounded-xl border border-zinc-200 bg-zinc-50/80 p-3 dark:border-zinc-700 dark:bg-zinc-900/40">
+              <p className="text-xs text-zinc-600 dark:text-zinc-400">
+                Change status without clearing scores (Scorekeeper also supports this).
+              </p>
+              <div className="flex flex-wrap gap-2">
+                {game.status !== GameStatus.LIVE ? (
+                  <button
+                    type="button"
+                    disabled={pending || resetPending}
+                    onClick={() => setStatusAndSubmit(GameStatus.LIVE)}
+                    className="min-h-10 flex-1 rounded-xl border border-sky-200 bg-sky-50 px-3 py-2 text-sm font-semibold text-sky-950 hover:bg-sky-100 disabled:opacity-50 dark:border-sky-900/50 dark:bg-sky-950/40 dark:text-sky-100"
+                  >
+                    Mark in progress
+                  </button>
+                ) : null}
+                {game.status !== GameStatus.CANCELLED ? (
+                  <button
+                    type="button"
+                    disabled={pending || resetPending}
+                    onClick={() => {
+                      if (!window.confirm("Mark this game as cancelled?")) return;
+                      setStatusAndSubmit(GameStatus.CANCELLED);
+                    }}
+                    className="min-h-10 flex-1 rounded-xl border border-zinc-300 bg-white px-3 py-2 text-sm font-semibold text-zinc-800 hover:bg-zinc-50 disabled:opacity-50 dark:border-zinc-600 dark:bg-zinc-900 dark:text-zinc-100"
+                  >
+                    Cancel game
+                  </button>
+                ) : null}
+              </div>
+            </div>
+          ) : null}
+
           <div className="flex flex-wrap gap-2 pt-2">
             <button
               type="button"

@@ -27,10 +27,12 @@ const btnDanger =
 export function PublicAnnouncementEditModal({
   announcement: a,
   tournamentSlug,
+  canDelete = false,
   onClose,
 }: {
   announcement: Announcement;
   tournamentSlug: string;
+  canDelete?: boolean;
   onClose: () => void;
 }) {
   const router = useRouter();
@@ -178,19 +180,21 @@ export function PublicAnnouncementEditModal({
             </div>
           </form>
 
-          <div className="border-t border-zinc-200 pt-4">
-            <ConfirmForm
-              message="Delete this announcement permanently?"
-              action={delAction}
-              className="inline"
-            >
-              <input type="hidden" name="tournamentSlug" value={tournamentSlug} />
-              <input type="hidden" name="id" value={a.id} />
-              <button type="submit" disabled={delPending} className={btnDanger}>
-                {delPending ? "Deleting…" : "Delete announcement"}
-              </button>
-            </ConfirmForm>
-          </div>
+          {canDelete ? (
+            <div className="border-t border-zinc-200 pt-4">
+              <ConfirmForm
+                message="Delete this announcement permanently?"
+                action={delAction}
+                className="inline"
+              >
+                <input type="hidden" name="tournamentSlug" value={tournamentSlug} />
+                <input type="hidden" name="id" value={a.id} />
+                <button type="submit" disabled={delPending} className={btnDanger}>
+                  {delPending ? "Deleting…" : "Delete announcement"}
+                </button>
+              </ConfirmForm>
+            </div>
+          ) : null}
         </div>
       </div>
     </div>
