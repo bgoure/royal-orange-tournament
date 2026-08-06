@@ -971,9 +971,15 @@ export function BracketsAdmin({
                     <div className="mt-3 rounded-lg border border-zinc-200 bg-white px-3 py-2.5 text-xs leading-relaxed text-zinc-600">
                       {!b.usesPoolSeeding ? (
                         <p>
-                          <span className="font-medium text-zinc-800">Direct-seeded bracket.</span> Adjust
-                          Round 1 teams under Games if needed. Apply standings is only for pool-seeded
-                          brackets.
+                          <span className="font-medium text-zinc-800">Direct-seeded bracket.</span> Drag
+                          Round 1 teams on the{" "}
+                          <Link
+                            href="/admin/structure?builder=1"
+                            className="font-medium text-emerald-800 underline"
+                          >
+                            Structure seed board
+                          </Link>
+                          , or edit under Games. Apply standings is only for pool-seeded brackets.
                         </p>
                       ) : b.needsResolutionRefresh ? (
                         <p className="font-medium text-amber-900">
@@ -1037,6 +1043,11 @@ export function BracketsAdmin({
                             : "Apply standings to seeds"}
                       </button>
                     </form>
+                    {canConfigure ? (
+                      <Link href="/admin/structure?builder=1" className={btnSecondary}>
+                        Edit Round 1 seeds
+                      </Link>
+                    ) : null}
                     <ConfirmForm
                       action={resetAction}
                       message={`Reset “${b.name}” for ${b.division.name}? This keeps the bracket but clears teams, scores, and sets bracket game statuses to SCHEDULED.`}

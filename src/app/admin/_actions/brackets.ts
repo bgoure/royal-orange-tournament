@@ -26,6 +26,8 @@ import {
   toggleBracketPublishedSchema,
   updatePoolAdvancingSchema,
 } from "@/lib/validations/bracket-admin";
+import { saveBracketRoundZeroSeedingSchema } from "@/lib/validations/bracket-seed-board";
+import { advanceByeWinnersInRound0 } from "@/lib/services/bracket-advance";
 import type { Session } from "next-auth";
 
 export type BracketActionResult = { ok: true } | { ok: false; error: string };
@@ -510,6 +512,176 @@ export async function deletePlayoffBracket(
     return { ok: true };
   } catch (e) {
     const msg = e instanceof Error ? e.message : "Failed to delete bracket";
+    return { ok: false, error: msg };
+  }
+}
+
+/**
+ * Drag-and-drop Round 1 seeding: set home/away teams or BYEs on existing Round 0 matches.
+ * Does not rebuild the bracket tree. Clears later-round SCHEDULED seats, then re-advances BYEs.
+ */
+export async function saveBracketRoundZeroSeeding(
+  _prev: BracketActionResult | undefined,
+  formData: FormData,
+): Promise<BracketActionResult> {
+  const ctx = await bracketContext();
+  if ("error" in ctx) return { ok: false, error: ctx.error };
+  if (!can(ctx.session.user.role, "bracket:configure")) return deny();
+
+  let slotsRaw: unknown;
+  try {
+    slotsRaw = JSON.parse(String(formData.get("slots") ?? "[]"));
+  } catch {
+    return { ok: false, error: "Invalid seeding payload" };
+  }
+
+  const parsed = saveBracketRoundZeroSeedingSchema.safeParse({
+    bracketId: formData.get("bracketId"),
+    slots: slotsRaw,
+  });
+  if (!parsed.success) {
+    return {
+      ok: false,
+      error: parsed.error.flatten().formErrors.join(", ") || "Invalid Round 1 seeding",
+    };
+  }
+
+  try {
+    const bracket = await prisma.bracket.findFirst({
+      where: { id: parsed.data.bracketId, tournamentId: ctx.tournament.id },
+      select: { id: true, divisionId: true },
+    });
+    if (!bracket) return { ok: false, error: "Bracket not found" };
+
+    const scopeErr = await assertDivisionScope(
+      ctx.session.user.id,
+      ctx.session.user.role,
+      bracket.divisionId,
+    );
+    if (scopeErr) return { ok: false, error: scopeErr };
+
+    const round0 = await prisma.bracketRound.findFirst({
+      where: { bracketId: bracket.id, roundIndex: 0 },
+      include: {
+        matches: {
+          orderBy: { matchIndex: "asc" },
+          include: {
+            game: { select: { id: true, status: true, resultType: true } },
+          },
+        },
+      },
+    });
+    if (!round0) return { ok: false, error: "Round 1 not found" };
+
+    // LIVE always blocked. FINAL REGULAR (played) blocked; FINAL FORFEIT_* (BYE walkovers) can be reseated.
+    if (
+      round0.matches.some((m) => {
+        const g = m.game;
+        if (!g) return false;
+        if (g.status === "LIVE") return true;
+        if (g.status === "FINAL" && g.resultType === "REGULAR") return true;
+        return false;
+      })
+    ) {
+      return {
+        ok: false,
+        error: "Cannot reseat Round 1 while a game is live or already scored.",
+      };
+    }
+
+    const matchById = new Map(round0.matches.map((m) => [m.id, m]));
+    if (parsed.data.slots.length !== round0.matches.length) {
+      return { ok: false, error: "Seeding must include every Round 1 game." };
+    }
+    for (const slot of parsed.data.slots) {
+      if (!matchById.has(slot.matchId)) {
+        return { ok: false, error: "Unknown Round 1 match in payload." };
+      }
+    }
+
+    const divisionTeamIds = new Set(
+      (
+        await prisma.team.findMany({
+          where: { pool: { divisionId: bracket.divisionId } },
+          select: { id: true },
+        })
+      ).map((t) => t.id),
+    );
+
+    for (const slot of parsed.data.slots) {
+      for (const side of [slot.home, slot.away]) {
+        if ("teamId" in side && !divisionTeamIds.has(side.teamId)) {
+          return { ok: false, error: "A selected team is not in this division." };
+        }
+      }
+    }
+
+    await prisma.$transaction(async (tx) => {
+      for (const slot of parsed.data.slots) {
+        const match = matchById.get(slot.matchId)!;
+        if (!match.gameId) continue;
+
+        const homeIsBye = "bye" in slot.home;
+        const awayIsBye = "bye" in slot.away;
+        const homeTeamId = homeIsBye ? null : "teamId" in slot.home ? slot.home.teamId : null;
+        const awayTeamId = awayIsBye ? null : "teamId" in slot.away ? slot.away.teamId : null;
+
+        await tx.bracketMatch.update({
+          where: { id: match.id },
+          data: {
+            homeIsBye,
+            awayIsBye,
+            homeSourcePoolId: null,
+            homeSourceRank: null,
+            awaySourcePoolId: null,
+            awaySourceRank: null,
+          },
+        });
+
+        await tx.game.update({
+          where: { id: match.gameId },
+          data: {
+            homeTeamId,
+            awayTeamId,
+            status: "SCHEDULED",
+            resultType: "REGULAR",
+            homeRuns: null,
+            awayRuns: null,
+            homeDefensiveInnings: null,
+            awayDefensiveInnings: null,
+            homeOffensiveInnings: null,
+            awayOffensiveInnings: null,
+          },
+        });
+      }
+
+      // Clear unplayed later-round seats so BYE re-advance is clean
+      await tx.game.updateMany({
+        where: {
+          bracketId: bracket.id,
+          status: { in: ["SCHEDULED", "POSTPONED", "CANCELLED"] },
+          bracketRound: { roundIndex: { gt: 0 } },
+        },
+        data: {
+          homeTeamId: null,
+          awayTeamId: null,
+          homeRuns: null,
+          awayRuns: null,
+          status: "SCHEDULED",
+          resultType: "REGULAR",
+        },
+      });
+    });
+
+    await advanceByeWinnersInRound0(bracket.id);
+
+    revalidatePath("/admin/brackets");
+    revalidatePath("/admin/structure");
+    revalidatePath("/admin/games");
+    await revalidatePublishedTournamentSites();
+    return { ok: true };
+  } catch (e) {
+    const msg = e instanceof Error ? e.message : "Failed to save Round 1 seeding";
     return { ok: false, error: msg };
   }
 }

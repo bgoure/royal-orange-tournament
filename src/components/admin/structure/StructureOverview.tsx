@@ -3,6 +3,11 @@
 import Link from "next/link";
 import { useMemo, useState } from "react";
 import type { BracketFormat } from "@prisma/client";
+import {
+  BracketSeedBoard,
+  type SeedBoardMatch,
+  type SeedBoardTeam,
+} from "@/components/admin/structure/BracketSeedBoard";
 
 type TeamRow = { id: string; name: string };
 type PoolRow = { id: string; name: string; teams: TeamRow[] };
@@ -15,11 +20,20 @@ type BracketRow = {
   rounds: number;
   games: number;
 };
+
+export type StructureSeedBoard = {
+  bracketId: string;
+  bracketName: string;
+  teams: SeedBoardTeam[];
+  matches: SeedBoardMatch[];
+};
+
 type DivisionRow = {
   id: string;
   name: string;
   pools: PoolRow[];
   bracket: BracketRow | null;
+  seedBoard: StructureSeedBoard | null;
 };
 
 function formatLabel(f: BracketFormat): string {
@@ -31,9 +45,11 @@ function formatLabel(f: BracketFormat): string {
 export function StructureOverview({
   divisions,
   canConfigure,
+  openBuilder = false,
 }: {
   divisions: DivisionRow[];
   canConfigure: boolean;
+  openBuilder?: boolean;
 }) {
   const [tab, setTab] = useState(divisions[0]?.id ?? "");
   const active = useMemo(
@@ -78,6 +94,19 @@ export function StructureOverview({
 
       {active ? (
         <div className="flex flex-col gap-8">
+          {active.seedBoard && (openBuilder || canConfigure) ? (
+            <section>
+              <BracketSeedBoard
+                key={`${active.seedBoard.bracketId}-${active.id}`}
+                bracketId={active.seedBoard.bracketId}
+                bracketName={active.seedBoard.bracketName}
+                teams={active.seedBoard.teams}
+                matches={active.seedBoard.matches}
+                canConfigure={canConfigure}
+              />
+            </section>
+          ) : null}
+
           <section>
             <h2 className="text-sm font-semibold text-zinc-900">Pools & teams</h2>
             <div className="mt-3 grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
@@ -119,12 +148,22 @@ export function StructureOverview({
                   {active.bracket.rounds} rounds · {active.bracket.games} games ·{" "}
                   {active.bracket.published ? "Published" : "Hidden"}
                 </p>
-                <Link
-                  href="/admin/brackets"
-                  className="mt-3 inline-flex text-sm font-medium text-emerald-800 underline"
-                >
-                  Open brackets admin
-                </Link>
+                <div className="mt-3 flex flex-wrap gap-3">
+                  <Link
+                    href="/admin/brackets"
+                    className="inline-flex text-sm font-medium text-emerald-800 underline"
+                  >
+                    Open brackets admin
+                  </Link>
+                  {canConfigure && active.seedBoard ? (
+                    <Link
+                      href="/admin/structure?builder=1"
+                      className="inline-flex text-sm font-medium text-emerald-800 underline"
+                    >
+                      Edit Round 1 seeds
+                    </Link>
+                  ) : null}
+                </div>
               </div>
             ) : (
               <p className="mt-2 text-sm text-zinc-600">

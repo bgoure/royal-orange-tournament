@@ -1,10 +1,23 @@
 import { auth } from "@/auth";
 import Link from "next/link";
 import { AdminNoTournamentPlaceholder } from "@/components/admin/AdminNoTournamentPlaceholder";
-import { StructureOverview } from "@/components/admin/structure/StructureOverview";
+import {
+  StructureOverview,
+  type StructureSeedBoard,
+} from "@/components/admin/structure/StructureOverview";
 import { prisma } from "@/lib/db";
 import { can } from "@/lib/rbac/permissions";
 import { getTournamentForRequest } from "@/lib/tournament-context";
+import type { SeedBoardSide } from "@/components/admin/structure/BracketSeedBoard";
+
+function toSide(
+  isBye: boolean,
+  team: { id: string; name: string } | null | undefined,
+): SeedBoardSide {
+  if (isBye) return { kind: "bye" };
+  if (team) return { kind: "team", teamId: team.id, name: team.name };
+  return { kind: "empty" };
+}
 
 export default async function AdminStructurePage({
   searchParams,
@@ -38,6 +51,25 @@ export default async function AdminStructurePage({
           published: true,
           avoidRematchesUntilForced: true,
           _count: { select: { games: true, rounds: true } },
+          rounds: {
+            where: { roundIndex: 0 },
+            take: 1,
+            include: {
+              matches: {
+                orderBy: { matchIndex: "asc" },
+                include: {
+                  game: {
+                    select: {
+                      status: true,
+                      resultType: true,
+                      homeTeam: { select: { id: true, name: true } },
+                      awayTeam: { select: { id: true, name: true } },
+                    },
+                  },
+                },
+              },
+            },
+          },
         },
       },
     },
@@ -45,6 +77,8 @@ export default async function AdminStructurePage({
 
   const canConfigure =
     session?.user?.role != null && can(session.user.role, "bracket:configure");
+
+  const openBuilder = sp.builder === "1";
 
   return (
     <div className="flex flex-col gap-8">
@@ -70,38 +104,62 @@ export default async function AdminStructurePage({
         </div>
       </header>
 
-      {sp.builder === "1" ? (
-        <div className="rounded-xl border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-950">
-          Custom bracket mode: refine Round 1 seeds and tree under{" "}
-          <Link href="/admin/brackets" className="font-semibold underline">
-            Brackets
-          </Link>
-          . A full visual bracket builder is coming next — for now use the playoff wizard and Games to
-          place teams.
+      {openBuilder ? (
+        <div className="rounded-xl border border-emerald-200 bg-emerald-50 px-4 py-3 text-sm text-emerald-950">
+          Custom seed mode: use the Round 1 seed board below to drag teams and BYEs into matchups.
+          The rest of the bracket tree stays as built — only Round 1 seats are edited here.
         </div>
       ) : null}
 
       <StructureOverview
-        divisions={divisions.map((d) => ({
-          id: d.id,
-          name: d.name,
-          pools: d.pools.map((p) => ({
-            id: p.id,
-            name: p.name,
-            teams: p.teams,
-          })),
-          bracket: d.brackets[0]
-            ? {
-                id: d.brackets[0].id,
-                name: d.brackets[0].name,
-                format: d.brackets[0].format,
-                published: d.brackets[0].published,
-                avoidRematchesUntilForced: d.brackets[0].avoidRematchesUntilForced,
-                rounds: d.brackets[0]._count.rounds,
-                games: d.brackets[0]._count.games,
-              }
-            : null,
-        }))}
+        openBuilder={openBuilder}
+        divisions={divisions.map((d) => {
+          const b = d.brackets[0] ?? null;
+          const round0 = b?.rounds[0] ?? null;
+          const allTeams = d.pools.flatMap((p) => p.teams);
+          let seedBoard: StructureSeedBoard | null = null;
+          if (b && round0 && round0.matches.length > 0) {
+            seedBoard = {
+              bracketId: b.id,
+              bracketName: b.name,
+              teams: allTeams,
+              matches: round0.matches.map((m) => {
+                const g = m.game;
+                const locked =
+                  g?.status === "LIVE" ||
+                  (g?.status === "FINAL" && g.resultType === "REGULAR");
+                return {
+                  matchId: m.id,
+                  matchIndex: m.matchIndex,
+                  home: toSide(m.homeIsBye, m.game?.homeTeam),
+                  away: toSide(m.awayIsBye, m.game?.awayTeam),
+                  locked,
+                };
+              }),
+            };
+          }
+          return {
+            id: d.id,
+            name: d.name,
+            pools: d.pools.map((p) => ({
+              id: p.id,
+              name: p.name,
+              teams: p.teams,
+            })),
+            bracket: b
+              ? {
+                  id: b.id,
+                  name: b.name,
+                  format: b.format,
+                  published: b.published,
+                  avoidRematchesUntilForced: b.avoidRematchesUntilForced,
+                  rounds: b._count.rounds,
+                  games: b._count.games,
+                }
+              : null,
+            seedBoard,
+          };
+        })}
         canConfigure={canConfigure}
       />
     </div>
