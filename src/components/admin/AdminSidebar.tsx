@@ -187,10 +187,14 @@ function SidebarPanel({
             <div className="flex flex-col gap-0.5">
               {group.items.map((item) => {
                 const active = navItemIsActive(pathname, item.href, item.segment, search);
+                const href =
+                  currentTournamentSlug && item.href.startsWith("/admin")
+                    ? selectHref(currentTournamentSlug, item.href)
+                    : item.href;
                 return (
                   <Link
                     key={item.href}
-                    href={item.href}
+                    href={href}
                     onClick={() => onNavigate?.()}
                     className={`rounded-lg px-3 py-2 text-sm font-medium transition-colors ${
                       active
