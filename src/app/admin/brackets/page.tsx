@@ -3,6 +3,7 @@ import { AdminNoTournamentPlaceholder } from "@/components/admin/AdminNoTourname
 import { BracketsAdmin } from "@/components/admin/brackets/BracketsAdmin";
 import { formatFieldWithLocation } from "@/lib/field-display";
 import {
+  listBracketFeederMatches,
   listBracketsSummary,
   listConsolationGamesForAdmin,
   listDivisionsForPlayoffWizard,
@@ -21,13 +22,15 @@ export default async function AdminBracketsPage() {
     return <AdminNoTournamentPlaceholder />;
   }
 
-  const [pools, fields, brackets, divisionsRaw, consolationGames] = await Promise.all([
-    listPoolsAdvancingConfig(tournament.id),
-    listFieldsForBrackets(tournament.id),
-    listBracketsSummary(tournament.id),
-    listDivisionsForPlayoffWizard(tournament.id),
-    listConsolationGamesForAdmin(tournament.id),
-  ]);
+  const [pools, fields, brackets, divisionsRaw, consolationGames, feederBrackets] =
+    await Promise.all([
+      listPoolsAdvancingConfig(tournament.id),
+      listFieldsForBrackets(tournament.id),
+      listBracketsSummary(tournament.id),
+      listDivisionsForPlayoffWizard(tournament.id),
+      listConsolationGamesForAdmin(tournament.id),
+      listBracketFeederMatches(tournament.id),
+    ]);
 
   const divisions = divisionsRaw.map((d) => ({
     id: d.id,
@@ -55,6 +58,7 @@ export default async function AdminBracketsPage() {
       fields={fieldOptions}
       brackets={brackets}
       consolationGames={consolationGames}
+      feederBrackets={feederBrackets}
       tournamentName={tournament.name}
       publicSitePath={tournamentPublicBasePath(tournament)}
       tournamentTimezone={tournament.timezone}

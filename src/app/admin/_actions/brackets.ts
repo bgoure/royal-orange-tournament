@@ -24,11 +24,13 @@ import {
   deleteConsolationGameSchema,
   resolveBracketSchema,
   toggleBracketPublishedSchema,
+  updateBracketFeederSchema,
   updatePoolAdvancingSchema,
 } from "@/lib/validations/bracket-admin";
 import { saveBracketRoundZeroSeedingSchema } from "@/lib/validations/bracket-seed-board";
 import { advanceByeWinnersInRound0 } from "@/lib/services/bracket-advance";
 import type { Session } from "next-auth";
+import { GrandFinalMode } from "@prisma/client";
 
 export type BracketActionResult = { ok: true } | { ok: false; error: string };
 
@@ -160,6 +162,9 @@ export async function createDivisionPlayoffBracketAction(
     format: formData.get("format") || "SINGLE_ELIMINATION",
     pairingMode: formData.get("pairingMode") || "classic",
     avoidRematchesUntilForced: formData.get("avoidRematchesUntilForced") === "1" ? "1" : "0",
+    grandFinalMode: formData.get("grandFinalMode") || "SINGLE",
+    isQualifier: formData.get("isQualifier") === "1" ? "1" : "0",
+    qualifyingTeamCount: formData.get("qualifyingTeamCount") || "1",
     firstRound,
   });
   if (!parsed.success) {
@@ -197,6 +202,12 @@ export async function createDivisionPlayoffBracketAction(
       published: parsed.data.published ?? false,
       format: parsed.data.format,
       avoidRematchesUntilForced: parsed.data.avoidRematchesUntilForced,
+      grandFinalMode:
+        parsed.data.grandFinalMode === "IF_NECESSARY"
+          ? GrandFinalMode.IF_NECESSARY
+          : GrandFinalMode.SINGLE,
+      isQualifier: parsed.data.isQualifier,
+      qualifyingTeamCount: parsed.data.qualifyingTeamCount,
     });
     revalidatePath("/admin/brackets");
     revalidatePath("/admin/games");
@@ -682,6 +693,98 @@ export async function saveBracketRoundZeroSeeding(
     return { ok: true };
   } catch (e) {
     const msg = e instanceof Error ? e.message : "Failed to save Round 1 seeding";
+    return { ok: false, error: msg };
+  }
+}
+
+/** Phase D: edit explicit match feeders / loser-drop targets for custom maps. */
+export async function updateBracketFeederAction(
+  _prev: BracketActionResult | undefined,
+  formData: FormData,
+): Promise<BracketActionResult> {
+  const ctx = await bracketContext();
+  if ("error" in ctx) return { ok: false, error: ctx.error };
+  if (!can(ctx.session.user.role, "bracket:configure")) return deny();
+
+  const kindOrNull = (raw: FormDataEntryValue | null) => {
+    const s = String(raw ?? "").trim();
+    if (s === "WINNER" || s === "LOSER") return s;
+    return null;
+  };
+
+  const parsed = updateBracketFeederSchema.safeParse({
+    matchId: formData.get("matchId"),
+    homeFromMatchId: formData.get("homeFromMatchId"),
+    awayFromMatchId: formData.get("awayFromMatchId"),
+    homeFromKind: kindOrNull(formData.get("homeFromKind")),
+    awayFromKind: kindOrNull(formData.get("awayFromKind")),
+    loserDropMatchId: formData.get("loserDropMatchId"),
+  });
+  if (!parsed.success) {
+    return { ok: false, error: parsed.error.flatten().formErrors.join(", ") || "Invalid feeder" };
+  }
+
+  try {
+    const match = await prisma.bracketMatch.findFirst({
+      where: {
+        id: parsed.data.matchId,
+        bracketRound: { bracket: { tournamentId: ctx.tournament.id } },
+      },
+      include: {
+        bracketRound: { select: { bracketId: true, bracket: { select: { divisionId: true } } } },
+      },
+    });
+    if (!match) return { ok: false, error: "Match not found" };
+
+    const scopeErr = await assertDivisionScope(
+      ctx.session.user.id,
+      ctx.session.user.role,
+      match.bracketRound.bracket.divisionId,
+    );
+    if (scopeErr) return { ok: false, error: scopeErr };
+
+    const bracketId = match.bracketRound.bracketId;
+    const ids = [
+      parsed.data.homeFromMatchId,
+      parsed.data.awayFromMatchId,
+      parsed.data.loserDropMatchId,
+    ].filter((x): x is string => Boolean(x));
+    if (ids.includes(match.id)) {
+      return { ok: false, error: "A match cannot feed or drop into itself." };
+    }
+    if (ids.length > 0) {
+      const peers = await prisma.bracketMatch.count({
+        where: {
+          id: { in: ids },
+          bracketRound: { bracketId },
+        },
+      });
+      if (peers !== ids.length) {
+        return { ok: false, error: "Feeder targets must be matches in the same bracket." };
+      }
+    }
+
+    await prisma.bracketMatch.update({
+      where: { id: match.id },
+      data: {
+        homeFromMatchId: parsed.data.homeFromMatchId,
+        awayFromMatchId: parsed.data.awayFromMatchId,
+        homeFromKind: parsed.data.homeFromMatchId
+          ? (parsed.data.homeFromKind ?? "WINNER")
+          : null,
+        awayFromKind: parsed.data.awayFromMatchId
+          ? (parsed.data.awayFromKind ?? "WINNER")
+          : null,
+        loserDropMatchId: parsed.data.loserDropMatchId,
+      },
+    });
+
+    revalidatePath("/admin/brackets");
+    revalidatePath("/admin/structure");
+    await revalidatePublishedTournamentSites();
+    return { ok: true };
+  } catch (e) {
+    const msg = e instanceof Error ? e.message : "Failed to update feeder";
     return { ok: false, error: msg };
   }
 }

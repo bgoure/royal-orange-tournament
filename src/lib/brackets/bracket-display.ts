@@ -56,6 +56,38 @@ export function roundTypeShortLabel(roundType: BracketRoundType): string {
   }
 }
 
+export type BidirectionalDeLayout<R extends { roundIndex: number; roundType: BracketRoundType }> = {
+  /** Losers columns, already ordered left→right (later losers on the far left). */
+  left: R[];
+  /** Round 1 / first winners column (center). */
+  center: R | null;
+  /** Later winners + grand final, left→right. */
+  right: R[];
+};
+
+/**
+ * Losers ← center (W0) → winners → grand final.
+ * Supports legacy DE (FINAL before losers) and new DE (FINAL after losers).
+ */
+export function bidirectionalDeLayout<
+  R extends { roundIndex: number; roundType: BracketRoundType },
+>(rounds: R[]): BidirectionalDeLayout<R> {
+  const sorted = [...rounds].sort((a, b) => a.roundIndex - b.roundIndex);
+  const winners = sorted.filter((r) => r.roundType === "WINNERS");
+  const losers = sorted.filter(
+    (r) => r.roundType === "LOSERS" || r.roundType === "LOSERS_SECOND",
+  );
+  const finals = sorted.filter((r) => r.roundType === "FINAL");
+  const firstLoserIdx = losers[0]?.roundIndex ?? Number.POSITIVE_INFINITY;
+  const earlyFinals = finals.filter((f) => f.roundIndex < firstLoserIdx);
+  const lateFinals = finals.filter((f) => f.roundIndex >= firstLoserIdx);
+  const winnerPath = [...winners, ...earlyFinals].sort((a, b) => a.roundIndex - b.roundIndex);
+  const center = winnerPath[0] ?? null;
+  const right = [...winnerPath.slice(1), ...lateFinals];
+  const left = [...losers].reverse();
+  return { left, center, right };
+}
+
 /**
  * Schedule / results card line: "{division} · Semifinals" / "Championship" (consolation games use separate copy).
  */

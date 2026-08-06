@@ -16,11 +16,15 @@ import {
 } from "@/app/admin/_actions/brackets";
 import { ActionMessage } from "@/components/admin/structure/ActionMessage";
 import { ConfirmForm } from "@/components/admin/structure/ConfirmForm";
+import {
+  BracketFeederEditor,
+  type FeederMatchRow,
+} from "@/components/admin/brackets/BracketFeederEditor";
 import { formatJsDateAsDatetimeLocalInZone } from "@/lib/datetime-tournament";
 import { formatFieldWithLocation } from "@/lib/field-display";
 import { tournamentPathFromBase } from "@/lib/tournament-public-path";
 import { classicSingleElimOrder } from "@/lib/services/bracket-engine";
-import type { Pool } from "@prisma/client";
+import type { GrandFinalMode, Pool } from "@prisma/client";
 
 type PoolRow = Pool & { division: { name: string } };
 
@@ -41,6 +45,9 @@ type BracketRow = {
   name: string;
   format: BracketFormat;
   avoidRematchesUntilForced: boolean;
+  grandFinalMode: GrandFinalMode;
+  isQualifier: boolean;
+  qualifyingTeamCount: number;
   published: boolean;
   needsResolutionRefresh: boolean;
   division: { id: string; name: string };
@@ -48,6 +55,12 @@ type BracketRow = {
   poolGamesTotal: number;
   poolGamesIncomplete: number;
   usesPoolSeeding: boolean;
+};
+
+type FeederBracketRow = {
+  bracketId: string;
+  bracketName: string;
+  matches: FeederMatchRow[];
 };
 
 type ConsolationAdminRow = {
@@ -83,6 +96,7 @@ type Props = {
   fields: FieldSelectOption[];
   brackets: BracketRow[];
   consolationGames: ConsolationAdminRow[];
+  feederBrackets?: FeederBracketRow[];
   tournamentName: string;
   /** Canonical public site base (`/{slug}` live or `/{folder}/{slug}` when archived). */
   publicSitePath: string;
@@ -299,6 +313,7 @@ export function BracketsAdmin({
   fields,
   brackets,
   consolationGames,
+  feederBrackets = [],
   tournamentName,
   publicSitePath,
   tournamentTimezone,
@@ -358,6 +373,9 @@ export function BracketsAdmin({
     "SINGLE_ELIMINATION" | "DOUBLE_ELIMINATION" | "TRIPLE_ELIMINATION"
   >("SINGLE_ELIMINATION");
   const [pairingMode, setPairingMode] = useState<"classic" | "avoid_rematches">("classic");
+  const [grandFinalMode, setGrandFinalMode] = useState<"SINGLE" | "IF_NECESSARY">("SINGLE");
+  const [isQualifier, setIsQualifier] = useState(false);
+  const [qualifyingTeamCount, setQualifyingTeamCount] = useState(2);
   const [seedMode, setSeedMode] = useState<"pool_standings" | "assign_teams">("pool_standings");
 
   const divisionTeams = useMemo(() => {
@@ -723,9 +741,88 @@ export function BracketsAdmin({
                     {createFormat === "SINGLE_ELIMINATION"
                       ? "One loss eliminates. Pad the field to a power of 2 with BYEs."
                       : createFormat === "DOUBLE_ELIMINATION"
-                        ? "One-loss losers bracket + grand final (W champ vs L champ). No forced IF rematch series."
+                        ? "One-loss losers bracket + grand final. Public view uses losers←center→winners layout."
                         : "Three lives: W → L1 (1 loss) → L2 (2 losses). L2 champ meets W champ in the grand final."}
                   </p>
+                </div>
+                {createFormat === "DOUBLE_ELIMINATION" || createFormat === "TRIPLE_ELIMINATION" ? (
+                  <div className="sm:col-span-2">
+                    <p className={labelClass}>Grand final</p>
+                    <div className="mt-2 flex flex-col gap-2">
+                      <label className="flex items-start gap-2 text-sm text-zinc-700">
+                        <input
+                          type="radio"
+                          name="grandFinalMode"
+                          value="SINGLE"
+                          checked={grandFinalMode === "SINGLE"}
+                          onChange={() => setGrandFinalMode("SINGLE")}
+                          className="mt-1"
+                        />
+                        <span>
+                          <span className="font-medium">Single game</span>
+                          <span className="mt-0.5 block text-xs text-zinc-500">
+                            One grand final — losers-bracket champ can win the tournament in one game.
+                          </span>
+                        </span>
+                      </label>
+                      <label className="flex items-start gap-2 text-sm text-zinc-700">
+                        <input
+                          type="radio"
+                          name="grandFinalMode"
+                          value="IF_NECESSARY"
+                          checked={grandFinalMode === "IF_NECESSARY"}
+                          onChange={() => setGrandFinalMode("IF_NECESSARY")}
+                          className="mt-1"
+                        />
+                        <span>
+                          <span className="font-medium">If necessary (true double-elim)</span>
+                          <span className="mt-0.5 block text-xs text-zinc-500">
+                            If the losers-bracket champ beats the undefeated team, play a second final.
+                          </span>
+                        </span>
+                      </label>
+                    </div>
+                  </div>
+                ) : (
+                  <input type="hidden" name="grandFinalMode" value="SINGLE" />
+                )}
+                <div className="sm:col-span-2 rounded-lg border border-zinc-200 bg-zinc-50/80 p-3">
+                  <label className="flex items-start gap-2 text-sm text-zinc-700">
+                    <input
+                      type="checkbox"
+                      name="isQualifier"
+                      value="1"
+                      checked={isQualifier}
+                      onChange={(e) => setIsQualifier(e.target.checked)}
+                      className="mt-1"
+                    />
+                    <span>
+                      <span className="font-medium">Qualifier tournament</span>
+                      <span className="mt-0.5 block text-xs text-zinc-500">
+                        Conclude when N teams remain alive (e.g. send 2 teams to the next event). Remaining
+                        games are not required once those spots are locked.
+                      </span>
+                    </span>
+                  </label>
+                  {isQualifier ? (
+                    <div className="mt-3">
+                      <label className={labelClass} htmlFor="qualifyingTeamCount">
+                        Teams that advance / remain
+                      </label>
+                      <input
+                        id="qualifyingTeamCount"
+                        name="qualifyingTeamCount"
+                        type="number"
+                        min={1}
+                        max={64}
+                        value={qualifyingTeamCount}
+                        onChange={(e) => setQualifyingTeamCount(Number(e.target.value) || 1)}
+                        className={`${formClass} mt-1 w-24`}
+                      />
+                    </div>
+                  ) : (
+                    <input type="hidden" name="qualifyingTeamCount" value="1" />
+                  )}
                 </div>
                 {createFormat === "DOUBLE_ELIMINATION" || createFormat === "TRIPLE_ELIMINATION" ? (
                   <div className="sm:col-span-2">
@@ -921,6 +1018,12 @@ export function BracketsAdmin({
                           ? "Triple elimination"
                           : "Single elimination"}
                       {b.avoidRematchesUntilForced ? " · avoid duplicate matchups" : b.format !== "SINGLE_ELIMINATION" ? " · classic paths" : ""}
+                      {b.format !== "SINGLE_ELIMINATION"
+                        ? b.grandFinalMode === "IF_NECESSARY"
+                          ? " · if-necessary GF"
+                          : " · single GF"
+                        : ""}
+                      {b.isQualifier ? ` · qualifier (top ${b.qualifyingTeamCount})` : ""}
                       {b.usesPoolSeeding ? " · pool-seeded" : " · teams assigned"} · {b._count.rounds} rounds ·{" "}
                       {b._count.games} games ·{" "}
                       {b.published ? (
@@ -1087,6 +1190,23 @@ export function BracketsAdmin({
               </li>
             ))}
           </ul>
+        </section>
+      ) : null}
+
+      {canConfigure && feederBrackets.length > 0 ? (
+        <section className="flex flex-col gap-4">
+          <h2 className="text-sm font-semibold text-zinc-900">Custom feeder map (Phase D)</h2>
+          <p className="text-xs text-zinc-600">
+            Edit cross-bracket drops and seat feeders for poster-style (9/27-team) maps. Classic
+            brackets already have auto-wired paths at create time.
+          </p>
+          {feederBrackets.map((fb) => (
+            <BracketFeederEditor
+              key={fb.bracketId}
+              bracketName={fb.bracketName}
+              matches={fb.matches}
+            />
+          ))}
         </section>
       ) : null}
     </div>

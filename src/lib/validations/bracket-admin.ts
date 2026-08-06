@@ -46,9 +46,23 @@ export const createDivisionBracketSchema = z
       .optional()
       .default("0")
       .transform((v) => v === "1"),
+    grandFinalMode: z.enum(["SINGLE", "IF_NECESSARY"]).optional().default("SINGLE"),
+    isQualifier: z
+      .enum(["0", "1"])
+      .optional()
+      .default("0")
+      .transform((v) => v === "1"),
+    qualifyingTeamCount: z.coerce.number().int().min(1).max(64).optional().default(1),
     firstRound: z.array(firstRoundSlotSchema).min(1),
   })
   .superRefine((data, ctx) => {
+    if (data.isQualifier && data.qualifyingTeamCount < 1) {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        message: "Qualifier must advance at least 1 team.",
+        path: ["qualifyingTeamCount"],
+      });
+    }
     const n = data.firstRound.length * 2;
     if (!isValidEntryTeamCount(n)) {
       ctx.addIssue({
@@ -104,8 +118,29 @@ export const createDivisionBracketSchema = z
     return {
       ...data,
       avoidRematchesUntilForced: avoid,
+      grandFinalMode: multi ? data.grandFinalMode : "SINGLE",
+      isQualifier: data.isQualifier,
+      qualifyingTeamCount: data.isQualifier ? data.qualifyingTeamCount : 1,
     };
   });
+
+export const updateBracketFeederSchema = z.object({
+  matchId: z.string().min(1),
+  homeFromMatchId: z.preprocess(
+    (v) => (v == null || String(v).trim() === "" ? null : String(v)),
+    z.string().min(1).nullable(),
+  ),
+  awayFromMatchId: z.preprocess(
+    (v) => (v == null || String(v).trim() === "" ? null : String(v)),
+    z.string().min(1).nullable(),
+  ),
+  homeFromKind: z.enum(["WINNER", "LOSER"]).nullish(),
+  awayFromKind: z.enum(["WINNER", "LOSER"]).nullish(),
+  loserDropMatchId: z.preprocess(
+    (v) => (v == null || String(v).trim() === "" ? null : String(v)),
+    z.string().min(1).nullable(),
+  ),
+});
 
 export const toggleBracketPublishedSchema = z.object({
   bracketId: z.string().min(1),

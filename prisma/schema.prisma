@@ -434,6 +434,18 @@ enum BracketFormat {
   TRIPLE_ELIMINATION
 }
 
+/// Grand final series: one game, or a second game only if the losers-bracket champ beats the undefeated champ.
+enum GrandFinalMode {
+  SINGLE
+  IF_NECESSARY
+}
+
+/// How a feeder match fills a slot (winner or loser of the source match).
+enum BracketSlotFeedKind {
+  WINNER
+  LOSER
+}
+
 model Bracket {
   id           String         @id @default(cuid())
   tournamentId String
@@ -445,6 +457,14 @@ model Bracket {
   format       BracketFormat  @default(SINGLE_ELIMINATION)
   /// Double/triple losers: re-pair open rounds to avoid rematches until forced (then random among optima).
   avoidRematchesUntilForced Boolean @default(false)
+  /// Double/triple: SINGLE = one grand final; IF_NECESSARY = second final when L champ beats W champ.
+  grandFinalMode GrandFinalMode @default(SINGLE)
+  /// Qualifier events conclude when `qualifyingTeamCount` teams have earned advancement (not necessarily 1 champion).
+  isQualifier Boolean @default(false)
+  /// Teams that advance / remain when the bracket concludes (1 for a normal championship).
+  qualifyingTeamCount Int @default(1)
+  /// Set when qualifier/championship conclusion rules are satisfied.
+  concludedAt DateTime?
   /// Hidden on the public site until turned on; admins may publish with placeholder schedule/teams.
   published    Boolean        @default(false)
   /// Set when pool play changes; cleared after directors re-apply standings to seeded slots.
@@ -490,8 +510,25 @@ model BracketMatch {
   homeIsBye Boolean @default(false)
   awayIsBye Boolean @default(false)
 
+  /// Optional explicit feeders (Phase D / custom maps). Null → classic index math.
+  homeFromMatchId String?
+  awayFromMatchId String?
+  homeFromKind    BracketSlotFeedKind?
+  awayFromKind    BracketSlotFeedKind?
+  homeFromMatch   BracketMatch?  @relation("MatchHomeFeed", fields: [homeFromMatchId], references: [id], onDelete: SetNull)
+  awayFromMatch   BracketMatch?  @relation("MatchAwayFeed", fields: [awayFromMatchId], references: [id], onDelete: SetNull)
+  fedAsHome       BracketMatch[] @relation("MatchHomeFeed")
+  fedAsAway       BracketMatch[] @relation("MatchAwayFeed")
+  /// Where the loser of this match drops (DE/TE). Null → computed classic drop target.
+  loserDropMatchId String?
+  loserDropMatch   BracketMatch?  @relation("LoserDropFeed", fields: [loserDropMatchId], references: [id], onDelete: SetNull)
+  loserDropsFrom   BracketMatch[] @relation("LoserDropFeed")
+
   @@unique([bracketRoundId, matchIndex])
   @@index([bracketRoundId])
+  @@index([homeFromMatchId])
+  @@index([awayFromMatchId])
+  @@index([loserDropMatchId])
 }
 
 // --- Standings (materialized per pool) ---

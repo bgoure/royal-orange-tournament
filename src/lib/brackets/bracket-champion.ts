@@ -1,42 +1,30 @@
-import { BracketRoundType, GameStatus } from "@prisma/client";
 import type { BracketWith, TeamWithPool } from "@/components/brackets/bracket-types";
 import type { PoolForDivisionTabs } from "@/lib/division-tabs";
 import { entityDivisionMatchesTab } from "@/lib/division-tabs";
-import { bracketWinnerTeamId } from "@/lib/services/bracket-engine";
 import { listBracketsForTournament } from "@/lib/services/brackets";
+import {
+  resolveBracketOutcome,
+  resolveChampionFromBracket as resolveChampionFromOutcome,
+} from "@/lib/brackets/bracket-conclusion";
 
 export type ResolvedBracketChampion = {
   divisionName: string;
   winnerTeam: TeamWithPool;
+  qualifiedTeams?: TeamWithPool[];
+  isQualifier?: boolean;
 };
 
+export { resolveBracketOutcome };
+
 /**
- * When the championship round game is FINAL with a decided winner, returns the winning team.
- * No published bracket, no FINAL round, non-FINAL game, or tie → null.
+ * When the championship / qualifier conclusion rules are met, returns the primary
+ * winner (and optional qualified list).
  */
 export function resolveChampionFromBracket(bracket: BracketWith): ResolvedBracketChampion | null {
-  const finalRound = bracket.rounds.find((r) => r.roundType === BracketRoundType.FINAL);
-  if (!finalRound) return null;
-
-  const finalGames = bracket.games
-    .filter((g) => g.bracketRoundId === finalRound.id)
-    .sort((a, b) => (a.bracketPosition ?? 999) - (b.bracketPosition ?? 999));
-
-  for (const game of finalGames) {
-    if (game.status !== GameStatus.FINAL) continue;
-    const winnerId = bracketWinnerTeamId(game);
-    if (!winnerId) continue;
-    const winnerTeam =
-      game.homeTeamId === winnerId ? game.homeTeam : game.awayTeamId === winnerId ? game.awayTeam : null;
-    if (winnerTeam?.name) {
-      return { divisionName: bracket.division.name, winnerTeam };
-    }
-  }
-
-  return null;
+  return resolveChampionFromOutcome(bracket);
 }
 
-/** First published bracket matching the division tab (real or synthetic age) that has a decided champion. */
+/** First published bracket matching the division tab that has a decided champion/qualifiers. */
 export async function getBracketChampionForDivisionTab(
   tournamentId: string,
   tabId: string,

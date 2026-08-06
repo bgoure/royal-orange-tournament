@@ -7,6 +7,7 @@ import { EmptyState } from "@/components/ui/EmptyState";
 import { SectionTitle } from "@/components/ui/PublicHeading";
 import { BracketZoomShell } from "@/components/brackets/BracketZoomShell";
 import { BracketGameCard } from "@/components/brackets/BracketGameCard";
+import { BidirectionalDeBracket } from "@/components/brackets/BidirectionalDeBracket";
 import { ChampionCelebration } from "@/components/brackets/ChampionCelebration";
 import type { BracketWith, GameRow } from "@/components/brackets/bracket-types";
 import { matchSortIndex, prevRoundNameForGame } from "@/components/brackets/bracket-slot-lines";
@@ -272,6 +273,9 @@ function BracketSection({
   const visibleRoundsKey = useMemo(() => visibleRounds.map((r) => r.id).join("|"), [visibleRounds]);
 
   const champion = useMemo(() => resolveChampionFromBracket(b), [b]);
+  const useBidirectional =
+    (b.format === "DOUBLE_ELIMINATION" || b.format === "TRIPLE_ELIMINATION") &&
+    (!showScope || scope === "all");
 
   return (
     <section className="min-w-0" aria-labelledby={`bracket-heading-${b.id}`}>
@@ -281,10 +285,22 @@ function BracketSection({
           divisionName={champion.divisionName}
           winnerTeam={champion.winnerTeam}
           className="mb-4"
+          subtitle={
+            champion.isQualifier && champion.qualifiedTeams && champion.qualifiedTeams.length > 1
+              ? `Qualifiers: ${champion.qualifiedTeams.map((t) => t.name).join(" · ")}`
+              : champion.isQualifier
+                ? "Qualified for next tournament"
+                : undefined
+          }
         />
       ) : null}
       <SectionTitle id={`bracket-heading-${b.id}`} className="normal-case tracking-normal">
         {b.name}
+        {b.isQualifier ? (
+          <span className="ml-2 text-sm font-normal text-zinc-600">
+            (qualifier · top {b.qualifyingTeamCount})
+          </span>
+        ) : null}
       </SectionTitle>
 
       {showScope ? (
@@ -304,7 +320,7 @@ function BracketSection({
             }`}
             onClick={() => setScope("all")}
           >
-            All rounds
+            Full bracket
           </button>
           <button
             type="button"
@@ -317,7 +333,7 @@ function BracketSection({
             }`}
             onClick={() => setScope("main")}
           >
-            Winners
+            Winners only
           </button>
           <button
             type="button"
@@ -330,7 +346,7 @@ function BracketSection({
             }`}
             onClick={() => setScope("consolation")}
           >
-            Consolation
+            Losers only
           </button>
         </div>
       ) : null}
@@ -370,7 +386,15 @@ function BracketSection({
       </div>
 
       <div className="mt-4 hidden md:block">
-        <BracketGrid byRound={byRound} roundsOrdered={visibleRounds} timeZone={tournamentTimezone} />
+        {useBidirectional ? (
+          <BidirectionalDeBracket
+            rounds={roundsSorted}
+            byRound={byRound}
+            timeZone={tournamentTimezone}
+          />
+        ) : (
+          <BracketGrid byRound={byRound} roundsOrdered={visibleRounds} timeZone={tournamentTimezone} />
+        )}
       </div>
       <div className="mt-4 md:hidden">
         {mobileView === "list" ? (

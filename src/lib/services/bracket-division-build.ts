@@ -1,8 +1,15 @@
-import { BracketFormat, BracketRoundType, GameStatus } from "@prisma/client";
+import {
+  BracketFormat,
+  BracketRoundType,
+  BracketSlotFeedKind,
+  GameStatus,
+  GrandFinalMode,
+} from "@prisma/client";
 import { prisma } from "@/lib/db";
 import {
   doubleElimLosersRoundSizes,
   isValidEntryTeamCount,
+  losersRoundIndexForWinnersDrop,
   singleElimRoundName,
   tripleElimL2RoundSizes,
 } from "./bracket-engine";
@@ -37,6 +44,11 @@ export type CreateDivisionPlayoffOptions = {
    * When false, classic fixed feeder paths.
    */
   avoidRematchesUntilForced?: boolean;
+  /** Double/triple grand final series mode. */
+  grandFinalMode?: GrandFinalMode;
+  /** Qualifier: conclude when this many teams remain alive. */
+  isQualifier?: boolean;
+  qualifyingTeamCount?: number;
 };
 
 function slotKey(poolId: string, rank: number) {
@@ -116,6 +128,93 @@ async function createSideBracketRounds(
   return roundIndex;
 }
 
+/** Wire classic winner feeders + losers-drop targets for multi-elim brackets. */
+async function wireClassicDoubleElimFeeders(tx: Tx, bracketId: string): Promise<void> {
+  const rounds = await tx.bracketRound.findMany({
+    where: { bracketId },
+    orderBy: { roundIndex: "asc" },
+    include: { matches: { orderBy: { matchIndex: "asc" } } },
+  });
+  const winners = rounds.filter((r) => r.roundType === BracketRoundType.WINNERS);
+  const losers = rounds.filter((r) => r.roundType === BracketRoundType.LOSERS);
+  const finalRound = rounds.find((r) => r.roundType === BracketRoundType.FINAL);
+
+  for (let r = 0; r < winners.length - 1; r++) {
+    const cur = winners[r]!;
+    const next = winners[r + 1]!;
+    for (const match of cur.matches) {
+      const parent = Math.floor(match.matchIndex / 2);
+      const child = next.matches.find((m) => m.matchIndex === parent);
+      if (!child) continue;
+      const homeSlot = match.matchIndex % 2 === 0;
+      await tx.bracketMatch.update({
+        where: { id: child.id },
+        data: homeSlot
+          ? { homeFromMatchId: match.id, homeFromKind: BracketSlotFeedKind.WINNER }
+          : { awayFromMatchId: match.id, awayFromKind: BracketSlotFeedKind.WINNER },
+      });
+    }
+  }
+
+  for (let wi = 0; wi < winners.length; wi++) {
+    const lIdx = losersRoundIndexForWinnersDrop(wi, losers.length);
+    const lRound = losers[lIdx];
+    if (!lRound || lRound.matches.length === 0) continue;
+    for (const match of winners[wi]!.matches) {
+      const target =
+        lRound.matches[Math.min(match.matchIndex, lRound.matches.length - 1)] ??
+        lRound.matches[0]!;
+      await tx.bracketMatch.update({
+        where: { id: match.id },
+        data: { loserDropMatchId: target.id },
+      });
+    }
+  }
+
+  // Consolidation: L even→odd winners advance within losers tree
+  for (let li = 0; li < losers.length - 1; li++) {
+    const cur = losers[li]!;
+    const next = losers[li + 1]!;
+    for (const match of cur.matches) {
+      const parent = Math.min(
+        Math.floor(match.matchIndex / 2),
+        Math.max(0, next.matches.length - 1),
+      );
+      const child = next.matches.find((m) => m.matchIndex === parent) ?? next.matches[0];
+      if (!child) continue;
+      const homeSlot = match.matchIndex % 2 === 0;
+      // Only set if empty so winners-side drops can own the other seat
+      const existing = await tx.bracketMatch.findUnique({ where: { id: child.id } });
+      if (homeSlot && !existing?.homeFromMatchId) {
+        await tx.bracketMatch.update({
+          where: { id: child.id },
+          data: { homeFromMatchId: match.id, homeFromKind: BracketSlotFeedKind.WINNER },
+        });
+      } else if (!homeSlot && !existing?.awayFromMatchId) {
+        await tx.bracketMatch.update({
+          where: { id: child.id },
+          data: { awayFromMatchId: match.id, awayFromKind: BracketSlotFeedKind.WINNER },
+        });
+      }
+    }
+  }
+
+  const gf1 = finalRound?.matches.find((m) => m.matchIndex === 0);
+  const winnersFinal = winners[winners.length - 1]?.matches[0];
+  const losersFinal = losers[losers.length - 1]?.matches[0];
+  if (gf1 && winnersFinal) {
+    await tx.bracketMatch.update({
+      where: { id: gf1.id },
+      data: {
+        homeFromMatchId: winnersFinal.id,
+        homeFromKind: BracketSlotFeedKind.WINNER,
+        awayFromMatchId: losersFinal?.id ?? null,
+        awayFromKind: losersFinal ? BracketSlotFeedKind.WINNER : null,
+      },
+    });
+  }
+}
+
 export async function createDivisionPlayoffBracket(opts: CreateDivisionPlayoffOptions): Promise<string> {
   const {
     tournamentId,
@@ -128,7 +227,16 @@ export async function createDivisionPlayoffBracket(opts: CreateDivisionPlayoffOp
     published = false,
     format = BracketFormat.SINGLE_ELIMINATION,
     avoidRematchesUntilForced = false,
+    grandFinalMode = GrandFinalMode.SINGLE,
+    isQualifier = false,
+    qualifyingTeamCount = 1,
   } = opts;
+
+  const multiElim =
+    format === BracketFormat.DOUBLE_ELIMINATION ||
+    format === BracketFormat.TRIPLE_ELIMINATION;
+  const qCount = Math.max(1, Math.min(64, qualifyingTeamCount));
+  const gfMode = multiElim ? grandFinalMode : GrandFinalMode.SINGLE;
 
   const division = await prisma.division.findFirst({
     where: { id: divisionId, tournamentId },
@@ -220,11 +328,10 @@ export async function createDivisionPlayoffBracket(opts: CreateDivisionPlayoffOp
         name,
         sortOrder,
         format,
-        avoidRematchesUntilForced:
-          format === BracketFormat.DOUBLE_ELIMINATION ||
-          format === BracketFormat.TRIPLE_ELIMINATION
-            ? avoidRematchesUntilForced
-            : false,
+        avoidRematchesUntilForced: multiElim ? avoidRematchesUntilForced : false,
+        grandFinalMode: gfMode,
+        isQualifier: isQualifier === true,
+        qualifyingTeamCount: isQualifier ? qCount : 1,
         published,
         needsResolutionRefresh: false,
       },
@@ -232,10 +339,18 @@ export async function createDivisionPlayoffBracket(opts: CreateDivisionPlayoffOp
 
     const totalWinnerRounds = (Math.log2(n) | 0) as number;
     const roundRows: { id: string; roundIndex: number; name: string }[] = [];
+    const baseMs = startsAt.getTime();
+    const stepMs = hoursBetweenRounds * 60 * 60 * 1000;
 
     for (let r = 0; r < totalWinnerRounds; r++) {
-      const nameRound = singleElimRoundName(r, totalWinnerRounds);
-      const roundType = r === totalWinnerRounds - 1 ? BracketRoundType.FINAL : BracketRoundType.WINNERS;
+      const isLast = r === totalWinnerRounds - 1;
+      let nameRound = singleElimRoundName(r, totalWinnerRounds);
+      let roundType: BracketRoundType = BracketRoundType.WINNERS;
+      if (!multiElim && isLast) {
+        roundType = BracketRoundType.FINAL;
+      } else if (multiElim && isLast) {
+        nameRound = "Winners final";
+      }
       const created = await tx.bracketRound.create({
         data: { bracketId: bracket.id, name: nameRound, roundIndex: r, roundType },
       });
@@ -246,48 +361,82 @@ export async function createDivisionPlayoffBracket(opts: CreateDivisionPlayoffOp
       });
     }
 
-    // Double/triple: full losers trees (all rounds get games). Triple also adds L2 (LOSERS_SECOND).
-    if (
-      format === BracketFormat.DOUBLE_ELIMINATION ||
-      format === BracketFormat.TRIPLE_ELIMINATION
-    ) {
-      const baseMs = startsAt.getTime();
-      const stepMs = hoursBetweenRounds * 60 * 60 * 1000;
+    let nextRoundIndex = totalWinnerRounds;
+    let scheduleOffset = totalWinnerRounds;
+
+    // Double/triple: losers trees, then a dedicated grand-final round.
+    if (multiElim) {
       const l1Sizes = doubleElimLosersRoundSizes(n);
-      let nextRoundIndex = await createSideBracketRounds(tx, {
+      nextRoundIndex = await createSideBracketRounds(tx, {
         tournamentId,
         bracketId: bracket.id,
         fieldId,
         startsAtMs: baseMs,
         stepMs,
-        startRoundIndex: totalWinnerRounds,
-        scheduleRoundOffset: totalWinnerRounds,
+        startRoundIndex: nextRoundIndex,
+        scheduleRoundOffset: scheduleOffset,
         roundType: BracketRoundType.LOSERS,
         sizes: l1Sizes,
         nameFor: (i, total) =>
           i === total - 1 ? "Losers final (1 loss)" : `Losers round ${i + 1}`,
       });
+      scheduleOffset += l1Sizes.length;
 
       if (format === BracketFormat.TRIPLE_ELIMINATION) {
         const l2Sizes = tripleElimL2RoundSizes(n);
-        await createSideBracketRounds(tx, {
+        nextRoundIndex = await createSideBracketRounds(tx, {
           tournamentId,
           bracketId: bracket.id,
           fieldId,
           startsAtMs: baseMs,
           stepMs,
           startRoundIndex: nextRoundIndex,
-          scheduleRoundOffset: totalWinnerRounds + l1Sizes.length,
+          scheduleRoundOffset: scheduleOffset,
           roundType: BracketRoundType.LOSERS_SECOND,
           sizes: l2Sizes,
           nameFor: (i, total) =>
             i === total - 1 ? "Losers final (2 losses)" : `L2 round ${i + 1}`,
         });
+        scheduleOffset += l2Sizes.length;
+      }
+
+      const gfGames = gfMode === GrandFinalMode.IF_NECESSARY ? 2 : 1;
+      const gfRound = await tx.bracketRound.create({
+        data: {
+          bracketId: bracket.id,
+          name: gfGames > 1 ? "Grand final" : "Grand final",
+          roundIndex: nextRoundIndex,
+          roundType: BracketRoundType.FINAL,
+        },
+      });
+      const gfAt = new Date(baseMs + scheduleOffset * stepMs);
+      for (let m = 0; m < gfGames; m++) {
+        const game = await tx.game.create({
+          data: {
+            tournamentId,
+            poolId: null,
+            fieldId,
+            homeTeamId: null,
+            awayTeamId: null,
+            scheduledAt: gfAt,
+            schedulePlaceholder: true,
+            status: GameStatus.SCHEDULED,
+            resultType: "REGULAR",
+            bracketId: bracket.id,
+            bracketRoundId: gfRound.id,
+            bracketPosition: m,
+            gameNumber: m === 0 ? "GF1" : "GF2 (if necessary)",
+          },
+        });
+        await tx.bracketMatch.create({
+          data: {
+            bracketRoundId: gfRound.id,
+            matchIndex: m,
+            gameId: game.id,
+          },
+        });
       }
     }
-
-    const baseMs = startsAt.getTime();
-    const stepMs = hoursBetweenRounds * 60 * 60 * 1000;
 
     for (let r = 0; r < totalWinnerRounds; r++) {
       const matchesInRound = n / 2 ** (r + 1);
@@ -355,6 +504,10 @@ export async function createDivisionPlayoffBracket(opts: CreateDivisionPlayoffOp
           },
         });
       }
+    }
+
+    if (multiElim) {
+      await wireClassicDoubleElimFeeders(tx, bracket.id);
     }
 
     return bracket.id;

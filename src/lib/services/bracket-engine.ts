@@ -224,3 +224,66 @@ export function bracketWinnerTeamId(input: {
   if (input.awayRuns > input.homeRuns) return input.awayTeamId;
   return null;
 }
+
+/**
+ * Classic DE: winners-round losers enter losers rounds on even indices
+ * (W0→L0, W1→L2, W2→L4, …), with consolidation rounds on odd indices.
+ */
+export function losersRoundIndexForWinnersDrop(
+  winnersRoundIndex: number,
+  losersRoundCount: number,
+): number {
+  if (losersRoundCount <= 0) return 0;
+  const idx = Math.max(0, winnersRoundIndex) * 2;
+  return Math.min(idx, losersRoundCount - 1);
+}
+
+/** Max losses before elimination: SE=1, DE=2, TE=3. */
+export function eliminationLossLimit(format: string): number {
+  if (format === "TRIPLE_ELIMINATION") return 3;
+  if (format === "DOUBLE_ELIMINATION") return 2;
+  return 1;
+}
+
+/**
+ * Count bracket losses per team from FINAL games (forfeits + scored).
+ */
+export function bracketLossCountsFromGames(
+  games: {
+    status: string;
+    resultType: string;
+    homeTeamId: string | null;
+    awayTeamId: string | null;
+    homeRuns: number | null;
+    awayRuns: number | null;
+  }[],
+): Map<string, number> {
+  const losses = new Map<string, number>();
+  for (const g of games) {
+    if (g.status !== "FINAL") continue;
+    const loser = bracketLoserTeamId(g);
+    if (!loser) continue;
+    losses.set(loser, (losses.get(loser) ?? 0) + 1);
+  }
+  return losses;
+}
+
+/**
+ * Teams still alive (losses &lt; elimination limit). Used for qualifier conclusion.
+ */
+export function aliveTeamIds(opts: {
+  format: string;
+  entrantTeamIds: string[];
+  games: {
+    status: string;
+    resultType: string;
+    homeTeamId: string | null;
+    awayTeamId: string | null;
+    homeRuns: number | null;
+    awayRuns: number | null;
+  }[];
+}): string[] {
+  const limit = eliminationLossLimit(opts.format);
+  const lossCounts = bracketLossCountsFromGames(opts.games);
+  return opts.entrantTeamIds.filter((id) => (lossCounts.get(id) ?? 0) < limit);
+}

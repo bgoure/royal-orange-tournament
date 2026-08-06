@@ -1,5 +1,10 @@
 import { prisma } from "@/lib/db";
-import { bracketLoserTeamId, bracketWinnerTeamId } from "./bracket-engine";
+import {
+  aliveTeamIds,
+  bracketLoserTeamId,
+  bracketWinnerTeamId,
+  losersRoundIndexForWinnersDrop,
+} from "./bracket-engine";
 import { selectObaByeRecipient, type ObaByeCandidate } from "./oba-bye-award";
 import {
   meetingKey,
@@ -7,6 +12,20 @@ import {
   pickSeatAvoidingRematch,
 } from "./rematch-aware-pairing";
 import type { StandingsGameInput } from "@/lib/services/standings/standings-engine";
+
+async function placeIntoGrandFinalHome(bracketId: string, teamId: string): Promise<void> {
+  const grandFinal = await prisma.bracketRound.findFirst({
+    where: { bracketId, roundType: "FINAL" },
+    include: { matches: { orderBy: { matchIndex: "asc" }, take: 1 } },
+  });
+  const gfGameId = grandFinal?.matches[0]?.gameId;
+  if (gfGameId) {
+    await prisma.game.update({
+      where: { id: gfGameId },
+      data: { homeTeamId: teamId },
+    });
+  }
+}
 
 async function placeTeamInNextWinnersSlot(
   bracketId: string,
@@ -17,9 +36,11 @@ async function placeTeamInNextWinnersSlot(
   const nextRound = await prisma.bracketRound.findFirst({
     where: { bracketId, roundIndex: roundIndex + 1 },
   });
-  if (!nextRound?.id) return;
-  // Don't advance into losers rounds via winners path
-  if (nextRound.roundType !== "WINNERS" && nextRound.roundType !== "FINAL") return;
+  // Multi-elim: after winners final, next roundIndex is losers — jump to grand final home.
+  if (!nextRound?.id || (nextRound.roundType !== "WINNERS" && nextRound.roundType !== "FINAL")) {
+    await placeIntoGrandFinalHome(bracketId, teamId);
+    return;
+  }
 
   const parentMatchIdx = Math.floor(matchIndex / 2);
   const homeSlot = matchIndex % 2 === 0;
@@ -35,6 +56,108 @@ async function placeTeamInNextWinnersSlot(
     where: { id: childMatch.gameId },
     data: homeSlot ? { homeTeamId: teamId } : { awayTeamId: teamId },
   });
+}
+
+/** Place winner/loser into any match that lists this match as an explicit feeder. */
+async function placeViaExplicitFeeders(
+  sourceMatchId: string,
+  kind: "WINNER" | "LOSER",
+  teamId: string,
+): Promise<boolean> {
+  const targets = await prisma.bracketMatch.findMany({
+    where: {
+      OR: [
+        { homeFromMatchId: sourceMatchId, homeFromKind: kind },
+        { awayFromMatchId: sourceMatchId, awayFromKind: kind },
+      ],
+    },
+    include: { game: true },
+  });
+  let placed = false;
+  for (const t of targets) {
+    if (!t.gameId || !t.game) continue;
+    if (t.game.status === "LIVE" || t.game.status === "FINAL") continue;
+    if (t.homeFromMatchId === sourceMatchId && t.homeFromKind === kind && t.game.homeTeamId == null) {
+      await prisma.game.update({ where: { id: t.gameId }, data: { homeTeamId: teamId } });
+      placed = true;
+    }
+    if (t.awayFromMatchId === sourceMatchId && t.awayFromKind === kind && t.game.awayTeamId == null) {
+      await prisma.game.update({ where: { id: t.gameId }, data: { awayTeamId: teamId } });
+      placed = true;
+    }
+  }
+  return placed;
+}
+
+async function placeIntoMatchSeat(matchId: string, teamId: string): Promise<boolean> {
+  const match = await prisma.bracketMatch.findUnique({
+    where: { id: matchId },
+    include: { game: true },
+  });
+  if (!match?.gameId || !match.game) return false;
+  if (match.game.status === "LIVE" || match.game.status === "FINAL") return false;
+  if (match.game.homeTeamId === teamId || match.game.awayTeamId === teamId) return true;
+  if (match.game.homeTeamId == null) {
+    await prisma.game.update({ where: { id: match.gameId }, data: { homeTeamId: teamId } });
+    return true;
+  }
+  if (match.game.awayTeamId == null) {
+    await prisma.game.update({ where: { id: match.gameId }, data: { awayTeamId: teamId } });
+    return true;
+  }
+  return false;
+}
+
+async function maybeConcludeQualifier(bracketId: string): Promise<void> {
+  const bracket = await prisma.bracket.findUnique({
+    where: { id: bracketId },
+    select: {
+      format: true,
+      isQualifier: true,
+      qualifyingTeamCount: true,
+      concludedAt: true,
+    },
+  });
+  if (!bracket || bracket.concludedAt) return;
+  if (!bracket.isQualifier && bracket.qualifyingTeamCount <= 1) return;
+
+  const games = await prisma.game.findMany({
+    where: { bracketId },
+    select: {
+      status: true,
+      resultType: true,
+      homeTeamId: true,
+      awayTeamId: true,
+      homeRuns: true,
+      awayRuns: true,
+      bracketRound: { select: { roundIndex: true } },
+    },
+  });
+  const entrants = new Set<string>();
+  for (const g of games) {
+    if (g.bracketRound?.roundIndex === 0) {
+      if (g.homeTeamId) entrants.add(g.homeTeamId);
+      if (g.awayTeamId) entrants.add(g.awayTeamId);
+    }
+  }
+  if (entrants.size === 0) {
+    for (const g of games) {
+      if (g.homeTeamId) entrants.add(g.homeTeamId);
+      if (g.awayTeamId) entrants.add(g.awayTeamId);
+    }
+  }
+  const alive = aliveTeamIds({
+    format: bracket.format,
+    entrantTeamIds: [...entrants],
+    games,
+  });
+  const need = Math.max(1, bracket.qualifyingTeamCount);
+  if (alive.length > 0 && alive.length <= need) {
+    await prisma.bracket.update({
+      where: { id: bracketId },
+      data: { concludedAt: new Date() },
+    });
+  }
 }
 
 /** Prior FINAL meetings in this bracket (unordered pair keys). */
@@ -430,131 +553,197 @@ export async function advanceBracketWinnerFromGame(gameId: string): Promise<void
 
   const bracket = await prisma.bracket.findUnique({
     where: { id: bracketId },
-    select: { format: true, avoidRematchesUntilForced: true },
+    select: {
+      format: true,
+      avoidRematchesUntilForced: true,
+      grandFinalMode: true,
+      isQualifier: true,
+      qualifyingTeamCount: true,
+      concludedAt: true,
+    },
   });
   const avoid = bracket?.avoidRematchesUntilForced === true;
   const format = bracket?.format;
 
+  // Explicit feeder overrides (Phase D)
+  const fedWinner = await placeViaExplicitFeeders(match.id, "WINNER", winner);
+  const loser = bracketLoserTeamId(game);
+  if (loser) {
+    if (match.loserDropMatchId) {
+      await placeIntoMatchSeat(match.loserDropMatchId, loser);
+    } else {
+      await placeViaExplicitFeeders(match.id, "LOSER", loser);
+    }
+  }
+
+  // --- Grand final series ---
+  if (roundType === "FINAL") {
+    if (bracket?.grandFinalMode === "IF_NECESSARY" && m === 0) {
+      const gfRound = match.bracketRound;
+      const gf2 = await prisma.bracketMatch.findUnique({
+        where: {
+          bracketRoundId_matchIndex: { bracketRoundId: gfRound.id, matchIndex: 1 },
+        },
+        include: { game: true },
+      });
+      // Away (losers champ) beat home (undefeated) → require GF2
+      if (winner === game.awayTeamId && gf2?.gameId) {
+        await prisma.game.update({
+          where: { id: gf2.gameId },
+          data: {
+            homeTeamId: game.homeTeamId,
+            awayTeamId: game.awayTeamId,
+            status: "SCHEDULED",
+            schedulePlaceholder: false,
+          },
+        });
+      }
+    }
+    await maybeConcludeQualifier(bracketId);
+    return;
+  }
+
   // --- L2 (2-loss): winner advances; loser is eliminated ---
   if (roundType === "LOSERS_SECOND") {
-    const nextL2 = await prisma.bracketRound.findFirst({
-      where: { bracketId, roundType: "LOSERS_SECOND", roundIndex: { gt: roundIndex } },
-      orderBy: { roundIndex: "asc" },
-    });
-    if (!nextL2) {
-      await placeIntoGrandFinalAway(bracketId, winner);
-      return;
-    }
-    if (avoid) {
-      await placeTeamIntoSideRound({
-        bracketId,
-        roundId: nextL2.id,
-        teamId: winner,
-        avoidRematches: true,
+    if (!fedWinner) {
+      const nextL2 = await prisma.bracketRound.findFirst({
+        where: { bracketId, roundType: "LOSERS_SECOND", roundIndex: { gt: roundIndex } },
+        orderBy: { roundIndex: "asc" },
       });
-    } else {
-      await placeFixedIntoRound(bracketId, nextL2.id, m, winner);
+      if (!nextL2) {
+        await placeIntoGrandFinalAway(bracketId, winner);
+      } else if (avoid) {
+        await placeTeamIntoSideRound({
+          bracketId,
+          roundId: nextL2.id,
+          teamId: winner,
+          avoidRematches: true,
+        });
+      } else {
+        await placeFixedIntoRound(bracketId, nextL2.id, m, winner);
+      }
     }
+    await maybeConcludeQualifier(bracketId);
     return;
   }
 
   // --- L1 (1-loss) ---
   if (roundType === "LOSERS") {
-    const nextL1 = await prisma.bracketRound.findFirst({
-      where: { bracketId, roundType: "LOSERS", roundIndex: { gt: roundIndex } },
-      orderBy: { roundIndex: "asc" },
-    });
-
-    if (format === "TRIPLE_ELIMINATION") {
-      // Winner: next L1, or into L2 if this was L1 final
-      if (nextL1) {
-        if (avoid) {
-          await placeTeamIntoSideRound({
-            bracketId,
-            roundId: nextL1.id,
-            teamId: winner,
-            avoidRematches: true,
-          });
-        } else {
-          await placeFixedIntoRound(bracketId, nextL1.id, m, winner);
-        }
-      } else {
-        await dropIntoFirstRoundOfType(bracketId, "LOSERS_SECOND", winner, avoid);
-      }
-      // Loser of L1 → L2
-      const loser = bracketLoserTeamId(game);
-      if (loser) {
-        await dropIntoFirstRoundOfType(bracketId, "LOSERS_SECOND", loser, avoid);
-      }
-      return;
-    }
-
-    // Double-elim L1
-    if (!nextL1) {
-      await placeIntoGrandFinalAway(bracketId, winner);
-      return;
-    }
-    if (avoid) {
-      await placeTeamIntoSideRound({
-        bracketId,
-        roundId: nextL1.id,
-        teamId: winner,
-        avoidRematches: true,
+    if (!fedWinner) {
+      const nextL1 = await prisma.bracketRound.findFirst({
+        where: { bracketId, roundType: "LOSERS", roundIndex: { gt: roundIndex } },
+        orderBy: { roundIndex: "asc" },
       });
-    } else {
-      await placeFixedIntoRound(bracketId, nextL1.id, m, winner);
+
+      if (format === "TRIPLE_ELIMINATION") {
+        if (nextL1) {
+          if (avoid) {
+            await placeTeamIntoSideRound({
+              bracketId,
+              roundId: nextL1.id,
+              teamId: winner,
+              avoidRematches: true,
+            });
+          } else {
+            await placeFixedIntoRound(bracketId, nextL1.id, m, winner);
+          }
+        } else {
+          await dropLoserIntoSideBracket(bracketId, "LOSERS_SECOND", winner, avoid);
+        }
+        if (loser && !match.loserDropMatchId) {
+          await dropLoserIntoSideBracket(bracketId, "LOSERS_SECOND", loser, avoid);
+        }
+        await maybeConcludeQualifier(bracketId);
+        return;
+      }
+
+      // Double-elim L1
+      if (!nextL1) {
+        await placeIntoGrandFinalAway(bracketId, winner);
+      } else if (avoid) {
+        await placeTeamIntoSideRound({
+          bracketId,
+          roundId: nextL1.id,
+          teamId: winner,
+          avoidRematches: true,
+        });
+      } else {
+        await placeFixedIntoRound(bracketId, nextL1.id, m, winner);
+      }
     }
+    await maybeConcludeQualifier(bracketId);
     return;
   }
 
-  // --- Winners / Final path ---
-  await placeTeamInNextWinnersSlot(bracketId, roundIndex, m, winner);
-
-  if (format === "DOUBLE_ELIMINATION" || format === "TRIPLE_ELIMINATION") {
-    const loser = bracketLoserTeamId(game);
-    if (loser) {
-      await dropIntoFirstRoundOfType(bracketId, "LOSERS", loser, avoid, {
-        winnersRoundIndex: roundIndex,
-        winnersMatchIndex: m,
-      });
-    }
+  // --- Winners path ---
+  if (!fedWinner) {
+    await placeTeamInNextWinnersSlot(bracketId, roundIndex, m, winner);
   }
+
+  if (
+    (format === "DOUBLE_ELIMINATION" || format === "TRIPLE_ELIMINATION") &&
+    loser &&
+    !match.loserDropMatchId
+  ) {
+    // Winners-round depth among WINNERS rounds only (0-based).
+    const winnersRounds = await prisma.bracketRound.findMany({
+      where: { bracketId, roundType: "WINNERS" },
+      orderBy: { roundIndex: "asc" },
+      select: { roundIndex: true },
+    });
+    const winnersDepth = Math.max(
+      0,
+      winnersRounds.findIndex((r) => r.roundIndex === roundIndex),
+    );
+    await dropLoserIntoSideBracket(bracketId, "LOSERS", loser, avoid, {
+      winnersRoundIndex: winnersDepth,
+      winnersMatchIndex: m,
+    });
+  }
+
+  await maybeConcludeQualifier(bracketId);
 }
 
-async function dropIntoFirstRoundOfType(
+/**
+ * Drop a team into the correct losers / L2 round (not always the first).
+ * Prefer `loserDropMatchId` on the source match when set (wired at build / Phase D edits).
+ */
+async function dropLoserIntoSideBracket(
   bracketId: string,
   roundType: "LOSERS" | "LOSERS_SECOND",
   teamId: string,
   avoidRematches: boolean,
   fixedHint?: { winnersRoundIndex: number; winnersMatchIndex: number },
 ): Promise<void> {
-  const first = await prisma.bracketRound.findFirst({
+  const sideRounds = await prisma.bracketRound.findMany({
     where: { bracketId, roundType },
     orderBy: { roundIndex: "asc" },
     include: { matches: { orderBy: { matchIndex: "asc" }, include: { game: true } } },
   });
-  if (!first) return;
+  if (sideRounds.length === 0) return;
+
+  let targetRound = sideRounds[0]!;
+  if (fixedHint && roundType === "LOSERS") {
+    const idx = losersRoundIndexForWinnersDrop(fixedHint.winnersRoundIndex, sideRounds.length);
+    targetRound = sideRounds[idx] ?? targetRound;
+  }
 
   if (avoidRematches) {
     await placeTeamIntoSideRound({
       bracketId,
-      roundId: first.id,
+      roundId: targetRound.id,
       teamId,
       avoidRematches: true,
     });
     return;
   }
 
-  // Classic: map winners R0 match i → losers slot i when dropping from winners
-  if (fixedHint && roundType === "LOSERS" && first.matches.length > 0) {
-    const targetIdx =
-      fixedHint.winnersRoundIndex === 0
-        ? Math.min(fixedHint.winnersMatchIndex, Math.max(0, first.matches.length - 1))
-        : Math.min(
-            Math.floor(fixedHint.winnersMatchIndex + fixedHint.winnersRoundIndex),
-            Math.max(0, first.matches.length - 1),
-          );
-    const slot = first.matches[targetIdx];
+  if (fixedHint && targetRound.matches.length > 0) {
+    const targetIdx = Math.min(
+      fixedHint.winnersMatchIndex,
+      Math.max(0, targetRound.matches.length - 1),
+    );
+    const slot = targetRound.matches[targetIdx];
     if (slot?.gameId && slot.game) {
       const data =
         slot.game.homeTeamId == null
@@ -571,7 +760,7 @@ async function dropIntoFirstRoundOfType(
 
   await placeTeamIntoSideRound({
     bracketId,
-    roundId: first.id,
+    roundId: targetRound.id,
     teamId,
     avoidRematches: false,
   });

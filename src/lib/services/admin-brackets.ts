@@ -40,6 +40,9 @@ export async function listBracketsSummary(tournamentId: string) {
       name: true,
       format: true,
       avoidRematchesUntilForced: true,
+      grandFinalMode: true,
+      isQualifier: true,
+      qualifyingTeamCount: true,
       published: true,
       needsResolutionRefresh: true,
       division: { select: { id: true, name: true } },
@@ -56,6 +59,61 @@ export async function listBracketsSummary(tournamentId: string) {
       return { ...b, poolGamesTotal, poolGamesIncomplete, usesPoolSeeding };
     }),
   );
+}
+
+/** Matches for Phase D feeder editor (multi-elim custom maps). */
+export async function listBracketFeederMatches(tournamentId: string) {
+  const brackets = await prisma.bracket.findMany({
+    where: {
+      tournamentId,
+      format: { in: ["DOUBLE_ELIMINATION", "TRIPLE_ELIMINATION"] },
+    },
+    orderBy: { sortOrder: "asc" },
+    select: {
+      id: true,
+      name: true,
+      division: { select: { name: true } },
+      rounds: {
+        orderBy: { roundIndex: "asc" },
+        select: {
+          name: true,
+          roundType: true,
+          matches: {
+            orderBy: { matchIndex: "asc" },
+            select: {
+              id: true,
+              matchIndex: true,
+              homeFromMatchId: true,
+              awayFromMatchId: true,
+              homeFromKind: true,
+              awayFromKind: true,
+              loserDropMatchId: true,
+              game: { select: { gameNumber: true } },
+            },
+          },
+        },
+      },
+    },
+  });
+
+  return brackets.map((b) => ({
+    bracketId: b.id,
+    bracketName: `${b.name} · ${b.division.name}`,
+    matches: b.rounds.flatMap((r) =>
+      r.matches.map((m) => ({
+        id: m.id,
+        label:
+          m.game?.gameNumber != null && m.game.gameNumber !== ""
+            ? `${m.game.gameNumber} · ${r.name} #${m.matchIndex + 1}`
+            : `${r.name} · match ${m.matchIndex + 1} (${r.roundType})`,
+        homeFromMatchId: m.homeFromMatchId,
+        awayFromMatchId: m.awayFromMatchId,
+        homeFromKind: m.homeFromKind,
+        awayFromKind: m.awayFromKind,
+        loserDropMatchId: m.loserDropMatchId,
+      })),
+    ),
+  }));
 }
 
 /** Divisions with pools/teams for the playoff wizard; includes whether a bracket already exists. */
