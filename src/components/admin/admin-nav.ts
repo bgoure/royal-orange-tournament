@@ -16,6 +16,7 @@ export const adminNavGroups = [
     label: "Setup",
     items: [
       { href: "/admin/tournament-settings", label: "Tournament Admin", segment: "tournament-settings" },
+      { href: "/admin/structure", label: "Structure", segment: "structure" },
       { href: "/admin/divisions", label: "Divisions & Pools", segment: "divisions" },
       { href: "/admin/teams", label: "Teams", segment: "teams" },
       { href: "/admin/locations", label: "Locations", segment: "locations" },

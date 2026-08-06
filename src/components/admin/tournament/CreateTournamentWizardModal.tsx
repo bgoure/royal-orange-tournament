@@ -1,906 +1,779 @@
 "use client";
 
 import { useRouter } from "next/navigation";
-import { useCallback, useMemo, useState } from "react";
+import { useMemo, useState } from "react";
 import { createTournamentFromWizard } from "@/app/admin/_actions/tournament-wizard";
-import { SetupChecklistPanel } from "@/components/admin/tournament/SetupChecklistPanel";
 import {
-  setupChecklistDismissKey,
-  type SetupProgress,
-} from "@/lib/admin-setup-checklist";
-import {
+  nextPowerOfTwoAtLeast,
   WIZARD_MAX_DIVISIONS,
-  WIZARD_MAX_FIELDS,
   WIZARD_MAX_POOLS_PER_DIVISION,
-  WIZARD_MAX_TEAMS_PER_POOL,
   WIZARD_MAX_TEAMS_TOURNAMENT,
-  type TournamentWizardInput,
 } from "@/lib/validations/tournament-wizard";
-import { isValidAdvancingTeamCount } from "@/lib/services/bracket-engine";
-import { estimateScheduleCapacity } from "@/lib/services/round-robin-schedule";
 
-const TIMEZONES = [
-  "America/New_York",
-  "America/Chicago",
-  "America/Denver",
-  "America/Los_Angeles",
-  "America/Phoenix",
-  "America/Anchorage",
-  "Pacific/Honolulu",
-  "UTC",
-] as const;
+const formClass =
+  "rounded-md border border-zinc-300 bg-white px-2 py-1.5 text-sm text-zinc-900 shadow-sm focus:border-emerald-500 focus:outline-none focus:ring-2 focus:ring-emerald-500/20";
+const labelClass = "text-[10px] font-semibold uppercase tracking-wide text-zinc-500";
+const btnPrimary =
+  "rounded-md bg-emerald-600 px-4 py-2 text-sm font-medium text-white hover:bg-emerald-700 disabled:opacity-50";
+const btnSecondary =
+  "rounded-md border border-zinc-300 bg-white px-4 py-2 text-sm font-medium text-zinc-800 hover:bg-zinc-50 disabled:opacity-50";
 
-export type PoolDraft = {
-  name: string;
-  teamsAdvancing: string;
-  usePlaceholders: boolean;
-  /** Used when usePlaceholders is true. */
-  teamCount: string;
-  /** One name per line when usePlaceholders is false. */
-  teamNamesText: string;
-};
+type Format = "round_robin" | "bracket_only";
+type BracketFormat = "SINGLE_ELIMINATION" | "DOUBLE_ELIMINATION";
+type BuildMode = "template" | "custom";
+type SeedMode = "auto" | "manual";
 
-function parseTeamNames(text: string): string[] {
-  return text
-    .split(/\r?\n/)
-    .map((l) => l.trim())
-    .filter(Boolean)
-    .slice(0, WIZARD_MAX_TEAMS_PER_POOL);
-}
-
-const defaultPool = (index: number): PoolDraft => ({
-  name: `Pool ${String.fromCharCode(65 + index)}`,
-  teamsAdvancing: "2",
-  usePlaceholders: false,
-  teamCount: "4",
-  teamNamesText: "",
-});
+type Step =
+  | "basics"
+  | "rr_pools"
+  | "rr_assign"
+  | "br_config"
+  | "br_seed"
+  | "creating";
 
 type Props = { onClose: () => void };
 
+function fillNames(count: number, raw: string[], skip: boolean, prefix: string): string[] {
+  const out: string[] = [];
+  for (let i = 0; i < count; i++) {
+    if (skip) out.push(`${prefix}${i + 1}`);
+    else out.push((raw[i] ?? "").trim() || `${prefix}${i + 1}`);
+  }
+  return out;
+}
+
+function evenlySplit<T>(items: T[], buckets: number): T[][] {
+  const n = Math.max(1, buckets);
+  const out: T[][] = Array.from({ length: n }, () => []);
+  items.forEach((item, i) => {
+    out[i % n]!.push(item);
+  });
+  return out;
+}
+
 export function CreateTournamentWizardModal({ onClose }: Props) {
   const router = useRouter();
-  const [step, setStep] = useState(0);
+  const [step, setStep] = useState<Step>("basics");
+  const [error, setError] = useState<string | null>(null);
   const [pending, setPending] = useState(false);
-  const [formError, setFormError] = useState<string | null>(null);
-  const [createdSlug, setCreatedSlug] = useState<string | null>(null);
-  const [setupProgress, setSetupProgress] = useState<SetupProgress | null>(null);
-  const [finishNotes, setFinishNotes] = useState<string[]>([]);
 
+  // Modal 1
   const [tournamentName, setTournamentName] = useState("");
-  const [venueName, setVenueName] = useState("");
-  const [venueAddress, setVenueAddress] = useState("");
-  const [startDate, setStartDate] = useState("");
-  const [endDate, setEndDate] = useState("");
-  const [timezone, setTimezone] = useState<string>(TIMEZONES[0]);
-  const [fieldCount, setFieldCount] = useState("2");
-  const [slotMinutes, setSlotMinutes] = useState("90");
-  const [gameDurationMinutes, setGameDurationMinutes] = useState("75");
-  const [minRestMinutes, setMinRestMinutes] = useState("30");
-  const [travelMinutesBetweenFields, setTravelMinutesBetweenFields] = useState("10");
-  const [dayStartTime, setDayStartTime] = useState("08:00");
-  const [dayEndTime, setDayEndTime] = useState("18:00");
+  const [format, setFormat] = useState<Format>("round_robin");
+  const [divisionCount, setDivisionCount] = useState(1);
+  const [skipDivisionNames, setSkipDivisionNames] = useState(false);
+  const [divisionNameDrafts, setDivisionNameDrafts] = useState<string[]>(["Division1"]);
+  const [teamCount, setTeamCount] = useState(8);
+  const [skipTeamNames, setSkipTeamNames] = useState(false);
+  const [teamNameDrafts, setTeamNameDrafts] = useState<string[]>(Array(8).fill(""));
 
-  const [multipleDivisions, setMultipleDivisions] = useState(false);
-  const [divisionNames, setDivisionNames] = useState<string[]>(["Main"]);
+  // 2A
+  const [poolCounts, setPoolCounts] = useState<number[]>([2]);
+  /** poolIndex by teamName (within active division view we use global map: divisionIndex:poolIndex or unassigned) */
+  const [teamPlacement, setTeamPlacement] = useState<
+    Record<string, { divisionIndex: number; poolIndex: number } | "unassigned">
+  >({});
+  const [dragTeam, setDragTeam] = useState<string | null>(null);
 
-  const [poolsByDivision, setPoolsByDivision] = useState<PoolDraft[][]>([[defaultPool(0)]]);
+  // 2B
+  const [bracketFormat, setBracketFormat] = useState<BracketFormat>("SINGLE_ELIMINATION");
+  const [buildMode, setBuildMode] = useState<BuildMode>("template");
+  const [seedMode, setSeedMode] = useState<SeedMode>("auto");
+  const [entrySizeByDiv, setEntrySizeByDiv] = useState<number[]>([8]);
+  const [manualSeedsByDiv, setManualSeedsByDiv] = useState<Array<Array<string | null>>>([[]]);
 
-  const [generateSchedules, setGenerateSchedules] = useState(true);
-  const [createBrackets, setCreateBrackets] = useState(false);
+  const divisionNames = useMemo(
+    () => fillNames(divisionCount, divisionNameDrafts, skipDivisionNames, "Division"),
+    [divisionCount, divisionNameDrafts, skipDivisionNames],
+  );
+  const teamNames = useMemo(
+    () => fillNames(teamCount, teamNameDrafts, skipTeamNames, "Team"),
+    [teamCount, teamNameDrafts, skipTeamNames],
+  );
 
-  const syncPoolsShape = useCallback((names: string[], prevPools: PoolDraft[][]) => {
-    return names.map((_, i) => {
-      const existing = prevPools[i];
-      if (existing && existing.length > 0) return existing;
-      return [defaultPool(0)];
+  const teamsByDivision = useMemo(() => evenlySplit(teamNames, divisionCount), [teamNames, divisionCount]);
+
+  function syncDivisionCount(n: number) {
+    const count = Math.min(WIZARD_MAX_DIVISIONS, Math.max(1, n));
+    setDivisionCount(count);
+    setDivisionNameDrafts((prev) => {
+      const next = [...prev];
+      while (next.length < count) next.push("");
+      return next.slice(0, count);
     });
-  }, []);
-
-  const poolTeamCount = (p: PoolDraft) =>
-    p.usePlaceholders ? Number(p.teamCount) || 0 : parseTeamNames(p.teamNamesText).length;
-
-  const totalTeams = useMemo(() => {
-    return poolsByDivision.reduce(
-      (sum, pools) => sum + pools.reduce((s, p) => s + poolTeamCount(p), 0),
-      0,
-    );
-  }, [poolsByDivision]);
-
-  const allPoolsHaveTwoPlusNamed = useMemo(() => {
-    return poolsByDivision.every((pools) =>
-      pools.every((p) => !p.usePlaceholders && parseTeamNames(p.teamNamesText).length >= 2),
-    );
-  }, [poolsByDivision]);
-
-  const advancingByDivision = useMemo(() => {
-    return divisionNames.map((_, di) =>
-      (poolsByDivision[di] ?? []).reduce((sum, p) => sum + (Number(p.teamsAdvancing) || 0), 0),
-    );
-  }, [divisionNames, poolsByDivision]);
-
-  const bracketsPossible = advancingByDivision.some((n) => isValidAdvancingTeamCount(n));
-
-  const scheduleCapacity = useMemo(() => {
-    if (!startDate || !endDate || dayStartTime >= dayEndTime) {
-      return null;
-    }
-    const fc = Number(fieldCount) || 1;
-    const sm = Number(slotMinutes) || 90;
-    const gd = Number(gameDurationMinutes) || 75;
-    const rest = Number(minRestMinutes) || 0;
-    const travel = Number(travelMinutesBetweenFields) || 0;
-    const poolCounts: number[] = [];
-    for (const pools of poolsByDivision) {
-      for (const p of pools) {
-        poolCounts.push(poolTeamCount(p));
-      }
-    }
-    return estimateScheduleCapacity({
-      poolTeamCounts: poolCounts,
-      fieldCount: fc,
-      timezone,
-      startDateYmd: startDate,
-      endDateYmd: endDate,
-      dayStartHm: dayStartTime,
-      dayEndHm: dayEndTime,
-      slotMinutes: sm,
-      gameDurationMinutes: gd,
-      minRestMinutes: rest,
-      travelMinutesBetweenFields: travel,
+    setPoolCounts((prev) => {
+      const next = [...prev];
+      while (next.length < count) next.push(2);
+      return next.slice(0, count);
     });
-  }, [
-    startDate,
-    endDate,
-    dayStartTime,
-    dayEndTime,
-    fieldCount,
-    slotMinutes,
-    gameDurationMinutes,
-    minRestMinutes,
-    travelMinutesBetweenFields,
-    timezone,
-    poolsByDivision,
-  ]);
-
-  const addDivision = () => {
-    if (divisionNames.length >= WIZARD_MAX_DIVISIONS) return;
-    setDivisionNames((d) => {
-      const next = [...d, `Division ${d.length + 1}`];
-      setPoolsByDivision((p) => syncPoolsShape(next, p));
-      return next;
+    setEntrySizeByDiv((prev) => {
+      const next = [...prev];
+      while (next.length < count) next.push(8);
+      return next.slice(0, count);
     });
-  };
+  }
 
-  const removeDivision = (index: number) => {
-    if (divisionNames.length <= 1) return;
-    setDivisionNames((d) => {
-      const next = d.filter((_, i) => i !== index);
-      setPoolsByDivision((p) => p.filter((_, i) => i !== index));
-      return next;
+  function syncTeamCount(n: number) {
+    const count = Math.min(WIZARD_MAX_TEAMS_TOURNAMENT, Math.max(2, n));
+    setTeamCount(count);
+    setTeamNameDrafts((prev) => {
+      const next = [...prev];
+      while (next.length < count) next.push("");
+      return next.slice(0, count);
     });
-  };
+  }
 
-  const updateDivisionName = (index: number, name: string) => {
-    setDivisionNames((d) => d.map((x, i) => (i === index ? name : x)));
-  };
+  function initRrAssign() {
+    const placement: Record<string, { divisionIndex: number; poolIndex: number } | "unassigned"> = {};
+    for (const name of teamNames) placement[name] = "unassigned";
+    setTeamPlacement(placement);
+  }
 
-  const addPool = (divisionIndex: number) => {
-    setPoolsByDivision((rows) =>
-      rows.map((pools, i) => {
-        if (i !== divisionIndex) return pools;
-        if (pools.length >= WIZARD_MAX_POOLS_PER_DIVISION) return pools;
-        return [...pools, defaultPool(pools.length)];
+  function initBracketSeeds() {
+    const sizes = teamsByDivision.map((teams) => nextPowerOfTwoAtLeast(Math.max(2, teams.length)));
+    setEntrySizeByDiv(sizes);
+    setManualSeedsByDiv(
+      teamsByDivision.map((teams, di) => {
+        const size = sizes[di]!;
+        const order: Array<string | null> = [...teams];
+        while (order.length < size) order.push(null);
+        return order.slice(0, size);
       }),
-    );
-  };
-
-  const removePool = (divisionIndex: number, poolIndex: number) => {
-    setPoolsByDivision((rows) =>
-      rows.map((pools, i) => {
-        if (i !== divisionIndex) return pools;
-        if (pools.length <= 1) return pools;
-        return pools.filter((_, j) => j !== poolIndex);
-      }),
-    );
-  };
-
-  const updatePool = (divisionIndex: number, poolIndex: number, patch: Partial<PoolDraft>) => {
-    setPoolsByDivision((rows) =>
-      rows.map((pools, i) => {
-        if (i !== divisionIndex) return pools;
-        return pools.map((pool, j) => (j === poolIndex ? { ...pool, ...patch } : pool));
-      }),
-    );
-  };
-
-  const buildPayload = (): TournamentWizardInput => ({
-    tournamentName: tournamentName.trim(),
-    venueName: venueName.trim(),
-    venueAddress: venueAddress.trim(),
-    startDate,
-    endDate,
-    timezone,
-    fieldCount: Number(fieldCount),
-    slotMinutes: Number(slotMinutes),
-    gameDurationMinutes: Number(gameDurationMinutes),
-    minRestMinutes: Number(minRestMinutes),
-    travelMinutesBetweenFields: Number(travelMinutesBetweenFields),
-    dayStartTime,
-    dayEndTime,
-    generateSchedules,
-    createBrackets,
-    divisions: divisionNames.map((name, di) => ({
-      name: name.trim(),
-      pools: (poolsByDivision[di] ?? []).map((p) => {
-        if (p.usePlaceholders) {
-          return {
-            name: p.name.trim(),
-            teamsAdvancing: Number(p.teamsAdvancing),
-            usePlaceholders: true,
-            teamCount: Number(p.teamCount),
-            teamNames: [],
-          };
-        }
-        return {
-          name: p.name.trim(),
-          teamsAdvancing: Number(p.teamsAdvancing),
-          usePlaceholders: false,
-          teamNames: parseTeamNames(p.teamNamesText),
-        };
-      }),
-    })),
-  });
-
-  const canAdvanceFromStep0 =
-    tournamentName.trim() &&
-    venueName.trim() &&
-    venueAddress.trim() &&
-    startDate &&
-    endDate &&
-    endDate >= startDate &&
-    Number(fieldCount) >= 1 &&
-    Number(fieldCount) <= WIZARD_MAX_FIELDS &&
-    Number(slotMinutes) >= 15 &&
-    Number(gameDurationMinutes) >= 15 &&
-    Number(minRestMinutes) >= 0 &&
-    Number(travelMinutesBetweenFields) >= 0 &&
-    dayStartTime &&
-    dayEndTime &&
-    dayStartTime < dayEndTime;
-
-  const canAdvanceFromStep1 =
-    divisionNames.length > 0 &&
-    divisionNames.length <= WIZARD_MAX_DIVISIONS &&
-    divisionNames.every((n) => n.trim().length > 0);
-
-  const canAdvanceFromStep2 =
-    poolsByDivision.length === divisionNames.length &&
-    totalTeams <= WIZARD_MAX_TEAMS_TOURNAMENT &&
-    poolsByDivision.every((pools) =>
-      pools.every((p) => {
-        const ta = Number(p.teamsAdvancing);
-        if (!p.name.trim() || !Number.isFinite(ta) || ta < 0) return false;
-        const tc = poolTeamCount(p);
-        if (tc < 1 || tc > WIZARD_MAX_TEAMS_PER_POOL) return false;
-        if (ta > tc) return false;
-        return true;
-      }),
-    );
-
-  const goNext = () => {
-    setFormError(null);
-    if (step === 0 && !canAdvanceFromStep0) {
-      setFormError(
-        "Fill in venue, dates, field count, slot length, and daily hours (end must be after start).",
-      );
-      return;
-    }
-    if (step === 1 && !canAdvanceFromStep1) {
-      setFormError("Each division needs a name.");
-      return;
-    }
-    if (step === 2 && !canAdvanceFromStep2) {
-      setFormError(
-        `Each pool needs a name, at least one team (names or placeholders), and advancing ≤ team count. Max ${WIZARD_MAX_TEAMS_TOURNAMENT} teams total.`,
-      );
-      return;
-    }
-    if (step === 2) {
-      setGenerateSchedules(allPoolsHaveTwoPlusNamed);
-    }
-    setStep((s) => Math.min(s + 1, 3));
-  };
-
-  const goBack = () => {
-    setFormError(null);
-    setStep((s) => Math.max(s - 1, 0));
-  };
-
-  const submit = async () => {
-    setFormError(null);
-    setPending(true);
-    try {
-      const result = await createTournamentFromWizard(buildPayload());
-      if (!result.ok) {
-        setFormError(result.error);
-        return;
-      }
-      try {
-        localStorage.removeItem(setupChecklistDismissKey(result.slug));
-      } catch {
-        /* ignore */
-      }
-      setCreatedSlug(result.slug);
-      setSetupProgress(result.setupProgress);
-      setFinishNotes(result.finishNotes);
-      router.refresh();
-    } finally {
-      setPending(false);
-    }
-  };
-
-  const finishAfterChecklist = () => {
-    onClose();
-    router.refresh();
-  };
-
-  if (createdSlug && setupProgress) {
-    const publicPath = `/${createdSlug}`;
-    return (
-      <div
-        className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4"
-        role="dialog"
-        aria-modal="true"
-        aria-labelledby="setup-checklist-title"
-      >
-        <div className="max-h-[90vh] w-full max-w-lg overflow-y-auto rounded-2xl border border-zinc-200 bg-white p-6 shadow-xl">
-          <p className="text-xs font-medium uppercase tracking-wide text-emerald-700">Tournament created</p>
-          <h2 id="setup-checklist-title" className="mt-1 text-xl font-semibold text-zinc-900">
-            Next steps
-          </h2>
-          <div className="mt-3 rounded-lg border border-zinc-200 bg-zinc-50 px-3 py-3">
-            <p className="text-xs font-medium uppercase tracking-wide text-zinc-500">Public URL path</p>
-            <p className="mt-1 font-mono text-sm font-semibold text-zinc-900">{publicPath}</p>
-            <p className="mt-1.5 text-xs text-zinc-600">
-              Derived from the tournament name (lowercase, hyphenated). Share this path with parents — it is how
-              people open your event (not the site home page).
-            </p>
-          </div>
-          {finishNotes.length > 0 ? (
-            <ul className="mt-3 space-y-1 rounded-lg border border-zinc-200 bg-white px-3 py-2 text-xs text-zinc-600">
-              {finishNotes.map((n, i) => (
-                <li key={i}>• {n}</li>
-              ))}
-            </ul>
-          ) : null}
-          <div className="mt-4">
-            <SetupChecklistPanel progress={setupProgress} />
-          </div>
-          <div className="mt-6 flex flex-wrap justify-end gap-2">
-            <a
-              href={publicPath}
-              className="rounded-lg border border-emerald-300 bg-white px-4 py-2 text-sm font-semibold text-emerald-900 hover:bg-emerald-50"
-            >
-              Open public site
-            </a>
-            <button
-              type="button"
-              onClick={finishAfterChecklist}
-              className="rounded-lg bg-emerald-600 px-4 py-2 text-sm font-semibold text-white hover:bg-emerald-700"
-            >
-              Continue to admin
-            </button>
-          </div>
-        </div>
-      </div>
     );
   }
 
+  function goNextFromBasics() {
+    setError(null);
+    if (!tournamentName.trim()) {
+      setError("Tournament name is required.");
+      return;
+    }
+    if (teamCount < 2) {
+      setError("Add at least 2 teams.");
+      return;
+    }
+    if (format === "round_robin") {
+      setStep("rr_pools");
+    } else {
+      initBracketSeeds();
+      setStep("br_config");
+    }
+  }
+
+  function poolLabel(di: number, pi: number) {
+    return `Pool ${String.fromCharCode(65 + pi)}`;
+  }
+
+  async function submit() {
+    setPending(true);
+    setError(null);
+    setStep("creating");
+    try {
+      let payload: unknown;
+      if (format === "round_robin") {
+        const rrDivisions = divisionNames.map((name, di) => {
+          const count = poolCounts[di] ?? 1;
+          const pools = Array.from({ length: count }, (_, pi) => ({
+            name: poolLabel(di, pi),
+            teamNames: teamNames.filter((t) => {
+              const p = teamPlacement[t];
+              return p !== "unassigned" && p && p.divisionIndex === di && p.poolIndex === pi;
+            }),
+            teamsAdvancing: 0,
+          }));
+          return { name, pools };
+        });
+        const unassigned = teamNames.filter((t) => teamPlacement[t] === "unassigned");
+        if (unassigned.length > 0) {
+          setError(`Place all teams into pools (${unassigned.length} still unassigned).`);
+          setPending(false);
+          setStep("rr_assign");
+          return;
+        }
+        for (const d of rrDivisions) {
+          if (d.pools.every((p) => p.teamNames.length === 0)) {
+            setError(`Each division needs at least one team in a pool (${d.name}).`);
+            setPending(false);
+            setStep("rr_assign");
+            return;
+          }
+        }
+        payload = {
+          tournamentName: tournamentName.trim(),
+          format: "round_robin",
+          divisions: { count: divisionCount, names: divisionNames, skipNaming: skipDivisionNames },
+          teams: { count: teamCount, names: teamNames, skipNaming: skipTeamNames },
+          roundRobin: { divisions: rrDivisions },
+        };
+      } else {
+        const bracketDivisions = divisionNames.map((name, di) => {
+          const teams = teamsByDivision[di] ?? [];
+          const entrySize = entrySizeByDiv[di] ?? nextPowerOfTwoAtLeast(teams.length);
+          return {
+            name,
+            teamNames: teams,
+            bracketFormat,
+            buildMode,
+            entrySize,
+            seedMode: buildMode === "custom" ? "auto" : seedMode,
+            firstRoundOrder:
+              seedMode === "manual" && buildMode === "template"
+                ? (manualSeedsByDiv[di] ?? []).slice(0, entrySize)
+                : undefined,
+          };
+        });
+        payload = {
+          tournamentName: tournamentName.trim(),
+          format: "bracket_only",
+          divisions: { count: divisionCount, names: divisionNames, skipNaming: skipDivisionNames },
+          teams: { count: teamCount, names: teamNames, skipNaming: skipTeamNames },
+          bracket: { divisions: bracketDivisions },
+        };
+      }
+
+      const result = await createTournamentFromWizard(payload);
+      if (!result.ok) {
+        setError(result.error);
+        setPending(false);
+        setStep(format === "round_robin" ? "rr_assign" : "br_seed");
+        return;
+      }
+
+      router.push(
+        result.openCustomBuilder ? `/admin/structure?builder=1` : `/admin/structure`,
+      );
+      router.refresh();
+      onClose();
+    } catch (e) {
+      setError(e instanceof Error ? e.message : "Failed to create tournament");
+      setPending(false);
+      setStep("basics");
+    }
+  }
+
+  const stepTitle =
+    step === "basics"
+      ? "Step 1 — basics"
+      : step === "rr_pools"
+        ? "Step 2 — pools"
+        : step === "rr_assign"
+          ? "Step 3 — place teams"
+          : step === "br_config"
+            ? "Step 2 — bracket setup"
+            : step === "br_seed"
+              ? "Step 3 — seed Round 1"
+              : "Creating…";
+
   return (
-    <div
-      className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4"
-      role="dialog"
-      aria-modal="true"
-      aria-labelledby="wizard-title"
-    >
-      <div className="max-h-[90vh] w-full max-w-lg overflow-y-auto rounded-2xl border border-zinc-200 bg-white shadow-xl">
-        <div className="sticky top-0 flex items-start justify-between gap-4 border-b border-zinc-100 bg-white px-6 py-4">
+    <div className="fixed inset-0 z-[80] flex items-end justify-center sm:items-center" role="presentation">
+      <button type="button" className="absolute inset-0 bg-black/40" aria-label="Close" onClick={onClose} />
+      <div
+        className="relative flex max-h-[92vh] w-full max-w-2xl flex-col overflow-hidden rounded-t-2xl border border-zinc-200 bg-white shadow-2xl sm:rounded-2xl"
+        role="dialog"
+        aria-modal
+        aria-labelledby="create-tourney-title"
+      >
+        <div className="flex items-start justify-between gap-3 border-b border-zinc-100 px-6 py-4">
           <div>
-            <h2 id="wizard-title" className="text-lg font-semibold text-zinc-900">
+            <h2 id="create-tourney-title" className="text-lg font-semibold text-zinc-900">
               Create tournament
             </h2>
-            <p className="text-xs text-zinc-500">
-              Step {step + 1} of 4
-              {step === 3 ? " — review & optional schedule" : ""}
-            </p>
+            <p className="mt-0.5 text-xs text-zinc-500">{stepTitle}</p>
           </div>
-          <button
-            type="button"
-            onClick={onClose}
-            className="rounded-lg px-2 py-1 text-sm text-zinc-500 hover:bg-zinc-100 hover:text-zinc-800"
-          >
+          <button type="button" onClick={onClose} className="text-sm font-medium text-zinc-600 hover:text-zinc-900">
             Close
           </button>
         </div>
 
-        <div className="space-y-4 px-6 py-5">
-          {formError ? (
-            <p className="rounded-lg bg-red-50 px-3 py-2 text-sm text-red-800">{formError}</p>
+        <div className="flex-1 overflow-y-auto px-6 py-5">
+          {error ? (
+            <p className="mb-4 rounded-lg border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-800">{error}</p>
           ) : null}
 
-          {step === 0 ? (
-            <>
-              <label className="block text-sm font-medium text-zinc-700">
-                Tournament name
+          {step === "basics" ? (
+            <div className="flex flex-col gap-5">
+              <div>
+                <label className={labelClass}>Tournament name</label>
                 <input
-                  className="mt-1 w-full rounded-lg border border-zinc-200 px-3 py-2 text-sm"
                   value={tournamentName}
                   onChange={(e) => setTournamentName(e.target.value)}
                   placeholder="Spring Classic 2026"
+                  className={`${formClass} mt-1 w-full`}
+                  autoFocus
                 />
-              </label>
-              <label className="block text-sm font-medium text-zinc-700">
-                Venue / park name (headquarters)
-                <input
-                  className="mt-1 w-full rounded-lg border border-zinc-200 px-3 py-2 text-sm"
-                  value={venueName}
-                  onChange={(e) => setVenueName(e.target.value)}
-                  placeholder="Milton Sports Park"
-                />
-              </label>
-              <label className="block text-sm font-medium text-zinc-700">
-                Headquarters address
-                <textarea
-                  className="mt-1 w-full rounded-lg border border-zinc-200 px-3 py-2 text-sm"
-                  rows={3}
-                  value={venueAddress}
-                  onChange={(e) => setVenueAddress(e.target.value)}
-                  placeholder="Street, city, province/state"
-                />
-              </label>
-              <div className="grid grid-cols-2 gap-3">
-                <label className="block text-sm font-medium text-zinc-700">
-                  Start date
-                  <input
-                    type="date"
-                    className="mt-1 w-full rounded-lg border border-zinc-200 px-3 py-2 text-sm"
-                    value={startDate}
-                    onChange={(e) => setStartDate(e.target.value)}
-                  />
-                </label>
-                <label className="block text-sm font-medium text-zinc-700">
-                  End date
-                  <input
-                    type="date"
-                    className="mt-1 w-full rounded-lg border border-zinc-200 px-3 py-2 text-sm"
-                    value={endDate}
-                    onChange={(e) => setEndDate(e.target.value)}
-                  />
-                </label>
               </div>
-              <label className="block text-sm font-medium text-zinc-700">
-                Timezone
-                <select
-                  className="mt-1 w-full rounded-lg border border-zinc-200 px-3 py-2 text-sm"
-                  value={timezone}
-                  onChange={(e) => setTimezone(e.target.value)}
-                >
-                  {TIMEZONES.map((tz) => (
-                    <option key={tz} value={tz}>
-                      {tz}
-                    </option>
-                  ))}
-                </select>
-              </label>
-              <div className="rounded-xl border border-zinc-200 bg-zinc-50/80 p-4 space-y-3">
-                <p className="text-xs font-semibold uppercase tracking-wide text-zinc-500">
-                  Fields &amp; schedule window
-                </p>
-                <p className="text-xs text-zinc-500">
-                  Used if you generate round-robin schedules. Games start only between daily hours. Rest and field
-                  travel keep teams from being scheduled too tightly when they move diamonds.
-                </p>
-                <div className="grid grid-cols-2 gap-3">
-                  <label className="block text-sm font-medium text-zinc-700">
-                    Number of fields
+
+              <div>
+                <p className={labelClass}>Tournament format</p>
+                <div className="mt-2 flex flex-col gap-2">
+                  <label className="flex items-start gap-2 text-sm text-zinc-800">
                     <input
-                      type="number"
-                      min={1}
-                      max={WIZARD_MAX_FIELDS}
-                      className="mt-1 w-full rounded-lg border border-zinc-200 px-3 py-2 text-sm"
-                      value={fieldCount}
-                      onChange={(e) => setFieldCount(e.target.value)}
+                      type="radio"
+                      className="mt-1"
+                      checked={format === "round_robin"}
+                      onChange={() => setFormat("round_robin")}
                     />
+                    <span>
+                      <span className="font-medium">Round robin</span>
+                      <span className="mt-0.5 block text-xs text-zinc-500">
+                        Pool play first. You’ll set pools and drag teams into them next.
+                      </span>
+                    </span>
                   </label>
-                  <label className="block text-sm font-medium text-zinc-700">
-                    Slot / changeover (min)
+                  <label className="flex items-start gap-2 text-sm text-zinc-800">
                     <input
-                      type="number"
-                      min={15}
-                      max={360}
-                      step={5}
-                      className="mt-1 w-full rounded-lg border border-zinc-200 px-3 py-2 text-sm"
-                      value={slotMinutes}
-                      onChange={(e) => setSlotMinutes(e.target.value)}
+                      type="radio"
+                      className="mt-1"
+                      checked={format === "bracket_only"}
+                      onChange={() => setFormat("bracket_only")}
                     />
-                  </label>
-                  <label className="block text-sm font-medium text-zinc-700">
-                    Game length (min)
-                    <input
-                      type="number"
-                      min={15}
-                      max={360}
-                      step={5}
-                      className="mt-1 w-full rounded-lg border border-zinc-200 px-3 py-2 text-sm"
-                      value={gameDurationMinutes}
-                      onChange={(e) => setGameDurationMinutes(e.target.value)}
-                    />
-                  </label>
-                  <label className="block text-sm font-medium text-zinc-700">
-                    Rest between games (min)
-                    <input
-                      type="number"
-                      min={0}
-                      max={240}
-                      step={5}
-                      className="mt-1 w-full rounded-lg border border-zinc-200 px-3 py-2 text-sm"
-                      value={minRestMinutes}
-                      onChange={(e) => setMinRestMinutes(e.target.value)}
-                      title="After a game ends, minimum break before that team starts again"
-                    />
-                  </label>
-                  <label className="block text-sm font-medium text-zinc-700">
-                    Travel between fields (min)
-                    <input
-                      type="number"
-                      min={0}
-                      max={120}
-                      step={5}
-                      className="mt-1 w-full rounded-lg border border-zinc-200 px-3 py-2 text-sm"
-                      value={travelMinutesBetweenFields}
-                      onChange={(e) => setTravelMinutesBetweenFields(e.target.value)}
-                      title="Extra time when a team’s next game is on a different field"
-                    />
-                  </label>
-                  <label className="block text-sm font-medium text-zinc-700">
-                    Daily first pitch
-                    <input
-                      type="time"
-                      className="mt-1 w-full rounded-lg border border-zinc-200 px-3 py-2 text-sm"
-                      value={dayStartTime}
-                      onChange={(e) => setDayStartTime(e.target.value)}
-                    />
-                  </label>
-                  <label className="col-span-2 block text-sm font-medium text-zinc-700 sm:col-span-1">
-                    No new games after
-                    <input
-                      type="time"
-                      className="mt-1 w-full rounded-lg border border-zinc-200 px-3 py-2 text-sm"
-                      value={dayEndTime}
-                      onChange={(e) => setDayEndTime(e.target.value)}
-                    />
+                    <span>
+                      <span className="font-medium">Bracket only</span>
+                      <span className="mt-0.5 block text-xs text-zinc-500">
+                        Skip pool play — build single or double elimination next.
+                      </span>
+                    </span>
                   </label>
                 </div>
               </div>
-            </>
-          ) : null}
 
-          {step === 1 ? (
-            <>
-              <label className="flex cursor-pointer items-center gap-2 text-sm text-zinc-800">
-                <input
-                  type="checkbox"
-                  checked={multipleDivisions}
-                  onChange={(e) => {
-                    const multi = e.target.checked;
-                    setMultipleDivisions(multi);
-                    if (!multi) {
-                      const single = divisionNames[0]?.trim() || tournamentName.trim() || "Main";
-                      setDivisionNames([single]);
-                      setPoolsByDivision((p) => syncPoolsShape([single], p));
-                    } else if (divisionNames.length === 1) {
-                      setDivisionNames(["10U", "12U"]);
-                      setPoolsByDivision((p) => syncPoolsShape(["10U", "12U"], p));
-                    }
-                  }}
-                />
-                Multiple age divisions (e.g. 10U, 12U)
-              </label>
-              <div className="space-y-3">
-                {divisionNames.map((name, i) => (
-                  <div key={i} className="flex gap-2">
-                    <input
-                      className="min-w-0 flex-1 rounded-lg border border-zinc-200 px-3 py-2 text-sm"
-                      value={name}
-                      onChange={(e) => updateDivisionName(i, e.target.value)}
-                      aria-label={`Division ${i + 1} name`}
-                    />
-                    {multipleDivisions ? (
-                      <button
-                        type="button"
-                        className="shrink-0 rounded-lg border border-zinc-200 px-2 text-sm text-zinc-600 hover:bg-zinc-50 disabled:opacity-40"
-                        onClick={() => removeDivision(i)}
-                        disabled={divisionNames.length <= 1}
-                      >
-                        Remove
-                      </button>
-                    ) : null}
-                  </div>
-                ))}
-                {multipleDivisions ? (
-                  <button
-                    type="button"
-                    className="text-sm font-medium text-emerald-700 hover:underline disabled:opacity-40"
-                    onClick={addDivision}
-                    disabled={divisionNames.length >= WIZARD_MAX_DIVISIONS}
-                  >
-                    + Add division
-                  </button>
-                ) : null}
+              <div className="grid gap-4 sm:grid-cols-2">
+                <div>
+                  <label className={labelClass}>Number of divisions</label>
+                  <input
+                    type="number"
+                    min={1}
+                    max={WIZARD_MAX_DIVISIONS}
+                    value={divisionCount}
+                    onChange={(e) => syncDivisionCount(Number(e.target.value) || 1)}
+                    className={`${formClass} mt-1 w-full`}
+                  />
+                </div>
+                <div>
+                  <label className={labelClass}>Number of teams</label>
+                  <input
+                    type="number"
+                    min={2}
+                    max={WIZARD_MAX_TEAMS_TOURNAMENT}
+                    value={teamCount}
+                    onChange={(e) => syncTeamCount(Number(e.target.value) || 2)}
+                    className={`${formClass} mt-1 w-full`}
+                  />
+                </div>
               </div>
-            </>
+
+              <div>
+                <div className="flex flex-wrap items-center justify-between gap-2">
+                  <p className={labelClass}>Division names</p>
+                  <label className="flex items-center gap-2 text-xs text-zinc-600">
+                    <input
+                      type="checkbox"
+                      checked={skipDivisionNames}
+                      onChange={(e) => setSkipDivisionNames(e.target.checked)}
+                    />
+                    Use Division1, Division2…
+                  </label>
+                </div>
+                {!skipDivisionNames ? (
+                  <div className="mt-2 flex flex-col gap-2">
+                    {Array.from({ length: divisionCount }, (_, i) => (
+                      <input
+                        key={i}
+                        value={divisionNameDrafts[i] ?? ""}
+                        onChange={(e) => {
+                          const next = [...divisionNameDrafts];
+                          next[i] = e.target.value;
+                          setDivisionNameDrafts(next);
+                        }}
+                        placeholder={`Division ${i + 1}`}
+                        className={`${formClass} w-full`}
+                      />
+                    ))}
+                  </div>
+                ) : (
+                  <p className="mt-2 text-xs text-zinc-500">{divisionNames.join(", ")}</p>
+                )}
+              </div>
+
+              <div>
+                <div className="flex flex-wrap items-center justify-between gap-2">
+                  <p className={labelClass}>Team names</p>
+                  <label className="flex items-center gap-2 text-xs text-zinc-600">
+                    <input
+                      type="checkbox"
+                      checked={skipTeamNames}
+                      onChange={(e) => setSkipTeamNames(e.target.checked)}
+                    />
+                    Use Team1, Team2…
+                  </label>
+                </div>
+                {!skipTeamNames ? (
+                  <textarea
+                    value={teamNameDrafts.join("\n")}
+                    onChange={(e) => {
+                      const lines = e.target.value.split(/\r?\n/);
+                      const next = Array.from({ length: teamCount }, (_, i) => lines[i] ?? "");
+                      setTeamNameDrafts(next);
+                    }}
+                    rows={Math.min(12, Math.max(4, teamCount))}
+                    placeholder={"One team per line\nRaptors\nThunder\n…"}
+                    className={`${formClass} mt-2 w-full font-mono text-xs`}
+                  />
+                ) : (
+                  <p className="mt-2 text-xs text-zinc-500">
+                    {teamNames.slice(0, 8).join(", ")}
+                    {teamNames.length > 8 ? ` … (+${teamNames.length - 8} more)` : ""}
+                  </p>
+                )}
+                <p className="mt-1 text-xs text-zinc-500">
+                  Venue, dates, fields, and schedule windows are set later in tournament settings.
+                </p>
+              </div>
+            </div>
           ) : null}
 
-          {step === 2 ? (
-            <div className="space-y-6">
-              <p className="text-xs text-zinc-500">
-                Paste one team name per line, or use placeholders and rename later. Cap: {WIZARD_MAX_TEAMS_PER_POOL}{" "}
-                teams/pool, {WIZARD_MAX_TEAMS_TOURNAMENT} total ({totalTeams} so far).
+          {step === "rr_pools" ? (
+            <div className="flex flex-col gap-4">
+              <p className="text-sm text-zinc-600">
+                How many pools in each division? You can use different counts per division.
               </p>
-              {divisionNames.map((divName, di) => (
-                <div key={di} className="rounded-xl border border-zinc-200 p-4">
-                  <h3 className="text-sm font-semibold text-zinc-900">{divName || `Division ${di + 1}`}</h3>
-                  <ul className="mt-3 space-y-3">
-                    {(poolsByDivision[di] ?? []).map((pool, pi) => (
-                      <li key={pi} className="rounded-lg border border-zinc-100 bg-zinc-50/80 p-3 text-sm">
-                        <div className="mb-2 flex items-center justify-between gap-2">
-                          <span className="text-xs font-medium uppercase text-zinc-500">Pool</span>
-                          {(poolsByDivision[di] ?? []).length > 1 ? (
-                            <button
-                              type="button"
-                              className="text-xs text-red-700 hover:underline"
-                              onClick={() => removePool(di, pi)}
-                            >
-                              Remove pool
-                            </button>
-                          ) : null}
-                        </div>
-                        <input
-                          className="mb-2 w-full rounded border border-zinc-200 px-2 py-1.5"
-                          value={pool.name}
-                          onChange={(e) => updatePool(di, pi, { name: e.target.value })}
-                          placeholder="Pool name"
-                        />
-                        <label className="mb-2 flex cursor-pointer items-center gap-2 text-xs text-zinc-700">
-                          <input
-                            type="checkbox"
-                            checked={pool.usePlaceholders}
-                            onChange={(e) =>
-                              updatePool(di, pi, { usePlaceholders: e.target.checked })
-                            }
-                          />
-                          Use placeholders + finish later
-                        </label>
-                        {pool.usePlaceholders ? (
-                          <div className="grid grid-cols-2 gap-2">
-                            <label className="text-xs text-zinc-600">
-                              Team count
-                              <input
-                                type="number"
-                                min={1}
-                                max={WIZARD_MAX_TEAMS_PER_POOL}
-                                className="mt-0.5 w-full rounded border border-zinc-200 px-2 py-1.5"
-                                value={pool.teamCount}
-                                onChange={(e) => updatePool(di, pi, { teamCount: e.target.value })}
-                              />
-                            </label>
-                            <label className="text-xs text-zinc-600">
-                              Advancing
-                              <input
-                                type="number"
-                                min={0}
-                                max={WIZARD_MAX_TEAMS_PER_POOL}
-                                className="mt-0.5 w-full rounded border border-zinc-200 px-2 py-1.5"
-                                value={pool.teamsAdvancing}
-                                onChange={(e) =>
-                                  updatePool(di, pi, { teamsAdvancing: e.target.value })
-                                }
-                              />
-                            </label>
-                          </div>
-                        ) : (
-                          <>
-                            <label className="block text-xs text-zinc-600">
-                              Team names (one per line)
-                              <textarea
-                                className="mt-0.5 w-full rounded border border-zinc-200 px-2 py-1.5 font-mono text-sm"
-                                rows={4}
-                                value={pool.teamNamesText}
-                                onChange={(e) =>
-                                  updatePool(di, pi, { teamNamesText: e.target.value })
-                                }
-                                placeholder={"Raptors\nThunder\nAces\nWolves"}
-                              />
-                            </label>
-                            <p className="mt-1 text-[10px] text-zinc-500">
-                              {parseTeamNames(pool.teamNamesText).length} team
-                              {parseTeamNames(pool.teamNamesText).length === 1 ? "" : "s"}
-                            </p>
-                            <label className="mt-2 block text-xs text-zinc-600">
-                              Advancing to playoffs
-                              <input
-                                type="number"
-                                min={0}
-                                max={WIZARD_MAX_TEAMS_PER_POOL}
-                                className="mt-0.5 w-full rounded border border-zinc-200 px-2 py-1.5"
-                                value={pool.teamsAdvancing}
-                                onChange={(e) =>
-                                  updatePool(di, pi, { teamsAdvancing: e.target.value })
-                                }
-                              />
-                            </label>
-                          </>
-                        )}
-                      </li>
-                    ))}
-                  </ul>
-                  <button
-                    type="button"
-                    className="mt-2 text-sm font-medium text-emerald-700 hover:underline disabled:opacity-40"
-                    onClick={() => addPool(di)}
-                    disabled={(poolsByDivision[di] ?? []).length >= WIZARD_MAX_POOLS_PER_DIVISION}
-                  >
-                    + Add pool
-                  </button>
+              {divisionNames.map((name, di) => (
+                <div key={di} className="flex flex-wrap items-end gap-3 rounded-lg border border-zinc-200 p-3">
+                  <div className="min-w-[140px] flex-1">
+                    <p className="text-sm font-medium text-zinc-900">{name}</p>
+                  </div>
+                  <div>
+                    <label className={labelClass}>Pools</label>
+                    <input
+                      type="number"
+                      min={1}
+                      max={WIZARD_MAX_POOLS_PER_DIVISION}
+                      value={poolCounts[di] ?? 1}
+                      onChange={(e) => {
+                        const next = [...poolCounts];
+                        next[di] = Math.min(
+                          WIZARD_MAX_POOLS_PER_DIVISION,
+                          Math.max(1, Number(e.target.value) || 1),
+                        );
+                        setPoolCounts(next);
+                      }}
+                      className={`${formClass} mt-1 w-20`}
+                    />
+                  </div>
                 </div>
               ))}
             </div>
           ) : null}
 
-          {step === 3 ? (
-            <div className="space-y-4 text-sm text-zinc-700">
-              <div className="space-y-2">
-                <p>
-                  <strong>Name:</strong> {tournamentName}
-                </p>
-                <p>
-                  <strong>Venue:</strong> {venueName} — {venueAddress.slice(0, 80)}
-                  {venueAddress.length > 80 ? "…" : ""}
-                </p>
-                <p>
-                  <strong>Dates:</strong> {startDate} → {endDate} ({timezone})
-                </p>
-                <p>
-                  <strong>Fields:</strong> {fieldCount} · <strong>Games:</strong> {gameDurationMinutes} min ·{" "}
-                  <strong>Slots:</strong> {slotMinutes} min · <strong>Rest:</strong> {minRestMinutes} min ·{" "}
-                  <strong>Travel:</strong> {travelMinutesBetweenFields} min · <strong>Daily:</strong>{" "}
-                  {dayStartTime}–{dayEndTime}
-                </p>
-                <div className="border-t border-zinc-100 pt-2">
-                  <strong className="text-zinc-900">Structure</strong>
-                  <ul className="mt-1 list-inside list-disc space-y-1 text-zinc-600">
-                    {divisionNames.map((dn, di) => (
-                      <li key={di}>
-                        {dn}:{" "}
-                        {(poolsByDivision[di] ?? [])
-                          .map((p) => {
-                            const tc = poolTeamCount(p);
-                            const mode = p.usePlaceholders ? "placeholders" : "named";
-                            return `${p.name} (${tc} ${mode}, ${p.teamsAdvancing} adv.)`;
-                          })
-                          .join("; ")}
-                      </li>
+          {step === "rr_assign" ? (
+            <div className="flex flex-col gap-4">
+              <p className="text-sm text-zinc-600">
+                Drag teams from the bank into a pool. Every team must be placed.
+              </p>
+              <div className="rounded-lg border border-dashed border-zinc-300 bg-zinc-50 p-3">
+                <p className={labelClass}>Unassigned</p>
+                <div className="mt-2 flex min-h-[48px] flex-wrap gap-2">
+                  {teamNames
+                    .filter((t) => teamPlacement[t] === "unassigned")
+                    .map((t) => (
+                      <button
+                        key={t}
+                        type="button"
+                        draggable
+                        onDragStart={() => setDragTeam(t)}
+                        onDragEnd={() => setDragTeam(null)}
+                        className="cursor-grab rounded-md border border-zinc-300 bg-white px-2 py-1 text-xs font-medium text-zinc-800 active:cursor-grabbing"
+                      >
+                        {t}
+                      </button>
                     ))}
-                  </ul>
-                  <p className="mt-1 text-xs text-zinc-500">{totalTeams} teams total</p>
                 </div>
               </div>
-
-              {scheduleCapacity && scheduleCapacity.warnings.length > 0 ? (
-                <div
-                  className={`rounded-xl border px-3 py-3 text-xs ${
-                    scheduleCapacity.fits
-                      ? "border-zinc-200 bg-zinc-50 text-zinc-600"
-                      : "border-amber-300 bg-amber-50 text-amber-950"
-                  }`}
-                  role="status"
-                >
-                  <p className="font-semibold">
-                    {scheduleCapacity.fits ? "Schedule capacity" : "Schedule warning"}
-                  </p>
-                  <ul className="mt-1 list-inside list-disc space-y-0.5">
-                    {scheduleCapacity.warnings.map((w, i) => (
-                      <li key={i}>{w}</li>
+              {divisionNames.map((divName, di) => (
+                <div key={di} className="rounded-lg border border-zinc-200 p-3">
+                  <p className="text-sm font-semibold text-zinc-900">{divName}</p>
+                  <div className="mt-3 grid gap-3 sm:grid-cols-2">
+                    {Array.from({ length: poolCounts[di] ?? 1 }, (_, pi) => (
+                      <div
+                        key={pi}
+                        onDragOver={(e) => e.preventDefault()}
+                        onDrop={() => {
+                          if (!dragTeam) return;
+                          setTeamPlacement((prev) => ({
+                            ...prev,
+                            [dragTeam]: { divisionIndex: di, poolIndex: pi },
+                          }));
+                          setDragTeam(null);
+                        }}
+                        className="min-h-[88px] rounded-md border border-zinc-200 bg-zinc-50/80 p-2"
+                      >
+                        <p className={labelClass}>{poolLabel(di, pi)}</p>
+                        <div className="mt-2 flex flex-wrap gap-1.5">
+                          {teamNames
+                            .filter((t) => {
+                              const p = teamPlacement[t];
+                              return p !== "unassigned" && p && p.divisionIndex === di && p.poolIndex === pi;
+                            })
+                            .map((t) => (
+                              <button
+                                key={t}
+                                type="button"
+                                draggable
+                                onDragStart={() => setDragTeam(t)}
+                                onDragEnd={() => setDragTeam(null)}
+                                onClick={() =>
+                                  setTeamPlacement((prev) => ({ ...prev, [t]: "unassigned" }))
+                                }
+                                className="cursor-grab rounded-md border border-emerald-200 bg-emerald-50 px-2 py-1 text-xs font-medium text-emerald-900"
+                                title="Click to unassign"
+                              >
+                                {t}
+                              </button>
+                            ))}
+                        </div>
+                      </div>
                     ))}
-                  </ul>
-                  {scheduleCapacity.wavesNeeded > 0 ? (
-                    <p className="mt-1.5 tabular-nums text-[11px] opacity-80">
-                      ~{scheduleCapacity.wavesNeeded} slot(s) needed · {scheduleCapacity.slotsAvailable}{" "}
-                      available
-                    </p>
-                  ) : null}
+                  </div>
                 </div>
-              ) : null}
-
-              <div className="rounded-xl border border-zinc-200 bg-zinc-50/80 p-4 space-y-3">
-                <p className="text-xs font-semibold uppercase tracking-wide text-zinc-500">
-                  Optional finish
-                </p>
-                <label className="flex cursor-pointer items-start gap-2 text-sm text-zinc-800">
-                  <input
-                    type="checkbox"
-                    className="mt-1"
-                    checked={generateSchedules}
-                    onChange={(e) => setGenerateSchedules(e.target.checked)}
-                  />
-                  <span>
-                    <span className="font-medium">Generate pool round-robin schedules</span>
-                    <span className="mt-0.5 block text-xs text-zinc-500">
-                      Uses your {fieldCount} field(s), {dayStartTime}–{dayEndTime} daily, {gameDurationMinutes}-min
-                      games, {slotMinutes}-min slots, {minRestMinutes}-min team rest, {travelMinutesBetweenFields}-min
-                      travel when switching fields. Across {startDate || "…"}–{endDate || "…"}. Needs ≥2 teams per
-                      pool.
-                      {!allPoolsHaveTwoPlusNamed
-                        ? " (Some pools still use placeholders or have fewer than 2 teams.)"
-                        : ""}
-                      {scheduleCapacity && !scheduleCapacity.fits && generateSchedules
-                        ? " Warning: capacity looks short — games may spill outside the window."
-                        : ""}
-                    </span>
-                  </span>
-                </label>
-                <label className="flex cursor-pointer items-start gap-2 text-sm text-zinc-800">
-                  <input
-                    type="checkbox"
-                    className="mt-1"
-                    checked={createBrackets}
-                    onChange={(e) => setCreateBrackets(e.target.checked)}
-                    disabled={!bracketsPossible}
-                  />
-                  <span>
-                    <span className="font-medium">Create single-elim playoff brackets</span>
-                    <span className="mt-0.5 block text-xs text-zinc-500">
-                      When a division advances 2–64 teams (BYEs pad non–power-of-2 fields). Unpublished until you publish.
-                      {!bracketsPossible
-                        ? " None of your advancing totals qualify yet — set advancing ≥2 in a division or create brackets later."
-                        : " Apply standings to seeds after pool play finishes."}
-                    </span>
-                  </span>
-                </label>
-              </div>
+              ))}
             </div>
+          ) : null}
+
+          {step === "br_config" ? (
+            <div className="flex flex-col gap-5">
+              <div>
+                <p className={labelClass}>Bracket format</p>
+                <div className="mt-2 flex flex-col gap-2">
+                  <label className="flex items-center gap-2 text-sm">
+                    <input
+                      type="radio"
+                      checked={bracketFormat === "SINGLE_ELIMINATION"}
+                      onChange={() => setBracketFormat("SINGLE_ELIMINATION")}
+                    />
+                    Single elimination
+                  </label>
+                  <label className="flex items-center gap-2 text-sm">
+                    <input
+                      type="radio"
+                      checked={bracketFormat === "DOUBLE_ELIMINATION"}
+                      onChange={() => setBracketFormat("DOUBLE_ELIMINATION")}
+                    />
+                    Double elimination
+                  </label>
+                </div>
+              </div>
+              <div>
+                <p className={labelClass}>How to build</p>
+                <div className="mt-2 flex flex-col gap-2">
+                  <label className="flex items-start gap-2 text-sm">
+                    <input
+                      type="radio"
+                      className="mt-1"
+                      checked={buildMode === "template"}
+                      onChange={() => setBuildMode("template")}
+                    />
+                    <span>
+                      <span className="font-medium">Use a template</span>
+                      <span className="mt-0.5 block text-xs text-zinc-500">
+                        Standard power-of-2 bracket sized to your teams (BYEs pad as needed).
+                      </span>
+                    </span>
+                  </label>
+                  <label className="flex items-start gap-2 text-sm">
+                    <input
+                      type="radio"
+                      className="mt-1"
+                      checked={buildMode === "custom"}
+                      onChange={() => setBuildMode("custom")}
+                    />
+                    <span>
+                      <span className="font-medium">Draw my own bracket</span>
+                      <span className="mt-0.5 block text-xs text-zinc-500">
+                        Creates the tournament, then opens the structure page so you can refine the bracket.
+                      </span>
+                    </span>
+                  </label>
+                </div>
+              </div>
+              {buildMode === "template"
+                ? divisionNames.map((name, di) => {
+                    const teams = teamsByDivision[di] ?? [];
+                    const suggested = nextPowerOfTwoAtLeast(Math.max(2, teams.length));
+                    return (
+                      <div key={di} className="rounded-lg border border-zinc-200 p-3">
+                        <p className="text-sm font-medium text-zinc-900">
+                          {name}{" "}
+                          <span className="font-normal text-zinc-500">({teams.length} teams)</span>
+                        </p>
+                        <label className={`${labelClass} mt-2 block`}>Bracket size (slots)</label>
+                        <select
+                          value={entrySizeByDiv[di] ?? suggested}
+                          onChange={(e) => {
+                            const next = [...entrySizeByDiv];
+                            next[di] = Number(e.target.value);
+                            setEntrySizeByDiv(next);
+                          }}
+                          className={`${formClass} mt-1`}
+                        >
+                          {[2, 4, 8, 16, 32, 64]
+                            .filter((n) => n >= teams.length || n === suggested)
+                            .map((n) => (
+                              <option key={n} value={n}>
+                                {n} slots
+                              </option>
+                            ))}
+                        </select>
+                      </div>
+                    );
+                  })
+                : null}
+            </div>
+          ) : null}
+
+          {step === "br_seed" ? (
+            <div className="flex flex-col gap-5">
+              <div>
+                <p className={labelClass}>Place teams in Round 1</p>
+                <div className="mt-2 flex flex-col gap-2">
+                  <label className="flex items-start gap-2 text-sm">
+                    <input
+                      type="radio"
+                      className="mt-1"
+                      checked={seedMode === "auto"}
+                      onChange={() => setSeedMode("auto")}
+                    />
+                    <span>
+                      <span className="font-medium">Automatic</span>
+                      <span className="mt-0.5 block text-xs text-zinc-500">
+                        Seed in list order with classic bracket placement and BYEs as needed.
+                      </span>
+                    </span>
+                  </label>
+                  <label className="flex items-start gap-2 text-sm">
+                    <input
+                      type="radio"
+                      className="mt-1"
+                      checked={seedMode === "manual"}
+                      onChange={() => setSeedMode("manual")}
+                    />
+                    <span>
+                      <span className="font-medium">Place manually</span>
+                      <span className="mt-0.5 block text-xs text-zinc-500">
+                        Pick which team sits in each seed slot (empty = BYE).
+                      </span>
+                    </span>
+                  </label>
+                </div>
+              </div>
+              {seedMode === "manual"
+                ? divisionNames.map((name, di) => {
+                    const size = entrySizeByDiv[di] ?? 8;
+                    const teams = teamsByDivision[di] ?? [];
+                    const order = manualSeedsByDiv[di] ?? Array(size).fill(null);
+                    return (
+                      <div key={di} className="rounded-lg border border-zinc-200 p-3">
+                        <p className="text-sm font-medium text-zinc-900">{name}</p>
+                        <div className="mt-2 grid gap-2 sm:grid-cols-2">
+                          {Array.from({ length: size }, (_, si) => (
+                            <div key={si}>
+                              <label className={labelClass}>Seed {si + 1}</label>
+                              <select
+                                value={order[si] ?? ""}
+                                onChange={(e) => {
+                                  const nextAll = manualSeedsByDiv.map((row) => [...row]);
+                                  const row = [...(nextAll[di] ?? Array(size).fill(null))];
+                                  while (row.length < size) row.push(null);
+                                  row[si] = e.target.value || null;
+                                  nextAll[di] = row;
+                                  setManualSeedsByDiv(nextAll);
+                                }}
+                                className={`${formClass} mt-1 w-full`}
+                              >
+                                <option value="">BYE</option>
+                                {teams.map((t) => (
+                                  <option key={t} value={t}>
+                                    {t}
+                                  </option>
+                                ))}
+                              </select>
+                            </div>
+                          ))}
+                        </div>
+                      </div>
+                    );
+                  })
+                : (
+                  <p className="text-sm text-zinc-600">
+                    Teams are split across divisions evenly, then seeded automatically.
+                  </p>
+                )}
+            </div>
+          ) : null}
+
+          {step === "creating" ? (
+            <p className="text-sm text-zinc-600">{pending ? "Creating your tournament…" : "Almost done…"}</p>
           ) : null}
         </div>
 
         <div className="flex flex-wrap items-center justify-between gap-3 border-t border-zinc-100 px-6 py-4">
           <button
             type="button"
-            onClick={step === 0 ? onClose : goBack}
-            className="rounded-lg border border-zinc-200 px-4 py-2 text-sm font-medium text-zinc-700 hover:bg-zinc-50"
+            className={btnSecondary}
+            disabled={pending}
+            onClick={() => {
+              setError(null);
+              if (step === "basics") onClose();
+              else if (step === "rr_pools" || step === "br_config") setStep("basics");
+              else if (step === "rr_assign") setStep("rr_pools");
+              else if (step === "br_seed") setStep("br_config");
+            }}
           >
-            {step === 0 ? "Cancel" : "Back"}
+            {step === "basics" ? "Cancel" : "Back"}
           </button>
-          <div className="flex gap-2">
-            {step < 3 ? (
-              <button
-                type="button"
-                onClick={goNext}
-                className="rounded-lg bg-emerald-600 px-4 py-2 text-sm font-semibold text-white hover:bg-emerald-700"
-              >
-                Next
-              </button>
-            ) : (
-              <button
-                type="button"
-                disabled={pending}
-                onClick={submit}
-                className="rounded-lg bg-emerald-600 px-4 py-2 text-sm font-semibold text-white hover:bg-emerald-700 disabled:opacity-60"
-              >
-                {pending ? "Creating…" : "Create tournament"}
-              </button>
-            )}
-          </div>
+          {step === "basics" ? (
+            <button type="button" className={btnPrimary} onClick={goNextFromBasics}>
+              Next
+            </button>
+          ) : null}
+          {step === "rr_pools" ? (
+            <button
+              type="button"
+              className={btnPrimary}
+              onClick={() => {
+                initRrAssign();
+                setStep("rr_assign");
+              }}
+            >
+              Next
+            </button>
+          ) : null}
+          {step === "rr_assign" ? (
+            <button type="button" className={btnPrimary} disabled={pending} onClick={() => void submit()}>
+              Create tournament
+            </button>
+          ) : null}
+          {step === "br_config" ? (
+            <button
+              type="button"
+              className={btnPrimary}
+              onClick={() => {
+                if (buildMode === "custom") {
+                  setSeedMode("auto");
+                  void submit();
+                } else {
+                  initBracketSeeds();
+                  setStep("br_seed");
+                }
+              }}
+            >
+              {buildMode === "custom" ? "Create & open builder" : "Next"}
+            </button>
+          ) : null}
+          {step === "br_seed" ? (
+            <button type="button" className={btnPrimary} disabled={pending} onClick={() => void submit()}>
+              Create tournament
+            </button>
+          ) : null}
         </div>
       </div>
     </div>

@@ -3,6 +3,7 @@
 import { revalidatePath } from "next/cache";
 import { cookies } from "next/headers";
 import type { Prisma } from "@prisma/client";
+import { BracketFormat } from "@prisma/client";
 import { auth } from "@/auth";
 import { prisma } from "@/lib/db";
 import type { SetupProgress } from "@/lib/admin-setup-checklist";
@@ -10,13 +11,20 @@ import { can } from "@/lib/rbac/permissions";
 import { slugifyTournamentName } from "@/lib/slug";
 import { getTournamentSetupProgress } from "@/lib/services/admin-setup-progress";
 import { recomputeAllPoolsForTournament } from "@/lib/services/standings";
-import { runWizardFinishOptions } from "@/lib/services/wizard-finish";
+import {
+  createDivisionPlayoffBracket,
+  type FirstRoundSide,
+  type FirstRoundSlot,
+} from "@/lib/services/bracket-division-build";
+import { classicSingleElimOrder, isValidEntryTeamCount } from "@/lib/services/bracket-engine";
 import { assertCanCreateTournamentInOrg } from "@/lib/services/organizations";
 import { revalidatePublishedTournamentSites } from "@/lib/revalidate-public-tournament-site";
 import { ADMIN_TOURNAMENT_SLUG_COOKIE, TOURNAMENT_SLUG_COOKIE } from "@/lib/tournament-context";
 import {
+  plusDaysYmdUtc,
+  todayYmdUtc,
   tournamentWizardSchema,
-  wizardPoolTeamCount,
+  WIZARD_DEFAULTS,
   type TournamentWizardInput,
 } from "@/lib/validations/tournament-wizard";
 
@@ -26,6 +34,7 @@ export type TournamentWizardResult =
       slug: string;
       setupProgress: SetupProgress;
       finishNotes: string[];
+      openCustomBuilder?: boolean;
     }
   | { ok: false; error: string };
 
@@ -52,10 +61,26 @@ async function allocateUniqueSlugTx(tx: Prisma.TransactionClient, displayName: s
   }
 }
 
-async function persistSkeleton(
+function clipName(name: string): string {
+  return name.length > 120 ? `${name.slice(0, 117)}…` : name;
+}
+
+type PersistResult = {
+  id: string;
+  slug: string;
+  fieldId: string;
+  divisionIds: string[];
+  openCustomBuilder: boolean;
+};
+
+async function persistFromWizard(
   data: TournamentWizardInput,
   organizationId: string | null,
-): Promise<{ id: string; slug: string; fieldIds: string[] }> {
+): Promise<PersistResult> {
+  const startYmd = todayYmdUtc();
+  const endYmd = plusDaysYmdUtc(startYmd, 6);
+  const defaults = WIZARD_DEFAULTS;
+
   return prisma.$transaction(async (tx) => {
     const slug = await allocateUniqueSlugTx(tx, data.tournamentName);
 
@@ -63,11 +88,14 @@ async function persistSkeleton(
       data: {
         name: data.tournamentName,
         slug,
-        shortLabel: data.tournamentName.length <= 32 ? data.tournamentName : `${data.tournamentName.slice(0, 29)}…`,
-        startDate: parseDateOnlyUtc(data.startDate),
-        endDate: parseDateOnlyUtc(data.endDate),
-        timezone: data.timezone,
-        locationLabel: data.venueAddress.trim(),
+        shortLabel:
+          data.tournamentName.length <= 32
+            ? data.tournamentName
+            : `${data.tournamentName.slice(0, 29)}…`,
+        startDate: parseDateOnlyUtc(startYmd),
+        endDate: parseDateOnlyUtc(endYmd),
+        timezone: defaults.timezone,
+        locationLabel: defaults.venueAddress,
         isPublished: true,
         organizationId: organizationId ?? undefined,
       },
@@ -76,74 +104,225 @@ async function persistSkeleton(
     const location = await tx.location.create({
       data: {
         tournamentId: tournament.id,
-        name: data.venueName.trim(),
-        address: data.venueAddress.trim(),
+        name: defaults.venueName,
+        address: defaults.venueAddress,
         isHeadquarters: true,
         sortOrder: 0,
       },
     });
 
-    const fieldIds: string[] = [];
-    for (let fi = 0; fi < data.fieldCount; fi++) {
-      const field = await tx.field.create({
-        data: {
-          tournamentId: tournament.id,
-          locationId: location.id,
-          name: `Field ${fi + 1}`,
-          sortOrder: fi,
-        },
-      });
-      fieldIds.push(field.id);
-    }
+    const field = await tx.field.create({
+      data: {
+        tournamentId: tournament.id,
+        locationId: location.id,
+        name: "Field 1",
+        sortOrder: 0,
+      },
+    });
 
-    for (let di = 0; di < data.divisions.length; di++) {
-      const divData = data.divisions[di]!;
-      const division = await tx.division.create({
-        data: {
-          tournamentId: tournament.id,
-          name: divData.name.trim(),
-          sortOrder: di,
-        },
-      });
+    const divisionIds: string[] = [];
+    let openCustomBuilder = false;
 
-      for (let pi = 0; pi < divData.pools.length; pi++) {
-        const poolData = divData.pools[pi]!;
-        const pool = await tx.pool.create({
+    if (data.format === "round_robin" && data.roundRobin) {
+      for (let di = 0; di < data.roundRobin.divisions.length; di++) {
+        const divData = data.roundRobin.divisions[di]!;
+        const division = await tx.division.create({
           data: {
-            divisionId: division.id,
-            name: poolData.name.trim(),
-            sortOrder: pi,
-            teamsAdvancing: poolData.teamsAdvancing,
+            tournamentId: tournament.id,
+            name: clipName(divData.name),
+            sortOrder: di,
           },
         });
+        divisionIds.push(division.id);
 
-        if (poolData.usePlaceholders) {
-          const count = poolData.teamCount ?? 0;
-          for (let ti = 0; ti < count; ti++) {
-            const teamLabel = `${divData.name} · ${poolData.name} · Team ${ti + 1}`;
+        for (let pi = 0; pi < divData.pools.length; pi++) {
+          const poolData = divData.pools[pi]!;
+          const pool = await tx.pool.create({
+            data: {
+              divisionId: division.id,
+              name: clipName(poolData.name),
+              sortOrder: pi,
+              teamsAdvancing: poolData.teamsAdvancing,
+            },
+          });
+          for (const teamName of poolData.teamNames) {
             await tx.team.create({
-              data: {
-                poolId: pool.id,
-                name: teamLabel.length > 120 ? teamLabel.slice(0, 117) + "…" : teamLabel,
-              },
-            });
-          }
-        } else {
-          const names = (poolData.teamNames ?? []).map((n) => n.trim()).filter(Boolean);
-          for (const name of names) {
-            await tx.team.create({
-              data: {
-                poolId: pool.id,
-                name: name.length > 120 ? name.slice(0, 117) + "…" : name,
-              },
+              data: { poolId: pool.id, name: clipName(teamName) },
             });
           }
         }
       }
+    } else if (data.format === "bracket_only" && data.bracket) {
+      for (let di = 0; di < data.bracket.divisions.length; di++) {
+        const divData = data.bracket.divisions[di]!;
+        if (divData.buildMode === "custom") openCustomBuilder = true;
+
+        const division = await tx.division.create({
+          data: {
+            tournamentId: tournament.id,
+            name: clipName(divData.name),
+            sortOrder: di,
+          },
+        });
+        divisionIds.push(division.id);
+
+        const pool = await tx.pool.create({
+          data: {
+            divisionId: division.id,
+            name: "Teams",
+            sortOrder: 0,
+            teamsAdvancing: divData.teamNames.length,
+          },
+        });
+
+        const teamIdByName = new Map<string, string>();
+        for (const teamName of divData.teamNames) {
+          const team = await tx.team.create({
+            data: { poolId: pool.id, name: clipName(teamName) },
+          });
+          teamIdByName.set(teamName, team.id);
+        }
+
+        // Brackets are created after the transaction (needs game/field helpers outside tx-heavy path).
+        // Stash ids on division via temporary — we'll create brackets after commit using returned ids.
+        void teamIdByName;
+      }
     }
 
-    return { id: tournament.id, slug, fieldIds };
+    return {
+      id: tournament.id,
+      slug,
+      fieldId: field.id,
+      divisionIds,
+      openCustomBuilder,
+    };
   });
+}
+
+function buildFirstRoundFromOrder(
+  order: Array<string | null>,
+  teamIdByName: Map<string, string>,
+): FirstRoundSlot[] {
+  const n = order.length;
+  const half = n / 2;
+  const classic = classicSingleElimOrder(n);
+  const sideAt = (seedIndex: number): FirstRoundSide => {
+    const name = order[seedIndex];
+    if (!name) return { bye: true };
+    const id = teamIdByName.get(name);
+    if (!id) return { bye: true };
+    return { teamId: id };
+  };
+  const slots: FirstRoundSlot[] = [];
+  for (let m = 0; m < half; m++) {
+    slots.push({
+      home: sideAt(classic[m * 2]!),
+      away: sideAt(classic[m * 2 + 1]!),
+    });
+  }
+  return slots;
+}
+
+function buildAutoFirstRound(
+  teamIds: string[],
+  entrySize: number,
+): FirstRoundSlot[] {
+  const classic = classicSingleElimOrder(entrySize);
+  const half = entrySize / 2;
+  const sideAt = (seedIndex: number): FirstRoundSide => {
+    if (seedIndex < teamIds.length) return { teamId: teamIds[seedIndex]! };
+    return { bye: true };
+  };
+  const slots: FirstRoundSlot[] = [];
+  for (let m = 0; m < half; m++) {
+    slots.push({
+      home: sideAt(classic[m * 2]!),
+      away: sideAt(classic[m * 2 + 1]!),
+    });
+  }
+  return slots;
+}
+
+async function createBracketsForWizard(
+  data: TournamentWizardInput,
+  tournamentId: string,
+  fieldId: string,
+): Promise<string[]> {
+  const notes: string[] = [];
+  if (data.format !== "bracket_only" || !data.bracket) return notes;
+
+  const startAt = new Date();
+  startAt.setMinutes(0, 0, 0);
+
+  for (let i = 0; i < data.bracket.divisions.length; i++) {
+    const divData = data.bracket.divisions[i]!;
+    const division = await prisma.division.findFirst({
+      where: { tournamentId, sortOrder: i },
+      include: {
+        pools: {
+          include: { teams: { orderBy: { createdAt: "asc" } } },
+          orderBy: { sortOrder: "asc" },
+        },
+      },
+    });
+    if (!division) {
+      notes.push(`Skipped bracket for ${divData.name}: division not found.`);
+      continue;
+    }
+
+    const teamIdByName = new Map<string, string>();
+    for (const pool of division.pools) {
+      for (const t of pool.teams) {
+        teamIdByName.set(t.name, t.id);
+        // Also index without clip for lookup
+        teamIdByName.set(t.name.trim(), t.id);
+      }
+    }
+
+    const entrySize = divData.entrySize;
+    if (!isValidEntryTeamCount(entrySize)) {
+      notes.push(`Skipped bracket for ${divData.name}: invalid field size ${entrySize}.`);
+      continue;
+    }
+
+    let firstRound: FirstRoundSlot[];
+    if (divData.seedMode === "manual" && divData.firstRoundOrder?.length === entrySize) {
+      firstRound = buildFirstRoundFromOrder(
+        divData.firstRoundOrder.map((n) => (n == null ? null : clipName(n))),
+        teamIdByName,
+      );
+    } else {
+      const ids = division.pools.flatMap((p) => p.teams.map((t) => t.id));
+      firstRound = buildAutoFirstRound(ids, entrySize);
+    }
+
+    try {
+      await createDivisionPlayoffBracket({
+        tournamentId,
+        divisionId: division.id,
+        name: `${divData.name} Playoffs`,
+        fieldId,
+        startsAt: startAt,
+        hoursBetweenRounds: 2,
+        firstRound,
+        published: false,
+        format:
+          divData.bracketFormat === "DOUBLE_ELIMINATION"
+            ? BracketFormat.DOUBLE_ELIMINATION
+            : BracketFormat.SINGLE_ELIMINATION,
+        avoidRematchesUntilForced: false,
+      });
+      notes.push(
+        `Created ${divData.bracketFormat === "DOUBLE_ELIMINATION" ? "double" : "single"}-elim bracket for ${divData.name}.`,
+      );
+    } catch (e) {
+      notes.push(
+        `Bracket for ${divData.name}: ${e instanceof Error ? e.message : "failed to create"}.`,
+      );
+    }
+  }
+
+  return notes;
 }
 
 export async function createTournamentFromWizard(input: unknown): Promise<TournamentWizardResult> {
@@ -190,28 +369,18 @@ export async function createTournamentFromWizard(input: unknown): Promise<Tourna
     });
     if (planErr) return { ok: false, error: planErr };
 
-    const { id, slug, fieldIds } = await persistSkeleton(parsed.data, organizationId);
+    const { id, slug, fieldId, openCustomBuilder } = await persistFromWizard(
+      parsed.data,
+      organizationId,
+    );
     await recomputeAllPoolsForTournament(id);
 
     const finishNotes: string[] = [];
-    if (parsed.data.generateSchedules || parsed.data.createBrackets) {
-      const finish = await runWizardFinishOptions({
-        tournamentId: id,
-        timezone: parsed.data.timezone,
-        startDateYmd: parsed.data.startDate,
-        endDateYmd: parsed.data.endDate,
-        dayStartTime: parsed.data.dayStartTime,
-        dayEndTime: parsed.data.dayEndTime,
-        slotMinutes: parsed.data.slotMinutes,
-        gameDurationMinutes: parsed.data.gameDurationMinutes,
-        minRestMinutes: parsed.data.minRestMinutes,
-        travelMinutesBetweenFields: parsed.data.travelMinutesBetweenFields,
-        fieldTravelMatrix: parsed.data.fieldTravelMatrix,
-        fieldIds,
-        generateSchedules: parsed.data.generateSchedules,
-        createBrackets: parsed.data.createBrackets,
-      });
-      finishNotes.push(...finish.notes);
+    if (parsed.data.format === "bracket_only") {
+      const notes = await createBracketsForWizard(parsed.data, id, fieldId);
+      finishNotes.push(...notes);
+    } else {
+      finishNotes.push("Round-robin structure created. Add schedule and fields anytime under admin settings.");
     }
 
     const setupProgress = await getTournamentSetupProgress(id);
@@ -226,15 +395,22 @@ export async function createTournamentFromWizard(input: unknown): Promise<Tourna
     jar.set(TOURNAMENT_SLUG_COOKIE, slug, opts);
     jar.set(ADMIN_TOURNAMENT_SLUG_COOKIE, slug, opts);
 
-    revalidatePath("/", "layout");
+    revalidatePath("/admin");
+    revalidatePath("/admin/structure");
+    revalidatePath("/admin/divisions");
+    revalidatePath("/admin/teams");
+    revalidatePath("/admin/brackets");
     await revalidatePublishedTournamentSites();
-    revalidatePath("/admin", "layout");
-    return { ok: true, slug, setupProgress, finishNotes };
+
+    return {
+      ok: true,
+      slug,
+      setupProgress,
+      finishNotes,
+      openCustomBuilder,
+    };
   } catch (e) {
-    console.error(e);
-    return { ok: false, error: e instanceof Error ? e.message : "Failed to create tournament." };
+    const msg = e instanceof Error ? e.message : "Failed to create tournament";
+    return { ok: false, error: msg };
   }
 }
-
-/** Exported for tests / UI helpers. */
-export { wizardPoolTeamCount };
