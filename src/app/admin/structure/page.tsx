@@ -10,6 +10,8 @@ import { can } from "@/lib/rbac/permissions";
 import { getTournamentForRequest } from "@/lib/tournament-context";
 import type { SeedBoardSide } from "@/components/admin/structure/BracketSeedBoard";
 
+export const dynamic = "force-dynamic";
+
 function toSide(
   isBye: boolean,
   team: { id: string; name: string } | null | undefined,
@@ -112,6 +114,7 @@ export default async function AdminStructurePage({
       ) : null}
 
       <StructureOverview
+        key={tournament.id}
         openBuilder={openBuilder}
         divisions={divisions.map((d) => {
           const b = d.brackets[0] ?? null;

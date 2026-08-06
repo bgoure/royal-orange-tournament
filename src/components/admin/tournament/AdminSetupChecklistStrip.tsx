@@ -41,6 +41,7 @@ export function AdminSetupChecklistStrip({ slug, progress, variant = "strip" }: 
   if (variant === "card") {
     return (
       <SetupChecklistPanel
+        slug={slug}
         progress={progress}
         onDismiss={onDismiss}
         title="Setup checklist"
@@ -50,7 +51,13 @@ export function AdminSetupChecklistStrip({ slug, progress, variant = "strip" }: 
 
   return (
     <div className="border-b border-emerald-200 bg-emerald-50/50 px-4 py-2 sm:px-8">
-      <SetupChecklistPanel progress={progress} compact onDismiss={onDismiss} title="Setup checklist" />
+      <SetupChecklistPanel
+        slug={slug}
+        progress={progress}
+        compact
+        onDismiss={onDismiss}
+        title="Setup checklist"
+      />
     </div>
   );
 }

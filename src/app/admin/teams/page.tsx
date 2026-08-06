@@ -4,6 +4,8 @@ import { TeamsAdmin } from "@/components/admin/structure/TeamsAdmin";
 import { getTeamsAdminList, getTournamentStructure } from "@/lib/services/admin-structure";
 import { getTournamentForRequest } from "@/lib/tournament-context";
 
+export const dynamic = "force-dynamic";
+
 export default async function AdminTeamsPage() {
   const session = await auth();
   const tournament = await getTournamentForRequest();
@@ -33,6 +35,7 @@ export default async function AdminTeamsPage() {
 
   return (
     <TeamsAdmin
+      key={tournament.id}
       teams={teams}
       poolOptions={poolOptions}
       tournamentName={tournament.name}

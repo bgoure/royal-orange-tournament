@@ -22,8 +22,8 @@ export const SETUP_STEPS: SetupStepDef[] = [
     id: "teams",
     title: "Name teams",
     description: "Rename placeholder teams if you skipped naming in the create wizard.",
-    href: "/admin/structure",
-    ctaLabel: "Review structure",
+    href: "/admin/teams",
+    ctaLabel: "Open teams",
   },
   {
     id: "fields",

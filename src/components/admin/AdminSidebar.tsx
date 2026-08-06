@@ -6,6 +6,7 @@ import { useEffect, useId, useRef, useState } from "react";
 import { signOut } from "next-auth/react";
 import { adminNavGroups, navItemIsActive } from "@/components/admin/admin-nav";
 import { useCreateTournamentWizard } from "@/components/admin/tournament/CreateTournamentWizardContext";
+import { adminTournamentSelectHref } from "@/lib/admin-tournament-href";
 import type { Role } from "@prisma/client";
 
 export type AdminSidebarTournamentOption = {
@@ -26,7 +27,7 @@ type Props = {
 };
 
 function selectHref(slug: string, nextPath: string): string {
-  return `/admin/select/${encodeURIComponent(slug)}?next=${encodeURIComponent(nextPath)}`;
+  return adminTournamentSelectHref(slug, nextPath);
 }
 
 function SidebarPanel({

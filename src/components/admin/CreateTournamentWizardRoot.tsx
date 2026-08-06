@@ -112,7 +112,10 @@ function AdminShell({
             </div>
           ) : null}
           <main className="flex-1 bg-white print:min-h-0 print:w-full print:min-w-0 print:overflow-x-clip">
-            <div className={mainInnerClass}>{children}</div>
+            {/* Remount page content when the selected event changes so soft nav cannot keep another tournament’s UI. */}
+            <div key={currentTournamentSlug ?? "no-tournament"} className={mainInnerClass}>
+              {children}
+            </div>
           </main>
         </div>
       </div>

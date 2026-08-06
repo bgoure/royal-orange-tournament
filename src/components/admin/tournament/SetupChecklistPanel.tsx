@@ -8,9 +8,12 @@ import {
   isSetupStepDone,
   type SetupProgress,
 } from "@/lib/admin-setup-checklist";
+import { adminTournamentSelectHref } from "@/lib/admin-tournament-href";
 
 type Props = {
   progress: SetupProgress;
+  /** Current admin tournament slug — required so links re-bind cookies before navigation. */
+  slug: string;
   /** Compact strip variant */
   compact?: boolean;
   onDismiss?: () => void;
@@ -19,12 +22,14 @@ type Props = {
 
 export function SetupChecklistPanel({
   progress,
+  slug,
   compact = false,
   onDismiss,
   title = "Finish tournament setup",
 }: Props) {
   const remaining = countIncompleteRequiredSteps(progress);
   const next = getNextRequiredSetupStep(progress);
+  const hrefFor = (path: string) => adminTournamentSelectHref(slug, path);
 
   return (
     <div
@@ -66,7 +71,7 @@ export function SetupChecklistPanel({
       {next ? (
         <div className={compact ? "mt-2" : "mt-4"}>
           <Link
-            href={next.step.href}
+            href={hrefFor(next.step.href)}
             className={`inline-flex items-center justify-center rounded-lg bg-emerald-600 font-semibold text-white hover:bg-emerald-700 ${
               compact ? "px-3 py-1.5 text-xs" : "px-4 py-2.5 text-sm"
             }`}
@@ -102,7 +107,7 @@ export function SetupChecklistPanel({
               </span>
               <div className="min-w-0 flex-1">
                 <Link
-                  href={step.href}
+                  href={hrefFor(step.href)}
                   className={`font-medium text-emerald-950 underline-offset-2 hover:underline ${
                     compact ? "text-xs" : "text-sm"
                   }`}
