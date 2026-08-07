@@ -20,6 +20,9 @@ const EST_CARD_H = 118;
 const MIN_GAP = 36;
 const BAND_GAP = 56;
 const COL_PAD_Y = 12;
+const HEADER_H = 44;
+/** Gutter distance before the target card where feeder lines merge. */
+const JOIN_INSET = 28;
 
 /**
  * Lane from feeders (not BracketRound.roundType): OBA packs mixed W/L games into one
@@ -92,7 +95,7 @@ function layoutGameTops(
   const layoutBand = (perCol: GameRow[][], yOffset: number): number => {
     let bandBottom = yOffset;
 
-    perCol.forEach((games, ci) => {
+    perCol.forEach((games) => {
       if (games.length === 0) return;
 
       const tentative: { id: string; y: number }[] = [];
@@ -100,7 +103,6 @@ function layoutGameTops(
         const feeders = edges.filter((e) => e.toGameId === g.id);
         const feederCenters = feeders
           .map((e) => {
-            // Only use same-band feeders for vertical centering.
             const fromLosers = losersIds.has(e.fromGameId);
             const toLosers = losersIds.has(g.id);
             if (fromLosers !== toLosers) return null;
@@ -114,9 +116,6 @@ function layoutGameTops(
         if (feeders.length > 0 && feederCenters.length > 0) {
           const avg = feederCenters.reduce((a, b) => a + b, 0) / feederCenters.length;
           y = avg - hOf(g.id) / 2;
-        } else if (ci === 0 || feederCenters.length === 0) {
-          const prev = tentative[tentative.length - 1];
-          y = prev ? prev.y + hOf(prev.id) + MIN_GAP : yOffset + COL_PAD_Y;
         } else {
           const prev = tentative[tentative.length - 1];
           y = prev ? prev.y + hOf(prev.id) + MIN_GAP : yOffset + COL_PAD_Y;
@@ -124,7 +123,6 @@ function layoutGameTops(
         tentative.push({ id: g.id, y });
       }
 
-      // Preserve game-number order; only push down to clear overlaps.
       for (let i = 0; i < tentative.length; i++) {
         const cur = tentative[i]!;
         if (i === 0) {
@@ -149,13 +147,13 @@ function layoutGameTops(
   return tops;
 }
 
-function columnContentHeight(
-  games: GameRow[],
+function boardContentHeight(
+  allGames: GameRow[],
   tops: Map<string, number>,
   heights: Map<string, number>,
 ): number {
   let max = 200;
-  for (const g of games) {
+  for (const g of allGames) {
     const y = tops.get(g.id) ?? 0;
     const h = heights.get(g.id) ?? EST_CARD_H;
     max = Math.max(max, y + h + COL_PAD_Y);
@@ -163,36 +161,72 @@ function columnContentHeight(
   return max;
 }
 
+type SourcePt = { x1: number; y1: number };
+
 /**
- * Orthogonal route that travels at the source card's Y until the target gutter,
- * then drops/rises into the seat — so skip-round winners stay in the winners lane
- * instead of cutting through a losers card in an intermediate column.
+ * Classic bracket joins: feeders run horizontally to a shared vertical rail,
+ * then one stem enters the next matchup (90° elbows, no overlapping diagonals).
  */
-function pathForEdge(
-  fromEl: HTMLElement,
-  toEl: HTMLElement,
+function buildJoinPaths(
+  edges: WinnerEdge[],
   board: HTMLElement,
-  slot: "home" | "away",
-  railIndex: number,
-): DrawnPath | null {
+): DrawnPath[] {
   const c = board.getBoundingClientRect();
-  const f = fromEl.getBoundingClientRect();
-  const t = toEl.getBoundingClientRect();
-  if (f.width < 2 || t.width < 2) return null;
+  const byTarget = new Map<string, WinnerEdge[]>();
+  for (const edge of edges) {
+    const list = byTarget.get(edge.toGameId) ?? [];
+    list.push(edge);
+    byTarget.set(edge.toGameId, list);
+  }
 
-  const x1 = f.right - c.left;
-  const y1 = f.top + f.height / 2 - c.top;
-  const x2 = t.left - c.left;
-  const y2 = t.top + t.height * (slot === "away" ? 0.36 : 0.7) - c.top;
+  const paths: DrawnPath[] = [];
 
-  const span = Math.max(24, x2 - x1);
-  // Enter the target gutter late so long skip-round runs stay horizontal at y1.
-  const railT = 0.72 + (railIndex % 3) * 0.06;
-  const midX = x1 + span * Math.min(0.92, railT);
+  for (const [toGameId, group] of byTarget) {
+    const toEl = board.querySelector<HTMLElement>(`[data-bracket-game-id="${toGameId}"]`);
+    if (!toEl) continue;
+    const t = toEl.getBoundingClientRect();
+    if (t.width < 2) continue;
 
-  return {
-    d: `M ${x1} ${y1} H ${midX} V ${y2} H ${x2}`,
-  };
+    const x2 = t.left - c.left;
+    const meetY = t.top + t.height / 2 - c.top;
+
+    const sources: SourcePt[] = [];
+    for (const edge of group) {
+      const fromEl = board.querySelector<HTMLElement>(
+        `[data-bracket-game-id="${edge.fromGameId}"]`,
+      );
+      if (!fromEl) continue;
+      const f = fromEl.getBoundingClientRect();
+      if (f.width < 2) continue;
+      sources.push({
+        x1: f.right - c.left,
+        y1: f.top + f.height / 2 - c.top,
+      });
+    }
+    if (sources.length === 0) continue;
+
+    const maxSourceRight = Math.max(...sources.map((s) => s.x1));
+    const joinX = Math.min(x2 - 12, Math.max(maxSourceRight + 16, x2 - JOIN_INSET));
+
+    if (sources.length === 1) {
+      const s = sources[0]!;
+      paths.push({ d: `M ${s.x1} ${s.y1} H ${joinX} V ${meetY} H ${x2}` });
+      continue;
+    }
+
+    // Arms into the merge rail
+    for (const s of sources) {
+      paths.push({ d: `M ${s.x1} ${s.y1} H ${joinX}` });
+    }
+    // Vertical bar connecting feeders + stem height
+    const yMin = Math.min(...sources.map((s) => s.y1), meetY);
+    const yMax = Math.max(...sources.map((s) => s.y1), meetY);
+    paths.push({ d: `M ${joinX} ${yMin} V ${yMax}` });
+    // Single line into the matchup
+    paths.push({ d: `M ${joinX} ${meetY} H ${x2}` });
+  }
+
+  return paths;
 }
 
 export function ChronologicalRoundBracket({
@@ -230,6 +264,11 @@ export function ChronologicalRoundBracket({
     [columns, winnerEdges, heights],
   );
 
+  const contentH = useMemo(
+    () => boardContentHeight(allGames, tops, heights),
+    [allGames, tops, heights],
+  );
+
   useLayoutEffect(() => {
     const board = boardRef.current;
     if (!board) return;
@@ -255,22 +294,7 @@ export function ChronologicalRoundBracket({
       }
 
       setBoardSize({ w: board.scrollWidth, h: board.scrollHeight });
-      const next: DrawnPath[] = [];
-      const railByTarget = new Map<string, number>();
-      for (const edge of winnerEdges) {
-        const fromEl = board.querySelector<HTMLElement>(
-          `[data-bracket-game-id="${edge.fromGameId}"]`,
-        );
-        const toEl = board.querySelector<HTMLElement>(
-          `[data-bracket-game-id="${edge.toGameId}"]`,
-        );
-        if (!fromEl || !toEl) continue;
-        const railIndex = railByTarget.get(edge.toGameId) ?? 0;
-        railByTarget.set(edge.toGameId, railIndex + 1);
-        const drawn = pathForEdge(fromEl, toEl, board, edge.slot, railIndex);
-        if (drawn) next.push(drawn);
-      }
-      setPaths(next);
+      setPaths(buildJoinPaths(winnerEdges, board));
     };
 
     measureAndDraw();
@@ -281,7 +305,9 @@ export function ChronologicalRoundBracket({
       ro?.disconnect();
       window.removeEventListener("resize", measureAndDraw);
     };
-  }, [allGames, winnerEdges, heights, tops]);
+  }, [allGames, winnerEdges, heights, tops, contentH]);
+
+  const columnShellH = contentH + HEADER_H;
 
   return (
     <div className="flex flex-col gap-3">
@@ -295,35 +321,20 @@ export function ChronologicalRoundBracket({
         role="region"
         aria-label="Chronological double-elimination rounds"
       >
-        <div ref={boardRef} className="relative flex w-max min-w-full items-start gap-10">
-          <svg
-            className="pointer-events-none absolute left-0 top-0 z-0 overflow-visible"
-            width={boardSize.w || undefined}
-            height={boardSize.h || undefined}
-            aria-hidden
-          >
-            {paths.map((p, i) => (
-              <path
-                key={`${p.d}-${i}`}
-                d={p.d}
-                fill="none"
-                stroke="#334155"
-                strokeWidth={1.75}
-                opacity={0.9}
-              />
-            ))}
-          </svg>
-
+        <div
+          ref={boardRef}
+          className="relative flex w-max min-w-full items-stretch gap-10"
+          style={{ minHeight: columnShellH }}
+        >
           {columns.map((col, ci) => {
             const games = sortColumnGames(col.games);
-            const contentH = columnContentHeight(games, tops, heights);
             return (
               <div
                 key={`${col.label}-${ci}`}
-                className="relative z-10 w-[min(100%,240px)] shrink-0 overflow-visible rounded-xl border border-zinc-200 bg-zinc-50/80"
-                style={{ minHeight: contentH + 44 }}
+                className="relative z-0 flex w-[min(100%,240px)] shrink-0 flex-col overflow-hidden rounded-xl border border-zinc-200 bg-zinc-50/80"
+                style={{ height: columnShellH }}
               >
-                <div className="border-b border-zinc-200 bg-white px-3 py-2">
+                <div className="shrink-0 border-b border-zinc-200 bg-white px-3 py-2">
                   <h3 className="text-xs font-bold uppercase tracking-[0.08em] text-royal">
                     {col.label}
                   </h3>
@@ -331,7 +342,7 @@ export function ChronologicalRoundBracket({
                     <p className="mt-0.5 text-[11px] font-medium text-zinc-600">{col.subtitle}</p>
                   ) : null}
                 </div>
-                <div className="relative px-3" style={{ height: contentH }}>
+                <div className="relative flex-1 px-3" style={{ height: contentH }}>
                   {games.length === 0 ? (
                     <p className="pt-4 text-sm text-zinc-500">Matchups TBA.</p>
                   ) : (
@@ -339,7 +350,7 @@ export function ChronologicalRoundBracket({
                       <div
                         key={g.id}
                         data-bracket-game-id={g.id}
-                        className="absolute left-3 right-3"
+                        className="absolute left-3 right-3 z-20"
                         style={{ top: tops.get(g.id) ?? COL_PAD_Y }}
                       >
                         <BracketGameCard
@@ -361,6 +372,27 @@ export function ChronologicalRoundBracket({
               </div>
             );
           })}
+
+          {/* Above column shells, below game cards — visible through empty lane space */}
+          <svg
+            className="pointer-events-none absolute left-0 top-0 z-10 overflow-visible"
+            width={boardSize.w || undefined}
+            height={boardSize.h || undefined}
+            aria-hidden
+          >
+            {paths.map((p, i) => (
+              <path
+                key={`${p.d}-${i}`}
+                d={p.d}
+                fill="none"
+                stroke="#334155"
+                strokeWidth={1.75}
+                strokeLinecap="square"
+                strokeLinejoin="miter"
+                opacity={0.95}
+              />
+            ))}
+          </svg>
         </div>
       </div>
     </div>
