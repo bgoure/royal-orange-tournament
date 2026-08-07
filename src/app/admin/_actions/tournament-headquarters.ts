@@ -53,6 +53,11 @@ export async function updateTournamentHeadquarters(
   const name = emptyToNull(parsed.data.headquartersName) ?? loc.name;
   const address = emptyToNull(parsed.data.headquartersAddress);
 
+  const addrTrim = address?.trim() ?? "";
+  const locationLabel = (addrTrim && addrTrim.toLowerCase() !== "tbd" ? addrTrim : name)
+    .trim()
+    .slice(0, 200);
+
   try {
     await prisma.$transaction([
       prisma.location.updateMany({
@@ -69,8 +74,13 @@ export async function updateTournamentHeadquarters(
           longitude,
         },
       }),
+      prisma.tournament.update({
+        where: { id: c.tournament.id },
+        data: { locationLabel },
+      }),
     ]);
     revalidatePath("/admin/tournament-settings");
+    revalidatePath("/admin");
     await revalidatePublishedTournamentSites();
     return { ok: true, notice: "Tournament headquarters saved." };
   } catch (e) {

@@ -255,6 +255,11 @@ export async function setLocationAsHeadquarters(
     });
     if (!loc) return { ok: false, error: "Location not found" };
 
+    const addrTrim = loc.address?.trim() ?? "";
+    const locationLabel = (addrTrim && addrTrim.toLowerCase() !== "tbd" ? addrTrim : loc.name)
+      .trim()
+      .slice(0, 200);
+
     await prisma.$transaction([
       prisma.location.updateMany({
         where: { tournamentId: c.tournament.id },
@@ -264,12 +269,17 @@ export async function setLocationAsHeadquarters(
         where: { id },
         data: { isHeadquarters: true },
       }),
+      prisma.tournament.update({
+        where: { id: c.tournament.id },
+        data: { locationLabel },
+      }),
     ]);
 
     revalidatePath("/admin/locations");
     revalidatePath("/admin/fields");
     await revalidatePublishedTournamentSites();
     revalidatePath("/admin/tournament-settings");
+    revalidatePath("/admin");
     return { ok: true, notice: "Headquarters location updated." };
   } catch (e) {
     return { ok: false, error: e instanceof Error ? e.message : "Failed to set headquarters" };

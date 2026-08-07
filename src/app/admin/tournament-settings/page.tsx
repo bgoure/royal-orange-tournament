@@ -6,6 +6,7 @@ import {
   type TournamentHeadquartersState,
 } from "@/components/admin/tournament/TournamentHeadquartersForm";
 import { TournamentDangerZoneForm } from "@/components/admin/tournament/TournamentDangerZoneForm";
+import { TournamentPublishForm } from "@/components/admin/tournament/TournamentPublishForm";
 import { TournamentRenameForm } from "@/components/admin/tournament/TournamentRenameForm";
 import { TournamentSlugForm } from "@/components/admin/tournament/TournamentSlugForm";
 import { TournamentPublicSwitcherOrderForm } from "@/components/admin/tournament/TournamentPublicSwitcherOrderForm";
@@ -96,6 +97,14 @@ export default async function AdminTournamentSettingsPage() {
           </p>
         </header>
         <AdminSetupChecklistStrip slug={tournament.slug} progress={setupProgress} variant="card" />
+        <div id="publish-tournament">
+          <TournamentPublishForm
+            isPublished={tournament.isPublished}
+            tournamentName={tournament.name}
+            publicSitePath={publicSitePath}
+            canManage={canManage}
+          />
+        </div>
         <TournamentRenameForm tournamentName={tournament.name} canManage={canManage} />
         <TournamentSlugForm tournamentSlug={tournament.slug} canManage={canManage} />
         <TournamentPublicSwitcherOrderForm
@@ -142,6 +151,14 @@ export default async function AdminTournamentSettingsPage() {
         </p>
       </header>
       <AdminSetupChecklistStrip slug={tournament.slug} progress={setupProgress} variant="card" />
+      <div id="publish-tournament">
+        <TournamentPublishForm
+          isPublished={tournament.isPublished}
+          tournamentName={tournament.name}
+          publicSitePath={publicSitePath}
+          canManage={canManage}
+        />
+      </div>
       <TournamentRenameForm tournamentName={tournament.name} canManage={canManage} />
       <TournamentSlugForm tournamentSlug={tournament.slug} canManage={canManage} />
       <TournamentPublicSwitcherOrderForm

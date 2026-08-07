@@ -30,9 +30,10 @@ export const SETUP_STEPS: SetupStepDef[] = [
   {
     id: "fields",
     title: "Venue & fields",
-    description: "Replace the TBD headquarters with a real venue, then add fields as needed.",
-    href: "/admin/tournament-settings",
-    ctaLabel: "Open settings",
+    description:
+      "Set a real headquarters (Locations) with a name/address, and add at least one field/diamond.",
+    href: "/admin/locations",
+    ctaLabel: "Open locations",
   },
   {
     id: "games",
@@ -53,9 +54,9 @@ export const SETUP_STEPS: SetupStepDef[] = [
   {
     id: "publish",
     title: "Publish tournament",
-    description: "Drafts stay off the public site until you publish in settings.",
-    href: "/admin/tournament-settings",
-    ctaLabel: "Open settings",
+    description: "Drafts stay off the public site until you use Publish tournament in Tournament Admin.",
+    href: "/admin/tournament-settings#publish-tournament",
+    ctaLabel: "Open publish",
   },
 ];
 
@@ -74,7 +75,7 @@ export function isSetupStepDone(stepId: SetupStepId, progress: SetupProgress): b
     case "teams":
       return progress.teamsNamed;
     case "fields":
-      return progress.hasVenue;
+      return progress.hasVenue && progress.hasField;
     case "games":
       return progress.hasPoolGames;
     case "brackets":
