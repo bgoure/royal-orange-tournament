@@ -52,6 +52,7 @@ export default async function AdminStructurePage({
           format: true,
           published: true,
           avoidRematchesUntilForced: true,
+          presetKey: true,
           _count: { select: { games: true, rounds: true } },
           rounds: {
             where: { roundIndex: 0 },
@@ -128,6 +129,7 @@ export default async function AdminStructurePage({
             seedBoard = {
               bracketId: b.id,
               bracketName: b.name,
+              presetKey: b.presetKey,
               teams: allTeams,
               matches: round0.matches.map((m) => {
                 const g = m.game;

@@ -26,6 +26,7 @@ export type StructureSeedBoard = {
   bracketName: string;
   teams: SeedBoardTeam[];
   matches: SeedBoardMatch[];
+  presetKey?: string | null;
 };
 
 type DivisionRow = {
@@ -102,6 +103,7 @@ export function StructureOverview({
                 bracketName={active.seedBoard.bracketName}
                 teams={active.seedBoard.teams}
                 matches={active.seedBoard.matches}
+                presetKey={active.seedBoard.presetKey}
                 canConfigure={canConfigure}
               />
             </section>

@@ -28,6 +28,8 @@ export type SeedBoardProps = {
   teams: SeedBoardTeam[];
   matches: SeedBoardMatch[];
   canConfigure: boolean;
+  /** Named format preset (e.g. oba_de_5) — adjusts Round 1 seeding copy. */
+  presetKey?: string | null;
 };
 
 type SlotSide = "home" | "away";
@@ -46,6 +48,7 @@ export function BracketSeedBoard({
   teams,
   matches: initialMatches,
   canConfigure,
+  presetKey,
 }: SeedBoardProps) {
   const [matches, setMatches] = useState(initialMatches);
   const [drag, setDrag] = useState<DragPayload | null>(null);
@@ -142,8 +145,9 @@ export function BracketSeedBoard({
         <div>
           <h3 className="text-sm font-semibold text-zinc-900">Round 1 seed board</h3>
           <p className="mt-1 text-xs text-zinc-600">
-            {bracketName} — drag teams (or BYE) into Away / Home. Empty seats save as BYE. Drop onto
-            an occupied seat to swap.
+            {bracketName} — drag teams into Away / Home seats. Teams that sit out Round 1 belong in{" "}
+            <span className="font-medium">Sitting out</span> (not on the yellow BYE chip). Drop the
+            BYE chip onto a seat only when that seat is a walkover.
           </p>
         </div>
         {editable ? (
@@ -173,6 +177,23 @@ export function BracketSeedBoard({
       {anyLocked ? (
         <p className="mt-3 text-xs text-amber-900">
           Round 1 has a live or scored game — reseating is locked until that game is cleared.
+        </p>
+      ) : null}
+
+      {(presetKey === "oba_de_5" && matches.length > 1) ||
+      (teams.length === 5 && matches.length === 2) ? (
+        <p className="mt-3 rounded-md border border-amber-300 bg-amber-50 px-3 py-2 text-xs text-amber-950">
+          This bracket still has the older 2-game Round 1 layout. Delete it under Brackets and
+          recreate with <span className="font-semibold">Double elimination — 5 teams (seeded)</span>{" "}
+          so Round 1 is only seed 4 vs seed 5 (seeds 1–3 sit out).
+        </p>
+      ) : null}
+
+      {presetKey === "oba_de_5" && matches.length === 1 ? (
+        <p className="mt-3 rounded-md border border-emerald-200 bg-emerald-50/80 px-3 py-2 text-xs text-emerald-950">
+          Seeded 5-team map: Round 1 is one game (seeds 4 vs 5). Seeds 1–3 are already placed into
+          Round 2 from create order — put the two Round 1 teams in the seats below; leave the other
+          three in Sitting out.
         </p>
       ) : null}
 
@@ -229,23 +250,23 @@ export function BracketSeedBoard({
 
         {editable ? (
           <div className="flex flex-col gap-3">
-            <div className="rounded-lg border border-dashed border-zinc-300 bg-white p-3">
-              <p className="text-[10px] font-semibold uppercase tracking-wide text-zinc-500">
-                Unassigned teams
-              </p>
-              <div
-                className="mt-2 flex min-h-[48px] flex-wrap gap-1.5"
-                onDragOver={(e) => e.preventDefault()}
-                onDrop={() => {
-                  if (!drag?.from) return;
-                  if (drag.type === "team" || drag.type === "bye") {
-                    clearSide(drag.from.matchId, drag.from.side);
-                  }
+            <div
+              className="rounded-lg border border-dashed border-sky-300 bg-sky-50/80 p-3"
+              onDragOver={(e) => e.preventDefault()}
+              onDrop={() => {
+                // Park a team as Round 1 sit-out (clear from any seat).
+                if (drag?.type === "team" || drag?.type === "bye") {
+                  if (drag.from) clearSide(drag.from.matchId, drag.from.side);
                   setDrag(null);
-                }}
-              >
+                }
+              }}
+            >
+              <p className="text-[10px] font-semibold uppercase tracking-wide text-sky-900">
+                Sitting out (Round 1 bye)
+              </p>
+              <div className="mt-2 flex min-h-[48px] flex-wrap gap-1.5">
                 {bankTeams.length === 0 ? (
-                  <p className="text-xs text-zinc-500">All teams placed</p>
+                  <p className="text-xs text-sky-800/70">All teams are in Round 1 seats</p>
                 ) : (
                   bankTeams.map((t) => (
                     <button
@@ -254,18 +275,22 @@ export function BracketSeedBoard({
                       draggable
                       onDragStart={() => setDrag({ type: "team", teamId: t.id })}
                       onDragEnd={() => setDrag(null)}
-                      className="cursor-grab rounded-md border border-zinc-300 bg-zinc-50 px-2 py-1 text-xs font-medium text-zinc-800 active:cursor-grabbing"
+                      className="cursor-grab rounded-md border border-sky-300 bg-white px-2 py-1 text-xs font-medium text-sky-950 active:cursor-grabbing"
                     >
                       {t.name}
                     </button>
                   ))
                 )}
               </div>
+              <p className="mt-2 text-[11px] leading-snug text-sky-900/80">
+                Drop a team here to sit them out of Round 1. Drag from here into Away/Home seats to
+                place them in a game.
+              </p>
             </div>
 
             <div className="rounded-lg border border-dashed border-amber-300 bg-amber-50/80 p-3">
               <p className="text-[10px] font-semibold uppercase tracking-wide text-amber-900">
-                BYE chip
+                BYE chip (walkover)
               </p>
               <button
                 type="button"
@@ -277,7 +302,8 @@ export function BracketSeedBoard({
                 BYE
               </button>
               <p className="mt-2 text-[11px] leading-snug text-amber-900/80">
-                Drop onto a seat for a walkover. Empty seats also save as BYE.
+                Not a drop target for teams. Drag this chip onto an Away/Home seat for a walkover.
+                Empty seats also save as BYE.
               </p>
             </div>
           </div>
