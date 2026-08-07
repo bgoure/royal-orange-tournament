@@ -160,7 +160,9 @@ export async function TournamentHomePublic({
             </section>
           ) : null}
 
-          <div className="hidden grid-cols-2 gap-3 md:grid">
+          <div
+            className={`hidden gap-3 md:grid ${bracketOnly ? "grid-cols-3" : "grid-cols-2"}`}
+          >
             <QuickLinkCard
               href={tp("schedule")}
               label="Schedule"
