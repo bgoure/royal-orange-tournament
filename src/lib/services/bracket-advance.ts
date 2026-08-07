@@ -12,6 +12,7 @@ import {
   pickSeatAvoidingRematch,
 } from "./rematch-aware-pairing";
 import type { StandingsGameInput } from "@/lib/services/standings/standings-engine";
+import { maybeResolveObaPresetPairings } from "@/lib/services/oba-de-redraw";
 
 async function placeIntoGrandFinalHome(bracketId: string, teamId: string): Promise<void> {
   const grandFinal = await prisma.bracketRound.findFirst({
@@ -560,12 +561,17 @@ export async function advanceBracketWinnerFromGame(gameId: string): Promise<void
       isQualifier: true,
       qualifyingTeamCount: true,
       concludedAt: true,
+      presetKey: true,
     },
   });
   const avoid = bracket?.avoidRematchesUntilForced === true;
   const format = bracket?.format;
+  const isObaCustomMap =
+    bracket?.presetKey === "oba_de_5" ||
+    bracket?.presetKey === "oba_de_6" ||
+    bracket?.presetKey === "oba_de_7";
 
-  // Explicit feeder overrides (Phase D)
+  // Explicit feeder overrides (Phase D / OBA maps)
   const fedWinner = await placeViaExplicitFeeders(match.id, "WINNER", winner);
   const loser = bracketLoserTeamId(game);
   if (loser) {
@@ -599,6 +605,13 @@ export async function advanceBracketWinnerFromGame(gameId: string): Promise<void
         });
       }
     }
+    await maybeConcludeQualifier(bracketId);
+    return;
+  }
+
+  // OBA 5–7 custom maps: feeders + redraw resolver only (no classic W/L fallthrough).
+  if (isObaCustomMap) {
+    await maybeResolveObaPresetPairings(bracketId);
     await maybeConcludeQualifier(bracketId);
     return;
   }

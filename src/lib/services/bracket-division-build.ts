@@ -49,6 +49,8 @@ export type CreateDivisionPlayoffOptions = {
   /** Qualifier: conclude when this many teams remain alive. */
   isQualifier?: boolean;
   qualifyingTeamCount?: number;
+  /** Named format preset (e.g. oba_de_4). */
+  presetKey?: string | null;
 };
 
 function slotKey(poolId: string, rank: number) {
@@ -230,6 +232,7 @@ export async function createDivisionPlayoffBracket(opts: CreateDivisionPlayoffOp
     grandFinalMode = GrandFinalMode.SINGLE,
     isQualifier = false,
     qualifyingTeamCount = 1,
+    presetKey = null,
   } = opts;
 
   const multiElim =
@@ -334,6 +337,7 @@ export async function createDivisionPlayoffBracket(opts: CreateDivisionPlayoffOp
         qualifyingTeamCount: isQualifier ? qCount : 1,
         published,
         needsResolutionRefresh: false,
+        presetKey: presetKey ?? null,
       },
     });
 

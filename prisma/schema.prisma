@@ -469,6 +469,8 @@ model Bracket {
   published    Boolean        @default(false)
   /// Set when pool play changes; cleared after directors re-apply standings to seeded slots.
   needsResolutionRefresh Boolean @default(false)
+  /// Optional catalog key (e.g. oba_de_5) when built from a named format preset.
+  presetKey    String?
   rounds       BracketRound[]
   games        Game[]
 

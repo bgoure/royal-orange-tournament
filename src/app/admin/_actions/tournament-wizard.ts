@@ -16,7 +16,10 @@ import {
   type FirstRoundSide,
   type FirstRoundSlot,
 } from "@/lib/services/bracket-division-build";
+import { createObaDeBracket } from "@/lib/services/oba-de-bracket-build";
+import { isObaDePresetKey } from "@/lib/brackets/oba-de-presets";
 import { classicSingleElimOrder, isValidEntryTeamCount } from "@/lib/services/bracket-engine";
+import { GrandFinalMode } from "@prisma/client";
 import { assertCanCreateTournamentInOrg } from "@/lib/services/organizations";
 import { revalidatePublishedTournamentSites } from "@/lib/revalidate-public-tournament-site";
 import { ADMIN_TOURNAMENT_SLUG_COOKIE, TOURNAMENT_SLUG_COOKIE } from "@/lib/tournament-context";
@@ -165,7 +168,9 @@ async function persistFromWizard(
     } else if (data.format === "bracket_only" && data.bracket) {
       for (let di = 0; di < data.bracket.divisions.length; di++) {
         const divData = data.bracket.divisions[di]!;
-        if (divData.buildMode === "custom") openCustomBuilder = true;
+        if (divData.buildMode === "custom" || divData.formatPreset === "custom") {
+          openCustomBuilder = true;
+        }
 
         const division = await tx.division.create({
           data: {
@@ -270,7 +275,7 @@ async function createBracketsForWizard(
   for (let i = 0; i < data.bracket.divisions.length; i++) {
     const divData = data.bracket.divisions[i]!;
 
-    if (divData.buildMode === "custom") {
+    if (divData.buildMode === "custom" || divData.formatPreset === "custom") {
       skippedCustomCount += 1;
       notes.push(
         `${divData.name}: teams saved without a template bracket — create or seed it under Structure / Brackets.`,
@@ -300,24 +305,47 @@ async function createBracketsForWizard(
       }
     }
 
-    const entrySize = divData.entrySize;
-    if (!isValidEntryTeamCount(entrySize)) {
-      failures.push(`Skipped bracket for ${divData.name}: invalid field size ${entrySize}.`);
-      continue;
-    }
-
-    let firstRound: FirstRoundSlot[];
-    if (divData.seedMode === "manual" && divData.firstRoundOrder?.length === entrySize) {
-      firstRound = buildFirstRoundFromOrder(
-        divData.firstRoundOrder.map((n) => (n == null ? null : clipName(n))),
-        teamIdByName,
-      );
-    } else {
-      const ids = division.pools.flatMap((p) => p.teams.map((t) => t.id));
-      firstRound = buildAutoFirstRound(ids, entrySize);
-    }
-
     try {
+      if (isObaDePresetKey(divData.formatPreset)) {
+        const idsInListOrder = divData.teamNames.map((n) => {
+          const id = teamIdByName.get(clipName(n)) ?? teamIdByName.get(n.trim());
+          if (!id) throw new Error(`Could not resolve team “${n}”.`);
+          return id;
+        });
+        await createObaDeBracket({
+          tournamentId,
+          divisionId: division.id,
+          name: `${divData.name} Playoffs`,
+          fieldId,
+          startsAt: startAt,
+          hoursBetweenRounds: 2,
+          teamIds: idsInListOrder,
+          presetKey: divData.formatPreset,
+          published: false,
+        });
+        createdCount += 1;
+        notes.push(`Created ${divData.formatPreset.replace(/_/g, " ")} bracket for ${divData.name}.`);
+        continue;
+      }
+
+      const entrySize = divData.entrySize;
+      if (!isValidEntryTeamCount(entrySize)) {
+        failures.push(`Skipped bracket for ${divData.name}: invalid field size ${entrySize}.`);
+        continue;
+      }
+
+      let firstRound: FirstRoundSlot[];
+      if (divData.seedMode === "manual" && divData.firstRoundOrder?.length === entrySize) {
+        firstRound = buildFirstRoundFromOrder(
+          divData.firstRoundOrder.map((n) => (n == null ? null : clipName(n))),
+          teamIdByName,
+        );
+      } else {
+        const ids = division.pools.flatMap((p) => p.teams.map((t) => t.id));
+        firstRound = buildAutoFirstRound(ids, entrySize);
+      }
+
+      const isDe = divData.formatPreset === "double_elim_classic" || divData.bracketFormat === "DOUBLE_ELIMINATION";
       await createDivisionPlayoffBracket({
         tournamentId,
         divisionId: division.id,
@@ -327,15 +355,13 @@ async function createBracketsForWizard(
         hoursBetweenRounds: 2,
         firstRound,
         published: false,
-        format:
-          divData.bracketFormat === "DOUBLE_ELIMINATION"
-            ? BracketFormat.DOUBLE_ELIMINATION
-            : BracketFormat.SINGLE_ELIMINATION,
+        format: isDe ? BracketFormat.DOUBLE_ELIMINATION : BracketFormat.SINGLE_ELIMINATION,
         avoidRematchesUntilForced: false,
+        grandFinalMode: isDe ? GrandFinalMode.IF_NECESSARY : GrandFinalMode.SINGLE,
       });
       createdCount += 1;
       notes.push(
-        `Created ${divData.bracketFormat === "DOUBLE_ELIMINATION" ? "double" : "single"}-elim bracket for ${divData.name}.`,
+        `Created ${isDe ? "double" : "single"}-elim bracket for ${divData.name}.`,
       );
     } catch (e) {
       failures.push(

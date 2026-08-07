@@ -1,5 +1,6 @@
 import { z } from "zod";
 import { isValidEntryTeamCount } from "@/lib/services/bracket-engine";
+import { isObaDePresetKey } from "@/lib/brackets/oba-de-presets";
 
 export const WIZARD_MAX_TEAMS_PER_POOL = 24;
 export const WIZARD_MAX_POOLS_PER_DIVISION = 8;
@@ -46,14 +47,26 @@ const divisionRoundRobinSchema = z.object({
     .max(WIZARD_MAX_POOLS_PER_DIVISION),
 });
 
+const formatPresetSchema = z.enum([
+  "single_elim_classic",
+  "double_elim_classic",
+  "oba_de_4",
+  "oba_de_5",
+  "oba_de_6",
+  "oba_de_7",
+  "custom",
+]);
+
 const divisionBracketSchema = z.object({
   name: z.string().trim().min(1).max(120),
   teamNames: z
     .array(z.string().trim().min(1).max(120))
     .min(2)
     .max(WIZARD_MAX_TEAMS_PER_DIVISION),
+  /** Named wizard format (classic SE/DE, OBA DE 4–7, or custom). */
+  formatPreset: formatPresetSchema.default("single_elim_classic"),
   bracketFormat: z.enum(["SINGLE_ELIMINATION", "DOUBLE_ELIMINATION"]),
-  /** template = create power-of-2 tree now; custom = teams only, build bracket later */
+  /** template = create bracket now; custom = teams only, build bracket later */
   buildMode: z.enum(["template", "custom"]),
   entrySize: z.coerce.number().int().min(2).max(64),
   seedMode: z.enum(["auto", "manual"]),
@@ -163,7 +176,27 @@ export const tournamentWizardSchema = z
           path: ["bracket", "divisions", di, "teamNames"],
         });
       }
-      if (div.buildMode === "custom") continue;
+      if (div.formatPreset === "custom" || div.buildMode === "custom") continue;
+
+      if (isObaDePresetKey(div.formatPreset)) {
+        const need = Number(div.formatPreset.replace("oba_de_", ""));
+        if (div.teamNames.length !== need) {
+          ctx.addIssue({
+            code: "custom",
+            message: `${div.name}: ${div.formatPreset} requires exactly ${need} teams (have ${div.teamNames.length}).`,
+            path: ["bracket", "divisions", di, "formatPreset"],
+          });
+        }
+        if (div.bracketFormat !== "DOUBLE_ELIMINATION") {
+          ctx.addIssue({
+            code: "custom",
+            message: `${div.name}: OBA presets are double elimination.`,
+            path: ["bracket", "divisions", di, "bracketFormat"],
+          });
+        }
+        continue;
+      }
+
       if (!isValidEntryTeamCount(div.entrySize)) {
         ctx.addIssue({
           code: "custom",

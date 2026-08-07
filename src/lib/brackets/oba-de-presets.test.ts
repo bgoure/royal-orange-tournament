@@ -1,0 +1,51 @@
+import assert from "node:assert/strict";
+import { describe, it } from "node:test";
+import {
+  explainerForFormatPreset,
+  getObaDePreset,
+  isObaDePresetKey,
+  OBA_DE_PRESETS,
+  wizardFormatOptionsForTeamCount,
+} from "./oba-de-presets";
+import { firstRoundSlotsForOba4 } from "@/lib/services/oba-de-bracket-build";
+
+describe("OBA DE presets", () => {
+  it("defines 4–7 team presets with explainers", () => {
+    for (const n of [4, 5, 6, 7] as const) {
+      const key = `oba_de_${n}` as const;
+      assert.equal(isObaDePresetKey(key), true);
+      const p = getObaDePreset(key);
+      assert.equal(p.teamCount, n);
+      assert.ok(p.explainer.length >= 3);
+      assert.ok(p.explainer.some((s) => /bye/i.test(s.title) || /bye/i.test(s.body)));
+      assert.ok(
+        p.explainer.some(
+          (s) => /endgame|bracket a|championship/i.test(s.title) || /bracket a|if-necessary/i.test(s.body),
+        ),
+      );
+    }
+    assert.equal(Object.keys(OBA_DE_PRESETS).length, 4);
+  });
+
+  it("filters wizard options by team count", () => {
+    const five = wizardFormatOptionsForTeamCount(5).map((o) => o.key);
+    assert.ok(five.includes("oba_de_5"));
+    assert.ok(!five.includes("oba_de_4"));
+    assert.ok(five.includes("double_elim_classic"));
+    assert.ok(five.includes("custom"));
+  });
+
+  it("provides classic explainers", () => {
+    assert.ok(explainerForFormatPreset("single_elim_classic").length > 0);
+    assert.ok(explainerForFormatPreset("custom").length > 0);
+  });
+
+  it("builds 4-team first round as two games", () => {
+    const slots = firstRoundSlotsForOba4(["a", "b", "c", "d"]);
+    assert.equal(slots.length, 2);
+    const ids = slots.flatMap((s) =>
+      [s.home, s.away].map((side) => ("teamId" in side ? side.teamId : null)),
+    );
+    assert.deepEqual(new Set(ids.filter(Boolean)).size, 4);
+  });
+});
