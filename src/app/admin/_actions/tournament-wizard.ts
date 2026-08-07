@@ -110,6 +110,8 @@ async function persistFromWizard(
         locationLabel: defaults.venueAddress,
         /** Draft until directors publish from settings. */
         isPublished: false,
+        /** Bracket-only events hide public Results (no pool standings). */
+        hasPoolPlay: data.format !== "bracket_only",
         organizationId: organizationId ?? undefined,
       },
     });

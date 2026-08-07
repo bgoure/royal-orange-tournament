@@ -8,6 +8,7 @@ import {
   type ReactNode,
   type TouchEvent as ReactTouchEvent,
 } from "react";
+import { DIVISION_SWIPE_IGNORE } from "@/lib/division-swipe-ignore";
 
 const MIN_PCT = 50;
 const MAX_PCT = 200;
@@ -18,6 +19,10 @@ function touchDistance(touches: TouchList | ReactTouchEvent["touches"]): number 
   const a = touches[0]!;
   const b = touches[1]!;
   return Math.hypot(a.clientX - b.clientX, a.clientY - b.clientY);
+}
+
+function notifyZoomChange() {
+  window.dispatchEvent(new Event("bracket-zoom-change"));
 }
 
 /**
@@ -35,6 +40,22 @@ export function BracketZoomShell({ children }: { children: ReactNode }) {
 
   const clampPct = useCallback((n: number) => Math.min(MAX_PCT, Math.max(MIN_PCT, Math.round(n))), []);
 
+  const setScale = useCallback(
+    (next: number | ((prev: number) => number)) => {
+      setScalePct((prev) => {
+        const raw = typeof next === "function" ? next(prev) : next;
+        return clampPct(raw);
+      });
+    },
+    [clampPct],
+  );
+
+  useEffect(() => {
+    // Let connector SVG remeasure after transform settles.
+    const id = requestAnimationFrame(() => notifyZoomChange());
+    return () => cancelAnimationFrame(id);
+  }, [scalePct]);
+
   const onTouchStart = (e: ReactTouchEvent) => {
     if (e.touches.length === 2) {
       pinchRef.current = {
@@ -45,7 +66,10 @@ export function BracketZoomShell({ children }: { children: ReactNode }) {
   };
 
   const onTouchEnd = (e: ReactTouchEvent) => {
-    if (e.touches.length < 2) pinchRef.current = null;
+    if (e.touches.length < 2) {
+      pinchRef.current = null;
+      notifyZoomChange();
+    }
   };
 
   useEffect(() => {
@@ -57,14 +81,14 @@ export function BracketZoomShell({ children }: { children: ReactNode }) {
       if (pinchRef.current.startDist < 8) return;
       e.preventDefault();
       const next = pinchRef.current.startPct * (dist / pinchRef.current.startDist);
-      setScalePct(clampPct(next));
+      setScale(next);
     };
     el.addEventListener("touchmove", move, { passive: false });
     return () => el.removeEventListener("touchmove", move);
-  }, [clampPct]);
+  }, [setScale]);
 
   return (
-    <div className="relative">
+    <div className="relative" {...{ [DIVISION_SWIPE_IGNORE]: "" }}>
       <div className="mb-2 hidden items-center justify-end gap-1 md:flex">
         <span className="mr-1 text-[11px] font-medium uppercase tracking-wide text-zinc-500">
           Zoom
@@ -74,7 +98,7 @@ export function BracketZoomShell({ children }: { children: ReactNode }) {
           className="inline-flex size-9 items-center justify-center rounded-lg border border-zinc-300 bg-white text-lg font-semibold text-zinc-800 shadow-sm disabled:opacity-40"
           aria-label="Zoom out"
           disabled={scalePct <= MIN_PCT}
-          onClick={() => setScalePct((p) => clampPct(p - STEP_PCT))}
+          onClick={() => setScale((p) => p - STEP_PCT)}
         >
           −
         </button>
@@ -82,7 +106,7 @@ export function BracketZoomShell({ children }: { children: ReactNode }) {
           type="button"
           className="min-w-14 rounded-lg border border-zinc-300 bg-white px-2 py-1.5 text-xs font-semibold tabular-nums text-zinc-800 shadow-sm"
           aria-label="Reset zoom"
-          onClick={() => setScalePct(100)}
+          onClick={() => setScale(100)}
         >
           {scalePct}%
         </button>
@@ -91,7 +115,7 @@ export function BracketZoomShell({ children }: { children: ReactNode }) {
           className="inline-flex size-9 items-center justify-center rounded-lg border border-zinc-300 bg-white text-lg font-semibold text-zinc-800 shadow-sm disabled:opacity-40"
           aria-label="Zoom in"
           disabled={scalePct >= MAX_PCT}
-          onClick={() => setScalePct((p) => clampPct(p + STEP_PCT))}
+          onClick={() => setScale((p) => p + STEP_PCT)}
         >
           +
         </button>

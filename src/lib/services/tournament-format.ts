@@ -6,11 +6,16 @@ function isDirectEntryPoolName(name: string): boolean {
 }
 
 /**
- * True when this event is bracket-only (no pool play):
- * - no POOL games, and
- * - either an OBA/preset bracket exists, or every pool is the Direct entry placeholder.
+ * True when this event is bracket-only (no pool standings / Results page).
+ * Prefers the explicit Tournament.hasPoolPlay flag; falls back to heuristics.
  */
 export async function isBracketOnlyTournament(tournamentId: string): Promise<boolean> {
+  const tournament = await prisma.tournament.findUnique({
+    where: { id: tournamentId },
+    select: { hasPoolPlay: true },
+  });
+  if (tournament && tournament.hasPoolPlay === false) return true;
+
   const [poolGameCount, pools, presetBracketCount] = await Promise.all([
     prisma.game.count({
       where: { tournamentId, gameKind: GameKind.POOL },

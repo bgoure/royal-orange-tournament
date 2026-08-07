@@ -6,7 +6,6 @@ import { BracketGameCard } from "@/components/brackets/BracketGameCard";
 import type { GameRow } from "@/components/brackets/bracket-types";
 import { matchSortIndex } from "@/components/brackets/bracket-slot-lines";
 import { chronologicalRoundColumns } from "@/lib/brackets/bracket-display";
-import { DIVISION_SWIPE_IGNORE } from "@/lib/division-swipe-ignore";
 import {
   bracketLoserTeamId,
   bracketLossCountsFromGames,
@@ -232,8 +231,22 @@ function boardContentHeight(
 
 type SourcePt = { x1: number; y1: number };
 
+/** Layout-space rect (undo CSS zoom/scale so SVG paths stay aligned). */
+function layoutRect(el: HTMLElement, board: HTMLElement) {
+  const er = el.getBoundingClientRect();
+  const br = board.getBoundingClientRect();
+  const sx = board.offsetWidth > 0 ? br.width / board.offsetWidth : 1;
+  const sy = board.offsetHeight > 0 ? br.height / board.offsetHeight : 1;
+  const scaleX = Math.abs(sx) < 0.001 ? 1 : sx;
+  const scaleY = Math.abs(sy) < 0.001 ? 1 : sy;
+  const left = (er.left - br.left) / scaleX;
+  const top = (er.top - br.top) / scaleY;
+  const width = er.width / scaleX;
+  const height = er.height / scaleY;
+  return { left, top, width, height, right: left + width, bottom: top + height };
+}
+
 function buildJoinPaths(edges: WinnerEdge[], board: HTMLElement): DrawnPath[] {
-  const c = board.getBoundingClientRect();
   const byTarget = new Map<string, WinnerEdge[]>();
   for (const edge of edges) {
     const list = byTarget.get(edge.toGameId) ?? [];
@@ -246,11 +259,11 @@ function buildJoinPaths(edges: WinnerEdge[], board: HTMLElement): DrawnPath[] {
   for (const [toGameId, group] of byTarget) {
     const toEl = board.querySelector<HTMLElement>(`[data-bracket-game-id="${toGameId}"]`);
     if (!toEl) continue;
-    const t = toEl.getBoundingClientRect();
+    const t = layoutRect(toEl, board);
     if (t.width < 2) continue;
 
-    const x2 = t.left - c.left;
-    const meetY = t.top + t.height / 2 - c.top;
+    const x2 = t.left;
+    const meetY = t.top + t.height / 2;
 
     const sources: SourcePt[] = [];
     for (const edge of group) {
@@ -258,11 +271,11 @@ function buildJoinPaths(edges: WinnerEdge[], board: HTMLElement): DrawnPath[] {
         `[data-bracket-game-id="${edge.fromGameId}"]`,
       );
       if (!fromEl) continue;
-      const f = fromEl.getBoundingClientRect();
+      const f = layoutRect(fromEl, board);
       if (f.width < 2) continue;
       sources.push({
-        x1: f.right - c.left,
-        y1: f.top + f.height / 2 - c.top,
+        x1: f.right,
+        y1: f.top + f.height / 2,
       });
     }
     if (sources.length === 0) continue;
@@ -293,19 +306,16 @@ function buildIfNecessaryDashedPath(
   gf2Id: string,
   board: HTMLElement,
 ): DrawnPath | null {
-  const c = board.getBoundingClientRect();
   const fromEl = board.querySelector<HTMLElement>(`[data-bracket-game-id="${gf1Id}"]`);
   const toEl = board.querySelector<HTMLElement>(`[data-bracket-game-id="${gf2Id}"]`);
   if (!fromEl || !toEl) return null;
-  const f = fromEl.getBoundingClientRect();
-  const t = toEl.getBoundingClientRect();
+  const f = layoutRect(fromEl, board);
+  const t = layoutRect(toEl, board);
   if (f.width < 2 || t.width < 2) return null;
-  const x1 = f.right - c.left;
-  const y1 = f.top + f.height / 2 - c.top;
-  const x2 = t.left - c.left;
-  const y2 = t.top + t.height / 2 - c.top;
-  // Same horizon → straight dashed connector
-  return { d: `M ${x1} ${y1} H ${x2}`, dashed: true };
+  return {
+    d: `M ${f.right} ${f.top + f.height / 2} H ${t.left}`,
+    dashed: true,
+  };
 }
 
 type IfNecUi = {
@@ -425,54 +435,67 @@ export function ChronologicalRoundBracket({
     const board = boardRef.current;
     if (!board) return;
 
+    let raf = 0;
     const measureAndDraw = () => {
-      const nextHeights = new Map<string, number>();
-      for (const g of allGames) {
-        const el = board.querySelector<HTMLElement>(`[data-bracket-game-id="${g.id}"]`);
-        if (el) nextHeights.set(g.id, el.offsetHeight);
-      }
-      let heightsChanged = nextHeights.size !== heights.size;
-      if (!heightsChanged) {
-        for (const [id, h] of nextHeights) {
-          if (heights.get(id) !== h) {
-            heightsChanged = true;
-            break;
+      cancelAnimationFrame(raf);
+      raf = requestAnimationFrame(() => {
+        const nextHeights = new Map<string, number>();
+        for (const g of allGames) {
+          const el = board.querySelector<HTMLElement>(`[data-bracket-game-id="${g.id}"]`);
+          if (el) nextHeights.set(g.id, el.offsetHeight);
+        }
+        let heightsChanged = nextHeights.size !== heights.size;
+        if (!heightsChanged) {
+          for (const [id, h] of nextHeights) {
+            if (heights.get(id) !== h) {
+              heightsChanged = true;
+              break;
+            }
           }
         }
-      }
-      if (heightsChanged) {
-        setHeights(nextHeights);
-        return;
-      }
+        if (heightsChanged) {
+          setHeights(nextHeights);
+          return;
+        }
 
-      setBoardSize({ w: board.scrollWidth, h: board.scrollHeight });
-      const next = buildJoinPaths(winnerEdges, board);
-      if (gf1 && gf2 && !ifNecUi.shaded) {
-        const dashed = buildIfNecessaryDashedPath(gf1.id, gf2.id, board);
-        if (dashed) next.push(dashed);
-      }
-      setPaths(next);
+        setBoardSize({ w: board.scrollWidth, h: board.scrollHeight });
+        const next = buildJoinPaths(winnerEdges, board);
+        if (gf1 && gf2 && !ifNecUi.shaded) {
+          const dashed = buildIfNecessaryDashedPath(gf1.id, gf2.id, board);
+          if (dashed) next.push(dashed);
+        }
+        setPaths(next);
+      });
+    };
+
+    const hardRemeasure = () => {
+      // Force card height re-read after rotate / zoom (layout can briefly be stale).
+      setHeights(new Map());
+      measureAndDraw();
     };
 
     measureAndDraw();
     const ro = typeof ResizeObserver !== "undefined" ? new ResizeObserver(measureAndDraw) : null;
     ro?.observe(board);
-    window.addEventListener("resize", measureAndDraw);
+    window.addEventListener("resize", hardRemeasure);
+    window.addEventListener("orientationchange", hardRemeasure);
+    window.addEventListener("bracket-zoom-change", measureAndDraw);
+    const vv = window.visualViewport;
+    vv?.addEventListener("resize", measureAndDraw);
     return () => {
+      cancelAnimationFrame(raf);
       ro?.disconnect();
-      window.removeEventListener("resize", measureAndDraw);
+      window.removeEventListener("resize", hardRemeasure);
+      window.removeEventListener("orientationchange", hardRemeasure);
+      window.removeEventListener("bracket-zoom-change", measureAndDraw);
+      vv?.removeEventListener("resize", measureAndDraw);
     };
   }, [allGames, winnerEdges, heights, tops, contentH, gf1, gf2, ifNecUi.shaded]);
 
   const columnShellH = contentH + HEADER_H;
 
   return (
-    <div
-      {...{ [DIVISION_SWIPE_IGNORE]: "" }}
-      className="overflow-x-auto pb-2"
-      role="region"
-      aria-label="Chronological double-elimination rounds"
-    >
+    <div role="region" aria-label="Chronological double-elimination rounds">
       <div
         ref={boardRef}
         className="relative flex w-max min-w-full items-stretch gap-10"

@@ -11,7 +11,6 @@ import { buildDivisionTabDescriptors } from "@/lib/division-tabs";
 import { formatFieldWithLocation } from "@/lib/field-display";
 import { getRequestPublicOrigin } from "@/lib/request-public-origin";
 import { listFieldsForTournament, listPoolsForDivisionTabs } from "@/lib/services/pools";
-import { isBracketOnlyTournament } from "@/lib/services/tournament-format";
 import { tournamentPublicBasePath } from "@/lib/tournament-public-path";
 
 function deployShaLabel(): string {
@@ -34,16 +33,16 @@ export async function SiteShell({
   const slug = tournament.slug;
   const publicBasePath = tournamentPublicBasePath(tournament);
 
-  const [divisionTabDescriptors, cookieDivision, session, fieldRows, requestOrigin, bracketOnly] =
+  const [divisionTabDescriptors, cookieDivision, session, fieldRows, requestOrigin] =
     await Promise.all([
       listPoolsForDivisionTabs(tournament.id).then(buildDivisionTabDescriptors),
       getDivisionTabCookie(),
       auth(),
       listFieldsForTournament(tournament.id),
       getRequestPublicOrigin(),
-      isBracketOnlyTournament(tournament.id),
     ]);
-  const showResults = !bracketOnly;
+  /** Bracket-only tournaments set hasPoolPlay=false (wizard + migration backfill). */
+  const showResults = tournament.hasPoolPlay;
 
   const isAdmin = session?.user?.role === "ADMIN" || session?.user?.role === "POWER_USER";
   const quickFieldOptions = fieldRows.map((f) => ({
