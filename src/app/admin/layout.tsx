@@ -37,6 +37,7 @@ export default async function AdminLayout({ children }: { children: React.ReactN
     name: t.name,
     slug: t.slug,
     archivedAt: t.archivedAt ? t.archivedAt.toISOString() : null,
+    isPublished: t.isPublished,
   }));
 
   return (

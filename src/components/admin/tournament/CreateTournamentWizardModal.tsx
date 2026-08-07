@@ -1,11 +1,14 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useEffect, useId, useMemo, useRef, useState } from "react";
 import { createTournamentFromWizard } from "@/app/admin/_actions/tournament-wizard";
 import {
   nextPowerOfTwoAtLeast,
+  WIZARD_DEFAULT_TEAMS_EXTRA_DIVISION,
+  WIZARD_DEFAULT_TEAMS_PER_DIVISION,
   WIZARD_MAX_DIVISIONS,
   WIZARD_MAX_POOLS_PER_DIVISION,
+  WIZARD_MAX_TEAMS_PER_DIVISION,
   WIZARD_MAX_TEAMS_TOURNAMENT,
 } from "@/lib/validations/tournament-wizard";
 
@@ -21,16 +24,27 @@ type Format = "round_robin" | "bracket_only";
 type BracketFormat = "SINGLE_ELIMINATION" | "DOUBLE_ELIMINATION";
 type BuildMode = "template" | "custom";
 type SeedMode = "auto" | "manual";
-
 type Step =
   | "basics"
   | "rr_pools"
   | "rr_assign"
   | "br_config"
   | "br_seed"
-  | "creating";
+  | "creating"
+  | "done";
 
 type Props = { onClose: () => void };
+
+/** Stable client key — never use display name for placement maps. */
+function teamKey(di: number, ti: number): string {
+  return `d${di}:t${ti}`;
+}
+
+function parseTeamKey(key: string): { di: number; ti: number } | null {
+  const m = /^d(\d+):t(\d+)$/.exec(key);
+  if (!m) return null;
+  return { di: Number(m[1]), ti: Number(m[2]) };
+}
 
 function fillNames(count: number, raw: string[], skip: boolean, prefix: string): string[] {
   const out: string[] = [];
@@ -41,7 +55,6 @@ function fillNames(count: number, raw: string[], skip: boolean, prefix: string):
   return out;
 }
 
-/** Unique team labels per division (avoids collisions when using Team1… placeholders). */
 function teamsForDivision(
   divisionName: string,
   count: number,
@@ -50,9 +63,8 @@ function teamsForDivision(
 ): string[] {
   const out: string[] = [];
   for (let i = 0; i < count; i++) {
-    if (skipNaming) {
-      out.push(`${divisionName} · Team ${i + 1}`);
-    } else {
+    if (skipNaming) out.push(`${divisionName} · Team ${i + 1}`);
+    else {
       const n = (rawNames[i] ?? "").trim();
       out.push(n || `${divisionName} · Team ${i + 1}`);
     }
@@ -61,30 +73,35 @@ function teamsForDivision(
 }
 
 export function CreateTournamentWizardModal({ onClose }: Props) {
+  const titleId = useId();
+  const dialogRef = useRef<HTMLDivElement>(null);
   const [step, setStep] = useState<Step>("basics");
   const [error, setError] = useState<string | null>(null);
+  const [warnings, setWarnings] = useState<string[]>([]);
+  const [notes, setNotes] = useState<string[]>([]);
   const [pending, setPending] = useState(false);
+  const [createdSlug, setCreatedSlug] = useState<string | null>(null);
+  const [doneNextPath, setDoneNextPath] = useState("/admin/structure");
 
-  // Modal 1
   const [tournamentName, setTournamentName] = useState("");
   const [format, setFormat] = useState<Format>("round_robin");
   const [divisionCount, setDivisionCount] = useState(1);
   const [skipDivisionNames, setSkipDivisionNames] = useState(false);
-  const [divisionNameDrafts, setDivisionNameDrafts] = useState<string[]>(["Division1"]);
-  /** Team count per division (flexible — e.g. 7 / 9 / 3). */
-  const [teamsPerDivision, setTeamsPerDivision] = useState<number[]>([8]);
+  const [divisionNameDrafts, setDivisionNameDrafts] = useState<string[]>([""]);
+  const [teamsPerDivision, setTeamsPerDivision] = useState<number[]>([
+    WIZARD_DEFAULT_TEAMS_PER_DIVISION,
+  ]);
   const [skipTeamNames, setSkipTeamNames] = useState(false);
-  /** Name drafts per division (one line per team). */
-  const [teamNameDraftsByDiv, setTeamNameDraftsByDiv] = useState<string[][]>([Array(8).fill("")]);
+  const [teamNameDraftsByDiv, setTeamNameDraftsByDiv] = useState<string[][]>([
+    Array(WIZARD_DEFAULT_TEAMS_PER_DIVISION).fill(""),
+  ]);
 
-  // 2A
   const [poolCounts, setPoolCounts] = useState<number[]>([2]);
   const [teamPlacement, setTeamPlacement] = useState<
-    Record<string, { divisionIndex: number; poolIndex: number } | "unassigned">
+    Record<string, { poolIndex: number } | "unassigned">
   >({});
-  const [dragTeam, setDragTeam] = useState<string | null>(null);
+  const [dragKey, setDragKey] = useState<string | null>(null);
 
-  // 2B
   const [bracketFormat, setBracketFormat] = useState<BracketFormat>("SINGLE_ELIMINATION");
   const [buildMode, setBuildMode] = useState<BuildMode>("template");
   const [seedMode, setSeedMode] = useState<SeedMode>("auto");
@@ -109,8 +126,39 @@ export function CreateTournamentWizardModal({ onClose }: Props) {
     [divisionNames, teamsPerDivision, teamNameDraftsByDiv, skipTeamNames],
   );
 
-  const teamNames = useMemo(() => teamsByDivision.flat(), [teamsByDivision]);
-  const teamCount = teamNames.length;
+  const teamCount = useMemo(
+    () => teamsByDivision.reduce((sum, row) => sum + row.length, 0),
+    [teamsByDivision],
+  );
+
+  useEffect(() => {
+    const root = dialogRef.current;
+    if (!root) return;
+    const focusable = root.querySelectorAll<HTMLElement>(
+      'button:not([disabled]), [href], input:not([disabled]), select:not([disabled]), textarea:not([disabled]), [tabindex]:not([tabindex="-1"])',
+    );
+    focusable[0]?.focus();
+
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key === "Escape" && !pending && step !== "creating") {
+        e.preventDefault();
+        onClose();
+        return;
+      }
+      if (e.key !== "Tab" || focusable.length === 0) return;
+      const first = focusable[0]!;
+      const last = focusable[focusable.length - 1]!;
+      if (e.shiftKey && document.activeElement === first) {
+        e.preventDefault();
+        last.focus();
+      } else if (!e.shiftKey && document.activeElement === last) {
+        e.preventDefault();
+        first.focus();
+      }
+    };
+    document.addEventListener("keydown", onKey);
+    return () => document.removeEventListener("keydown", onKey);
+  }, [onClose, pending, step]);
 
   function syncDivisionCount(n: number) {
     const count = Math.min(WIZARD_MAX_DIVISIONS, Math.max(1, n));
@@ -132,18 +180,20 @@ export function CreateTournamentWizardModal({ onClose }: Props) {
     });
     setTeamsPerDivision((prev) => {
       const next = [...prev];
-      while (next.length < count) next.push(4);
+      while (next.length < count) next.push(WIZARD_DEFAULT_TEAMS_EXTRA_DIVISION);
       return next.slice(0, count);
     });
     setTeamNameDraftsByDiv((prev) => {
       const next = [...prev];
-      while (next.length < count) next.push(Array(4).fill(""));
+      while (next.length < count) {
+        next.push(Array(WIZARD_DEFAULT_TEAMS_EXTRA_DIVISION).fill(""));
+      }
       return next.slice(0, count);
     });
   }
 
   function setDivisionTeamCount(di: number, n: number) {
-    const count = Math.min(64, Math.max(0, n));
+    const count = Math.min(WIZARD_MAX_TEAMS_PER_DIVISION, Math.max(0, n));
     setTeamsPerDivision((prev) => {
       const next = [...prev];
       next[di] = count;
@@ -158,10 +208,44 @@ export function CreateTournamentWizardModal({ onClose }: Props) {
     });
   }
 
-  function initRrAssign() {
-    const placement: Record<string, { divisionIndex: number; poolIndex: number } | "unassigned"> = {};
-    for (const name of teamNames) placement[name] = "unassigned";
-    setTeamPlacement(placement);
+  function initRrAssign(preserve: boolean) {
+    setTeamPlacement((prev) => {
+      const next: Record<string, { poolIndex: number } | "unassigned"> = {};
+      for (let di = 0; di < divisionCount; di++) {
+        const count = teamsPerDivision[di] ?? 0;
+        const pools = poolCounts[di] ?? 1;
+        for (let ti = 0; ti < count; ti++) {
+          const key = teamKey(di, ti);
+          const prior = prev[key];
+          if (
+            preserve &&
+            prior &&
+            prior !== "unassigned" &&
+            prior.poolIndex >= 0 &&
+            prior.poolIndex < pools
+          ) {
+            next[key] = prior;
+          } else {
+            next[key] = "unassigned";
+          }
+        }
+      }
+      return next;
+    });
+  }
+
+  function distributeEvenly() {
+    setTeamPlacement((prev) => {
+      const next = { ...prev };
+      for (let di = 0; di < divisionCount; di++) {
+        const count = teamsPerDivision[di] ?? 0;
+        const pools = poolCounts[di] ?? 1;
+        for (let ti = 0; ti < count; ti++) {
+          next[teamKey(di, ti)] = { poolIndex: ti % pools };
+        }
+      }
+      return next;
+    });
   }
 
   function initBracketSeeds() {
@@ -192,34 +276,55 @@ export function CreateTournamentWizardModal({ onClose }: Props) {
         setError(`Give ${divisionNames[di]} at least one team (or remove the division).`);
         return;
       }
+      const names = teamsByDivision[di] ?? [];
+      if (new Set(names.map((n) => n.toLowerCase())).size !== names.length) {
+        setError(`${divisionNames[di]}: team names must be unique within the division.`);
+        return;
+      }
     }
     if (teamCount > WIZARD_MAX_TEAMS_TOURNAMENT) {
       setError(`At most ${WIZARD_MAX_TEAMS_TOURNAMENT} teams total.`);
       return;
     }
-    if (format === "round_robin") {
-      setStep("rr_pools");
-    } else {
+    if (format === "round_robin") setStep("rr_pools");
+    else {
       initBracketSeeds();
       setStep("br_config");
     }
   }
 
-  function poolLabel(di: number, pi: number) {
+  function poolLabel(_di: number, pi: number) {
     return `Pool ${String.fromCharCode(65 + pi)}`;
   }
 
-  function finishNavigate(slug: string, openCustomBuilder: boolean) {
-    const next = openCustomBuilder ? "/admin/structure?builder=1" : "/admin/structure";
-    // Full navigation so layout + page both load the newly selected tournament cookies.
+  function finishNavigate(slug: string, nextPath: string) {
     window.location.assign(
-      `/admin/select/${encodeURIComponent(slug)}?next=${encodeURIComponent(next)}`,
+      `/admin/select/${encodeURIComponent(slug)}?next=${encodeURIComponent(nextPath)}`,
     );
+  }
+
+  function validateManualSeeds(): string | null {
+    for (let di = 0; di < divisionCount; di++) {
+      const teams = teamsByDivision[di] ?? [];
+      const size = entrySizeByDiv[di] ?? nextPowerOfTwoAtLeast(teams.length);
+      const order = (manualSeedsByDiv[di] ?? []).slice(0, size);
+      const placed = order.filter((x): x is string => x != null && x !== "");
+      if (new Set(placed).size !== placed.length) {
+        return `${divisionNames[di]}: each team can only appear once in Round 1 seeds.`;
+      }
+      const missing = teams.filter((t) => !placed.includes(t));
+      if (missing.length > 0) {
+        return `${divisionNames[di]}: ${missing.length} team(s) not placed (they become BYEs). Place them or switch to Automatic.`;
+      }
+    }
+    return null;
   }
 
   async function submit() {
     setPending(true);
     setError(null);
+    setWarnings([]);
+    setNotes([]);
     setStep("creating");
     try {
       let payload: unknown;
@@ -229,34 +334,35 @@ export function CreateTournamentWizardModal({ onClose }: Props) {
           const divTeams = teamsByDivision[di] ?? [];
           const pools = Array.from({ length: count }, (_, pi) => ({
             name: poolLabel(di, pi),
-            teamNames: divTeams.filter((t) => {
-              const p = teamPlacement[t];
-              return p !== "unassigned" && p && p.divisionIndex === di && p.poolIndex === pi;
+            teamNames: divTeams.filter((_, ti) => {
+              const p = teamPlacement[teamKey(di, ti)];
+              return p !== "unassigned" && p && p.poolIndex === pi;
             }),
             teamsAdvancing: 0,
-          }));
+          })).filter((p) => p.teamNames.length > 0);
           return { name, pools };
         });
-        const unassigned = teamNames.filter((t) => teamPlacement[t] === "unassigned");
-        if (unassigned.length > 0) {
-          setError(`Place all teams into pools (${unassigned.length} still unassigned).`);
+        const unassignedKeys = Object.entries(teamPlacement).filter(([, v]) => v === "unassigned");
+        if (unassignedKeys.length > 0) {
+          setError(`Place all teams into pools (${unassignedKeys.length} still unassigned).`);
           setPending(false);
           setStep("rr_assign");
           return;
         }
         for (const d of rrDivisions) {
-          if (d.pools.every((p) => p.teamNames.length === 0)) {
-            setError(`Each division needs at least one team in a pool (${d.name}).`);
+          if (d.pools.length === 0) {
+            setError(`${d.name}: place teams into at least one pool.`);
             setPending(false);
             setStep("rr_assign");
             return;
           }
         }
+        const flatNames = teamsByDivision.flat();
         payload = {
           tournamentName: tournamentName.trim(),
           format: "round_robin",
           divisions: { count: divisionCount, names: divisionNames, skipNaming: skipDivisionNames },
-          teams: { count: teamCount, names: teamNames, skipNaming: skipTeamNames },
+          teams: { count: teamCount, names: flatNames, skipNaming: skipTeamNames },
           roundRobin: { divisions: rrDivisions },
         };
       } else {
@@ -265,6 +371,15 @@ export function CreateTournamentWizardModal({ onClose }: Props) {
             setError(`${divisionNames[di]} needs at least 2 teams for a bracket.`);
             setPending(false);
             setStep("br_config");
+            return;
+          }
+        }
+        if (buildMode === "template" && seedMode === "manual") {
+          const seedErr = validateManualSeeds();
+          if (seedErr) {
+            setError(seedErr);
+            setPending(false);
+            setStep("br_seed");
             return;
           }
         }
@@ -288,7 +403,7 @@ export function CreateTournamentWizardModal({ onClose }: Props) {
           tournamentName: tournamentName.trim(),
           format: "bracket_only",
           divisions: { count: divisionCount, names: divisionNames, skipNaming: skipDivisionNames },
-          teams: { count: teamCount, names: teamNames, skipNaming: skipTeamNames },
+          teams: { count: teamCount, names: teamsByDivision.flat(), skipNaming: skipTeamNames },
           bracket: { divisions: bracketDivisions },
         };
       }
@@ -296,13 +411,29 @@ export function CreateTournamentWizardModal({ onClose }: Props) {
       const result = await createTournamentFromWizard(payload);
       if (!result.ok) {
         setError(result.error);
+        setNotes(result.finishNotes ?? []);
         setPending(false);
-        setStep(format === "round_robin" ? "rr_assign" : "br_seed");
+        if (result.slug) {
+          setCreatedSlug(result.slug);
+          setDoneNextPath("/admin/structure");
+          setStep("done");
+        } else {
+          setStep(format === "round_robin" ? "rr_assign" : buildMode === "custom" ? "br_config" : "br_seed");
+        }
         return;
       }
 
+      setNotes(result.finishNotes);
+      setWarnings(result.warnings);
+      setCreatedSlug(result.slug);
+      setDoneNextPath(result.nextPath);
+      setPending(false);
+      if (result.warnings.length > 0) {
+        setStep("done");
+        return;
+      }
       onClose();
-      finishNavigate(result.slug, Boolean(result.openCustomBuilder));
+      finishNavigate(result.slug, result.nextPath);
     } catch (e) {
       setError(e instanceof Error ? e.message : "Failed to create tournament");
       setPending(false);
@@ -321,32 +452,66 @@ export function CreateTournamentWizardModal({ onClose }: Props) {
             ? "Step 2 — bracket setup"
             : step === "br_seed"
               ? "Step 3 — seed Round 1"
-              : "Creating…";
+              : step === "done"
+                ? "Created"
+                : "Creating…";
+
+  const dismissDisabled = pending || step === "creating";
 
   return (
     <div className="fixed inset-0 z-[80] flex items-end justify-center sm:items-center" role="presentation">
-      <button type="button" className="absolute inset-0 bg-black/40" aria-label="Close" onClick={onClose} />
+      <button
+        type="button"
+        className="absolute inset-0 bg-black/40"
+        aria-label="Close dialog backdrop"
+        disabled={dismissDisabled}
+        onClick={() => {
+          if (!dismissDisabled) onClose();
+        }}
+      />
       <div
+        ref={dialogRef}
         className="relative flex max-h-[92vh] w-full max-w-2xl flex-col overflow-hidden rounded-t-2xl border border-zinc-200 bg-white shadow-2xl sm:rounded-2xl"
         role="dialog"
-        aria-modal
-        aria-labelledby="create-tourney-title"
+        aria-modal="true"
+        aria-labelledby={titleId}
       >
         <div className="flex items-start justify-between gap-3 border-b border-zinc-100 px-6 py-4">
           <div>
-            <h2 id="create-tourney-title" className="text-lg font-semibold text-zinc-900">
+            <h2 id={titleId} className="text-lg font-semibold text-zinc-900">
               Create tournament
             </h2>
             <p className="mt-0.5 text-xs text-zinc-500">{stepTitle}</p>
           </div>
-          <button type="button" onClick={onClose} className="text-sm font-medium text-zinc-600 hover:text-zinc-900">
+          <button
+            type="button"
+            disabled={dismissDisabled}
+            onClick={onClose}
+            className="text-sm font-medium text-zinc-600 hover:text-zinc-900 disabled:opacity-40"
+          >
             Close
           </button>
         </div>
 
         <div className="flex-1 overflow-y-auto px-6 py-5">
           {error ? (
-            <p className="mb-4 rounded-lg border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-800">{error}</p>
+            <p className="mb-4 rounded-lg border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-800" role="alert">
+              {error}
+            </p>
+          ) : null}
+          {warnings.length > 0 ? (
+            <ul className="mb-4 list-disc space-y-1 rounded-lg border border-amber-200 bg-amber-50 px-5 py-2 text-sm text-amber-950">
+              {warnings.map((w) => (
+                <li key={w}>{w}</li>
+              ))}
+            </ul>
+          ) : null}
+          {notes.length > 0 && step === "done" ? (
+            <ul className="mb-4 list-disc space-y-1 rounded-lg border border-zinc-200 bg-zinc-50 px-5 py-2 text-sm text-zinc-700">
+              {notes.map((n) => (
+                <li key={n}>{n}</li>
+              ))}
+            </ul>
           ) : null}
 
           {step === "basics" ? (
@@ -375,7 +540,7 @@ export function CreateTournamentWizardModal({ onClose }: Props) {
                     <span>
                       <span className="font-medium">Round robin</span>
                       <span className="mt-0.5 block text-xs text-zinc-500">
-                        Pool play first. You’ll set pools and drag teams into them next.
+                        Pool play first. You’ll set pools and place teams next.
                       </span>
                     </span>
                   </label>
@@ -454,7 +619,7 @@ export function CreateTournamentWizardModal({ onClose }: Props) {
                   </label>
                 </div>
                 <p className="mt-1 text-xs text-zinc-500">
-                  Each division can have a different count (e.g. 7, 9, and 3). Total:{" "}
+                  Each division can have a different count. Total:{" "}
                   <span className="font-medium text-zinc-700">{teamCount}</span>
                 </p>
                 <div className="mt-3 flex flex-col gap-4">
@@ -472,7 +637,7 @@ export function CreateTournamentWizardModal({ onClose }: Props) {
                             <input
                               type="number"
                               min={1}
-                              max={64}
+                              max={WIZARD_MAX_TEAMS_PER_DIVISION}
                               value={count}
                               onChange={(e) => setDivisionTeamCount(di, Number(e.target.value) || 0)}
                               className={`${formClass} mt-1 w-20`}
@@ -507,7 +672,7 @@ export function CreateTournamentWizardModal({ onClose }: Props) {
                   })}
                 </div>
                 <p className="mt-2 text-xs text-zinc-500">
-                  Venue, dates, fields, and schedule windows are set later in tournament settings.
+                  Creates a draft (not public). Venue, dates, and schedule are set in tournament settings.
                 </p>
               </div>
             </div>
@@ -548,9 +713,14 @@ export function CreateTournamentWizardModal({ onClose }: Props) {
 
           {step === "rr_assign" ? (
             <div className="flex flex-col gap-4">
-              <p className="text-sm text-zinc-600">
-                Drag each division’s teams into its pools. Teams stay in their own division.
-              </p>
+              <div className="flex flex-wrap items-center justify-between gap-2">
+                <p className="text-sm text-zinc-600">
+                  Drag or tap teams into pools. Teams stay in their own division.
+                </p>
+                <button type="button" className={btnSecondary} onClick={distributeEvenly}>
+                  Distribute evenly
+                </button>
+              </div>
               {divisionNames.map((divName, di) => {
                 const divTeams = teamsByDivision[di] ?? [];
                 return (
@@ -559,20 +729,29 @@ export function CreateTournamentWizardModal({ onClose }: Props) {
                     <div className="mt-3 rounded-md border border-dashed border-zinc-300 bg-zinc-50 p-2">
                       <p className={labelClass}>Unassigned</p>
                       <div className="mt-2 flex min-h-[40px] flex-wrap gap-2">
-                        {divTeams
-                          .filter((t) => teamPlacement[t] === "unassigned")
-                          .map((t) => (
+                        {divTeams.map((name, ti) => {
+                          const key = teamKey(di, ti);
+                          if (teamPlacement[key] !== "unassigned") return null;
+                          return (
                             <button
-                              key={t}
+                              key={key}
                               type="button"
                               draggable
-                              onDragStart={() => setDragTeam(t)}
-                              onDragEnd={() => setDragTeam(null)}
+                              onDragStart={() => setDragKey(key)}
+                              onDragEnd={() => setDragKey(null)}
+                              onClick={() => {
+                                // Tap-to-cycle into first pool for touch devices
+                                setTeamPlacement((prev) => ({
+                                  ...prev,
+                                  [key]: { poolIndex: 0 },
+                                }));
+                              }}
                               className="cursor-grab rounded-md border border-zinc-300 bg-white px-2 py-1 text-xs font-medium text-zinc-800 active:cursor-grabbing"
                             >
-                              {t}
+                              {name}
                             </button>
-                          ))}
+                          );
+                        })}
                       </div>
                     </div>
                     <div className="mt-3 grid gap-3 sm:grid-cols-2">
@@ -581,39 +760,40 @@ export function CreateTournamentWizardModal({ onClose }: Props) {
                           key={pi}
                           onDragOver={(e) => e.preventDefault()}
                           onDrop={() => {
-                            if (!dragTeam) return;
-                            if (!divTeams.includes(dragTeam)) return;
+                            if (!dragKey) return;
+                            const parsed = parseTeamKey(dragKey);
+                            if (!parsed || parsed.di !== di) return;
                             setTeamPlacement((prev) => ({
                               ...prev,
-                              [dragTeam]: { divisionIndex: di, poolIndex: pi },
+                              [dragKey]: { poolIndex: pi },
                             }));
-                            setDragTeam(null);
+                            setDragKey(null);
                           }}
                           className="min-h-[88px] rounded-md border border-zinc-200 bg-zinc-50/80 p-2"
                         >
                           <p className={labelClass}>{poolLabel(di, pi)}</p>
                           <div className="mt-2 flex flex-wrap gap-1.5">
-                            {divTeams
-                              .filter((t) => {
-                                const p = teamPlacement[t];
-                                return p !== "unassigned" && p && p.divisionIndex === di && p.poolIndex === pi;
-                              })
-                              .map((t) => (
+                            {divTeams.map((name, ti) => {
+                              const key = teamKey(di, ti);
+                              const p = teamPlacement[key];
+                              if (p === "unassigned" || !p || p.poolIndex !== pi) return null;
+                              return (
                                 <button
-                                  key={t}
+                                  key={key}
                                   type="button"
                                   draggable
-                                  onDragStart={() => setDragTeam(t)}
-                                  onDragEnd={() => setDragTeam(null)}
+                                  onDragStart={() => setDragKey(key)}
+                                  onDragEnd={() => setDragKey(null)}
                                   onClick={() =>
-                                    setTeamPlacement((prev) => ({ ...prev, [t]: "unassigned" }))
+                                    setTeamPlacement((prev) => ({ ...prev, [key]: "unassigned" }))
                                   }
                                   className="cursor-grab rounded-md border border-emerald-200 bg-emerald-50 px-2 py-1 text-xs font-medium text-emerald-900"
-                                  title="Click to unassign"
+                                  title="Click to unassign · drag to move"
                                 >
-                                  {t}
+                                  {name}
                                 </button>
-                              ))}
+                              );
+                            })}
                           </div>
                         </div>
                       ))}
@@ -660,7 +840,7 @@ export function CreateTournamentWizardModal({ onClose }: Props) {
                     <span>
                       <span className="font-medium">Use a template</span>
                       <span className="mt-0.5 block text-xs text-zinc-500">
-                        Standard power-of-2 bracket sized to your teams (BYEs pad as needed).
+                        Creates a power-of-2 bracket now (BYEs pad as needed).
                       </span>
                     </span>
                   </label>
@@ -672,9 +852,9 @@ export function CreateTournamentWizardModal({ onClose }: Props) {
                       onChange={() => setBuildMode("custom")}
                     />
                     <span>
-                      <span className="font-medium">Draw my own bracket</span>
+                      <span className="font-medium">Teams only — build bracket later</span>
                       <span className="mt-0.5 block text-xs text-zinc-500">
-                        Creates the tournament, then opens the structure page so you can refine the bracket.
+                        Saves teams without creating a template. Open Structure / Brackets to build it.
                       </span>
                     </span>
                   </label>
@@ -730,7 +910,7 @@ export function CreateTournamentWizardModal({ onClose }: Props) {
                     <span>
                       <span className="font-medium">Automatic</span>
                       <span className="mt-0.5 block text-xs text-zinc-500">
-                        Seed in list order with classic bracket placement and BYEs as needed.
+                        Seed in list order with classic placement and BYEs as needed.
                       </span>
                     </span>
                   </label>
@@ -744,59 +924,76 @@ export function CreateTournamentWizardModal({ onClose }: Props) {
                     <span>
                       <span className="font-medium">Place manually</span>
                       <span className="mt-0.5 block text-xs text-zinc-500">
-                        Pick which team sits in each seed slot (empty = BYE).
+                        Each team once; empty slots = BYE.
                       </span>
                     </span>
                   </label>
                 </div>
               </div>
-              {seedMode === "manual"
-                ? divisionNames.map((name, di) => {
-                    const size = entrySizeByDiv[di] ?? 8;
-                    const teams = teamsByDivision[di] ?? [];
-                    const order = manualSeedsByDiv[di] ?? Array(size).fill(null);
-                    return (
-                      <div key={di} className="rounded-lg border border-zinc-200 p-3">
-                        <p className="text-sm font-medium text-zinc-900">{name}</p>
-                        <div className="mt-2 grid gap-2 sm:grid-cols-2">
-                          {Array.from({ length: size }, (_, si) => (
-                            <div key={si}>
-                              <label className={labelClass}>Seed {si + 1}</label>
-                              <select
-                                value={order[si] ?? ""}
-                                onChange={(e) => {
-                                  const nextAll = manualSeedsByDiv.map((row) => [...row]);
-                                  const row = [...(nextAll[di] ?? Array(size).fill(null))];
-                                  while (row.length < size) row.push(null);
-                                  row[si] = e.target.value || null;
-                                  nextAll[di] = row;
-                                  setManualSeedsByDiv(nextAll);
-                                }}
-                                className={`${formClass} mt-1 w-full`}
-                              >
-                                <option value="">BYE</option>
-                                {teams.map((t) => (
-                                  <option key={t} value={t}>
-                                    {t}
-                                  </option>
-                                ))}
-                              </select>
-                            </div>
-                          ))}
-                        </div>
+              {seedMode === "manual" ? (
+                divisionNames.map((name, di) => {
+                  const size = entrySizeByDiv[di] ?? 8;
+                  const teams = teamsByDivision[di] ?? [];
+                  const order = manualSeedsByDiv[di] ?? Array(size).fill(null);
+                  return (
+                    <div key={di} className="rounded-lg border border-zinc-200 p-3">
+                      <p className="text-sm font-medium text-zinc-900">{name}</p>
+                      <div className="mt-2 grid gap-2 sm:grid-cols-2">
+                        {Array.from({ length: size }, (_, si) => (
+                          <div key={si}>
+                            <label className={labelClass}>Seed {si + 1}</label>
+                            <select
+                              value={order[si] ?? ""}
+                              onChange={(e) => {
+                                const nextAll = manualSeedsByDiv.map((row) => [...row]);
+                                const row = [...(nextAll[di] ?? Array(size).fill(null))];
+                                while (row.length < size) row.push(null);
+                                row[si] = e.target.value || null;
+                                nextAll[di] = row;
+                                setManualSeedsByDiv(nextAll);
+                              }}
+                              className={`${formClass} mt-1 w-full`}
+                            >
+                              <option value="">BYE</option>
+                              {teams.map((t) => (
+                                <option key={t} value={t}>
+                                  {t}
+                                </option>
+                              ))}
+                            </select>
+                          </div>
+                        ))}
                       </div>
-                    );
-                  })
-                : (
-                  <p className="text-sm text-zinc-600">
-                    Each division keeps its own team list and is seeded automatically.
-                  </p>
-                )}
+                    </div>
+                  );
+                })
+              ) : (
+                <p className="text-sm text-zinc-600">
+                  Each division keeps its own team list and is seeded automatically.
+                </p>
+              )}
             </div>
           ) : null}
 
           {step === "creating" ? (
             <p className="text-sm text-zinc-600">{pending ? "Creating your tournament…" : "Almost done…"}</p>
+          ) : null}
+
+          {step === "done" && createdSlug ? (
+            <div className="flex flex-col gap-3">
+              <p className="text-sm text-zinc-700">
+                {error
+                  ? "The tournament was saved, but something still needs attention. Continue to admin to finish setup."
+                  : "Tournament created. Review the notes above, then continue."}
+              </p>
+              <button
+                type="button"
+                className={btnPrimary}
+                onClick={() => finishNavigate(createdSlug, doneNextPath)}
+              >
+                Continue to admin →
+              </button>
+            </div>
           ) : null}
         </div>
 
@@ -804,7 +1001,7 @@ export function CreateTournamentWizardModal({ onClose }: Props) {
           <button
             type="button"
             className={btnSecondary}
-            disabled={pending}
+            disabled={pending || step === "done"}
             onClick={() => {
               setError(null);
               if (step === "basics") onClose();
@@ -825,7 +1022,7 @@ export function CreateTournamentWizardModal({ onClose }: Props) {
               type="button"
               className={btnPrimary}
               onClick={() => {
-                initRrAssign();
+                initRrAssign(true);
                 setStep("rr_assign");
               }}
             >
@@ -841,6 +1038,7 @@ export function CreateTournamentWizardModal({ onClose }: Props) {
             <button
               type="button"
               className={btnPrimary}
+              disabled={pending}
               onClick={() => {
                 if (buildMode === "custom") {
                   setSeedMode("auto");
@@ -851,7 +1049,7 @@ export function CreateTournamentWizardModal({ onClose }: Props) {
                 }
               }}
             >
-              {buildMode === "custom" ? "Create & open builder" : "Next"}
+              {buildMode === "custom" ? "Create & open structure" : "Next"}
             </button>
           ) : null}
           {step === "br_seed" ? (

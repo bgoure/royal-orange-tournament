@@ -3,7 +3,7 @@
 import { useCallback, useEffect, useState } from "react";
 import { SetupChecklistPanel } from "@/components/admin/tournament/SetupChecklistPanel";
 import {
-  countIncompleteRequiredSteps,
+  countIncompleteSetupSteps,
   setupChecklistDismissKey,
   type SetupProgress,
 } from "@/lib/admin-setup-checklist";
@@ -35,7 +35,8 @@ export function AdminSetupChecklistStrip({ slug, progress, variant = "strip" }: 
     setDismissed(true);
   }, [slug]);
 
-  const remaining = countIncompleteRequiredSteps(progress);
+  // Keep guiding through optional steps (schedule / playoffs) until dismissed.
+  const remaining = countIncompleteSetupSteps(progress);
   if (dismissed || remaining === 0) return null;
 
   if (variant === "card") {

@@ -92,7 +92,7 @@ export function TeamsAdmin({ teams, poolOptions, tournamentName, isAdmin }: Prop
             {teams.length === 0
               ? "Paste one team name per line into a pool. Fastest way to fill a new event."
               : placeholderCount > 0
-                ? `${placeholderCount} placeholder name${placeholderCount === 1 ? "" : "s"} still look like “Division · Pool · Team N”. Paste real names below to rename them in order.`
+                ? `${placeholderCount} placeholder name${placeholderCount === 1 ? "" : "s"} still look like “Division · Team N”. Paste real names below to rename them in order.`
                 : "Paste one name per line to rename existing teams in order, or add extras."}
           </p>
           <ActionMessage state={importState} />

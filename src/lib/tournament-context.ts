@@ -145,17 +145,18 @@ export async function getDefaultPublicTournamentSlug(): Promise<string | null> {
 }
 
 /**
- * Tournament for admin + cookie context: any published row (live or archived) matching
- * `admin_tournament_slug` first, then public `tournament_slug`, else first live tournament
- * in the switcher window, else any live published tournament.
+ * Tournament for admin + cookie context:
+ * - `admin_tournament_slug` first (includes drafts / unpublished)
+ * - then public `tournament_slug` (published only)
+ * - else first live published tournament in the switcher window
  */
 export async function getTournamentForRequest(): Promise<TournamentForRequest | null> {
-  const trySlug = async (slug: string | null) => {
+  const trySlug = async (slug: string | null, opts?: { publishedOnly?: boolean }) => {
     if (!slug) return null;
     return prisma.tournament.findFirst({
       where: {
         slug: { equals: slug, mode: "insensitive" },
-        isPublished: true,
+        ...(opts?.publishedOnly ? { isPublished: true } : {}),
       },
       include: tournamentForRequestInclude,
     });
@@ -164,7 +165,7 @@ export async function getTournamentForRequest(): Promise<TournamentForRequest | 
   const fromAdmin = await trySlug(await getAdminSelectedTournamentSlug());
   if (fromAdmin) return fromAdmin;
 
-  const fromPublic = await trySlug(await getSelectedTournamentSlug());
+  const fromPublic = await trySlug(await getSelectedTournamentSlug(), { publishedOnly: true });
   if (fromPublic) return fromPublic;
 
   const withinSwitcherWindow = await prisma.tournament.findFirst({
@@ -180,7 +181,7 @@ export async function getTournamentForRequest(): Promise<TournamentForRequest | 
   });
 }
 
-/** All published tournaments for the admin hub (live + archived).
+/** All tournaments for the admin hub (published + drafts).
  * Non-ADMIN staff only see tournaments owned by their organization(s).
  */
 export async function listTournamentsForAdminHub(opts?: {
@@ -188,9 +189,8 @@ export async function listTournamentsForAdminHub(opts?: {
   role?: string;
 }) {
   const where: {
-    isPublished: true;
     organizationId?: { in: string[] } | null;
-  } = { isPublished: true };
+  } = {};
 
   if (opts?.userId && opts.role && opts.role !== "ADMIN") {
     const memberships = await prisma.organizationMember.findMany({
@@ -222,6 +222,7 @@ export async function listTournamentsForAdminHub(opts?: {
       endDate: true,
       locationLabel: true,
       organizationId: true,
+      isPublished: true,
     },
   });
 }

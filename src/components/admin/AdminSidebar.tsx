@@ -13,6 +13,7 @@ export type AdminSidebarTournamentOption = {
   name: string;
   slug: string;
   archivedAt: string | null;
+  isPublished?: boolean;
 };
 
 type Props = {
@@ -98,10 +99,16 @@ function SidebarPanel({
                       className={`inline-flex rounded-full px-1.5 py-0.5 font-medium ${
                         currentMeta?.archivedAt
                           ? "bg-amber-500/20 text-amber-200"
-                          : "bg-emerald-500/20 text-emerald-300"
+                          : currentMeta?.isPublished === false
+                            ? "bg-zinc-500/30 text-zinc-200"
+                            : "bg-emerald-500/20 text-emerald-300"
                       }`}
                     >
-                      {currentMeta?.archivedAt ? "Archived" : "Live"}
+                      {currentMeta?.archivedAt
+                        ? "Archived"
+                        : currentMeta?.isPublished === false
+                          ? "Draft"
+                          : "Live"}
                     </span>
                     <span className="truncate font-mono text-zinc-500">{publicSiteHref}</span>
                   </p>
@@ -136,7 +143,14 @@ function SidebarPanel({
                       active ? "bg-zinc-800 text-white" : "text-zinc-300"
                     }`}
                   >
-                    <span className="block truncate font-medium">{t.name}</span>
+                    <span className="flex items-center gap-2 truncate font-medium">
+                      {t.name}
+                      {t.isPublished === false ? (
+                        <span className="shrink-0 rounded bg-zinc-700 px-1 py-0.5 text-[10px] font-normal text-zinc-300">
+                          Draft
+                        </span>
+                      ) : null}
+                    </span>
                     <span className="mt-0.5 block font-mono text-[10px] text-zinc-500">/{t.slug}</span>
                   </Link>
                 );

@@ -4,7 +4,7 @@ import Link from "next/link";
 import {
   SETUP_STEPS,
   countIncompleteRequiredSteps,
-  getNextRequiredSetupStep,
+  getNextSetupStep,
   isSetupStepDone,
   type SetupProgress,
 } from "@/lib/admin-setup-checklist";
@@ -27,8 +27,8 @@ export function SetupChecklistPanel({
   onDismiss,
   title = "Finish tournament setup",
 }: Props) {
-  const remaining = countIncompleteRequiredSteps(progress);
-  const next = getNextRequiredSetupStep(progress);
+  const remainingRequired = countIncompleteRequiredSteps(progress);
+  const next = getNextSetupStep(progress);
   const hrefFor = (path: string) => adminTournamentSelectHref(slug, path);
 
   return (
@@ -46,14 +46,18 @@ export function SetupChecklistPanel({
           </h2>
           {next ? (
             <p className={`mt-1 text-emerald-900/80 ${compact ? "text-xs" : "text-sm"}`}>
-              Step {next.stepNumber} of {next.totalRequired}: {next.step.title}
+              {next.step.optional
+                ? `Next (optional): ${next.step.title}`
+                : `Step ${next.stepNumber} of ${next.totalRequired}: ${next.step.title}`}
+              {remainingRequired > 0 && !next.step.optional
+                ? ""
+                : remainingRequired === 0 && next.step.optional
+                  ? " — required setup is done."
+                  : ""}
             </p>
           ) : (
             <p className={`mt-1 text-emerald-900/80 ${compact ? "text-xs" : "text-sm"}`}>
-              Required setup complete
-              {remaining === 0 && !progress.hasBracket
-                ? " — playoffs are optional when you’re ready."
-                : "."}
+              Setup checklist complete.
             </p>
           )}
         </div>
@@ -76,7 +80,9 @@ export function SetupChecklistPanel({
               compact ? "px-3 py-1.5 text-xs" : "px-4 py-2.5 text-sm"
             }`}
           >
-            Step {next.stepNumber} of {next.totalRequired}: {next.step.ctaLabel} →
+            {next.step.optional
+              ? `${next.step.ctaLabel} →`
+              : `Step ${next.stepNumber} of ${next.totalRequired}: ${next.step.ctaLabel} →`}
           </Link>
           {!compact ? (
             <p className="mt-2 text-xs text-emerald-900/70">{next.step.description}</p>

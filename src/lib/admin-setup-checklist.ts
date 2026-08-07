@@ -1,12 +1,14 @@
 /** Client-side dismiss keys + shared step metadata for post-create setup. */
 
+import { WIZARD_DEFAULTS } from "@/lib/validations/tournament-wizard";
+
 export const SETUP_CHECKLIST_DISMISS_PREFIX = "tourney-setup-dismiss:";
 
 export function setupChecklistDismissKey(slug: string): string {
   return `${SETUP_CHECKLIST_DISMISS_PREFIX}${slug}`;
 }
 
-export type SetupStepId = "teams" | "fields" | "games" | "brackets";
+export type SetupStepId = "teams" | "fields" | "games" | "brackets" | "publish";
 
 export type SetupStepDef = {
   id: SetupStepId;
@@ -21,17 +23,16 @@ export const SETUP_STEPS: SetupStepDef[] = [
   {
     id: "teams",
     title: "Name teams",
-    description: "Rename placeholder teams if you skipped naming in the create wizard.",
-    href: "/admin/teams",
+    description: "Rename placeholder teams (Division · Team N) if you skipped naming in the create wizard.",
+    href: "/admin/teams#paste-team-names",
     ctaLabel: "Open teams",
   },
   {
     id: "fields",
     title: "Venue & fields",
-    description: "Optional for now — add headquarters, fields, and schedule windows when you’re ready.",
+    description: "Replace the TBD headquarters with a real venue, then add fields as needed.",
     href: "/admin/tournament-settings",
     ctaLabel: "Open settings",
-    optional: true,
   },
   {
     id: "games",
@@ -49,13 +50,23 @@ export const SETUP_STEPS: SetupStepDef[] = [
     ctaLabel: "Open brackets",
     optional: true,
   },
+  {
+    id: "publish",
+    title: "Publish tournament",
+    description: "Drafts stay off the public site until you publish in settings.",
+    href: "/admin/tournament-settings",
+    ctaLabel: "Open settings",
+  },
 ];
 
 export type SetupProgress = {
   teamsNamed: boolean;
+  /** Headquarters is not the wizard TBD placeholder. */
+  hasVenue: boolean;
   hasField: boolean;
   hasPoolGames: boolean;
   hasBracket: boolean;
+  isPublished: boolean;
 };
 
 export function isSetupStepDone(stepId: SetupStepId, progress: SetupProgress): boolean {
@@ -63,11 +74,13 @@ export function isSetupStepDone(stepId: SetupStepId, progress: SetupProgress): b
     case "teams":
       return progress.teamsNamed;
     case "fields":
-      return progress.hasField;
+      return progress.hasVenue;
     case "games":
       return progress.hasPoolGames;
     case "brackets":
       return progress.hasBracket;
+    case "publish":
+      return progress.isPublished;
   }
 }
 
@@ -77,10 +90,13 @@ export function countIncompleteRequiredSteps(progress: SetupProgress): number {
   return REQUIRED_SETUP_STEPS.filter((s) => !isSetupStepDone(s.id, progress)).length;
 }
 
-/** 1-based index of the first incomplete required step, or null if all required are done. */
-export function getNextRequiredSetupStep(progress: SetupProgress): {
+export function countIncompleteSetupSteps(progress: SetupProgress): number {
+  return SETUP_STEPS.filter((s) => !isSetupStepDone(s.id, progress)).length;
+}
+
+/** First incomplete step (required first, then optional), or null when everything is done. */
+export function getNextSetupStep(progress: SetupProgress): {
   step: SetupStepDef;
-  /** 1-based position among required steps */
   stepNumber: number;
   totalRequired: number;
 } | null {
@@ -91,13 +107,34 @@ export function getNextRequiredSetupStep(progress: SetupProgress): {
       return { step, stepNumber: i + 1, totalRequired };
     }
   }
+  for (const step of SETUP_STEPS) {
+    if (step.optional && !isSetupStepDone(step.id, progress)) {
+      return { step, stepNumber: totalRequired, totalRequired };
+    }
+  }
   return null;
 }
 
-/** How many required steps are complete (for “Step N of M” when highlighting next). */
+/** @deprecated Prefer getNextSetupStep — kept for call sites that only care about required. */
+export function getNextRequiredSetupStep(progress: SetupProgress) {
+  const totalRequired = REQUIRED_SETUP_STEPS.length;
+  for (let i = 0; i < REQUIRED_SETUP_STEPS.length; i++) {
+    const step = REQUIRED_SETUP_STEPS[i]!;
+    if (!isSetupStepDone(step.id, progress)) {
+      return { step, stepNumber: i + 1, totalRequired };
+    }
+  }
+  return null;
+}
+
 export function countCompletedRequiredSteps(progress: SetupProgress): number {
   return REQUIRED_SETUP_STEPS.filter((s) => isSetupStepDone(s.id, progress)).length;
 }
 
-/** Wizard placeholders look like `10U · Pool A · Team 1`. */
+/** Wizard placeholders look like `10U · Team 1` (or legacy `10U · Pool A · Team 1`). */
 export const PLACEHOLDER_TEAM_NAME_RE = /·\s*Team\s+\d+\s*$/i;
+
+export function isWizardTbdVenue(name: string | null | undefined): boolean {
+  const n = (name ?? "").trim().toLowerCase();
+  return n === "" || n === WIZARD_DEFAULTS.venueName.toLowerCase();
+}

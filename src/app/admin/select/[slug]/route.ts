@@ -35,10 +35,10 @@ export async function GET(
   }
 
   const { slug: rawSlug } = await context.params;
+  // Admin select includes drafts (unpublished) so post-create wizard redirects work.
   const tournament = await prisma.tournament.findFirst({
     where: {
       slug: { equals: rawSlug, mode: "insensitive" },
-      isPublished: true,
     },
     select: { slug: true },
   });

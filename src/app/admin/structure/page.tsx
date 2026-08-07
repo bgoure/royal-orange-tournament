@@ -108,8 +108,11 @@ export default async function AdminStructurePage({
 
       {openBuilder ? (
         <div className="rounded-xl border border-emerald-200 bg-emerald-50 px-4 py-3 text-sm text-emerald-950">
-          Custom seed mode: use the Round 1 seed board below to drag teams and BYEs into matchups.
-          The rest of the bracket tree stays as built — only Round 1 seats are edited here.
+          Custom create: teams are ready, but no template bracket was built. Create a playoff under{" "}
+          <Link href="/admin/brackets" className="font-semibold underline">
+            Brackets
+          </Link>
+          , then use the Round 1 seed board here to place teams and BYEs.
         </div>
       ) : null}
 
