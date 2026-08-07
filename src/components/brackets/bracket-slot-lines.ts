@@ -1,6 +1,6 @@
-import type { Division, Pool } from "@prisma/client";
+import type { BracketSlotFeedKind, Division, Pool } from "@prisma/client";
 import { poolFinishPlaceholderLabel } from "@/lib/brackets/bracket-display";
-import type { GameRow, TeamWithPool } from "@/components/brackets/bracket-types";
+import type { BracketMatchFeederRef, GameRow, TeamWithPool } from "@/components/brackets/bracket-types";
 
 export type SlotLine = {
   primary: string;
@@ -20,6 +20,21 @@ export function matchSortIndex(g: GameRow): number {
   return g.bracketMatch?.matchIndex ?? g.bracketPosition ?? 0;
 }
 
+export function feederGameLabel(from: BracketMatchFeederRef): string {
+  const n = from.game?.gameNumber?.trim();
+  if (n) return `G${n}`;
+  return `Match ${from.matchIndex + 1}`;
+}
+
+export function explicitFeederSecondary(
+  from: BracketMatchFeederRef | null | undefined,
+  kind: BracketSlotFeedKind | null | undefined,
+): string | null {
+  if (!from || !kind) return null;
+  const label = feederGameLabel(from);
+  return kind === "LOSER" ? `Loser of ${label}` : `Winner of ${label}`;
+}
+
 export function slotLines(
   team: TeamWithPool | null,
   sourcePool: (Pool & { division: Division }) | null | undefined,
@@ -29,6 +44,7 @@ export function slotLines(
   slot: "home" | "away",
   prevRoundName: string | null,
   isBye = false,
+  explicitFeeder: { from: BracketMatchFeederRef | null | undefined; kind: BracketSlotFeedKind | null | undefined } | null = null,
 ): SlotLine {
   if (isBye) {
     return { primary: "BYE", secondary: null, team: null, isPlaceholder: true };
@@ -47,6 +63,17 @@ export function slotLines(
         rank,
       ),
       secondary: null,
+      team: null,
+      isPlaceholder: true,
+    };
+  }
+  const feederSecondary = explicitFeeder
+    ? explicitFeederSecondary(explicitFeeder.from, explicitFeeder.kind)
+    : null;
+  if (feederSecondary) {
+    return {
+      primary: "TBD",
+      secondary: feederSecondary,
       team: null,
       isPlaceholder: true,
     };

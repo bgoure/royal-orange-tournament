@@ -22,6 +22,20 @@ export const publicBracketStyleGameInclude = {
     include: {
       homeSourcePool: { include: { division: true } },
       awaySourcePool: { include: { division: true } },
+      homeFromMatch: {
+        select: {
+          id: true,
+          matchIndex: true,
+          game: { select: { id: true, gameNumber: true } },
+        },
+      },
+      awayFromMatch: {
+        select: {
+          id: true,
+          matchIndex: true,
+          game: { select: { id: true, gameNumber: true } },
+        },
+      },
     },
   },
   division: { select: { id: true, name: true } },
@@ -64,6 +78,20 @@ export function listBracketsForTournament(
             include: {
               homeSourcePool: { include: { division: true } },
               awaySourcePool: { include: { division: true } },
+              homeFromMatch: {
+                select: {
+                  id: true,
+                  matchIndex: true,
+                  game: { select: { id: true, gameNumber: true } },
+                },
+              },
+              awayFromMatch: {
+                select: {
+                  id: true,
+                  matchIndex: true,
+                  game: { select: { id: true, gameNumber: true } },
+                },
+              },
             },
           },
         },

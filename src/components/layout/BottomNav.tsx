@@ -18,12 +18,15 @@ import { tournamentPathFromBase } from "@/lib/tournament-public-path";
 export function BottomNav({
   publicBasePath,
   showPublicAnnouncements = true,
+  showResults = true,
   shareUrl,
   tournamentName,
 }: {
   publicBasePath: string;
   /** When false, announcements are omitted from the More drawer (matches Tournament Admin setting). */
   showPublicAnnouncements?: boolean;
+  /** When false, Results tab is hidden (bracket-only tournaments). */
+  showResults?: boolean;
   shareUrl: string;
   tournamentName: string;
 }) {
@@ -81,16 +84,20 @@ export function BottomNav({
         </svg>
       ),
     },
-    {
-      key: "results" as const,
-      href: tp("results"),
-      label: "Results",
-      icon: (
-        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round" className="size-6">
-          <path d="M8 21V16M12 21V10M16 21V4" />
-        </svg>
-      ),
-    },
+    ...(showResults
+      ? [
+          {
+            key: "results" as const,
+            href: tp("results"),
+            label: "Results",
+            icon: (
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round" className="size-6">
+                <path d="M8 21V16M12 21V10M16 21V4" />
+              </svg>
+            ),
+          },
+        ]
+      : []),
     {
       key: "brackets" as const,
       href: tp("brackets"),
@@ -101,7 +108,7 @@ export function BottomNav({
         </svg>
       ),
     },
-  ] as const;
+  ];
 
   const matchPrefixes = [
     ...(showPublicAnnouncements ? [tp("announcements")] : []),

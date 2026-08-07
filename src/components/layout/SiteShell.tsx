@@ -11,6 +11,7 @@ import { buildDivisionTabDescriptors } from "@/lib/division-tabs";
 import { formatFieldWithLocation } from "@/lib/field-display";
 import { getRequestPublicOrigin } from "@/lib/request-public-origin";
 import { listFieldsForTournament, listPoolsForDivisionTabs } from "@/lib/services/pools";
+import { isBracketOnlyTournament } from "@/lib/services/tournament-format";
 import { tournamentPublicBasePath } from "@/lib/tournament-public-path";
 
 function deployShaLabel(): string {
@@ -33,13 +34,16 @@ export async function SiteShell({
   const slug = tournament.slug;
   const publicBasePath = tournamentPublicBasePath(tournament);
 
-  const [divisionTabDescriptors, cookieDivision, session, fieldRows, requestOrigin] = await Promise.all([
-    listPoolsForDivisionTabs(tournament.id).then(buildDivisionTabDescriptors),
-    getDivisionTabCookie(),
-    auth(),
-    listFieldsForTournament(tournament.id),
-    getRequestPublicOrigin(),
-  ]);
+  const [divisionTabDescriptors, cookieDivision, session, fieldRows, requestOrigin, bracketOnly] =
+    await Promise.all([
+      listPoolsForDivisionTabs(tournament.id).then(buildDivisionTabDescriptors),
+      getDivisionTabCookie(),
+      auth(),
+      listFieldsForTournament(tournament.id),
+      getRequestPublicOrigin(),
+      isBracketOnlyTournament(tournament.id),
+    ]);
+  const showResults = !bracketOnly;
 
   const isAdmin = session?.user?.role === "ADMIN" || session?.user?.role === "POWER_USER";
   const quickFieldOptions = fieldRows.map((f) => ({
@@ -58,6 +62,7 @@ export async function SiteShell({
           divisionDescriptors={divisionTabDescriptors}
           cookieDivision={cookieDivision}
           shareUrl={shareUrl}
+          showResults={showResults}
         />
         <PwaInstallPrompt />
         <PublicQuickGameProvider
@@ -88,6 +93,7 @@ export async function SiteShell({
         <BottomNav
           publicBasePath={publicBasePath}
           showPublicAnnouncements={tournament.showPublicAnnouncements}
+          showResults={showResults}
           shareUrl={shareUrl}
           tournamentName={tournament.name}
         />

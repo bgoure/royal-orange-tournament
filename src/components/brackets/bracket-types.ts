@@ -14,9 +14,17 @@ export type TeamWithPool = Team & {
   logo: { mimeType: string; updatedAt: Date } | null;
 };
 
+export type BracketMatchFeederRef = {
+  id: string;
+  matchIndex: number;
+  game: { id: string; gameNumber: string | null } | null;
+};
+
 export type BracketMatchWithPools = BracketMatch & {
   homeSourcePool: (Pool & { division: Division }) | null;
   awaySourcePool: (Pool & { division: Division }) | null;
+  homeFromMatch?: BracketMatchFeederRef | null;
+  awayFromMatch?: BracketMatchFeederRef | null;
 };
 
 export type GameRow = Game & {

@@ -22,8 +22,18 @@ export async function setTournamentPublished(
       data: { isPublished: published },
     });
 
+    // Bracket-only (and playoff) public pages require Bracket.published — publish all
+    // division brackets with the tournament so the brackets page is not empty.
+    if (published) {
+      await prisma.bracket.updateMany({
+        where: { tournamentId: c.tournament.id },
+        data: { published: true },
+      });
+    }
+
     try {
       revalidatePath("/admin/tournament-settings");
+      revalidatePath("/admin/brackets");
       revalidatePath("/admin", "layout");
       await revalidatePublishedTournamentSites();
     } catch {
@@ -33,7 +43,7 @@ export async function setTournamentPublished(
     return {
       ok: true,
       notice: published
-        ? "Tournament published — it is now on the public site."
+        ? "Tournament published — public site and playoff brackets are live."
         : "Tournament unpublished — it is a draft again.",
     };
   } catch (e) {

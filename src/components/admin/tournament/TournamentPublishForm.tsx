@@ -57,7 +57,7 @@ export function TournamentPublishForm({
         ) : (
           <>
             <strong>{tournamentName}</strong> is a draft. Publish to show it on the public site
-            (brackets still need their own publish toggle under Brackets if you want those visible).
+            (this also publishes any playoff brackets so the Brackets page is not empty).
           </>
         )}
       </p>

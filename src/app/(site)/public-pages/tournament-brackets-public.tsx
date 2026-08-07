@@ -10,6 +10,7 @@ import {
 } from "@/lib/division-tab-utils";
 import { listBracketsForTournament, listConsolationGamesForTournament } from "@/lib/services/brackets";
 import { listPoolsForDivisionTabs } from "@/lib/services/pools";
+import { isBracketOnlyTournament } from "@/lib/services/tournament-format";
 import { tournamentPublicBasePath } from "@/lib/tournament-public-path";
 
 export async function TournamentBracketsPublic({
@@ -22,10 +23,14 @@ export async function TournamentBracketsPublic({
   const publicBasePath = tournamentPublicBasePath(tournament);
   const sp = searchParams;
 
+  // Bracket-only: tournament publish is enough — do not require a separate Bracket.published toggle.
+  const bracketOnly = await isBracketOnlyTournament(tournament.id);
+  const publishedOnly = !bracketOnly;
+
   const [brackets, poolsForTabs, consolationGames] = await Promise.all([
-    listBracketsForTournament(tournament.id, { publishedOnly: true }),
+    listBracketsForTournament(tournament.id, { publishedOnly }),
     listPoolsForDivisionTabs(tournament.id),
-    listConsolationGamesForTournament(tournament.id, { publishedOnly: true }),
+    listConsolationGamesForTournament(tournament.id, { publishedOnly }),
   ]);
 
   const divisionDescriptors = buildDivisionTabDescriptors(poolsForTabs);

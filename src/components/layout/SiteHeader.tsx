@@ -12,6 +12,7 @@ export function SiteHeader({
   divisionDescriptors,
   cookieDivision,
   shareUrl,
+  showResults = true,
 }: {
   publicBasePath: string;
   tournamentName: string;
@@ -19,16 +20,18 @@ export function SiteHeader({
   divisionDescriptors: DivisionTabDescriptor[];
   cookieDivision: string | null;
   shareUrl: string;
+  /** False for bracket-only events (no pool standings). */
+  showResults?: boolean;
 }) {
   const tp = (...s: string[]) => tournamentPathFromBase(publicBasePath, ...s);
   const nav = [
     { href: tp(), label: "Home" },
     { href: tp("schedule"), label: "Schedule" },
-    { href: tp("results"), label: "Results" },
+    ...(showResults ? [{ href: tp("results"), label: "Results" }] : []),
     { href: tp("brackets"), label: "Brackets" },
     { href: tp("locations"), label: "Locations" },
     { href: tp("rules"), label: "Rules" },
-  ] as const;
+  ];
 
   const { primary, accent } = publicSiteHeaderTitleLines({
     name: tournamentName,

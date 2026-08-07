@@ -83,6 +83,7 @@ export function BracketGameCard({
     "away",
     prevRoundName,
     bm?.awayIsBye ?? false,
+    bm ? { from: bm.awayFromMatch, kind: bm.awayFromKind } : null,
   );
   const home = slotLines(
     game.homeTeam,
@@ -93,6 +94,7 @@ export function BracketGameCard({
     "home",
     prevRoundName,
     bm?.homeIsBye ?? false,
+    bm ? { from: bm.homeFromMatch, kind: bm.homeFromKind } : null,
   );
 
   const quickEdit = usePublicQuickGameEdit();
