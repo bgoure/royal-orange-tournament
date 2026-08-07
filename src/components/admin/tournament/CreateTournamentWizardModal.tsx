@@ -314,7 +314,7 @@ export function CreateTournamentWizardModal({ onClose }: Props) {
       }
       const missing = teams.filter((t) => !placed.includes(t));
       if (missing.length > 0) {
-        return `${divisionNames[di]}: ${missing.length} team(s) not placed (they become BYEs). Place them or switch to Automatic.`;
+        return `${divisionNames[di]}: ${missing.length} team(s) are not in any seed slot, so they would be left out of the bracket. Put every team in a seed (use “Fill seeds 1…n” for classic byes), or switch to Automatic.`;
       }
     }
     return null;
@@ -924,7 +924,8 @@ export function CreateTournamentWizardModal({ onClose }: Props) {
                     <span>
                       <span className="font-medium">Place manually</span>
                       <span className="mt-0.5 block text-xs text-zinc-500">
-                        Each team once; empty slots = BYE.
+                        Put every team in a seed slot (1 = strongest). Empty slots pad the field —
+                        they are not “this seed sits out.” Higher seeds get the walkovers.
                       </span>
                     </span>
                   </label>
@@ -937,7 +938,27 @@ export function CreateTournamentWizardModal({ onClose }: Props) {
                   const order = manualSeedsByDiv[di] ?? Array(size).fill(null);
                   return (
                     <div key={di} className="rounded-lg border border-zinc-200 p-3">
-                      <p className="text-sm font-medium text-zinc-900">{name}</p>
+                      <div className="flex flex-wrap items-center justify-between gap-2">
+                        <p className="text-sm font-medium text-zinc-900">{name}</p>
+                        <button
+                          type="button"
+                          className="text-xs font-medium text-emerald-800 underline"
+                          onClick={() => {
+                            const nextAll = manualSeedsByDiv.map((row) => [...row]);
+                            const row: Array<string | null> = [...teams];
+                            while (row.length < size) row.push(null);
+                            nextAll[di] = row.slice(0, size);
+                            setManualSeedsByDiv(nextAll);
+                          }}
+                        >
+                          Fill seeds 1…{teams.length} (classic byes)
+                        </button>
+                      </div>
+                      <p className="mt-1 text-xs text-zinc-500">
+                        Example for {teams.length} teams in a {size}-slot field: place all {teams.length}{" "}
+                        teams in seeds 1–{teams.length}, leave {size - teams.length} empty. Classic
+                        pairing gives top seeds the first-round byes.
+                      </p>
                       <div className="mt-2 grid gap-2 sm:grid-cols-2">
                         {Array.from({ length: size }, (_, si) => (
                           <div key={si}>
