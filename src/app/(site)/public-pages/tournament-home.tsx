@@ -24,6 +24,7 @@ import { getHeadquartersLocation } from "@/lib/services/content";
 import { listRecentGamesForHome, listUpcomingGamesForHome } from "@/lib/services/games";
 import { getBracketChampionForDivisionTab } from "@/lib/brackets/bracket-champion";
 import { listPoolsForDivisionTabs } from "@/lib/services/pools";
+import { isBracketOnlyTournament } from "@/lib/services/tournament-format";
 import { publicGlassLinkTile } from "@/lib/public-glass-card";
 import { tournamentPathFromBase, tournamentPublicBasePath } from "@/lib/tournament-public-path";
 
@@ -73,14 +74,15 @@ export async function TournamentHomePublic({
   );
 
   const showPublicAnnouncements = tournament.showPublicAnnouncements;
-  const [latestAnnouncement, upcomingGames, recentGames, hq, champion] = await Promise.all([
+  const [latestAnnouncement, upcomingGames, recentGames, hq, champion, bracketOnly] =
+    await Promise.all([
       showPublicAnnouncements ? listLatestAnnouncementForHome(tournament.id) : Promise.resolve(null),
       listUpcomingGamesForHome(tournament.id, resolvedDivisionId || undefined),
       listRecentGamesForHome(tournament.id, resolvedDivisionId || undefined),
       getHeadquartersLocation(tournament.id),
       getBracketChampionForDivisionTab(tournament.id, resolvedDivisionId, poolsForTabs),
+      isBracketOnlyTournament(tournament.id),
     ]);
-  const bracketOnly = tournament.hasPoolPlay === false;
 
   /** Hide until there is at least one result-row game (final, cancelled, or awaiting results) for this division. */
   const showRecentResultsSection = recentGames.length > 0;

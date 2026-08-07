@@ -1,6 +1,7 @@
 import { redirect } from "next/navigation";
 import { getPublishedTournamentBySlug } from "@/lib/tournament-context";
 import { TournamentResultsPublic } from "@/app/(site)/public-pages/tournament-results-public";
+import { isBracketOnlyTournament } from "@/lib/services/tournament-format";
 import { tournamentPathFromBase, tournamentPublicBasePath } from "@/lib/tournament-public-path";
 
 export default async function ResultsPage({
@@ -18,7 +19,7 @@ export default async function ResultsPage({
     return <p className="text-sm text-zinc-500">No tournament selected.</p>;
   }
 
-  if (tournament.hasPoolPlay === false) {
+  if (await isBracketOnlyTournament(tournament.id)) {
     redirect(tournamentPathFromBase(tournamentPublicBasePath(tournament), "brackets"));
   }
 

@@ -7,30 +7,39 @@ function isDirectEntryPoolName(name: string): boolean {
 
 /**
  * True when this event is bracket-only (no pool standings / Results page).
- * Prefers the explicit Tournament.hasPoolPlay flag; falls back to heuristics.
+ *
+ * Order:
+ * 1. Explicit Tournament.hasPoolPlay === false
+ * 2. No POOL games + (playoff/consolation games, any bracket, or only Direct entry pools)
  */
 export async function isBracketOnlyTournament(tournamentId: string): Promise<boolean> {
   const tournament = await prisma.tournament.findUnique({
     where: { id: tournamentId },
     select: { hasPoolPlay: true },
   });
-  if (tournament && tournament.hasPoolPlay === false) return true;
+  if (tournament?.hasPoolPlay === false) return true;
 
-  const [poolGameCount, pools, presetBracketCount] = await Promise.all([
+  const poolGameCount = await prisma.game.count({
+    where: { tournamentId, gameKind: GameKind.POOL },
+  });
+  if (poolGameCount > 0) return false;
+
+  const [playoffOrConsolationCount, bracketCount, pools] = await Promise.all([
     prisma.game.count({
-      where: { tournamentId, gameKind: GameKind.POOL },
+      where: {
+        tournamentId,
+        gameKind: { in: [GameKind.PLAYOFF, GameKind.CONSOLATION] },
+      },
     }),
+    prisma.bracket.count({ where: { tournamentId } }),
     prisma.pool.findMany({
       where: { division: { tournamentId } },
       select: { name: true },
     }),
-    prisma.bracket.count({
-      where: { tournamentId, presetKey: { not: null } },
-    }),
   ]);
 
-  if (poolGameCount > 0) return false;
-  if (presetBracketCount > 0) return true;
+  if (playoffOrConsolationCount > 0) return true;
+  if (bracketCount > 0) return true;
   if (pools.length === 0) return true;
   return pools.every((p) => isDirectEntryPoolName(p.name));
 }
