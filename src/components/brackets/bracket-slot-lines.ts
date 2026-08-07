@@ -26,13 +26,18 @@ export function feederGameLabel(from: BracketMatchFeederRef): string {
   return `Match ${from.matchIndex + 1}`;
 }
 
-export function explicitFeederSecondary(
+/** e.g. "G1 Winner" / "G2 Loser" — primary label for empty feeder seats. */
+export function explicitFeederPrimary(
   from: BracketMatchFeederRef | null | undefined,
   kind: BracketSlotFeedKind | null | undefined,
 ): string | null {
   if (!from || !kind) return null;
   const label = feederGameLabel(from);
-  return kind === "LOSER" ? `Loser of ${label}` : `Winner of ${label}`;
+  return kind === "LOSER" ? `${label} Loser` : `${label} Winner`;
+}
+
+function isDirectEntryPool(pool: Pool | null | undefined): boolean {
+  return (pool?.name ?? "").trim().toLowerCase() === "direct entry";
 }
 
 export function slotLines(
@@ -50,9 +55,11 @@ export function slotLines(
     return { primary: "BYE", secondary: null, team: null, isPlaceholder: true };
   }
   if (team) {
-    const secondary = team.pool
-      ? `${team.pool.division.name} · ${team.pool.name}`
-      : null;
+    // Bracket-only "Direct entry" pools are not useful under the team name.
+    const secondary =
+      team.pool && !isDirectEntryPool(team.pool)
+        ? `${team.pool.division.name} · ${team.pool.name}`
+        : null;
     return { primary: team.name, secondary, team, isPlaceholder: false };
   }
   if (sourcePool && rank != null) {
@@ -67,13 +74,13 @@ export function slotLines(
       isPlaceholder: true,
     };
   }
-  const feederSecondary = explicitFeeder
-    ? explicitFeederSecondary(explicitFeeder.from, explicitFeeder.kind)
+  const feederPrimary = explicitFeeder
+    ? explicitFeederPrimary(explicitFeeder.from, explicitFeeder.kind)
     : null;
-  if (feederSecondary) {
+  if (feederPrimary) {
     return {
-      primary: "TBD",
-      secondary: feederSecondary,
+      primary: feederPrimary,
+      secondary: null,
       team: null,
       isPlaceholder: true,
     };
@@ -82,8 +89,8 @@ export function slotLines(
     const feederIdx = slot === "home" ? bracketMatchIndex * 2 : bracketMatchIndex * 2 + 1;
     const matchNo = feederIdx + 1;
     return {
-      primary: "TBD",
-      secondary: `Winner of ${prevRoundName} · Match ${matchNo}`,
+      primary: `Match ${matchNo} Winner`,
+      secondary: null,
       team: null,
       isPlaceholder: true,
     };

@@ -50,6 +50,10 @@ function bracketGameIdLabel(game: GameRow, listIndexZeroBased: number): string {
   return `G${listIndexZeroBased + 1}`;
 }
 
+function isDirectEntryPoolName(name: string | null | undefined): boolean {
+  return (name ?? "").trim().toLowerCase() === "direct entry";
+}
+
 export function BracketGameCard({
   game,
   roundIndexDb,
@@ -131,9 +135,11 @@ export function BracketGameCard({
 
   const showScheduleStatusPill = game.status !== "SCHEDULED" && game.status !== "LIVE";
   const showLivePill = isLive;
+  const showPoolMeta = game.pool != null && !isDirectEntryPoolName(game.pool.name);
+  const gameIdLabel = bracketGameIdLabel(game, gChipIndex);
 
-  const metaTopRight = (
-    <div className="flex min-w-0 max-w-[min(100%,14rem)] flex-wrap items-center justify-end gap-x-1.5 gap-y-1 text-[10px] leading-tight text-zinc-500 dark:text-zinc-400 sm:max-w-[55%]">
+  const metaRow = (
+    <div className="flex min-w-0 flex-wrap items-center justify-center gap-x-1.5 gap-y-1 text-[10px] leading-tight text-zinc-500 dark:text-zinc-400">
       {showLivePill ? (
         <span
           className={`shrink-0 rounded-full px-2 py-0.5 text-[10px] font-bold uppercase ${st} ring-2 ring-red-400/50`}
@@ -146,26 +152,22 @@ export function BracketGameCard({
           {publicGameStatusLabel(game.status)}
         </span>
       ) : null}
-      <span className="inline-flex flex-wrap items-center justify-end gap-x-1.5">
-        {game.pool ? (
-          <>
-            <span className={`font-medium ${poolCardLabelTextClass(game.pool.cardLabelColor)}`}>{game.pool.name}</span>
-            <span className="text-zinc-400 dark:text-zinc-500">·</span>
-          </>
-        ) : game.gameKind === GameKind.CONSOLATION && game.division ? (
-          <>
-            <span className="font-medium text-zinc-600 dark:text-zinc-400">
-              {game.division.name} · Consolation Game
-            </span>
-            <span className="text-zinc-400 dark:text-zinc-500">·</span>
-          </>
-        ) : null}
-        <span className="min-w-0 break-words text-right">{game.field.name}</span>
-        <span className="text-zinc-400 dark:text-zinc-500">·</span>
-        <span className="inline-block shrink-0 rounded-md bg-accent px-2 py-0.5 text-[11px] font-bold tabular-nums text-white">
-          {bracketGameIdLabel(game, gChipIndex)}
-        </span>
-      </span>
+      {showPoolMeta ? (
+        <>
+          <span className={`font-medium ${poolCardLabelTextClass(game.pool!.cardLabelColor)}`}>
+            {game.pool!.name}
+          </span>
+          <span className="text-zinc-400 dark:text-zinc-500">·</span>
+        </>
+      ) : game.gameKind === GameKind.CONSOLATION && game.division ? (
+        <>
+          <span className="font-medium text-zinc-600 dark:text-zinc-400">
+            {game.division.name} · Consolation Game
+          </span>
+          <span className="text-zinc-400 dark:text-zinc-500">·</span>
+        </>
+      ) : null}
+      <span className="min-w-0 break-words text-center">{game.field.name}</span>
     </div>
   );
 
@@ -180,11 +182,22 @@ export function BracketGameCard({
       {...quickInteract}
     >
       {roundLabel ? (
-        <p className="mb-1 text-[10px] font-bold uppercase tracking-[0.06em] text-royal dark:text-royal-200">{roundLabel}</p>
+        <p className="mb-1 text-center text-[10px] font-bold uppercase tracking-[0.06em] text-royal dark:text-royal-200">
+          {roundLabel}
+        </p>
       ) : null}
-      <div className="flex items-start justify-between gap-2">
-        <p className="min-w-0 flex-1 text-[13px] font-bold leading-snug text-zinc-900 dark:text-zinc-100">{timeLine}</p>
-        {metaTopRight}
+
+      <div className="flex justify-center">
+        <span className="inline-block rounded-md bg-accent px-2.5 py-0.5 text-[11px] font-bold tabular-nums text-white">
+          {gameIdLabel}
+        </span>
+      </div>
+
+      <div className="mt-1.5 flex flex-col items-center gap-0.5 text-center">
+        <p className="min-w-0 text-[13px] font-bold leading-snug text-zinc-900 dark:text-zinc-100">
+          {timeLine}
+        </p>
+        {metaRow}
       </div>
 
       {hasScore ? (
@@ -196,7 +209,7 @@ export function BracketGameCard({
                 className={`min-w-0 truncate text-xs font-bold leading-snug text-zinc-900 dark:text-zinc-100 ${slotLineTextClass(away)}`}
               >
                 {away.primary}
-                {bracketAhTag("A")}
+                {!away.isPlaceholder ? bracketAhTag("A") : null}
               </p>
             </div>
             <span className="shrink-0 text-base font-bold tabular-nums text-zinc-900 dark:text-zinc-100">{game.awayRuns}</span>
@@ -208,7 +221,7 @@ export function BracketGameCard({
                 className={`min-w-0 truncate text-xs font-bold leading-snug text-zinc-900 dark:text-zinc-100 ${slotLineTextClass(home)}`}
               >
                 {home.primary}
-                {bracketAhTag("H")}
+                {!home.isPlaceholder ? bracketAhTag("H") : null}
               </p>
             </div>
             <span className="shrink-0 text-base font-bold tabular-nums text-zinc-900 dark:text-zinc-100">{game.homeRuns}</span>
@@ -223,7 +236,7 @@ export function BracketGameCard({
                 className={`line-clamp-2 break-words text-sm leading-[1.15] ${slotLineTextClass(away)}`}
               >
                 {away.primary}
-                {bracketAhTag("A")}
+                {!away.isPlaceholder ? bracketAhTag("A") : null}
               </p>
               {away.secondary ? <p className="mt-0.5 text-xs text-zinc-500 dark:text-zinc-400">{away.secondary}</p> : null}
             </div>
@@ -235,7 +248,7 @@ export function BracketGameCard({
                 className={`line-clamp-2 break-words text-sm leading-[1.15] ${slotLineTextClass(home)}`}
               >
                 {home.primary}
-                {bracketAhTag("H")}
+                {!home.isPlaceholder ? bracketAhTag("H") : null}
               </p>
               {home.secondary ? <p className="mt-0.5 text-xs text-zinc-500 dark:text-zinc-400">{home.secondary}</p> : null}
             </div>
