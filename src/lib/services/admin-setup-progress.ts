@@ -21,7 +21,7 @@ export async function getTournamentSetupProgress(tournamentId: string): Promise<
     }),
     prisma.tournament.findUnique({
       where: { id: tournamentId },
-      select: { isPublished: true, locationLabel: true },
+      select: { isPublished: true },
     }),
     prisma.location.findFirst({
       where: { tournamentId, isHeadquarters: true },
@@ -29,32 +29,12 @@ export async function getTournamentSetupProgress(tournamentId: string): Promise<
     }),
   ]);
 
-  // Heal stale wizard locationLabel ("TBD") when headquarters already has a real venue.
-  let locationLabel = tournament?.locationLabel ?? null;
-  if (
-    hq &&
-    !isWizardTbdVenue(hq.name) &&
-    isWizardTbdVenue(locationLabel)
-  ) {
-    const addr = hq.address?.trim() ?? "";
-    const healed = (!isWizardTbdVenue(addr) ? addr : hq.name).trim().slice(0, 200);
-    if (!isWizardTbdVenue(healed)) {
-      await prisma.tournament.update({
-        where: { id: tournamentId },
-        data: { locationLabel: healed },
-      });
-      locationLabel = healed;
-    }
-  }
-
   const teamsNamed =
     teams.length === 0 || teams.every((t) => !PLACEHOLDER_TEAM_NAME_RE.test(t.name));
 
-  // Venue is complete when headquarters has a real name and either a real address
-  // or a non-placeholder locationLabel.
-  const hqNameOk = !isWizardTbdVenue(hq?.name);
-  const addressOk = !isWizardTbdVenue(hq?.address) || !isWizardTbdVenue(locationLabel);
-  const hasVenue = hq != null && hqNameOk && addressOk;
+  // Venue is complete when a headquarters exists with a real (non-wizard-TBD) name.
+  // Do not write to the DB here — this runs from the admin layout on every request.
+  const hasVenue = hq != null && !isWizardTbdVenue(hq.name);
 
   return {
     teamsNamed,

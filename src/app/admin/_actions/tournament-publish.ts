@@ -5,28 +5,31 @@ import { prisma } from "@/lib/db";
 import { revalidatePublishedTournamentSites } from "@/lib/revalidate-public-tournament-site";
 import { assertContentManage, contentCtx, contentDeny, type ContentActionResult } from "./content-shared";
 
-export type { ContentActionResult };
-
 export async function setTournamentPublished(
   _prev: ContentActionResult | undefined,
   formData: FormData,
 ): Promise<ContentActionResult> {
-  const c = await contentCtx();
-  if ("error" in c) return { ok: false, error: c.error };
-  if (!assertContentManage(c.session.user.role)) return contentDeny();
-
-  const raw = formData.get("published")?.toString();
-  const published = raw === "1" || raw === "true";
-
   try {
+    const c = await contentCtx();
+    if ("error" in c) return { ok: false, error: c.error };
+    if (!assertContentManage(c.session.user.role)) return contentDeny();
+
+    const raw = formData.get("published")?.toString();
+    const published = raw === "1" || raw === "true";
+
     await prisma.tournament.update({
       where: { id: c.tournament.id },
       data: { isPublished: published },
     });
-    revalidatePath("/", "layout");
-    revalidatePath("/admin", "layout");
-    revalidatePath("/admin/tournament-settings");
-    await revalidatePublishedTournamentSites();
+
+    try {
+      revalidatePath("/admin/tournament-settings");
+      revalidatePath("/admin", "layout");
+      await revalidatePublishedTournamentSites();
+    } catch {
+      // Publish already persisted; cache revalidation must not fail the action.
+    }
+
     return {
       ok: true,
       notice: published
