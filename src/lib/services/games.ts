@@ -28,6 +28,26 @@ const gameListInclude = {
       bracket: { select: { division: { select: { id: true, name: true } } } },
     },
   },
+  bracketMatch: {
+    include: {
+      homeFromMatch: {
+        select: {
+          id: true,
+          matchIndex: true,
+          game: { select: { id: true, gameNumber: true } },
+        },
+      },
+      awayFromMatch: {
+        select: {
+          id: true,
+          matchIndex: true,
+          game: { select: { id: true, gameNumber: true } },
+        },
+      },
+      homeSourcePool: { include: { division: true } },
+      awaySourcePool: { include: { division: true } },
+    },
+  },
 } as const;
 
 /** Home “Recent results” + public Results page listing (scored finals, cancelled, awaiting scores). */

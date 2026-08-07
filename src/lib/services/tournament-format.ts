@@ -10,7 +10,7 @@ function isDirectEntryPoolName(name: string): boolean {
  *
  * Order:
  * 1. Explicit Tournament.hasPoolPlay === false
- * 2. No POOL games + (playoff/consolation games, any bracket, or only Direct entry pools)
+ * 2. No real pool games (POOL + no bracket) + (playoff/consolation, any bracket, or only Direct entry pools)
  */
 export async function isBracketOnlyTournament(tournamentId: string): Promise<boolean> {
   const tournament = await prisma.tournament.findUnique({
@@ -19,8 +19,9 @@ export async function isBracketOnlyTournament(tournamentId: string): Promise<boo
   });
   if (tournament?.hasPoolPlay === false) return true;
 
+  // Bracket-linked games may have been mis-tagged POOL historically; only real pool play counts.
   const poolGameCount = await prisma.game.count({
-    where: { tournamentId, gameKind: GameKind.POOL },
+    where: { tournamentId, gameKind: GameKind.POOL, bracketId: null },
   });
   if (poolGameCount > 0) return false;
 

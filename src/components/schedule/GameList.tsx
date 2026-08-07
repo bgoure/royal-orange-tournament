@@ -9,7 +9,7 @@ import {
   formatScheduleDayGroupHeading,
   tournamentCalendarDayKey,
 } from "@/lib/datetime-tournament";
-import { playoffScheduleBracketCaption } from "@/lib/brackets/bracket-display";
+import { playoffScheduleBracketCaption, poolFinishPlaceholderLabel } from "@/lib/brackets/bracket-display";
 import { brandCardGradientClass } from "@/lib/brand-card-gradient";
 import { publicGlassCardOverlay2xl } from "@/lib/public-glass-card";
 import { DIVISION_SWIPE_IGNORE } from "@/lib/division-swipe-ignore";
@@ -22,6 +22,9 @@ import { AnimatedListItem } from "@/components/ui/AnimatedListItem";
 import type { QuickEditGamePayload } from "@/components/public-admin/PublicQuickGameProvider";
 import { usePublicQuickGameEdit } from "@/components/public-admin/PublicQuickGameProvider";
 import type { TeamWithPublicLogo } from "@/lib/team-logo";
+import { explicitFeederPrimary } from "@/components/brackets/bracket-slot-lines";
+import type { BracketMatchFeederRef } from "@/components/brackets/bracket-types";
+import type { BracketSlotFeedKind } from "@prisma/client";
 
 /** Public-facing status pill label (enum-safe for new Prisma values). */
 export function publicGameStatusLabel(status: string): string {
@@ -79,6 +82,8 @@ function ahSuffix(which: "A" | "H") {
 }
 
 function gameWithTeamsToQuickPayload(g: GameWithTeams): QuickEditGamePayload {
+  const home = scheduleSideLabel(g, "home");
+  const away = scheduleSideLabel(g, "away");
   return {
     id: g.id,
     fieldId: g.fieldId,
@@ -93,9 +98,50 @@ function gameWithTeamsToQuickPayload(g: GameWithTeams): QuickEditGamePayload {
     awayDefensiveInnings: g.awayDefensiveInnings,
     homeTeamId: g.homeTeamId,
     awayTeamId: g.awayTeamId,
-    homeTeamName: g.homeTeam?.name ?? "TBD",
-    awayTeamName: g.awayTeam?.name ?? "TBD",
+    homeTeamName: home.text,
+    awayTeamName: away.text,
   };
+}
+
+type ScheduleSideLabel = { text: string; isPlaceholder: boolean };
+
+function scheduleSideLabel(g: GameWithTeams, side: "home" | "away"): ScheduleSideLabel {
+  const team = side === "home" ? g.homeTeam : g.awayTeam;
+  if (team?.name) return { text: team.name, isPlaceholder: false };
+
+  const bm = g.bracketMatch;
+  if (bm) {
+    const from = (side === "home" ? bm.homeFromMatch : bm.awayFromMatch) as
+      | BracketMatchFeederRef
+      | null
+      | undefined;
+    const kind = (side === "home" ? bm.homeFromKind : bm.awayFromKind) as
+      | BracketSlotFeedKind
+      | null
+      | undefined;
+    const feederLabel = explicitFeederPrimary(from, kind);
+    if (feederLabel) return { text: feederLabel, isPlaceholder: true };
+
+    const sourcePool = side === "home" ? bm.homeSourcePool : bm.awaySourcePool;
+    const rank = side === "home" ? bm.homeSourceRank : bm.awaySourceRank;
+    if (sourcePool && rank != null) {
+      return {
+        text: poolFinishPlaceholderLabel(sourcePool.division.name, sourcePool.name, rank),
+        isPlaceholder: true,
+      };
+    }
+  }
+
+  return { text: "TBD", isPlaceholder: true };
+}
+
+function scheduleSideNameClass(base: string, isPlaceholder: boolean): string {
+  if (!isPlaceholder) return base;
+  return `${base
+    .replace(/\bfont-bold\b/g, "font-medium")
+    .replace(/\btext-zinc-900\b/g, "text-zinc-500")
+    .replace(/\bdark:text-zinc-100\b/g, "dark:text-zinc-400")
+    .replace(/\btext-zinc-600\b/g, "text-zinc-500")} text-zinc-500 dark:text-zinc-400`;
 }
 
 export type GameWithTeams = Game & {
@@ -109,6 +155,16 @@ export type GameWithTeams = Game & {
         bracket: { division: { id: string; name: string } };
       })
     | null;
+  bracketMatch?: {
+    homeFromKind: BracketSlotFeedKind | null;
+    awayFromKind: BracketSlotFeedKind | null;
+    homeSourceRank: number | null;
+    awaySourceRank: number | null;
+    homeFromMatch?: BracketMatchFeederRef | null;
+    awayFromMatch?: BracketMatchFeederRef | null;
+    homeSourcePool?: (Pool & { division: Division }) | null;
+    awaySourcePool?: (Pool & { division: Division }) | null;
+  } | null;
 };
 
 /** Shared with bracket cards so status pills match schedule / results. */
@@ -265,6 +321,19 @@ function GameCardInner({
 
   const divisionIdForFavorite = gameDivisionIdForFavorites(g);
 
+  const homeSide = scheduleSideLabel(g, "home");
+  const awaySide = scheduleSideLabel(g, "away");
+  const homeNameCls = scheduleSideNameClass(`${nameTone} ${nameSize}`, homeSide.isPlaceholder);
+  const awayNameCls = scheduleSideNameClass(`${nameTone} ${nameSize}`, awaySide.isPlaceholder);
+  const homeNameClsSm = scheduleSideNameClass(
+    `min-w-0 flex-1 line-clamp-2 break-words text-sm font-bold leading-[1.15] ${nameTone}`,
+    homeSide.isPlaceholder,
+  );
+  const awayNameClsSm = scheduleSideNameClass(
+    `min-w-0 flex-1 line-clamp-2 break-words text-sm font-bold leading-[1.15] ${nameTone}`,
+    awaySide.isPlaceholder,
+  );
+
   const scheduleCompactFooterStatus = scheduleCompactLayout && g.status !== "SCHEDULED";
 
   const bracketCaption = bracketCaptionForScheduleCard(g);
@@ -308,10 +377,10 @@ function GameCardInner({
 
     const matchupBlock = compact ? (
       <div className="mt-1.5 min-w-0 space-y-0.5">
-        <p className={`flex min-w-0 items-center gap-2 leading-snug ${nameTone} ${nameSize}`}>
+        <p className={`flex min-w-0 items-center gap-2 leading-snug ${awayNameCls}`}>
           <TeamLogoMark team={g.awayTeam} sizeClass={logoSize} className={logoTone} />
           <span className="min-w-0 truncate">
-            {g.awayTeam?.name ?? "TBD"}
+            {awaySide.text}
             {ahSuffix("A")}
           </span>
           {tournamentId && g.awayTeamId ? (
@@ -324,10 +393,10 @@ function GameCardInner({
           ) : null}
           <span className={`shrink-0 font-normal ${vsTone}`}>vs</span>
         </p>
-        <p className={`flex min-w-0 items-center gap-2 truncate leading-snug ${nameTone} ${nameSize}`}>
+        <p className={`flex min-w-0 items-center gap-2 truncate leading-snug ${homeNameCls}`}>
           <TeamLogoMark team={g.homeTeam} sizeClass={logoSize} className={logoTone} />
           <span className="truncate">
-            {g.homeTeam?.name ?? "TBD"}
+            {homeSide.text}
             {ahSuffix("H")}
           </span>
           {tournamentId && g.homeTeamId ? (
@@ -344,8 +413,8 @@ function GameCardInner({
       <div className="mt-1.5 flex min-w-0 items-center gap-1.5 sm:gap-2">
         <div className="flex min-w-0 flex-1 items-center gap-1.5">
           <TeamLogoMark team={g.awayTeam} sizeClass={scheduleLogoSize} className={logoTone} />
-          <span className={`min-w-0 flex-1 line-clamp-2 break-words text-sm font-bold leading-[1.15] ${nameTone}`}>
-            {g.awayTeam?.name ?? "TBD"}
+          <span className={awayNameClsSm}>
+            {awaySide.text}
             {ahSuffix("A")}
           </span>
           {tournamentId && g.awayTeamId ? (
@@ -359,8 +428,8 @@ function GameCardInner({
         </div>
         <span className={`shrink-0 self-center text-sm font-normal ${vsTone}`}>vs</span>
         <div className="flex min-w-0 flex-1 items-center justify-end gap-1.5 text-right">
-          <span className={`min-w-0 flex-1 line-clamp-2 break-words text-sm font-bold leading-[1.15] ${nameTone}`}>
-            {g.homeTeam?.name ?? "TBD"}
+          <span className={homeNameClsSm}>
+            {homeSide.text}
             {ahSuffix("H")}
           </span>
           {tournamentId && g.homeTeamId ? (
@@ -455,8 +524,8 @@ function GameCardInner({
           <div className="flex min-w-0 items-center justify-between gap-2">
             <div className="flex min-w-0 items-center gap-2">
               <TeamLogoMark team={g.awayTeam} sizeClass={logoSize} className={logoTone} />
-              <p className={`min-w-0 truncate leading-snug ${nameTone} ${nameSize}`}>
-                {g.awayTeam?.name ?? "TBD"}
+              <p className={`min-w-0 truncate leading-snug ${awayNameCls}`}>
+                {awaySide.text}
                 {ahSuffix("A")}
               </p>
               {tournamentId && g.awayTeamId ? (
@@ -473,8 +542,8 @@ function GameCardInner({
           <div className="flex min-w-0 items-center justify-between gap-2">
             <div className="flex min-w-0 items-center gap-2">
               <TeamLogoMark team={g.homeTeam} sizeClass={logoSize} className={logoTone} />
-              <p className={`min-w-0 truncate leading-snug ${nameTone} ${nameSize}`}>
-                {g.homeTeam?.name ?? "TBD"}
+              <p className={`min-w-0 truncate leading-snug ${homeNameCls}`}>
+                {homeSide.text}
                 {ahSuffix("H")}
               </p>
               {tournamentId && g.homeTeamId ? (
@@ -491,10 +560,10 @@ function GameCardInner({
         </div>
       ) : (
         <div className="mt-1.5 min-w-0 space-y-0.5">
-          <p className={`flex min-w-0 items-center gap-2 leading-snug ${nameTone} ${nameSize}`}>
+          <p className={`flex min-w-0 items-center gap-2 leading-snug ${awayNameCls}`}>
             <TeamLogoMark team={g.awayTeam} sizeClass={logoSize} className={logoTone} />
             <span className="min-w-0 truncate">
-              {g.awayTeam?.name ?? "TBD"}
+              {awaySide.text}
               {ahSuffix("A")}
             </span>
             {tournamentId && g.awayTeamId ? (
@@ -507,10 +576,10 @@ function GameCardInner({
             ) : null}
             <span className={`shrink-0 font-normal ${vsTone}`}>vs</span>
           </p>
-          <p className={`flex min-w-0 items-center gap-2 truncate leading-snug ${nameTone} ${nameSize}`}>
+          <p className={`flex min-w-0 items-center gap-2 truncate leading-snug ${homeNameCls}`}>
             <TeamLogoMark team={g.homeTeam} sizeClass={logoSize} className={logoTone} />
             <span className="truncate">
-              {g.homeTeam?.name ?? "TBD"}
+              {homeSide.text}
               {ahSuffix("H")}
             </span>
             {tournamentId && g.homeTeamId ? (

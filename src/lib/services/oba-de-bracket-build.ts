@@ -9,6 +9,7 @@ import {
   BracketFormat,
   BracketRoundType,
   BracketSlotFeedKind,
+  GameKind,
   GameStatus,
   GrandFinalMode,
 } from "@prisma/client";
@@ -544,6 +545,7 @@ async function createFeederGraphBracket(
             schedulePlaceholder: homeTeamId == null || awayTeamId == null,
             status: GameStatus.SCHEDULED,
             resultType: "REGULAR",
+            gameKind: GameKind.PLAYOFF,
             bracketId: bracket.id,
             bracketRoundId: round.id,
             bracketPosition: mi,

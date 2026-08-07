@@ -14,7 +14,7 @@ export async function getTournamentSetupProgress(tournamentId: string): Promise<
     }),
     prisma.field.count({ where: { tournamentId } }),
     prisma.game.count({
-      where: { tournamentId, gameKind: GameKind.POOL },
+      where: { tournamentId, gameKind: GameKind.POOL, bracketId: null },
     }),
     prisma.bracket.count({
       where: { division: { tournamentId } },
