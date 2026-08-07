@@ -134,7 +134,7 @@ export function chronologicalRoundColumns<
       accent += 1;
       columns.push({
         label: ifNecLabel,
-        subtitle: "If necessary",
+        subtitle: "Championship (if necessary)",
         accentIndex: accent % 3,
         games: [games[1]!],
       });

@@ -247,7 +247,10 @@ function BracketSection({
     () => [...b.rounds].sort((a, c) => a.roundIndex - c.roundIndex),
     [b.rounds],
   );
-  const showScope = hasConsolationRounds(roundsSorted);
+  const champion = useMemo(() => resolveChampionFromBracket(b), [b]);
+  const isObaChronological = !!b.presetKey && isObaDePresetKey(b.presetKey);
+  /** OBA workbook view always shows the full bracket (no winners/losers filter). */
+  const showScope = hasConsolationRounds(roundsSorted) && !isObaChronological;
 
   const visibleRounds = useMemo(() => {
     const effectiveScope = showScope ? scope : "all";
@@ -274,9 +277,7 @@ function BracketSection({
 
   const visibleRoundsKey = useMemo(() => visibleRounds.map((r) => r.id).join("|"), [visibleRounds]);
 
-  const champion = useMemo(() => resolveChampionFromBracket(b), [b]);
-  const useChronologicalRounds =
-    !!b.presetKey && isObaDePresetKey(b.presetKey) && (!showScope || scope === "all");
+  const useChronologicalRounds = isObaChronological && (!showScope || scope === "all");
   const useBidirectional =
     !useChronologicalRounds &&
     (b.format === "DOUBLE_ELIMINATION" || b.format === "TRIPLE_ELIMINATION") &&
@@ -396,6 +397,7 @@ function BracketSection({
             rounds={roundsSorted}
             byRound={byRound}
             timeZone={tournamentTimezone}
+            format={b.format}
           />
         ) : useBidirectional ? (
           <BidirectionalDeBracket
@@ -416,6 +418,7 @@ function BracketSection({
               rounds={roundsSorted}
               byRound={byRound}
               timeZone={tournamentTimezone}
+              format={b.format}
             />
           </BracketZoomShell>
         ) : (
