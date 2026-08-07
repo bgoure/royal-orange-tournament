@@ -1,7 +1,7 @@
 "use client";
 
 import { useLayoutEffect, useMemo, useRef, useState } from "react";
-import type { BracketRound } from "@prisma/client";
+import type { BracketRound, BracketRoundType } from "@prisma/client";
 import { BracketGameCard } from "@/components/brackets/BracketGameCard";
 import type { GameRow } from "@/components/brackets/bracket-types";
 import { matchSortIndex } from "@/components/brackets/bracket-slot-lines";
@@ -14,13 +14,25 @@ type WinnerEdge = {
   slot: "home" | "away";
 };
 
-type DrawnPath = {
-  d: string;
-};
+type DrawnPath = { d: string };
 
 const EST_CARD_H = 118;
-const MIN_GAP = 40;
-const COL_PAD_Y = 16;
+const MIN_GAP = 36;
+const BAND_GAP = 56;
+const COL_PAD_Y = 12;
+
+/**
+ * Lane from feeders (not BracketRound.roundType): OBA packs mixed W/L games into one
+ * schedule round (e.g. R4 has G5 losers + G6 winners under one round row).
+ */
+function isLosersLaneGame(g: GameRow): boolean {
+  const bm = g.bracketMatch;
+  if (!bm) {
+    const t = g.bracketRound?.roundType as BracketRoundType | null | undefined;
+    return t === "LOSERS" || t === "LOSERS_SECOND";
+  }
+  return bm.homeFromKind === "LOSER" || bm.awayFromKind === "LOSER";
+}
 
 function collectWinnerEdges(games: GameRow[]): WinnerEdge[] {
   const edges: WinnerEdge[] = [];
@@ -45,7 +57,22 @@ function collectWinnerEdges(games: GameRow[]): WinnerEdge[] {
   return edges;
 }
 
-/** Classic bracket Y layout: join games sit between their winner feeders; expand to avoid overlap. */
+function sortColumnGames(games: GameRow[]): GameRow[] {
+  return [...games].sort((a, b) => {
+    const aL = isLosersLaneGame(a) ? 1 : 0;
+    const bL = isLosersLaneGame(b) ? 1 : 0;
+    if (aL !== bL) return aL - bL;
+    const na = Number.parseInt(String(a.gameNumber ?? ""), 10);
+    const nb = Number.parseInt(String(b.gameNumber ?? ""), 10);
+    if (Number.isFinite(na) && Number.isFinite(nb) && na !== nb) return na - nb;
+    return matchSortIndex(a) - matchSortIndex(b);
+  });
+}
+
+/**
+ * Two-lane layout: winners on top, losers below.
+ * Join games sit between their winner-feeders within the same lane.
+ */
 function layoutGameTops(
   columns: { games: GameRow[] }[],
   edges: WinnerEdge[],
@@ -54,53 +81,70 @@ function layoutGameTops(
   const tops = new Map<string, number>();
   const hOf = (id: string) => heights.get(id) ?? EST_CARD_H;
 
-  columns.forEach((col, ci) => {
-    if (col.games.length === 0) return;
+  const winnersByCol = columns.map((col) =>
+    sortColumnGames(col.games).filter((g) => !isLosersLaneGame(g)),
+  );
+  const losersByCol = columns.map((col) =>
+    sortColumnGames(col.games).filter((g) => isLosersLaneGame(g)),
+  );
+  const losersIds = new Set(losersByCol.flat().map((g) => g.id));
 
-    if (ci === 0) {
-      let y = COL_PAD_Y;
-      for (const g of col.games) {
-        tops.set(g.id, y);
-        y += hOf(g.id) + MIN_GAP;
+  const layoutBand = (perCol: GameRow[][], yOffset: number): number => {
+    let bandBottom = yOffset;
+
+    perCol.forEach((games, ci) => {
+      if (games.length === 0) return;
+
+      const tentative: { id: string; y: number }[] = [];
+      for (const g of games) {
+        const feeders = edges.filter((e) => e.toGameId === g.id);
+        const feederCenters = feeders
+          .map((e) => {
+            // Only use same-band feeders for vertical centering.
+            const fromLosers = losersIds.has(e.fromGameId);
+            const toLosers = losersIds.has(g.id);
+            if (fromLosers !== toLosers) return null;
+            const ty = tops.get(e.fromGameId);
+            if (ty == null) return null;
+            return ty + hOf(e.fromGameId) / 2;
+          })
+          .filter((n): n is number => n != null);
+
+        let y: number;
+        if (feeders.length > 0 && feederCenters.length > 0) {
+          const avg = feederCenters.reduce((a, b) => a + b, 0) / feederCenters.length;
+          y = avg - hOf(g.id) / 2;
+        } else if (ci === 0 || feederCenters.length === 0) {
+          const prev = tentative[tentative.length - 1];
+          y = prev ? prev.y + hOf(prev.id) + MIN_GAP : yOffset + COL_PAD_Y;
+        } else {
+          const prev = tentative[tentative.length - 1];
+          y = prev ? prev.y + hOf(prev.id) + MIN_GAP : yOffset + COL_PAD_Y;
+        }
+        tentative.push({ id: g.id, y });
       }
-      return;
-    }
 
-    const tentative: { id: string; y: number }[] = [];
-    for (const g of col.games) {
-      const feeders = edges.filter((e) => e.toGameId === g.id);
-      const feederCenters = feeders
-        .map((e) => {
-          const ty = tops.get(e.fromGameId);
-          if (ty == null) return null;
-          return ty + hOf(e.fromGameId) / 2;
-        })
-        .filter((n): n is number => n != null);
-
-      let y: number;
-      if (feederCenters.length > 0) {
-        const avg = feederCenters.reduce((a, b) => a + b, 0) / feederCenters.length;
-        y = avg - hOf(g.id) / 2;
-      } else {
-        const prev = tentative[tentative.length - 1];
-        y = prev ? prev.y + hOf(prev.id) + MIN_GAP : COL_PAD_Y;
+      // Preserve game-number order; only push down to clear overlaps.
+      for (let i = 0; i < tentative.length; i++) {
+        const cur = tentative[i]!;
+        if (i === 0) {
+          cur.y = Math.max(yOffset + COL_PAD_Y, cur.y);
+        } else {
+          const prev = tentative[i - 1]!;
+          const minY = prev.y + hOf(prev.id) + MIN_GAP;
+          if (cur.y < minY) cur.y = minY;
+        }
+        tops.set(cur.id, cur.y);
+        bandBottom = Math.max(bandBottom, cur.y + hOf(cur.id));
       }
-      tentative.push({ id: g.id, y });
-    }
+    });
 
-    tentative.sort((a, b) => a.y - b.y || a.id.localeCompare(b.id));
-    for (let i = 0; i < tentative.length; i++) {
-      const cur = tentative[i]!;
-      if (i === 0) {
-        cur.y = Math.max(COL_PAD_Y, cur.y);
-      } else {
-        const prev = tentative[i - 1]!;
-        const minY = prev.y + hOf(prev.id) + MIN_GAP;
-        if (cur.y < minY) cur.y = minY;
-      }
-      tops.set(cur.id, cur.y);
-    }
-  });
+    return bandBottom;
+  };
+
+  const winnersBottom = layoutBand(winnersByCol, 0);
+  const losersStart = winnersBottom + BAND_GAP;
+  layoutBand(losersByCol, losersStart);
 
   return tops;
 }
@@ -119,6 +163,11 @@ function columnContentHeight(
   return max;
 }
 
+/**
+ * Orthogonal route that travels at the source card's Y until the target gutter,
+ * then drops/rises into the seat — so skip-round winners stay in the winners lane
+ * instead of cutting through a losers card in an intermediate column.
+ */
 function pathForEdge(
   fromEl: HTMLElement,
   toEl: HTMLElement,
@@ -134,12 +183,13 @@ function pathForEdge(
   const x1 = f.right - c.left;
   const y1 = f.top + f.height / 2 - c.top;
   const x2 = t.left - c.left;
-  const y2 = t.top + t.height * (slot === "away" ? 0.38 : 0.72) - c.top;
-  // Distinct vertical rails in the gutter so winner lines do not stack on one path.
-  const span = Math.max(28, x2 - x1);
-  const railT = 0.38 + (railIndex % 4) * 0.1;
-  const slotBias = slot === "away" ? -4 : 4;
-  const midX = x1 + span * railT + slotBias;
+  const y2 = t.top + t.height * (slot === "away" ? 0.36 : 0.7) - c.top;
+
+  const span = Math.max(24, x2 - x1);
+  // Enter the target gutter late so long skip-round runs stay horizontal at y1.
+  const railT = 0.72 + (railIndex % 3) * 0.06;
+  const midX = x1 + span * Math.min(0.92, railT);
+
   return {
     d: `M ${x1} ${y1} H ${midX} V ${y2} H ${x2}`,
   };
@@ -162,10 +212,7 @@ export function ChronologicalRoundBracket({
   const gamesByRound = useMemo(() => {
     const map = new Map<string, GameRow[]>();
     for (const [id, games] of byRound) {
-      map.set(
-        id,
-        [...games].sort((a, b) => matchSortIndex(a) - matchSortIndex(b)),
-      );
+      map.set(id, sortColumnGames(games));
     }
     return map;
   }, [byRound]);
@@ -239,7 +286,8 @@ export function ChronologicalRoundBracket({
   return (
     <div className="flex flex-col gap-3">
       <p className="text-xs text-zinc-600">
-        Games are grouped by schedule round (left → right). Lines show where winners advance.
+        Games are grouped by schedule round (left → right). Winners stay on the upper path; losers
+        games sit below. Lines show where winners advance.
       </p>
       <div
         {...{ [DIVISION_SWIPE_IGNORE]: "" }}
@@ -261,20 +309,21 @@ export function ChronologicalRoundBracket({
                 fill="none"
                 stroke="#334155"
                 strokeWidth={1.75}
-                opacity={0.85}
+                opacity={0.9}
               />
             ))}
           </svg>
 
           {columns.map((col, ci) => {
-            const contentH = columnContentHeight(col.games, tops, heights);
+            const games = sortColumnGames(col.games);
+            const contentH = columnContentHeight(games, tops, heights);
             return (
               <div
                 key={`${col.label}-${ci}`}
                 className="relative z-10 w-[min(100%,240px)] shrink-0 overflow-visible rounded-xl border border-zinc-200 bg-zinc-50/80"
                 style={{ minHeight: contentH + 44 }}
               >
-                <div className="sticky top-0 z-20 border-b border-zinc-200 bg-white px-3 py-2">
+                <div className="border-b border-zinc-200 bg-white px-3 py-2">
                   <h3 className="text-xs font-bold uppercase tracking-[0.08em] text-royal">
                     {col.label}
                   </h3>
@@ -283,10 +332,10 @@ export function ChronologicalRoundBracket({
                   ) : null}
                 </div>
                 <div className="relative px-3" style={{ height: contentH }}>
-                  {col.games.length === 0 ? (
+                  {games.length === 0 ? (
                     <p className="pt-4 text-sm text-zinc-500">Matchups TBA.</p>
                   ) : (
-                    col.games.map((g, mi) => (
+                    games.map((g, mi) => (
                       <div
                         key={g.id}
                         data-bracket-game-id={g.id}
