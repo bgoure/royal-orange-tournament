@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo, useState, type Dispatch, type SetStateAction } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { DIVISION_SWIPE_IGNORE } from "@/lib/division-swipe-ignore";
 import type { BracketRound } from "@prisma/client";
 import { EmptyState } from "@/components/ui/EmptyState";
@@ -11,7 +11,7 @@ import { BidirectionalDeBracket } from "@/components/brackets/BidirectionalDeBra
 import { ChronologicalRoundBracket } from "@/components/brackets/ChronologicalRoundBracket";
 import { ChampionCelebration } from "@/components/brackets/ChampionCelebration";
 import type { BracketWith, GameRow } from "@/components/brackets/bracket-types";
-import { matchSortIndex, prevRoundNameForGame } from "@/components/brackets/bracket-slot-lines";
+import { matchSortIndex } from "@/components/brackets/bracket-slot-lines";
 import { resolveChampionFromBracket } from "@/lib/brackets/bracket-champion";
 import { isObaDePresetKey } from "@/lib/brackets/oba-de-presets";
 import {
@@ -229,15 +229,11 @@ function BracketSection({
   b,
   tournamentName,
   tournamentTimezone,
-  mobileView,
-  setMobileView,
   consolationGames,
 }: {
   b: BracketWith;
   tournamentName: string;
   tournamentTimezone?: string | null;
-  mobileView: "list" | "bracket";
-  setMobileView: Dispatch<SetStateAction<"list" | "bracket">>;
   consolationGames: GameRow[];
 }) {
   const [scope, setScope] = useState<BracketScopeFilter>("all");
@@ -357,72 +353,36 @@ function BracketSection({
         </div>
       ) : null}
 
-      <div className="mt-4 flex md:hidden">
-        <div
-          className="inline-flex rounded-xl border border-white/45 bg-white/55 p-1 shadow-[0_8px_24px_rgba(0,0,0,0.06)] backdrop-blur-md dark:border-zinc-600/50 dark:bg-zinc-900/55"
-          role="group"
-          aria-label="Mobile bracket view"
-        >
-          <button
-            type="button"
-            onClick={() => setMobileView("list")}
-            className={`min-h-11 min-w-[100px] rounded-lg px-4 py-2 text-sm font-semibold transition-colors duration-200 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-royal focus-visible:ring-offset-2 active:opacity-90 ${
-              mobileView === "list"
-                ? "bg-royal-50 text-royal shadow-sm ring-2 ring-royal/25"
-                : "text-zinc-700"
-            }`}
-          >
-            List
-          </button>
-          <button
-            type="button"
-            onClick={() => {
-              setMobileView("bracket");
-              setMobileRoundIdx(0);
-            }}
-            className={`min-h-11 min-w-[100px] rounded-lg px-4 py-2 text-sm font-semibold transition-colors duration-200 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-royal focus-visible:ring-offset-2 active:opacity-90 ${
-              mobileView === "bracket"
-                ? "bg-royal-50 text-royal shadow-sm ring-2 ring-royal/25"
-                : "text-zinc-700"
-            }`}
-          >
-            Bracket
-          </button>
-        </div>
-      </div>
-
       <div className="mt-4 hidden md:block">
-        {useChronologicalRounds ? (
-          <ChronologicalRoundBracket
-            rounds={roundsSorted}
-            byRound={byRound}
-            timeZone={tournamentTimezone}
-            format={b.format}
-          />
-        ) : useBidirectional ? (
-          <BidirectionalDeBracket
-            rounds={roundsSorted}
-            byRound={byRound}
-            timeZone={tournamentTimezone}
-          />
-        ) : (
-          <BracketGrid byRound={byRound} roundsOrdered={visibleRounds} timeZone={tournamentTimezone} />
-        )}
-      </div>
-      <div className="mt-4 md:hidden">
-        {mobileView === "list" ? (
-          <BracketMobileList games={gamesInScope} roundsVisible={visibleRounds} timeZone={tournamentTimezone} />
-        ) : useChronologicalRounds ? (
-          <BracketZoomShell>
+        <BracketZoomShell>
+          {useChronologicalRounds ? (
             <ChronologicalRoundBracket
               rounds={roundsSorted}
               byRound={byRound}
               timeZone={tournamentTimezone}
               format={b.format}
             />
-          </BracketZoomShell>
-        ) : (
-          <BracketZoomShell>
+          ) : useBidirectional ? (
+            <BidirectionalDeBracket
+              rounds={roundsSorted}
+              byRound={byRound}
+              timeZone={tournamentTimezone}
+            />
+          ) : (
+            <BracketGrid byRound={byRound} roundsOrdered={visibleRounds} timeZone={tournamentTimezone} />
+          )}
+        </BracketZoomShell>
+      </div>
+      <div className="mt-4 md:hidden">
+        <BracketZoomShell>
+          {useChronologicalRounds ? (
+            <ChronologicalRoundBracket
+              rounds={roundsSorted}
+              byRound={byRound}
+              timeZone={tournamentTimezone}
+              format={b.format}
+            />
+          ) : (
             <MobileBracketRoundNav
               key={`${b.id}-${scope}-${visibleRoundsKey}`}
               visibleRounds={visibleRounds}
@@ -430,15 +390,14 @@ function BracketSection({
               timeZone={tournamentTimezone}
               onRoundChange={setMobileRoundIdx}
             />
-          </BracketZoomShell>
-        )}
+          )}
+        </BracketZoomShell>
       </div>
 
       <ConsolationGamesSection
         games={consolationGames}
         tournamentTimezone={tournamentTimezone}
-        mobileView={mobileView}
-        mobileBracketShowsFirstRoundOnly={mobileView === "bracket" && mobileRoundIdx === 0}
+        mobileBracketShowsFirstRoundOnly={mobileRoundIdx === 0}
       />
     </section>
   );
@@ -447,28 +406,25 @@ function BracketSection({
 function ConsolationGamesSection({
   games,
   tournamentTimezone,
-  mobileView,
   mobileBracketShowsFirstRoundOnly,
 }: {
   games: GameRow[];
   tournamentTimezone?: string | null;
-  mobileView: "list" | "bracket";
-  /** When false, hide this block below `md` while Bracket mobile view is active (not on round 1). */
+  /** When false, hide this block below `md` while mobile bracket is not on round 1. */
   mobileBracketShowsFirstRoundOnly: boolean;
 }) {
   if (games.length === 0) return null;
   const sorted = [...games].sort((a, b) => a.scheduledAt.getTime() - b.scheduledAt.getTime());
 
-  const showOnMobile =
-    mobileView === "list" || (mobileView === "bracket" && mobileBracketShowsFirstRoundOnly);
-
   return (
     <section
-      className={`mt-6 min-w-0 border-t border-royal/15 pt-6 ${!showOnMobile ? "hidden md:block" : ""}`}
+      className={`mt-6 min-w-0 border-t border-royal/15 pt-6 ${
+        !mobileBracketShowsFirstRoundOnly ? "hidden md:block" : ""
+      }`}
       aria-labelledby="consolation-games-heading"
     >
       <SectionTitle id="consolation-games-heading">Consolation Games</SectionTitle>
-      <div className="mt-4 hidden md:flex md:flex-col md:gap-4">
+      <div className="mt-4 flex flex-col gap-4">
         {sorted.map((g, mi) => (
           <BracketGameCard
             key={g.id}
@@ -479,35 +435,6 @@ function ConsolationGamesSection({
             timeZone={tournamentTimezone}
           />
         ))}
-      </div>
-      <div className="mt-4 md:hidden">
-        {mobileView === "list" ? (
-          <ul className="flex list-none flex-col gap-3 p-0">
-            {sorted.map((g, listIdx) => (
-              <MobileMatchRow
-                key={g.id}
-                game={g}
-                roundLabel="Consolation"
-                prevRoundName={null}
-                timeZone={tournamentTimezone}
-                gLabelFallbackIndexZeroBased={listIdx}
-              />
-            ))}
-          </ul>
-        ) : (
-          <div className="flex flex-col gap-4">
-            {sorted.map((g, mi) => (
-              <BracketGameCard
-                key={g.id}
-                game={g}
-                roundIndexDb={0}
-                matchIndex={mi}
-                prevRoundName={null}
-                timeZone={tournamentTimezone}
-              />
-            ))}
-          </div>
-        )}
       </div>
     </section>
   );
@@ -527,8 +454,6 @@ export function BracketsView({
   /** IANA zone from `tournament.timezone` — venue wall-clock for game times. */
   tournamentTimezone?: string | null;
 }) {
-  const [mobileView, setMobileView] = useState<"bracket" | "list">("list");
-
   const consolationByDivision = useMemo(() => {
     const m = new Map<string, GameRow[]>();
     for (const g of consolationGames) {
@@ -562,8 +487,6 @@ export function BracketsView({
           b={b}
           tournamentName={tournamentName}
           tournamentTimezone={tournamentTimezone}
-          mobileView={mobileView}
-          setMobileView={setMobileView}
           consolationGames={consolationByDivision.get(b.divisionId) ?? []}
         />
       ))}

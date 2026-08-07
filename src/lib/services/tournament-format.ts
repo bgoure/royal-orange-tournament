@@ -1,12 +1,17 @@
 import { GameKind } from "@prisma/client";
 import { prisma } from "@/lib/db";
 
+function isDirectEntryPoolName(name: string): boolean {
+  return /direct\s*entry/i.test(name.trim());
+}
+
 /**
- * True when this event looks like wizard "bracket only":
- * no pool (round-robin) games, and every pool is the Direct entry placeholder.
+ * True when this event is bracket-only (no pool play):
+ * - no POOL games, and
+ * - either an OBA/preset bracket exists, or every pool is the Direct entry placeholder.
  */
 export async function isBracketOnlyTournament(tournamentId: string): Promise<boolean> {
-  const [poolGameCount, pools] = await Promise.all([
+  const [poolGameCount, pools, presetBracketCount] = await Promise.all([
     prisma.game.count({
       where: { tournamentId, gameKind: GameKind.POOL },
     }),
@@ -14,8 +19,13 @@ export async function isBracketOnlyTournament(tournamentId: string): Promise<boo
       where: { division: { tournamentId } },
       select: { name: true },
     }),
+    prisma.bracket.count({
+      where: { tournamentId, presetKey: { not: null } },
+    }),
   ]);
+
   if (poolGameCount > 0) return false;
+  if (presetBracketCount > 0) return true;
   if (pools.length === 0) return true;
-  return pools.every((p) => p.name.trim().toLowerCase() === "direct entry");
+  return pools.every((p) => isDirectEntryPoolName(p.name));
 }
