@@ -7,7 +7,11 @@ import {
   OBA_DE_PRESETS,
   wizardFormatOptionsForTeamCount,
 } from "./oba-de-presets";
-import { firstRoundSlotsForOba4, gamesForOba5Seeded } from "@/lib/services/oba-de-bracket-build";
+import {
+  firstRoundSlotsForOba4,
+  gamesForOba5Seeded,
+  gamesForOba6Seeded,
+} from "@/lib/services/oba-de-bracket-build";
 
 describe("OBA DE presets", () => {
   it("defines 4–7 team presets with explainers", () => {
@@ -59,5 +63,13 @@ describe("OBA DE presets", () => {
     assert.ok(names.includes("Championship"));
     assert.equal(games.filter((g) => g.roundName === "Round 1").length, 1);
     assert.equal(games.filter((g) => g.roundName === "Round 2").length, 2);
+  });
+
+  it("6-team map is Round 1–6 with two Round 1 games and implicit byes", () => {
+    const games = gamesForOba6Seeded(["s1", "s2", "s3", "s4", "s5", "s6"]);
+    assert.equal(games.filter((g) => g.roundName === "Round 1").length, 2);
+    assert.equal(games.filter((g) => g.roundName === "Round 2").length, 4);
+    assert.ok(games.every((g) => g.home.kind !== "bye" && g.away.kind !== "bye"));
+    assert.equal(games.find((g) => g.key === "GF2")?.gameNumber, "11");
   });
 });

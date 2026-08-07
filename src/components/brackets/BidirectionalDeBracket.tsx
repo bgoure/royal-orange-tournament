@@ -82,10 +82,6 @@ export function BidirectionalDeBracket({
 
   return (
     <div className="flex flex-col gap-3">
-      <p className="text-xs text-zinc-600">
-        Double elimination: losers move left, winners move right. Cross-bracket drops land in the
-        matching losers round.
-      </p>
       <div
         {...{ [DIVISION_SWIPE_IGNORE]: "" }}
         className="flex gap-4 overflow-x-auto pb-2"

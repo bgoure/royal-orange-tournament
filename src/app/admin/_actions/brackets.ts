@@ -11,6 +11,8 @@ import { assertFieldInTournament } from "@/lib/services/admin-games";
 import { assertPoolInTournament } from "@/lib/services/admin-structure";
 import { assertConsolationSlotsAvailable } from "@/lib/services/consolation-slots";
 import { createDivisionPlayoffBracket } from "@/lib/services/bracket-division-build";
+import { createObaDeBracket } from "@/lib/services/oba-de-bracket-build";
+import { isObaDePresetKey, type ObaDePresetKey } from "@/lib/brackets/oba-de-presets";
 import { bracketUsesPoolSeeding } from "@/lib/services/admin-brackets";
 import { gameCompetitiveResetData } from "@/lib/services/game-competitive-reset";
 import { resolveBracketTeamsFromStandings } from "@/lib/services/bracket-resolution";
@@ -143,6 +145,11 @@ export async function createDivisionPlayoffBracketAction(
   if ("error" in ctx) return { ok: false, error: ctx.error };
   if (!can(ctx.session.user.role, "bracket:configure")) return deny();
 
+  const formatPresetRaw = formData.get("formatPreset")?.toString() ?? "";
+  if (isObaDePresetKey(formatPresetRaw)) {
+    return createSeededDeBracketFromAdmin(ctx, formData, formatPresetRaw);
+  }
+
   let firstRound: unknown;
   try {
     const raw = formData.get("firstRound")?.toString() ?? "";
@@ -208,6 +215,91 @@ export async function createDivisionPlayoffBracketAction(
           : GrandFinalMode.SINGLE,
       isQualifier: parsed.data.isQualifier,
       qualifyingTeamCount: parsed.data.qualifyingTeamCount,
+    });
+    revalidatePath("/admin/brackets");
+    revalidatePath("/admin/games");
+    await revalidatePublishedTournamentSites();
+    return { ok: true };
+  } catch (e) {
+    const msg = e instanceof Error ? e.message : "Failed to create bracket";
+    return { ok: false, error: msg };
+  }
+}
+
+async function createSeededDeBracketFromAdmin(
+  ctx: { session: Session; tournament: TournamentForRequest },
+  formData: FormData,
+  presetKey: ObaDePresetKey,
+): Promise<BracketActionResult> {
+  const name = formData.get("name")?.toString()?.trim() ?? "";
+  const divisionId = formData.get("divisionId")?.toString() ?? "";
+  const fieldId = formData.get("fieldId")?.toString() ?? "";
+  const scheduledAt = formData.get("scheduledAt")?.toString() ?? "";
+  const hoursBetweenRounds = Number(formData.get("hoursBetweenRounds") || 2);
+  const published = formData.get("published") === "1";
+  const isQualifier = formData.get("isQualifier") === "1";
+  const qualifyingTeamCount = Number(formData.get("qualifyingTeamCount") || 1);
+
+  let teamIds: string[];
+  try {
+    const raw = formData.get("seedTeamIds")?.toString() ?? "";
+    const parsed = JSON.parse(raw);
+    if (!Array.isArray(parsed) || !parsed.every((x) => typeof x === "string" && x.length > 0)) {
+      throw new Error("Invalid seed list");
+    }
+    teamIds = parsed;
+  } catch {
+    return { ok: false, error: "Invalid seed order — assign each seed a team." };
+  }
+
+  if (!name || !divisionId || !fieldId || !scheduledAt) {
+    return { ok: false, error: "Name, division, field, and start time are required." };
+  }
+
+  let started: Date;
+  try {
+    started = parseDatetimeLocalInTimeZone(scheduledAt, ctx.tournament.timezone);
+  } catch {
+    return { ok: false, error: "Invalid start time for this tournament's timezone" };
+  }
+
+  const field = await prisma.field.findFirst({
+    where: { id: fieldId, tournamentId: ctx.tournament.id },
+  });
+  if (!field) return { ok: false, error: "Field not found" };
+
+  const createBracketScopeErr = await assertDivisionScope(
+    ctx.session.user.id,
+    ctx.session.user.role,
+    divisionId,
+  );
+  if (createBracketScopeErr) return { ok: false, error: createBracketScopeErr };
+
+  const divisionTeams = await prisma.team.findMany({
+    where: { pool: { divisionId } },
+    select: { id: true },
+  });
+  const inDivision = new Set(divisionTeams.map((t) => t.id));
+  if (teamIds.some((id) => !inDivision.has(id))) {
+    return { ok: false, error: "Every seeded team must belong to the selected division." };
+  }
+  if (new Set(teamIds).size !== teamIds.length) {
+    return { ok: false, error: "Duplicate teams in seed order." };
+  }
+
+  try {
+    await createObaDeBracket({
+      tournamentId: ctx.tournament.id,
+      divisionId,
+      name,
+      fieldId,
+      startsAt: started,
+      hoursBetweenRounds: Number.isFinite(hoursBetweenRounds) ? hoursBetweenRounds : 2,
+      teamIds,
+      presetKey,
+      published,
+      isQualifier,
+      qualifyingTeamCount: Number.isFinite(qualifyingTeamCount) ? qualifyingTeamCount : 1,
     });
     revalidatePath("/admin/brackets");
     revalidatePath("/admin/games");

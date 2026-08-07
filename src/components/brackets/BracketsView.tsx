@@ -16,7 +16,6 @@ import { resolveChampionFromBracket } from "@/lib/brackets/bracket-champion";
 import { isObaDePresetKey } from "@/lib/brackets/oba-de-presets";
 import {
   filterRoundsForScope,
-  hasConsolationRounds,
   roundTypeShortLabel,
   type BracketScopeFilter,
 } from "@/lib/brackets/bracket-display";
@@ -176,8 +175,8 @@ function BracketSection({
   );
   const champion = useMemo(() => resolveChampionFromBracket(b), [b]);
   const isObaChronological = !!b.presetKey && isObaDePresetKey(b.presetKey);
-  /** OBA workbook view always shows the full bracket (no winners/losers filter). */
-  const showScope = hasConsolationRounds(roundsSorted) && !isObaChronological;
+  /** Scope tabs removed — always show the full bracket for every format. */
+  const showScope = false;
 
   const visibleRounds = useMemo(() => {
     const effectiveScope = showScope ? scope : "all";

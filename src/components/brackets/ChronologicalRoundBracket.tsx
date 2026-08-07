@@ -34,14 +34,30 @@ const IF_NEC_FOOTER_H = 88;
 /**
  * Lane from feeders (not BracketRound.roundType): OBA packs mixed W/L games into one
  * schedule round (e.g. R4 has G5 losers + G6 winners under one round row).
+ * Also treats "winners of losers" games (e.g. G7: W5 vs W6) as losers-lane.
  */
-function isLosersLaneGame(g: GameRow): boolean {
+function isLosersLaneGame(g: GameRow, byGameId: Map<string, GameRow>, seen = new Set<string>()): boolean {
+  if (seen.has(g.id)) return false;
+  seen.add(g.id);
   const bm = g.bracketMatch;
   if (!bm) {
     const t = g.bracketRound?.roundType as BracketRoundType | null | undefined;
     return t === "LOSERS" || t === "LOSERS_SECOND";
   }
-  return bm.homeFromKind === "LOSER" || bm.awayFromKind === "LOSER";
+  if (bm.homeFromKind === "LOSER" || bm.awayFromKind === "LOSER") return true;
+  if (bm.homeFromKind === "WINNER" && bm.awayFromKind === "WINNER") {
+    const homeSrc = bm.homeFromMatch?.game?.id ? byGameId.get(bm.homeFromMatch.game.id) : null;
+    const awaySrc = bm.awayFromMatch?.game?.id ? byGameId.get(bm.awayFromMatch.game.id) : null;
+    if (
+      homeSrc &&
+      awaySrc &&
+      isLosersLaneGame(homeSrc, byGameId, seen) &&
+      isLosersLaneGame(awaySrc, byGameId, seen)
+    ) {
+      return true;
+    }
+  }
+  return false;
 }
 
 function collectWinnerEdges(games: GameRow[]): WinnerEdge[] {
@@ -67,10 +83,16 @@ function collectWinnerEdges(games: GameRow[]): WinnerEdge[] {
   return edges;
 }
 
-function sortColumnGames(games: GameRow[]): GameRow[] {
+function gameIdMap(games: Iterable<GameRow>): Map<string, GameRow> {
+  const m = new Map<string, GameRow>();
+  for (const g of games) m.set(g.id, g);
+  return m;
+}
+
+function sortColumnGames(games: GameRow[], byGameId: Map<string, GameRow>): GameRow[] {
   return [...games].sort((a, b) => {
-    const aL = isLosersLaneGame(a) ? 1 : 0;
-    const bL = isLosersLaneGame(b) ? 1 : 0;
+    const aL = isLosersLaneGame(a, byGameId) ? 1 : 0;
+    const bL = isLosersLaneGame(b, byGameId) ? 1 : 0;
     if (aL !== bL) return aL - bL;
     const na = Number.parseInt(String(a.gameNumber ?? ""), 10);
     const nb = Number.parseInt(String(b.gameNumber ?? ""), 10);
@@ -99,12 +121,13 @@ function layoutGameTops(
 ): Map<string, number> {
   const tops = new Map<string, number>();
   const hOf = (id: string) => heights.get(id) ?? EST_CARD_H;
+  const byGameId = gameIdMap(columns.flatMap((c) => c.games));
 
   const winnersByCol = columns.map((col) =>
-    sortColumnGames(col.games).filter((g) => !isLosersLaneGame(g)),
+    sortColumnGames(col.games, byGameId).filter((g) => !isLosersLaneGame(g, byGameId)),
   );
   const losersByCol = columns.map((col) =>
-    sortColumnGames(col.games).filter((g) => isLosersLaneGame(g)),
+    sortColumnGames(col.games, byGameId).filter((g) => isLosersLaneGame(g, byGameId)),
   );
   const losersIds = new Set(losersByCol.flat().map((g) => g.id));
 
@@ -203,8 +226,8 @@ function layoutGameTops(
   const champCol = columns.findIndex((c) => isChampionshipColumn(c));
   const ifNecCol = columns.findIndex((c) => isIfNecessaryColumn(c));
   if (champCol >= 0 && ifNecCol >= 0) {
-    const gf1Game = sortColumnGames(columns[champCol]!.games)[0];
-    const gf2Game = sortColumnGames(columns[ifNecCol]!.games)[0];
+    const gf1Game = sortColumnGames(columns[champCol]!.games, byGameId)[0];
+    const gf2Game = sortColumnGames(columns[ifNecCol]!.games, byGameId)[0];
     if (gf1Game && gf2Game) {
       const y1 = tops.get(gf1Game.id);
       if (y1 != null) tops.set(gf2Game.id, y1);
@@ -329,8 +352,12 @@ function resolveIfNecessaryUi(
   allGames: GameRow[],
   format: BracketFormat | string,
 ): IfNecUi {
-  const pendingFooter =
-    "G9 is only required if the Loser of G8 was their first loss of the COBA playdowns otherwise the tournament ends at Round 6";
+  const gf1Label = gf1?.gameNumber?.trim() ? `G${gf1.gameNumber.trim()}` : "the championship game";
+  const gf2Num = (() => {
+    const n = Number.parseInt(String(gf1?.gameNumber ?? ""), 10);
+    return Number.isFinite(n) ? `G${n + 1}` : "the if-necessary game";
+  })();
+  const pendingFooter = `${gf2Num} is only required if the losers-bracket champion wins ${gf1Label}; otherwise the tournament ends there.`;
 
   if (!gf1 || gf1.status !== "FINAL") {
     return { shaded: false, footer: pendingFooter, winnerName: null };
@@ -359,16 +386,15 @@ function resolveIfNecessaryUi(
     return {
       shaded: true,
       footer: winnerName
-        ? `Round 7 is not required, congratulations to ${winnerName}!`
-        : "Round 7 is not required.",
+        ? `${gf2Num} is not required — congratulations to ${winnerName}!`
+        : `${gf2Num} is not required.`,
       winnerName,
     };
   }
 
   return {
     shaded: false,
-    footer:
-      "G9 is required — both remaining teams have one loss. Play the if-necessary championship.",
+    footer: `${gf2Num} is required — both remaining teams have one loss. Play the if-necessary championship.`,
     winnerName,
   };
 }
@@ -389,13 +415,16 @@ export function ChronologicalRoundBracket({
   const [boardSize, setBoardSize] = useState({ w: 0, h: 0 });
   const [heights, setHeights] = useState<Map<string, number>>(() => new Map());
 
+  const allGamesFlat = useMemo(() => [...byRound.values()].flat(), [byRound]);
+  const byGameId = useMemo(() => gameIdMap(allGamesFlat), [allGamesFlat]);
+
   const gamesByRound = useMemo(() => {
     const map = new Map<string, GameRow[]>();
     for (const [id, games] of byRound) {
-      map.set(id, sortColumnGames(games));
+      map.set(id, sortColumnGames(games, byGameId));
     }
     return map;
-  }, [byRound]);
+  }, [byRound, byGameId]);
 
   const columns = useMemo(
     () => chronologicalRoundColumns(rounds, gamesByRound),
@@ -407,8 +436,10 @@ export function ChronologicalRoundBracket({
 
   const champColIdx = columns.findIndex((c) => isChampionshipColumn(c));
   const ifNecColIdx = columns.findIndex((c) => isIfNecessaryColumn(c));
-  const gf1 = champColIdx >= 0 ? sortColumnGames(columns[champColIdx]!.games)[0] : undefined;
-  const gf2 = ifNecColIdx >= 0 ? sortColumnGames(columns[ifNecColIdx]!.games)[0] : undefined;
+  const gf1 =
+    champColIdx >= 0 ? sortColumnGames(columns[champColIdx]!.games, byGameId)[0] : undefined;
+  const gf2 =
+    ifNecColIdx >= 0 ? sortColumnGames(columns[ifNecColIdx]!.games, byGameId)[0] : undefined;
 
   const ifNecUi = useMemo(
     () => resolveIfNecessaryUi(gf1, allGames, format),
@@ -502,7 +533,7 @@ export function ChronologicalRoundBracket({
         style={{ minHeight: columnShellH }}
       >
         {columns.map((col, ci) => {
-          const games = sortColumnGames(col.games);
+          const games = sortColumnGames(col.games, byGameId);
           const isIfNec = isIfNecessaryColumn(col);
           const shade = isIfNec && ifNecUi.shaded;
           return (

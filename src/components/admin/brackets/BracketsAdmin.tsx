@@ -24,7 +24,13 @@ import { formatJsDateAsDatetimeLocalInZone } from "@/lib/datetime-tournament";
 import { formatFieldWithLocation } from "@/lib/field-display";
 import { tournamentPathFromBase } from "@/lib/tournament-public-path";
 import { classicSingleElimOrder } from "@/lib/services/bracket-engine";
+import { isObaDePresetKey, type ObaDePresetKey } from "@/lib/brackets/oba-de-presets";
 import type { GrandFinalMode, Pool } from "@prisma/client";
+
+function seededDePresetForTeamCount(n: number): ObaDePresetKey | null {
+  const key = `oba_de_${n}`;
+  return isObaDePresetKey(key) ? key : null;
+}
 
 type PoolRow = Pool & { division: { name: string } };
 
@@ -161,6 +167,63 @@ function defaultFirstRoundTeams(
     out.push({ home: sideFor(order[m * 2]!), away: sideFor(order[m * 2 + 1]!) });
   }
   return out;
+}
+
+function SeedOrderRows({
+  teams,
+  presetKey,
+}: {
+  teams: { id: string; name: string; poolName: string }[];
+  presetKey: ObaDePresetKey;
+}) {
+  const n = Number(presetKey.replace("oba_de_", ""));
+  const [seedIds, setSeedIds] = useState(() => teams.slice(0, n).map((t) => t.id));
+
+  useEffect(() => {
+    setSeedIds(teams.slice(0, n).map((t) => t.id));
+  }, [teams, n]);
+
+  return (
+    <>
+      <input type="hidden" name="formatPreset" value={presetKey} />
+      <input type="hidden" name="seedTeamIds" value={JSON.stringify(seedIds)} />
+      <div>
+        <h3 className="text-xs font-semibold uppercase tracking-wide text-zinc-500">Seed order</h3>
+        <p className="mt-1 text-xs text-zinc-500">
+          Seed 1 = strongest. For 5–6 teams, top seeds receive Round 1 byes (no BYE game cards). Public
+          view uses Round 1, Round 2, … columns with G# Winner / G# Loser placeholders.
+        </p>
+        <div className="mt-3 grid gap-2 sm:grid-cols-2">
+          {Array.from({ length: n }, (_, i) => (
+            <div key={i}>
+              <p className={labelClass}>Seed {i + 1}</p>
+              <select
+                value={seedIds[i] ?? ""}
+                onChange={(e) => {
+                  const v = e.target.value;
+                  setSeedIds((prev) => {
+                    const next = [...prev];
+                    while (next.length < n) next.push("");
+                    next[i] = v;
+                    return next;
+                  });
+                }}
+                className={`${formClass} mt-1 w-full`}
+                required
+              >
+                <option value="">Select team…</option>
+                {teams.map((t) => (
+                  <option key={t.id} value={t.id}>
+                    {t.name} ({t.poolName})
+                  </option>
+                ))}
+              </select>
+            </div>
+          ))}
+        </div>
+      </div>
+    </>
+  );
 }
 
 function PlayoffFirstRoundRows({
@@ -385,8 +448,18 @@ export function BracketsAdmin({
     );
   }, [selectedDivision]);
 
+  const seededDePreset =
+    createFormat === "DOUBLE_ELIMINATION"
+      ? seededDePresetForTeamCount(divisionTeams.length)
+      : null;
+
   useEffect(() => {
     if (!selectedDivision) return;
+    if (seededDePreset) {
+      setSeedMode("assign_teams");
+      setGrandFinalMode("IF_NECESSARY");
+      return;
+    }
     if (selectedDivision.pools.length === 0 && divisionTeams.length > 0) {
       setSeedMode("assign_teams");
     } else if (selectedDivision.pools.length > 0 && seedMode === "assign_teams" && divisionTeams.length === 0) {
@@ -396,7 +469,7 @@ export function BracketsAdmin({
     }
     // Only re-evaluate when the division (or its teams) changes — not on every seedMode toggle.
     // eslint-disable-next-line react-hooks/exhaustive-deps -- intentional: seedMode is written, not read for branching beyond defaults
-  }, [selectedDivision, divisionTeams.length]);
+  }, [selectedDivision, divisionTeams.length, seededDePreset]);
 
   const divisionsWithPools = useMemo(() => divisions.filter((d) => d.pools.length > 0), [divisions]);
   const [consolationDivisionId, setConsolationDivisionId] = useState(
@@ -740,12 +813,16 @@ export function BracketsAdmin({
                   <p className="mt-1 text-[11px] text-zinc-500">
                     {createFormat === "SINGLE_ELIMINATION"
                       ? "One loss eliminates. Pad the field to a power of 2 with BYEs."
-                      : createFormat === "DOUBLE_ELIMINATION"
-                        ? "One-loss losers bracket + grand final. Public view uses losers←center→winners layout."
-                        : "Three lives: W → L1 (1 loss) → L2 (2 losses). L2 champ meets W champ in the grand final."}
+                      : createFormat === "DOUBLE_ELIMINATION" && seededDePreset
+                        ? `This division has ${divisionTeams.length} teams — creates a Round 1–N seeded double-elim workbook (implicit byes, G# Winner/Loser labels).`
+                        : createFormat === "DOUBLE_ELIMINATION"
+                          ? "One-loss losers bracket + grand final. For 4–7 teams, use a division with that exact team count for the seeded Round N workbook."
+                          : "Three lives: W → L1 (1 loss) → L2 (2 losses). L2 champ meets W champ in the grand final."}
                   </p>
                 </div>
-                {createFormat === "DOUBLE_ELIMINATION" || createFormat === "TRIPLE_ELIMINATION" ? (
+                {seededDePreset ? (
+                  <input type="hidden" name="grandFinalMode" value="IF_NECESSARY" />
+                ) : createFormat === "DOUBLE_ELIMINATION" || createFormat === "TRIPLE_ELIMINATION" ? (
                   <div className="sm:col-span-2">
                     <p className={labelClass}>Grand final</p>
                     <div className="mt-2 flex flex-col gap-2">
@@ -824,7 +901,8 @@ export function BracketsAdmin({
                     <input type="hidden" name="qualifyingTeamCount" value="1" />
                   )}
                 </div>
-                {createFormat === "DOUBLE_ELIMINATION" || createFormat === "TRIPLE_ELIMINATION" ? (
+                {!seededDePreset &&
+                (createFormat === "DOUBLE_ELIMINATION" || createFormat === "TRIPLE_ELIMINATION") ? (
                   <div className="sm:col-span-2">
                     <p className={labelClass}>Losers pairing</p>
                     <div className="mt-2 flex flex-col gap-2">
@@ -868,61 +946,65 @@ export function BracketsAdmin({
                     </div>
                   </div>
                 ) : null}
-                <div className="sm:col-span-2">
-                  <p className={labelClass}>Round 1 seeding</p>
-                  <div className="mt-2 flex flex-col gap-2">
-                    <label className="flex items-start gap-2 text-sm text-zinc-700">
-                      <input
-                        type="radio"
-                        name="seedMode"
-                        value="pool_standings"
-                        checked={seedMode === "pool_standings"}
-                        onChange={() => setSeedMode("pool_standings")}
-                        className="mt-1"
-                        disabled={!selectedDivision || selectedDivision.pools.length === 0}
-                      />
-                      <span>
-                        <span className="font-medium">From pool standings (after round robin)</span>
-                        <span className="mt-0.5 block text-xs text-zinc-500">
-                          Label slots as kᵗʰ in pool. Apply standings fills teams when pool play is
-                          complete.
+                {!seededDePreset ? (
+                  <div className="sm:col-span-2">
+                    <p className={labelClass}>Round 1 seeding</p>
+                    <div className="mt-2 flex flex-col gap-2">
+                      <label className="flex items-start gap-2 text-sm text-zinc-700">
+                        <input
+                          type="radio"
+                          name="seedMode"
+                          value="pool_standings"
+                          checked={seedMode === "pool_standings"}
+                          onChange={() => setSeedMode("pool_standings")}
+                          className="mt-1"
+                          disabled={!selectedDivision || selectedDivision.pools.length === 0}
+                        />
+                        <span>
+                          <span className="font-medium">From pool standings (after round robin)</span>
+                          <span className="mt-0.5 block text-xs text-zinc-500">
+                            Label slots as kᵗʰ in pool. Apply standings fills teams when pool play is
+                            complete.
+                          </span>
                         </span>
-                      </span>
-                    </label>
-                    <label className="flex items-start gap-2 text-sm text-zinc-700">
-                      <input
-                        type="radio"
-                        name="seedMode"
-                        value="assign_teams"
-                        checked={seedMode === "assign_teams"}
-                        onChange={() => setSeedMode("assign_teams")}
-                        className="mt-1"
-                        disabled={divisionTeams.length === 0}
-                      />
-                      <span>
-                        <span className="font-medium">Assign teams now</span>
-                        <span className="mt-0.5 block text-xs text-zinc-500">
-                          No round robin required — pick Round 1 teams (or BYEs) immediately. Edit
-                          later under Games if needed.
+                      </label>
+                      <label className="flex items-start gap-2 text-sm text-zinc-700">
+                        <input
+                          type="radio"
+                          name="seedMode"
+                          value="assign_teams"
+                          checked={seedMode === "assign_teams"}
+                          onChange={() => setSeedMode("assign_teams")}
+                          className="mt-1"
+                          disabled={divisionTeams.length === 0}
+                        />
+                        <span>
+                          <span className="font-medium">Assign teams now</span>
+                          <span className="mt-0.5 block text-xs text-zinc-500">
+                            No round robin required — pick Round 1 teams (or BYEs) immediately. Edit
+                            later under Games if needed.
+                          </span>
                         </span>
-                      </span>
-                    </label>
+                      </label>
+                    </div>
                   </div>
-                </div>
-                <div>
-                  <label className={labelClass}>Field size (bracket slots)</label>
-                  <select
-                    value={entrySize}
-                    onChange={(e) => setEntrySize(Number(e.target.value))}
-                    className={`${formClass} mt-1 w-full`}
-                  >
-                    {ENTRY_OPTIONS.map((n) => (
-                      <option key={n} value={n}>
-                        {n} slots (pad unused with BYE)
-                      </option>
-                    ))}
-                  </select>
-                </div>
+                ) : null}
+                {!seededDePreset ? (
+                  <div>
+                    <label className={labelClass}>Field size (bracket slots)</label>
+                    <select
+                      value={entrySize}
+                      onChange={(e) => setEntrySize(Number(e.target.value))}
+                      className={`${formClass} mt-1 w-full`}
+                    >
+                      {ENTRY_OPTIONS.map((n) => (
+                        <option key={n} value={n}>
+                          {n} slots (pad unused with BYE)
+                        </option>
+                      ))}
+                    </select>
+                  </div>
+                ) : null}
                 <div>
                   <label className={labelClass}>First-round start ({tournamentTimezone})</label>
                   <input
@@ -952,21 +1034,31 @@ export function BracketsAdmin({
                 </div>
               </div>
 
-              <PlayoffFirstRoundRows
-                key={`${effectiveDivisionId}-${entrySize}-${seedMode}`}
-                seedMode={seedMode}
-                poolRows={selectedDivision.pools}
-                teams={divisionTeams}
-                entrySize={entrySize}
-              />
+              {seededDePreset ? (
+                <SeedOrderRows
+                  key={`${effectiveDivisionId}-${seededDePreset}`}
+                  teams={divisionTeams}
+                  presetKey={seededDePreset}
+                />
+              ) : (
+                <PlayoffFirstRoundRows
+                  key={`${effectiveDivisionId}-${entrySize}-${seedMode}`}
+                  seedMode={seedMode}
+                  poolRows={selectedDivision.pools}
+                  teams={divisionTeams}
+                  entrySize={entrySize}
+                />
+              )}
 
               <button
                 type="submit"
                 disabled={
                   createPending ||
                   !selectedDivision ||
-                  (seedMode === "pool_standings" && selectedDivision.pools.length === 0) ||
-                  (seedMode === "assign_teams" && divisionTeams.length === 0)
+                  (seededDePreset
+                    ? divisionTeams.length === 0
+                    : (seedMode === "pool_standings" && selectedDivision.pools.length === 0) ||
+                      (seedMode === "assign_teams" && divisionTeams.length === 0))
                 }
                 className={btnPrimary}
               >

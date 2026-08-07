@@ -121,45 +121,6 @@ async function resolveOba7(bracketId: string): Promise<void> {
   await fillOpenMatch(g11.id, m1[0], m1[1]);
 }
 
-async function resolveOba6(bracketId: string): Promise<void> {
-  const games = await loadBracketGames(bracketId);
-  const g4 = findByGameNumber(games, "4");
-  const g5 = findByGameNumber(games, "5");
-  const g6 = findByGameNumber(games, "6");
-  const g7 = findByGameNumber(games, "7");
-  const g8 = findByGameNumber(games, "8");
-  if (!g4 || !g5 || !g6 || !g7 || !g8) return;
-  if (g4.status !== "FINAL" || g5.status !== "FINAL" || g6.status !== "FINAL") return;
-  if (g7.homeTeamId != null || g8.homeTeamId != null) return;
-
-  const alive = aliveInBracket(games);
-  const losses = lossesByTeam(games);
-  const undefeated = alive.filter((id) => (losses.get(id) ?? 0) === 0);
-
-  // Bracket A path intent: 4 alive → pair into G7/G8 with undefeated deferred when possible.
-  // Bracket B: 5 alive → undefeated bye + rematch-avoid among 4.
-  if (alive.length === 5 && undefeated.length >= 1) {
-    const byeTeam = undefeated[0]!;
-    const pool = alive.filter((id) => id !== byeTeam);
-    const paired = pairTeamsAvoidingRematches(pool, priorMeetingsFromFinals(games));
-    if (paired.matchups.length < 2) return;
-    const [m0, m1] = paired.matchups;
-    if (!m0 || !m1) return;
-    await fillOpenMatch(g7.id, m0[0], m0[1]);
-    await fillOpenMatch(g8.id, m1[0], m1[1]);
-    return;
-  }
-
-  if (alive.length === 4) {
-    const paired = pairTeamsAvoidingRematches(alive, priorMeetingsFromFinals(games));
-    if (paired.matchups.length < 2) return;
-    const [m0, m1] = paired.matchups;
-    if (!m0 || !m1) return;
-    await fillOpenMatch(g7.id, m0[0], m0[1]);
-    await fillOpenMatch(g8.id, m1[0], m1[1]);
-  }
-}
-
 /** After any OBA preset game finals, fill the next open redraw / endgame slots when ready. */
 export async function maybeResolveObaPresetPairings(bracketId: string): Promise<void> {
   const bracket = await prisma.bracket.findUnique({
@@ -169,6 +130,6 @@ export async function maybeResolveObaPresetPairings(bracketId: string): Promise<
   const key = bracket?.presetKey;
   if (!key?.startsWith("oba_de_")) return;
 
-  if (key === "oba_de_6") await resolveOba6(bracketId);
-  else if (key === "oba_de_7") await resolveOba7(bracketId);
+  // oba_de_5 / oba_de_6 are fully feeder-wired seeded maps (no mid-bracket redraw).
+  if (key === "oba_de_7") await resolveOba7(bracketId);
 }

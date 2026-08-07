@@ -99,29 +99,33 @@ export const OBA_DE_PRESETS: Record<ObaDePresetKey, ObaDePreset> = {
   oba_de_6: {
     key: "oba_de_6",
     teamCount: 6,
-    label: "OBA double elimination — 6 teams",
-    shortLabel: "OBA DE · 6",
-    summary: "Fixed early map; Bracket A (4 left) or B (5 left) after Round 2.",
+    label: "Double elimination — 6 teams (seeded)",
+    shortLabel: "DE · 6",
+    summary: "Round 1–6 columns; seeds 1–2 bye; 4 vs 5 and 3 vs 6 open; if-necessary final.",
     explainer: [
       {
         title: "Overview",
-        body: "Six-team OBA double elimination with a fixed early map, then a major branch after Round 2 depending on whether five or four teams remain.",
+        body: "Six-team double elimination laid out in Round 1–6 columns (workbook style). Seeds 1–2 receive a Round 1 bye; seeds 3–6 play Games 1–2. A second loss eliminates a team.",
       },
       {
-        title: "Rounds 1–2 (fixed)",
-        body: "R1: Draw for pairings — three games (G1–G3). R2: L2 plays L3; W3 plays L1; W1 plays W2.",
+        title: "Round 1",
+        body: "Game 1: 4th seed vs 5th seed. Game 2: 3rd seed vs 6th seed.",
       },
       {
-        title: "Branch after Round 2",
-        body: "Bracket A — if W5 is undefeated, four teams remain: W4 plays L6; W5 plays W6; then the undefeated (3–0) receives the bye and L8 plays W7; championship path with if-necessary. Bracket B — if W3 loses G5, five teams remain: undefeated (W6) gets the bye; match the other four avoiding rematches when possible (else draw); continue with bye draws and if-necessary final.",
+        title: "Round 2",
+        body: "Game 3: 1st seed vs winner of Game 1. Game 4: 2nd seed vs winner of Game 2. Game 5: loser of Game 4 vs loser of Game 1. Game 6: loser of Game 2 vs loser of Game 3.",
       },
       {
-        title: "Mid-bracket redraw",
-        body: "On the B path (and later A/B endgames), pairings avoid previous match-ups when possible; otherwise a draw determines pairings. Bye draws use §P5 rules.",
+        title: "Rounds 3–4",
+        body: "Round 3 Game 7: winner of Game 5 vs winner of Game 6; Game 8: winner of Game 3 vs winner of Game 4. Round 4 Game 9: winner of Game 7 vs loser of Game 8.",
       },
       {
-        title: "Bye policy",
-        body: "§P5 / RP5.2 n. (no back-to-back when avoidable; share first byes; prefer undefeated; else standings/draw).",
+        title: "Rounds 5–6 (championship)",
+        body: "Round 5 Game 10: winner of Game 8 (undefeated path) vs winner of Game 9. Round 6 Game 11 is if-necessary when the losers champion wins Game 10.",
+      },
+      {
+        title: "Seeding / byes",
+        body: "Team list order is seed order (1 = strongest). Seeds 1–2 sit out Round 1; their first games are Games 3 and 4.",
       },
     ],
   },
@@ -202,7 +206,7 @@ export const WIZARD_FORMAT_OPTIONS: WizardFormatOption[] = [
   },
   {
     key: "oba_de_6",
-    label: "OBA double elimination — 6 teams",
+    label: "Double elimination — 6 teams (seeded)",
     requiresTeamCount: 6,
     group: "oba",
   },
