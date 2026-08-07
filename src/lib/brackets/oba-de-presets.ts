@@ -28,8 +28,8 @@ export type ObaDePreset = {
   /** One-line summary for dropdowns. */
   summary: string;
   explainer: FormatExplainerSection[];
-  /** Power-of-2 field used when falling back to classic tree (4 only). */
-  classicEntrySize?: 4;
+  /** Power-of-2 field when the preset builds a classic seeded tree. */
+  classicEntrySize?: 4 | 8;
 };
 
 export const OBA_DE_PRESETS: Record<ObaDePresetKey, ObaDePreset> = {
@@ -66,33 +66,38 @@ export const OBA_DE_PRESETS: Record<ObaDePresetKey, ObaDePreset> = {
   oba_de_5: {
     key: "oba_de_5",
     teamCount: 5,
-    label: "OBA double elimination — 5 teams",
-    shortLabel: "OBA DE · 5",
-    summary: "Draw for bye + pairings; Bracket A (2 left) or B (3 left) endgame.",
+    label: "Double elimination — 5 teams (seeded)",
+    shortLabel: "DE · 5",
+    summary: "Seeds 1–3 bye; seed 4 vs 5 opens; if-necessary championship.",
+    classicEntrySize: 8,
     explainer: [
       {
         title: "Overview",
-        body: "Five-team OBA double elimination. Early rounds follow a fixed game map (not a padded 8-team tree). Later rounds re-pair with bye rules, then branch into Bracket A or B.",
+        body: "Five teams in an 8-slot double-elimination tree. Top three seeds receive first-round byes; only the 4th and 5th seeds play in Round 1. A second loss eliminates a team. Championship uses an if-necessary game when the losers champion beats the undefeated team.",
       },
       {
-        title: "Round 1",
-        body: "Draw for bye and pairings. One team sits; the other four play two games (G1, G2).",
+        title: "Round 1 (winners)",
+        body: "Game 1: 4th seed vs 5th seed. Seeds 1, 2, and 3 each receive a bye into Round 2.",
       },
       {
-        title: "Rounds 2–3 (fixed)",
-        body: "R2: L1 plays L2 (G3); the Round 1 bye plays W2 (G4); W1 receives a bye. R3: W3 plays L4 (G5); W1 plays W4 (G6).",
+        title: "Round 2 (winners)",
+        body: "Game 2: 2nd seed vs 3rd seed. Game 3: 1st seed vs winner of Game 1.",
       },
       {
-        title: "Mid-bracket redraw (Round 4)",
-        body: "L3 and L5 are eliminated; three teams remain (one undefeated). If the undefeated team is 3–0, it gets the bye. If it is 2–0, the bye goes to a team that has not yet had a bye. If more than one team is eligible, draw for the bye. The other two play G7.",
+        title: "Winners final",
+        body: "Game 5: winner of Game 2 vs winner of Game 3. Winner advances to the championship undefeated.",
       },
       {
-        title: "Branching endgame",
-        body: "Bracket A — if the undefeated team won or had the Round 4 bye: two teams remain (one undefeated); they play, then if-necessary if the undefeated team loses. Bracket B — if the undefeated team loses in Round 4: three teams remain, all with one loss; draw for the bye and use the B schedule (sudden-death championship).",
+        title: "Losers bracket",
+        body: "Game 4: loser of Game 1 vs loser of Game 2. Game 6: winner of Game 4 vs loser of Game 3. Game 7 (losers final): winner of Game 6 vs loser of Game 5.",
       },
       {
-        title: "Bye policy",
-        body: "Follow §P5 / RP5.2 n.: no back-to-back byes when avoidable; no second bye until all remaining teams have had a first; prefer undefeated when eligible; otherwise standings/draw rules.",
+        title: "Championship",
+        body: "Game 8: winners-bracket champion vs losers-bracket champion. Game 9 (if necessary): played only if the losers champion wins Game 8 (first loss for the previously undefeated team).",
+      },
+      {
+        title: "Seeding / byes",
+        body: "Team list order is seed order (1 = strongest). Seeds 1–3 sit out Round 1; seed 4 plays seed 5.",
       },
     ],
   },
@@ -196,7 +201,7 @@ export const WIZARD_FORMAT_OPTIONS: WizardFormatOption[] = [
   },
   {
     key: "oba_de_5",
-    label: "OBA double elimination — 5 teams",
+    label: "Double elimination — 5 teams (seeded)",
     requiresTeamCount: 5,
     group: "oba",
   },

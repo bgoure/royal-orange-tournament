@@ -66,109 +66,60 @@ function shuffleCopy<T>(items: T[], rng: () => number): T[] {
   return out;
 }
 
-/** Build first-round slots for classic 4-team DE from draw order. */
-export function firstRoundSlotsForOba4(teamIds: string[]): FirstRoundSlot[] {
-  if (teamIds.length !== 4) throw new Error("OBA 4-team DE requires exactly 4 teams.");
-  // classicSingleElimOrder returns 0-based seed indices into a size-N field.
-  const order = classicSingleElimOrder(4);
-  const sides: Array<{ teamId: string } | { bye: true }> = order.map((seedIdx) => {
-    const id = teamIds[seedIdx];
-    if (!id) return { bye: true as const };
-    return { teamId: id };
-  });
+/**
+ * Classic seeded first round: teamIds[0] = seed 1 (strongest).
+ * Pads to `entrySize` with BYEs so top seeds sit out Round 1.
+ * For 5 teams in an 8-slot field: seeds 1–3 bye; seed 4 vs seed 5.
+ */
+export function firstRoundSlotsForSeededField(
+  teamIds: string[],
+  entrySize: number,
+): FirstRoundSlot[] {
+  if (teamIds.length < 2) throw new Error("Need at least 2 teams.");
+  if (teamIds.length > entrySize) {
+    throw new Error(`Cannot place ${teamIds.length} teams into a ${entrySize}-slot field.`);
+  }
+  const order = classicSingleElimOrder(entrySize);
+  const sideAt = (seedIndex: number): FirstRoundSlot["home"] => {
+    if (seedIndex < teamIds.length) return { teamId: teamIds[seedIndex]! };
+    return { bye: true };
+  };
   const slots: FirstRoundSlot[] = [];
-  for (let i = 0; i < sides.length; i += 2) {
-    slots.push({ home: sides[i]!, away: sides[i + 1]! });
+  const half = entrySize / 2;
+  for (let m = 0; m < half; m++) {
+    slots.push({
+      home: sideAt(order[m * 2]!),
+      away: sideAt(order[m * 2 + 1]!),
+    });
   }
   return slots;
 }
 
-function gamesForOba5(draw: string[]): GameDef[] {
-  const [a, b, c, d, bye] = draw;
-  if (!a || !b || !c || !d || !bye) throw new Error("OBA 5-team draw incomplete.");
-  return [
-    {
-      key: "G1",
-      roundGroup: "R1",
-      roundName: "Round 1",
-      roundType: BracketRoundType.WINNERS,
-      home: { kind: "team", teamId: a },
-      away: { kind: "team", teamId: b },
-      gameNumber: "1",
-    },
-    {
-      key: "G2",
-      roundGroup: "R1",
-      roundName: "Round 1",
-      roundType: BracketRoundType.WINNERS,
-      home: { kind: "team", teamId: c },
-      away: { kind: "team", teamId: d },
-      gameNumber: "2",
-    },
-    {
-      key: "G3",
-      roundGroup: "R2L",
-      roundName: "Round 2 · losers",
-      roundType: BracketRoundType.LOSERS,
-      home: { kind: "loser", of: "G1" },
-      away: { kind: "loser", of: "G2" },
-      gameNumber: "3",
-    },
-    {
-      key: "G4",
-      roundGroup: "R2W",
-      roundName: "Round 2 · winners",
-      roundType: BracketRoundType.WINNERS,
-      home: { kind: "team", teamId: bye },
-      away: { kind: "winner", of: "G2" },
-      gameNumber: "4",
-    },
-    {
-      key: "G5",
-      roundGroup: "R3L",
-      roundName: "Round 3 · losers",
-      roundType: BracketRoundType.LOSERS,
-      home: { kind: "winner", of: "G3" },
-      away: { kind: "loser", of: "G4" },
-      gameNumber: "5",
-    },
-    {
-      key: "G6",
-      roundGroup: "R3W",
-      roundName: "Round 3 · winners",
-      roundType: BracketRoundType.WINNERS,
-      home: { kind: "winner", of: "G1" },
-      away: { kind: "winner", of: "G4" },
-      gameNumber: "6",
-    },
-    {
-      key: "G7",
-      roundGroup: "R4",
-      roundName: "Round 4 · redraw",
-      roundType: BracketRoundType.WINNERS,
-      home: { kind: "open" },
-      away: { kind: "open" },
-      gameNumber: "7",
-    },
-    {
-      key: "GF1",
-      roundGroup: "GF",
-      roundName: "Grand final",
-      roundType: BracketRoundType.FINAL,
-      home: { kind: "open" },
-      away: { kind: "open" },
-      gameNumber: "GF1",
-    },
-    {
-      key: "GF2",
-      roundGroup: "GF",
-      roundName: "Grand final",
-      roundType: BracketRoundType.FINAL,
-      home: { kind: "open" },
-      away: { kind: "open" },
-      gameNumber: "GF2 (if necessary)",
-    },
-  ];
+/** @deprecated Use firstRoundSlotsForSeededField(teamIds, 4) */
+export function firstRoundSlotsForOba4(teamIds: string[]): FirstRoundSlot[] {
+  if (teamIds.length !== 4) throw new Error("OBA 4-team DE requires exactly 4 teams.");
+  return firstRoundSlotsForSeededField(teamIds, 4);
+}
+
+/** Describe Round 1 pairings for tests / UI (seed numbers are 1-based). */
+export function describeSeededFirstRound(
+  teamCount: number,
+  entrySize: number,
+): Array<{ home: string; away: string }> {
+  const labels = Array.from({ length: teamCount }, (_, i) => `Seed ${i + 1}`);
+  const slots = firstRoundSlotsForSeededField(
+    labels.map((_, i) => `t${i}`),
+    entrySize,
+  );
+  const labelFor = (side: FirstRoundSlot["home"]): string => {
+    if ("bye" in side && side.bye) return "BYE";
+    if ("teamId" in side) {
+      const idx = Number(side.teamId.slice(1));
+      return `Seed ${idx + 1}`;
+    }
+    return "?";
+  };
+  return slots.map((s) => ({ home: labelFor(s.home), away: labelFor(s.away) }));
 }
 
 function gamesForOba6(draw: string[]): GameDef[] {
@@ -414,8 +365,6 @@ function gamesForOba7(draw: string[]): GameDef[] {
 
 function gameDefsForPreset(key: ObaDePresetKey, drawOrder: string[]): GameDef[] {
   switch (key) {
-    case "oba_de_5":
-      return gamesForOba5(drawOrder);
     case "oba_de_6":
       return gamesForOba6(drawOrder);
     case "oba_de_7":
@@ -580,8 +529,9 @@ async function createFeederGraphBracket(
 }
 
 /**
- * Create an OBA DE bracket for the given preset.
- * `teamIds` order is the draw order (first = first drawn).
+ * Create a named DE preset bracket.
+ * For seeded classics (4 / 5): teamIds[0] = seed 1 (strongest).
+ * For custom OBA maps (6 / 7): teamIds order is the draw order (first = first drawn).
  */
 export async function createObaDeBracket(opts: CreateObaDeBracketOptions): Promise<string> {
   const preset = getObaDePreset(opts.presetKey);
@@ -596,8 +546,9 @@ export async function createObaDeBracket(opts: CreateObaDeBracketOptions): Promi
     throw new Error("Duplicate teams in OBA bracket draw.");
   }
 
-  if (opts.presetKey === "oba_de_4") {
-    const firstRound = firstRoundSlotsForOba4(opts.teamIds);
+  if (opts.presetKey === "oba_de_4" || opts.presetKey === "oba_de_5") {
+    const entrySize = opts.presetKey === "oba_de_5" ? 8 : 4;
+    const firstRound = firstRoundSlotsForSeededField(opts.teamIds, entrySize);
     return createDivisionPlayoffBracket({
       tournamentId: opts.tournamentId,
       divisionId: opts.divisionId,
@@ -614,9 +565,7 @@ export async function createObaDeBracket(opts: CreateObaDeBracketOptions): Promi
     });
   }
 
-  // Draw order: caller supplies order; for 5/7 first drawn is bye-related.
-  const draw = opts.teamIds;
-  const games = gameDefsForPreset(opts.presetKey, draw);
+  const games = gameDefsForPreset(opts.presetKey, opts.teamIds);
   return createFeederGraphBracket(opts, games);
 }
 

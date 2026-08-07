@@ -923,7 +923,12 @@ export function CreateTournamentWizardModal({ onClose }: Props) {
                         </select>
                       </>
                     ) : null}
-                    {isObaDePresetKey(preset) ? (
+                    {preset === "oba_de_5" || preset === "oba_de_4" ? (
+                      <p className="mt-2 text-xs text-zinc-500">
+                        Team list order is seed order (first = seed 1 / strongest). For 5 teams, seeds
+                        1–3 get Round 1 byes; seed 4 plays seed 5.
+                      </p>
+                    ) : isObaDePresetKey(preset) ? (
                       <p className="mt-2 text-xs text-zinc-500">
                         Team list order is the draw order (first drawn = bye when the map awards one).
                       </p>
