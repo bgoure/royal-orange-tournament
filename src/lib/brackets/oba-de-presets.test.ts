@@ -7,11 +7,7 @@ import {
   OBA_DE_PRESETS,
   wizardFormatOptionsForTeamCount,
 } from "./oba-de-presets";
-import {
-  describeSeededFirstRound,
-  firstRoundSlotsForOba4,
-  firstRoundSlotsForSeededField,
-} from "@/lib/services/oba-de-bracket-build";
+import { firstRoundSlotsForOba4, gamesForOba5Seeded } from "@/lib/services/oba-de-bracket-build";
 
 describe("OBA DE presets", () => {
   it("defines 4–7 team presets with explainers", () => {
@@ -55,20 +51,13 @@ describe("OBA DE presets", () => {
     assert.deepEqual(new Set(ids.filter(Boolean)).size, 4);
   });
 
-  it("5-team R1 is only seed 4 vs seed 5; seeds 1–3 have byes", () => {
-    const pairs = describeSeededFirstRound(5, 8);
-    assert.equal(pairs.length, 4);
-    const real = pairs.filter((p) => p.home !== "BYE" && p.away !== "BYE");
-    assert.equal(real.length, 1);
-    const sides = [real[0]!.home, real[0]!.away].sort();
-    assert.deepEqual(sides, ["Seed 4", "Seed 5"]);
-
-    const byeOnly = pairs.filter((p) => p.home === "BYE" || p.away === "BYE");
-    assert.equal(byeOnly.length, 3);
-    const byeSeeds = byeOnly.map((p) => (p.home === "BYE" ? p.away : p.home)).sort();
-    assert.deepEqual(byeSeeds, ["Seed 1", "Seed 2", "Seed 3"]);
-
-    const slots = firstRoundSlotsForSeededField(["s1", "s2", "s3", "s4", "s5"], 8);
-    assert.equal(slots.length, 4);
+  it("5-team map is Round 1–7 with only 4 vs 5 in Round 1", () => {
+    const games = gamesForOba5Seeded(["s1", "s2", "s3", "s4", "s5"]);
+    const names = [...new Set(games.map((g) => g.roundName))];
+    assert.ok(names.includes("Round 1"));
+    assert.ok(names.includes("Round 4"));
+    assert.ok(names.includes("Championship"));
+    assert.equal(games.filter((g) => g.roundName === "Round 1").length, 1);
+    assert.equal(games.filter((g) => g.roundName === "Round 2").length, 2);
   });
 });

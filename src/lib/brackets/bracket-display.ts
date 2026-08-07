@@ -88,6 +88,72 @@ export function bidirectionalDeLayout<
   return { left, center, right };
 }
 
+export type ChronologicalRoundColumn<G> = {
+  /** Display header, e.g. "Round 1". */
+  label: string;
+  /** Optional secondary line under the header. */
+  subtitle?: string;
+  /** Accent index for alternating column colors (0–2). */
+  accentIndex: number;
+  games: G[];
+};
+
+/**
+ * Group bracket rounds into left→right "Round N" columns (workbook-style).
+ * A FINAL round with two games becomes Round 6 (championship) + Round 7 (if necessary)
+ * when earlier rounds are already named Round 1…N; otherwise "Championship" / "If necessary".
+ */
+export function chronologicalRoundColumns<
+  R extends { id: string; name: string; roundIndex: number; roundType: BracketRoundType },
+  G extends { id: string; gameNumber?: string | null; bracketPosition?: number | null },
+>(rounds: R[], gamesByRoundId: Map<string, G[]>): ChronologicalRoundColumn<G>[] {
+  const sorted = [...rounds].sort((a, b) => a.roundIndex - b.roundIndex);
+  const columns: ChronologicalRoundColumn<G>[] = [];
+  let accent = 0;
+
+  const sortGames = (games: G[]) =>
+    [...games].sort((a, b) => {
+      const na = Number.parseInt(String(a.gameNumber ?? ""), 10);
+      const nb = Number.parseInt(String(b.gameNumber ?? ""), 10);
+      if (Number.isFinite(na) && Number.isFinite(nb) && na !== nb) return na - nb;
+      return (a.bracketPosition ?? 0) - (b.bracketPosition ?? 0);
+    });
+
+  for (const round of sorted) {
+    const games = sortGames(gamesByRoundId.get(round.id) ?? []);
+    if (round.roundType === "FINAL" && games.length >= 2) {
+      const priorRoundNames = columns.filter((c) => /^round\s+\d+/i.test(c.label)).length;
+      const champLabel = priorRoundNames > 0 ? `Round ${priorRoundNames + 1}` : "Championship";
+      const ifNecLabel = priorRoundNames > 0 ? `Round ${priorRoundNames + 2}` : "If necessary";
+      columns.push({
+        label: champLabel,
+        subtitle: "Championship",
+        accentIndex: accent % 3,
+        games: [games[0]!],
+      });
+      accent += 1;
+      columns.push({
+        label: ifNecLabel,
+        subtitle: "If necessary",
+        accentIndex: accent % 3,
+        games: [games[1]!],
+      });
+      accent += 1;
+      continue;
+    }
+
+    columns.push({
+      label: round.name,
+      subtitle: round.roundType === "FINAL" ? "Championship" : undefined,
+      accentIndex: accent % 3,
+      games,
+    });
+    accent += 1;
+  }
+
+  return columns;
+}
+
 /**
  * Schedule / results card line: "{division} · Semifinals" / "Championship" (consolation games use separate copy).
  */

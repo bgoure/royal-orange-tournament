@@ -567,7 +567,9 @@ export async function advanceBracketWinnerFromGame(gameId: string): Promise<void
   const avoid = bracket?.avoidRematchesUntilForced === true;
   const format = bracket?.format;
   const isObaCustomMap =
-    bracket?.presetKey === "oba_de_6" || bracket?.presetKey === "oba_de_7";
+    bracket?.presetKey === "oba_de_5" ||
+    bracket?.presetKey === "oba_de_6" ||
+    bracket?.presetKey === "oba_de_7";
 
   // Explicit feeder overrides (Phase D / OBA maps)
   const fedWinner = await placeViaExplicitFeeders(match.id, "WINNER", winner);

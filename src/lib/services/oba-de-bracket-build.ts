@@ -101,25 +101,103 @@ export function firstRoundSlotsForOba4(teamIds: string[]): FirstRoundSlot[] {
   return firstRoundSlotsForSeededField(teamIds, 4);
 }
 
-/** Describe Round 1 pairings for tests / UI (seed numbers are 1-based). */
-export function describeSeededFirstRound(
-  teamCount: number,
-  entrySize: number,
-): Array<{ home: string; away: string }> {
-  const labels = Array.from({ length: teamCount }, (_, i) => `Seed ${i + 1}`);
-  const slots = firstRoundSlotsForSeededField(
-    labels.map((_, i) => `t${i}`),
-    entrySize,
-  );
-  const labelFor = (side: FirstRoundSlot["home"]): string => {
-    if ("bye" in side && side.bye) return "BYE";
-    if ("teamId" in side) {
-      const idx = Number(side.teamId.slice(1));
-      return `Seed ${idx + 1}`;
-    }
-    return "?";
-  };
-  return slots.map((s) => ({ home: labelFor(s.home), away: labelFor(s.away) }));
+/**
+ * 5-team seeded DE matching the Round 1–7 workbook layout:
+ * R1 G1: 4 vs 5 · R2 G2: 2 vs 3, G3: 1 vs W1 · R3 G4: L1 vs L2 ·
+ * R4 G5: W4 vs L3, G6: W2 vs W3 · R5 G7: L6 vs W5 · R6–7 championship.
+ * `seeds` length 5; seeds[0] = seed 1 (strongest).
+ */
+export function gamesForOba5Seeded(seeds: string[]): GameDef[] {
+  const [s1, s2, s3, s4, s5] = seeds;
+  if (!s1 || !s2 || !s3 || !s4 || !s5) throw new Error("5-team DE requires exactly 5 seeds.");
+  return [
+    {
+      key: "G1",
+      roundGroup: "R1",
+      roundName: "Round 1",
+      roundType: BracketRoundType.WINNERS,
+      home: { kind: "team", teamId: s4 },
+      away: { kind: "team", teamId: s5 },
+      gameNumber: "1",
+    },
+    {
+      key: "G2",
+      roundGroup: "R2",
+      roundName: "Round 2",
+      roundType: BracketRoundType.WINNERS,
+      home: { kind: "team", teamId: s2 },
+      away: { kind: "team", teamId: s3 },
+      gameNumber: "2",
+    },
+    {
+      key: "G3",
+      roundGroup: "R2",
+      roundName: "Round 2",
+      roundType: BracketRoundType.WINNERS,
+      home: { kind: "team", teamId: s1 },
+      away: { kind: "winner", of: "G1" },
+      gameNumber: "3",
+    },
+    {
+      key: "G4",
+      roundGroup: "R3",
+      roundName: "Round 3",
+      roundType: BracketRoundType.LOSERS,
+      home: { kind: "loser", of: "G1" },
+      away: { kind: "loser", of: "G2" },
+      gameNumber: "4",
+    },
+    {
+      key: "G5",
+      roundGroup: "R4",
+      roundName: "Round 4",
+      roundType: BracketRoundType.LOSERS,
+      home: { kind: "winner", of: "G4" },
+      away: { kind: "loser", of: "G3" },
+      gameNumber: "5",
+    },
+    {
+      key: "G6",
+      roundGroup: "R4",
+      roundName: "Round 4",
+      roundType: BracketRoundType.WINNERS,
+      home: { kind: "winner", of: "G2" },
+      away: { kind: "winner", of: "G3" },
+      gameNumber: "6",
+    },
+    {
+      key: "G7",
+      roundGroup: "R5",
+      roundName: "Round 5",
+      roundType: BracketRoundType.LOSERS,
+      home: { kind: "loser", of: "G6" },
+      away: { kind: "winner", of: "G5" },
+      gameNumber: "7",
+    },
+    {
+      key: "GF1",
+      roundGroup: "GF",
+      roundName: "Championship",
+      roundType: BracketRoundType.FINAL,
+      home: { kind: "winner", of: "G6" },
+      away: { kind: "winner", of: "G7" },
+      gameNumber: "8",
+    },
+    {
+      key: "GF2",
+      roundGroup: "GF",
+      roundName: "Championship",
+      roundType: BracketRoundType.FINAL,
+      home: { kind: "open" },
+      away: { kind: "open" },
+      gameNumber: "9",
+    },
+  ];
+}
+
+/** Round column labels for the 5-team seeded map (for tests / UI). */
+export function oba5SeededRoundColumns(): string[] {
+  return ["Round 1", "Round 2", "Round 3", "Round 4", "Round 5", "Round 6", "Round 7"];
 }
 
 function gamesForOba6(draw: string[]): GameDef[] {
@@ -365,6 +443,8 @@ function gamesForOba7(draw: string[]): GameDef[] {
 
 function gameDefsForPreset(key: ObaDePresetKey, drawOrder: string[]): GameDef[] {
   switch (key) {
+    case "oba_de_5":
+      return gamesForOba5Seeded(drawOrder);
     case "oba_de_6":
       return gamesForOba6(drawOrder);
     case "oba_de_7":
@@ -379,6 +459,7 @@ type Tx = Parameters<Parameters<typeof prisma.$transaction>[0]>[0];
 async function createFeederGraphBracket(
   opts: CreateObaDeBracketOptions,
   games: GameDef[],
+  avoidRematchesUntilForced: boolean,
 ): Promise<string> {
   const { tournamentId, divisionId, name, fieldId, startsAt, hoursBetweenRounds = 2, published = false, presetKey } =
     opts;
@@ -410,7 +491,7 @@ async function createFeederGraphBracket(
         name,
         sortOrder,
         format: BracketFormat.DOUBLE_ELIMINATION,
-        avoidRematchesUntilForced: true,
+        avoidRematchesUntilForced,
         grandFinalMode: GrandFinalMode.IF_NECESSARY,
         presetKey,
         published,
@@ -546,9 +627,8 @@ export async function createObaDeBracket(opts: CreateObaDeBracketOptions): Promi
     throw new Error("Duplicate teams in OBA bracket draw.");
   }
 
-  if (opts.presetKey === "oba_de_4" || opts.presetKey === "oba_de_5") {
-    const entrySize = opts.presetKey === "oba_de_5" ? 8 : 4;
-    const firstRound = firstRoundSlotsForSeededField(opts.teamIds, entrySize);
+  if (opts.presetKey === "oba_de_4") {
+    const firstRound = firstRoundSlotsForSeededField(opts.teamIds, 4);
     return createDivisionPlayoffBracket({
       tournamentId: opts.tournamentId,
       divisionId: opts.divisionId,
@@ -566,7 +646,9 @@ export async function createObaDeBracket(opts: CreateObaDeBracketOptions): Promi
   }
 
   const games = gameDefsForPreset(opts.presetKey, opts.teamIds);
-  return createFeederGraphBracket(opts, games);
+  // 5-team map is fully feeder-wired; 6/7 still use rematch-aware redraw slots.
+  const avoid = opts.presetKey !== "oba_de_5";
+  return createFeederGraphBracket(opts, games, avoid);
 }
 
 /** Optional helper for tests / wizard: randomize draw order. */

@@ -8,10 +8,12 @@ import { SectionTitle } from "@/components/ui/PublicHeading";
 import { BracketZoomShell } from "@/components/brackets/BracketZoomShell";
 import { BracketGameCard } from "@/components/brackets/BracketGameCard";
 import { BidirectionalDeBracket } from "@/components/brackets/BidirectionalDeBracket";
+import { ChronologicalRoundBracket } from "@/components/brackets/ChronologicalRoundBracket";
 import { ChampionCelebration } from "@/components/brackets/ChampionCelebration";
 import type { BracketWith, GameRow } from "@/components/brackets/bracket-types";
 import { matchSortIndex, prevRoundNameForGame } from "@/components/brackets/bracket-slot-lines";
 import { resolveChampionFromBracket } from "@/lib/brackets/bracket-champion";
+import { isObaDePresetKey } from "@/lib/brackets/oba-de-presets";
 import {
   filterRoundsForScope,
   hasConsolationRounds,
@@ -273,7 +275,10 @@ function BracketSection({
   const visibleRoundsKey = useMemo(() => visibleRounds.map((r) => r.id).join("|"), [visibleRounds]);
 
   const champion = useMemo(() => resolveChampionFromBracket(b), [b]);
+  const useChronologicalRounds =
+    !!b.presetKey && isObaDePresetKey(b.presetKey) && (!showScope || scope === "all");
   const useBidirectional =
+    !useChronologicalRounds &&
     (b.format === "DOUBLE_ELIMINATION" || b.format === "TRIPLE_ELIMINATION") &&
     (!showScope || scope === "all");
 
@@ -386,7 +391,13 @@ function BracketSection({
       </div>
 
       <div className="mt-4 hidden md:block">
-        {useBidirectional ? (
+        {useChronologicalRounds ? (
+          <ChronologicalRoundBracket
+            rounds={roundsSorted}
+            byRound={byRound}
+            timeZone={tournamentTimezone}
+          />
+        ) : useBidirectional ? (
           <BidirectionalDeBracket
             rounds={roundsSorted}
             byRound={byRound}
@@ -399,6 +410,14 @@ function BracketSection({
       <div className="mt-4 md:hidden">
         {mobileView === "list" ? (
           <BracketMobileList games={gamesInScope} roundsVisible={visibleRounds} timeZone={tournamentTimezone} />
+        ) : useChronologicalRounds ? (
+          <BracketZoomShell>
+            <ChronologicalRoundBracket
+              rounds={roundsSorted}
+              byRound={byRound}
+              timeZone={tournamentTimezone}
+            />
+          </BracketZoomShell>
         ) : (
           <BracketZoomShell>
             <MobileBracketRoundNav

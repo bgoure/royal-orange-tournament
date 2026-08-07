@@ -68,32 +68,27 @@ export const OBA_DE_PRESETS: Record<ObaDePresetKey, ObaDePreset> = {
     teamCount: 5,
     label: "Double elimination — 5 teams (seeded)",
     shortLabel: "DE · 5",
-    summary: "Seeds 1–3 bye; seed 4 vs 5 opens; if-necessary championship.",
-    classicEntrySize: 8,
+    summary: "Round 1–7 columns; seeds 1–3 bye; 4 vs 5 opens; if-necessary final.",
     explainer: [
       {
         title: "Overview",
-        body: "Five teams in an 8-slot double-elimination tree. Top three seeds receive first-round byes; only the 4th and 5th seeds play in Round 1. A second loss eliminates a team. Championship uses an if-necessary game when the losers champion beats the undefeated team.",
+        body: "Five-team double elimination laid out in Round 1–7 columns (workbook style). Seeds 1–3 receive a Round 1 bye; only seeds 4 and 5 play Game 1. A second loss eliminates a team.",
       },
       {
-        title: "Round 1 (winners)",
-        body: "Game 1: 4th seed vs 5th seed. Seeds 1, 2, and 3 each receive a bye into Round 2.",
+        title: "Round 1",
+        body: "Game 1: 4th seed vs 5th seed.",
       },
       {
-        title: "Round 2 (winners)",
+        title: "Round 2",
         body: "Game 2: 2nd seed vs 3rd seed. Game 3: 1st seed vs winner of Game 1.",
       },
       {
-        title: "Winners final",
-        body: "Game 5: winner of Game 2 vs winner of Game 3. Winner advances to the championship undefeated.",
+        title: "Rounds 3–5",
+        body: "Round 3 Game 4: loser of Game 1 vs loser of Game 2. Round 4 Game 5: winner of Game 4 vs loser of Game 3; Game 6: winner of Game 2 vs winner of Game 3. Round 5 Game 7: loser of Game 6 vs winner of Game 5.",
       },
       {
-        title: "Losers bracket",
-        body: "Game 4: loser of Game 1 vs loser of Game 2. Game 6: winner of Game 4 vs loser of Game 3. Game 7 (losers final): winner of Game 6 vs loser of Game 5.",
-      },
-      {
-        title: "Championship",
-        body: "Game 8: winners-bracket champion vs losers-bracket champion. Game 9 (if necessary): played only if the losers champion wins Game 8 (first loss for the previously undefeated team).",
+        title: "Rounds 6–7 (championship)",
+        body: "Round 6 Game 8: winner of Game 6 (undefeated) vs winner of Game 7. Round 7 Game 9 is if-necessary when the losers champion wins Game 8.",
       },
       {
         title: "Seeding / byes",
