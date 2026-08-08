@@ -202,6 +202,13 @@ export function BracketSeedBoard({
         </p>
       ) : null}
 
+      {presetKey === "oba_de_7" && matches.length === 3 ? (
+        <p className="mt-3 rounded-md border border-emerald-200 bg-emerald-50/80 px-3 py-2 text-xs text-emerald-950">
+          Seeded 7-team map: Round 1 is three games (4 vs 5, 3 vs 6, 2 vs 7). Seed 1 byes into Round 2
+          (G5) — put the six Round 1 teams in the seats below; leave seed 1 in Sitting out.
+        </p>
+      ) : null}
+
       {!canConfigure ? (
         <p className="mt-3 text-xs text-zinc-500">You don’t have permission to edit Round 1 seeds.</p>
       ) : null}

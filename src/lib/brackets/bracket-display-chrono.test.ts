@@ -4,8 +4,10 @@ import { chronologicalRoundColumns } from "./bracket-display";
 import {
   gamesForOba5Seeded,
   gamesForOba6Seeded,
+  gamesForOba7Seeded,
   oba5SeededRoundColumns,
   oba6SeededRoundColumns,
+  oba7SeededRoundColumns,
 } from "@/lib/services/oba-de-bracket-build";
 
 describe("chronologicalRoundColumns", () => {
@@ -138,5 +140,46 @@ describe("gamesForOba6Seeded", () => {
     assert.equal(gf1.gameNumber, "10");
     if (gf1.home.kind === "winner") assert.equal(gf1.home.of, "G8");
     if (gf1.away.kind === "winner") assert.equal(gf1.away.of, "G9");
+  });
+});
+
+describe("gamesForOba7Seeded", () => {
+  it("opens with 4v5, 3v6, 2v7; seed 1 byes into G5", () => {
+    const games = gamesForOba7Seeded(["s1", "s2", "s3", "s4", "s5", "s6", "s7"]);
+    assert.equal(games.filter((g) => g.roundGroup === "R1").length, 3);
+    const g1 = games.find((g) => g.key === "G1")!;
+    const g3 = games.find((g) => g.key === "G3")!;
+    if (g1.home.kind === "team") assert.equal(g1.home.teamId, "s4");
+    if (g3.home.kind === "team") assert.equal(g3.home.teamId, "s2");
+    if (g3.away.kind === "team") assert.equal(g3.away.teamId, "s7");
+
+    const g5 = games.find((g) => g.key === "G5")!;
+    assert.equal(g5.roundGroup, "R2");
+    if (g5.home.kind === "team") assert.equal(g5.home.teamId, "s1");
+    if (g5.away.kind === "winner") assert.equal(g5.away.of, "G1");
+
+    const g4 = games.find((g) => g.key === "G4")!;
+    assert.equal(g4.roundGroup, "R2");
+    if (g4.home.kind === "loser") assert.equal(g4.home.of, "G3");
+    if (g4.away.kind === "loser") assert.equal(g4.away.of, "G2");
+
+    const g11 = games.find((g) => g.key === "G11")!;
+    if (g11.home.kind === "loser") assert.equal(g11.home.of, "G9");
+    if (g11.away.kind === "winner") assert.equal(g11.away.of, "G10");
+
+    const gf1 = games.find((g) => g.key === "GF1")!;
+    assert.equal(gf1.gameNumber, "12");
+    if (gf1.home.kind === "winner") assert.equal(gf1.home.of, "G9");
+    if (gf1.away.kind === "winner") assert.equal(gf1.away.of, "G11");
+    assert.equal(games.find((g) => g.key === "GF2")?.gameNumber, "13");
+    assert.deepEqual(oba7SeededRoundColumns(), [
+      "Round 1",
+      "Round 2",
+      "Round 3",
+      "Round 4",
+      "Round 5",
+      "Round 6",
+      "Round 7",
+    ]);
   });
 });

@@ -11,6 +11,7 @@ import {
   firstRoundSlotsForOba4,
   gamesForOba5Seeded,
   gamesForOba6Seeded,
+  gamesForOba7Seeded,
 } from "@/lib/services/oba-de-bracket-build";
 
 describe("OBA DE presets", () => {
@@ -80,5 +81,25 @@ describe("OBA DE presets", () => {
     assert.equal(games.find((g) => g.key === "G9")?.roundName, "Round 5");
     assert.ok(games.every((g) => g.home.kind !== "bye" && g.away.kind !== "bye"));
     assert.equal(games.find((g) => g.key === "GF2")?.gameNumber, "11");
+  });
+
+  it("7-team map is Round 1–7 seeded workbook (no redraw slots)", () => {
+    const games = gamesForOba7Seeded(["s1", "s2", "s3", "s4", "s5", "s6", "s7"]);
+    assert.equal(games.filter((g) => g.roundName === "Round 1").length, 3);
+    assert.equal(games.filter((g) => g.roundName === "Round 2").length, 3);
+    assert.equal(games.filter((g) => g.roundName === "Round 3").length, 3);
+    assert.equal(games.filter((g) => g.roundName === "Round 4").length, 1);
+    assert.equal(games.filter((g) => g.roundName === "Round 5").length, 1);
+    assert.equal(games.find((g) => g.key === "G5")?.roundName, "Round 2");
+    assert.equal(games.find((g) => g.key === "G4")?.roundName, "Round 2");
+    assert.equal(games.find((g) => g.key === "G10")?.roundName, "Round 4");
+    assert.equal(games.find((g) => g.key === "G11")?.roundName, "Round 5");
+    const g5 = games.find((g) => g.key === "G5")!;
+    assert.equal(g5.home.kind, "team");
+    if (g5.home.kind === "team") assert.equal(g5.home.teamId, "s1");
+    assert.ok(games.every((g) => g.home.kind !== "open" || g.key === "GF2"));
+    assert.ok(games.every((g) => g.home.kind !== "bye" && g.away.kind !== "bye"));
+    assert.equal(games.find((g) => g.key === "GF1")?.gameNumber, "12");
+    assert.equal(games.find((g) => g.key === "GF2")?.gameNumber, "13");
   });
 });

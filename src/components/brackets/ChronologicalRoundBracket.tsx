@@ -125,25 +125,6 @@ function gameByNumber(games: GameRow[], num: string): GameRow | undefined {
   return undefined;
 }
 
-/**
- * Align `toNum` so its vertical center matches `fromNum`.
- * Keeps feeder connectors (G1→G3) horizontal when cards differ in height (1-line vs 2-line names).
- */
-function alignGameNumberCenters(
-  games: GameRow[],
-  tops: Map<string, number>,
-  hOf: (id: string) => number,
-  fromNum: string,
-  toNum: string,
-): void {
-  const from = gameByNumber(games, fromNum);
-  const to = gameByNumber(games, toNum);
-  if (!from || !to) return;
-  const fromY = tops.get(from.id);
-  if (fromY == null) return;
-  tops.set(to.id, fromY + hOf(from.id) / 2 - hOf(to.id) / 2);
-}
-
 /** Sit `midNum` vertically between `aNum` and `bNum` (e.g. G7 between G5 and G6). */
 function centerBetweenGameNumbers(
   games: GameRow[],
@@ -296,10 +277,9 @@ function layoutGameTops(
   };
 
   layoutBand(winnersByCol, 0);
-  // Reinforce G1↔G3 / G2↔G4 (etc.) after band layout — center-aligned.
+  // Reinforce single-feeder winners chains after band layout — center-aligned
+  // (6-team G1→G3 / G2→G4; 7-team G1→G5; etc.).
   snapSingleWinnerFeederRows(winnersByCol, edges, tops, hOf, winnersIds);
-  alignGameNumberCenters(winnersByCol.flat(), tops, hOf, "1", "3");
-  alignGameNumberCenters(winnersByCol.flat(), tops, hOf, "2", "4");
 
   // Recompute losers start from actual winners bottoms after snap
   let winnersMax = 0;
