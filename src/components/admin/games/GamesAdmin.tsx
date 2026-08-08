@@ -1,6 +1,6 @@
 "use client";
 
-import { useActionState, useEffect, useMemo, useState } from "react";
+import { useActionState, useEffect, useId, useMemo, useRef, useState, type ReactNode } from "react";
 import Link from "next/link";
 import { GameKind, GameResultType, GameStatus } from "@prisma/client";
 import { publicGameStatusLabel } from "@/components/schedule/GameList";
@@ -178,9 +178,19 @@ export function GamesAdmin({
     return { all: divisionGames.length, needs_score, unscheduled, live, final };
   }, [divisionGames]);
 
+  const [createModal, setCreateModal] = useState<"roundRobin" | "newGame" | null>(null);
+
+  useEffect(() => {
+    if (rrState?.ok) setCreateModal(null);
+  }, [rrState]);
+
+  useEffect(() => {
+    if (createState?.ok) setCreateModal(null);
+  }, [createState]);
+
   const filteredGames = useMemo(() => {
     const now = Date.now();
-    return divisionGames.filter((g) => {
+    const list = divisionGames.filter((g) => {
       if (fieldFilter !== "all" && g.fieldId !== fieldFilter) return false;
       switch (listFilter) {
         case "needs_score":
@@ -195,6 +205,7 @@ export function GamesAdmin({
           return true;
       }
     });
+    return sortGamesByGameNumber(list);
   }, [divisionGames, listFilter, fieldFilter]);
 
   if (mode === "scorekeeper") {
@@ -294,253 +305,287 @@ export function GamesAdmin({
         </div>
       ) : null}
 
-      <section className="rounded-xl border border-zinc-200 bg-zinc-50/80 p-4 sm:p-6">
-        <h2 className="text-sm font-semibold text-zinc-900">Generate pool round-robin</h2>
-        <p className="mt-1 text-xs text-zinc-600">
-          Create every pool-play matchup for one pool. Games rotate across fields; when a round has more games
-          than fields, overflow waves are spaced by the slot length so a field is never double-booked. Odd team
-          counts skip the bye slot (no bye games).
-        </p>
-        <ActionMessage state={rrState} />
-        {divisionPools.length === 0 ? (
-          <p className="mt-4 text-sm text-amber-800">
-            {poolsWithTeams.length === 0 ? (
-              <>
-                Add pools and teams under{" "}
-                <Link href="/admin/divisions" className="font-medium underline">
-                  Divisions
-                </Link>{" "}
-                first.
-              </>
-            ) : (
-              <>No pools in this division. Switch tabs or add a pool under Divisions.</>
-            )}
-          </p>
-        ) : fields.length === 0 ? (
-          <p className="mt-4 text-sm text-amber-800">
-            Add fields under{" "}
-            <Link href="/admin/fields" className="font-medium underline">
-              Fields
-            </Link>{" "}
-            before generating a schedule.
-          </p>
-        ) : (
-          <form action={rrAction} className="mt-4 flex flex-col gap-4">
-            <div className="grid gap-3 lg:grid-cols-2 xl:grid-cols-3">
-              <div>
-                <label htmlFor="rr-pool" className={labelClass}>
-                  Pool
-                </label>
-                <select
-                  id="rr-pool"
-                  name="poolId"
-                  required
-                  value={rrPoolId}
-                  onChange={(e) => setRrPoolId(e.target.value)}
-                  className={`${formClass} mt-1 w-full`}
-                >
-                  {divisionPools.map((p) => (
-                    <option key={p.poolId} value={p.poolId}>
-                      {p.label} ({p.teams.length} teams)
-                    </option>
-                  ))}
-                </select>
-                {rrTeamCount > 0 && rrTeamCount < 2 ? (
-                  <p className="mt-1 text-[10px] text-amber-700">Need at least 2 teams in this pool.</p>
-                ) : rrTeamCount >= 2 ? (
-                  <p className="mt-1 text-[10px] text-zinc-500">
-                    Will create {(rrTeamCount * (rrTeamCount - 1)) / 2} games.
-                  </p>
-                ) : null}
-              </div>
-              <div>
-                <label htmlFor="rr-when" className={labelClass}>
-                  First round start ({tournamentTimezone})
-                </label>
-                <input
-                  id="rr-when"
-                  name="scheduledAt"
-                  type="datetime-local"
-                  required
-                  className={`${formClass} mt-1 w-full`}
-                />
-              </div>
-              <div>
-                <label htmlFor="rr-slot" className={labelClass}>
-                  Minutes between rounds
-                </label>
-                <input
-                  id="rr-slot"
-                  name="slotMinutes"
-                  type="number"
-                  min={15}
-                  max={1440}
-                  defaultValue={90}
-                  required
-                  className={`${formClass} mt-1 w-full`}
-                />
-              </div>
-              <div className="lg:col-span-2 xl:col-span-3">
-                <span className={labelClass}>Fields (select one or more)</span>
-                <div className="mt-1 flex flex-wrap gap-3">
-                  {fields.map((f) => (
-                    <label key={f.id} className="inline-flex items-center gap-2 text-sm text-zinc-800">
-                      <input type="checkbox" name="fieldIds" value={f.id} defaultChecked={fields[0]?.id === f.id} />
-                      {f.label}
-                    </label>
-                  ))}
+      <div className="flex flex-wrap gap-2">
+        <button
+          type="button"
+          onClick={() => setCreateModal("roundRobin")}
+          className={`${btnSecondary} px-3 py-2 text-sm`}
+        >
+          Generate round-robin
+        </button>
+        <button
+          type="button"
+          onClick={() => setCreateModal("newGame")}
+          className={`${btnPrimary} px-3 py-2 text-sm`}
+        >
+          New pool game
+        </button>
+      </div>
+
+      {createModal === "roundRobin" ? (
+        <GamesAdminModal
+          title="Generate pool round-robin"
+          description="Create every pool-play matchup for one pool. Games rotate across fields; overflow waves are spaced by the slot length so a field is never double-booked. Odd team counts skip the bye slot."
+          onClose={() => setCreateModal(null)}
+        >
+          <ActionMessage state={rrState} />
+          {divisionPools.length === 0 ? (
+            <p className="mt-4 text-sm text-amber-800">
+              {poolsWithTeams.length === 0 ? (
+                <>
+                  Add pools and teams under{" "}
+                  <Link href="/admin/divisions" className="font-medium underline">
+                    Divisions
+                  </Link>{" "}
+                  first.
+                </>
+              ) : (
+                <>No pools in this division. Switch tabs or add a pool under Divisions.</>
+              )}
+            </p>
+          ) : fields.length === 0 ? (
+            <p className="mt-4 text-sm text-amber-800">
+              Add fields under{" "}
+              <Link href="/admin/fields" className="font-medium underline">
+                Fields
+              </Link>{" "}
+              before generating a schedule.
+            </p>
+          ) : (
+            <form action={rrAction} className="mt-4 flex flex-col gap-4">
+              <div className="grid gap-3 sm:grid-cols-2">
+                <div>
+                  <label htmlFor="rr-pool" className={labelClass}>
+                    Pool
+                  </label>
+                  <select
+                    id="rr-pool"
+                    name="poolId"
+                    required
+                    value={rrPoolId}
+                    onChange={(e) => setRrPoolId(e.target.value)}
+                    className={`${formClass} mt-1 w-full`}
+                  >
+                    {divisionPools.map((p) => (
+                      <option key={p.poolId} value={p.poolId}>
+                        {p.label} ({p.teams.length} teams)
+                      </option>
+                    ))}
+                  </select>
+                  {rrTeamCount > 0 && rrTeamCount < 2 ? (
+                    <p className="mt-1 text-[10px] text-amber-700">Need at least 2 teams in this pool.</p>
+                  ) : rrTeamCount >= 2 ? (
+                    <p className="mt-1 text-[10px] text-zinc-500">
+                      Will create {(rrTeamCount * (rrTeamCount - 1)) / 2} games.
+                    </p>
+                  ) : null}
+                </div>
+                <div>
+                  <label htmlFor="rr-when" className={labelClass}>
+                    First round start ({tournamentTimezone})
+                  </label>
+                  <input
+                    id="rr-when"
+                    name="scheduledAt"
+                    type="datetime-local"
+                    required
+                    className={`${formClass} mt-1 w-full`}
+                  />
+                </div>
+                <div>
+                  <label htmlFor="rr-slot" className={labelClass}>
+                    Minutes between rounds
+                  </label>
+                  <input
+                    id="rr-slot"
+                    name="slotMinutes"
+                    type="number"
+                    min={15}
+                    max={1440}
+                    defaultValue={90}
+                    required
+                    className={`${formClass} mt-1 w-full`}
+                  />
+                </div>
+                <div className="sm:col-span-2">
+                  <span className={labelClass}>Fields (select one or more)</span>
+                  <div className="mt-1 flex flex-wrap gap-3">
+                    {fields.map((f) => (
+                      <label key={f.id} className="inline-flex items-center gap-2 text-sm text-zinc-800">
+                        <input type="checkbox" name="fieldIds" value={f.id} defaultChecked={fields[0]?.id === f.id} />
+                        {f.label}
+                      </label>
+                    ))}
+                  </div>
+                </div>
+                <div className="sm:col-span-2">
+                  <label className="inline-flex items-center gap-2 text-sm text-zinc-800">
+                    <input type="checkbox" name="replaceExisting" value="true" />
+                    Replace existing pool games for this pool
+                  </label>
                 </div>
               </div>
-              <div className="lg:col-span-2 xl:col-span-3">
-                <label className="inline-flex items-center gap-2 text-sm text-zinc-800">
-                  <input type="checkbox" name="replaceExisting" value="true" />
-                  Replace existing pool games for this pool
-                </label>
+              <div className="flex flex-wrap justify-end gap-2 border-t border-zinc-100 pt-4">
+                <button type="button" onClick={() => setCreateModal(null)} className={btnSecondary}>
+                  Cancel
+                </button>
+                <button type="submit" disabled={rrPending || rrTeamCount < 2} className={btnPrimary}>
+                  {rrPending ? "Generating…" : "Generate schedule"}
+                </button>
               </div>
-            </div>
-            <button type="submit" disabled={rrPending || rrTeamCount < 2} className={`${btnPrimary} w-fit`}>
-              {rrPending ? "Generating…" : "Generate schedule"}
-            </button>
-          </form>
-        )}
-      </section>
+            </form>
+          )}
+        </GamesAdminModal>
+      ) : null}
 
-      <section className="rounded-xl border border-zinc-200 bg-zinc-50/80 p-6">
-        <h2 className="text-sm font-semibold text-zinc-900">New pool game</h2>
-        <p className="mt-1 text-xs text-zinc-600">
-          Pool play games belong to a division pool. Pick two opponents from that pool (both required). Which side is
-          recorded as home is set when you enter scores, not here.
-        </p>
-        <ActionMessage state={createState} />
-        {divisionPools.length === 0 ? (
-          <p className="mt-4 text-sm text-amber-800">
-            {poolsWithTeams.length === 0 ? (
-              <>
-                Add pools and teams under{" "}
-                <Link href="/admin/divisions" className="font-medium underline">
-                  Divisions
-                </Link>{" "}
-                first.
-              </>
-            ) : (
-              <>No pools in this division. Switch tabs or add a pool under Divisions.</>
-            )}
-          </p>
-        ) : fields.length === 0 ? (
-          <p className="mt-4 text-sm text-amber-800">
-            Add fields under{" "}
-            <Link href="/admin/fields" className="font-medium underline">
-              Fields
-            </Link>{" "}
-            (linked to a location) before scheduling games.
-          </p>
-        ) : (
-          <form action={createAction} className="mt-4 flex flex-col gap-4">
-            <div className="grid gap-3 lg:grid-cols-2 xl:grid-cols-3">
-              <div>
-                <label htmlFor="cg-pool" className={labelClass}>
-                  Pool
-                </label>
-                <select
-                  id="cg-pool"
-                  name="poolId"
-                  required
-                  value={poolId}
-                  onChange={(e) => setPoolId(e.target.value)}
-                  className={`${formClass} mt-1 w-full`}
-                >
-                  {divisionPools.map((p) => (
-                    <option key={p.poolId} value={p.poolId}>
-                      {p.label}
-                    </option>
-                  ))}
-                </select>
+      {createModal === "newGame" ? (
+        <GamesAdminModal
+          title="New pool game"
+          description="Pick two opponents from a pool in this division. Which side is recorded as home is set when you enter scores, not here."
+          onClose={() => setCreateModal(null)}
+        >
+          <ActionMessage state={createState} />
+          {divisionPools.length === 0 ? (
+            <p className="mt-4 text-sm text-amber-800">
+              {poolsWithTeams.length === 0 ? (
+                <>
+                  Add pools and teams under{" "}
+                  <Link href="/admin/divisions" className="font-medium underline">
+                    Divisions
+                  </Link>{" "}
+                  first.
+                </>
+              ) : (
+                <>No pools in this division. Switch tabs or add a pool under Divisions.</>
+              )}
+            </p>
+          ) : fields.length === 0 ? (
+            <p className="mt-4 text-sm text-amber-800">
+              Add fields under{" "}
+              <Link href="/admin/fields" className="font-medium underline">
+                Fields
+              </Link>{" "}
+              (linked to a location) before scheduling games.
+            </p>
+          ) : (
+            <form action={createAction} className="mt-4 flex flex-col gap-4">
+              <div className="grid gap-3 sm:grid-cols-2">
+                <div>
+                  <label htmlFor="cg-pool" className={labelClass}>
+                    Pool
+                  </label>
+                  <select
+                    id="cg-pool"
+                    name="poolId"
+                    required
+                    value={poolId}
+                    onChange={(e) => setPoolId(e.target.value)}
+                    className={`${formClass} mt-1 w-full`}
+                  >
+                    {divisionPools.map((p) => (
+                      <option key={p.poolId} value={p.poolId}>
+                        {p.label}
+                      </option>
+                    ))}
+                  </select>
+                </div>
+                <div>
+                  <label htmlFor="cg-field" className={labelClass}>
+                    Field
+                  </label>
+                  <select id="cg-field" name="fieldId" required className={`${formClass} mt-1 w-full`}>
+                    <option value="">Select a field…</option>
+                    {fields.map((f) => (
+                      <option key={f.id} value={f.id}>
+                        {f.label}
+                      </option>
+                    ))}
+                  </select>
+                </div>
+                <div>
+                  <label htmlFor="cg-when" className={labelClass}>
+                    Start ({tournamentTimezone})
+                  </label>
+                  <input
+                    id="cg-when"
+                    name="scheduledAt"
+                    type="datetime-local"
+                    required
+                    className={`${formClass} mt-1 w-full`}
+                  />
+                </div>
+                <div>
+                  <label htmlFor="cg-game-num" className={labelClass}>
+                    Game ID / # (optional)
+                  </label>
+                  <input
+                    id="cg-game-num"
+                    name="gameNumber"
+                    type="text"
+                    maxLength={64}
+                    placeholder="e.g. 12 or Field 3"
+                    className={`${formClass} mt-1 w-full`}
+                  />
+                </div>
+                <div>
+                  <label htmlFor="cg-away" className={labelClass}>
+                    Opponent 1
+                  </label>
+                  <select id="cg-away" name="awayTeamId" required className={`${formClass} mt-1 w-full`}>
+                    <option value="">Select…</option>
+                    {teamOptions.map((t) => (
+                      <option key={t.id} value={t.id}>
+                        {t.name}
+                      </option>
+                    ))}
+                  </select>
+                  <p className="mt-0.5 text-[10px] text-zinc-500">Stored as away slot until scoring sets field home.</p>
+                </div>
+                <div>
+                  <label htmlFor="cg-home" className={labelClass}>
+                    Opponent 2
+                  </label>
+                  <select id="cg-home" name="homeTeamId" required className={`${formClass} mt-1 w-full`}>
+                    <option value="">Select…</option>
+                    {teamOptions.map((t) => (
+                      <option key={t.id} value={t.id}>
+                        {t.name}
+                      </option>
+                    ))}
+                  </select>
+                  <p className="mt-0.5 text-[10px] text-zinc-500">Stored as home slot until scoring sets field home.</p>
+                </div>
+                <div>
+                  <label htmlFor="cg-status" className={labelClass}>
+                    Status
+                  </label>
+                  <select id="cg-status" name="status" className={`${formClass} mt-1 w-full`} defaultValue="SCHEDULED">
+                    {GAME_STATUS_OPTIONS.map((s) => (
+                      <option key={s} value={s}>
+                        {publicGameStatusLabel(s)}
+                      </option>
+                    ))}
+                  </select>
+                </div>
               </div>
-              <div>
-                <label htmlFor="cg-field" className={labelClass}>
-                  Field
-                </label>
-                <select id="cg-field" name="fieldId" required className={`${formClass} mt-1 w-full`}>
-                  <option value="">Select a field…</option>
-                  {fields.map((f) => (
-                    <option key={f.id} value={f.id}>
-                      {f.label}
-                    </option>
-                  ))}
-                </select>
+              <div className="flex flex-wrap justify-end gap-2 border-t border-zinc-100 pt-4">
+                <button type="button" onClick={() => setCreateModal(null)} className={btnSecondary}>
+                  Cancel
+                </button>
+                <button type="submit" disabled={createPending} className={btnPrimary}>
+                  {createPending ? "Creating…" : "Create game"}
+                </button>
               </div>
-              <div>
-                <label htmlFor="cg-when" className={labelClass}>
-                  Start ({tournamentTimezone})
-                </label>
-                <input id="cg-when" name="scheduledAt" type="datetime-local" required className={`${formClass} mt-1 w-full`} />
-              </div>
-              <div>
-                <label htmlFor="cg-away" className={labelClass}>
-                  Opponent 1
-                </label>
-                <select id="cg-away" name="awayTeamId" required className={`${formClass} mt-1 w-full`}>
-                  <option value="">Select…</option>
-                  {teamOptions.map((t) => (
-                    <option key={t.id} value={t.id}>
-                      {t.name}
-                    </option>
-                  ))}
-                </select>
-                <p className="mt-0.5 text-[10px] text-zinc-500">Stored as away slot until scoring sets field home.</p>
-              </div>
-              <div>
-                <label htmlFor="cg-home" className={labelClass}>
-                  Opponent 2
-                </label>
-                <select id="cg-home" name="homeTeamId" required className={`${formClass} mt-1 w-full`}>
-                  <option value="">Select…</option>
-                  {teamOptions.map((t) => (
-                    <option key={t.id} value={t.id}>
-                      {t.name}
-                    </option>
-                  ))}
-                </select>
-                <p className="mt-0.5 text-[10px] text-zinc-500">Stored as home slot until scoring sets field home.</p>
-              </div>
-              <div>
-                <label htmlFor="cg-status" className={labelClass}>
-                  Status
-                </label>
-                <select id="cg-status" name="status" className={`${formClass} mt-1 w-full`} defaultValue="SCHEDULED">
-                  {GAME_STATUS_OPTIONS.map((s) => (
-                    <option key={s} value={s}>
-                      {publicGameStatusLabel(s)}
-                    </option>
-                  ))}
-                </select>
-              </div>
-              <div>
-                <label htmlFor="cg-game-num" className={labelClass}>
-                  Game ID / # (optional)
-                </label>
-                <input
-                  id="cg-game-num"
-                  name="gameNumber"
-                  type="text"
-                  maxLength={64}
-                  placeholder="e.g. 12 or Field 3"
-                  className={`${formClass} mt-1 w-full`}
-                />
-              </div>
-            </div>
-            <button type="submit" disabled={createPending} className={`${btnPrimary} w-fit`}>
-              {createPending ? "Creating…" : "Create game"}
-            </button>
-          </form>
-        )}
-      </section>
+            </form>
+          )}
+        </GamesAdminModal>
+      ) : null}
 
       {divisionGames.length === 0 ? (
         <p className="text-sm text-zinc-500">
           {games.length === 0
             ? "No games scheduled yet."
-            : "No games in this division yet. Switch tabs or create a game above."}
+            : "No games in this division yet. Switch tabs or create a game."}
         </p>
       ) : (
         <section className="flex flex-col gap-4">
@@ -550,7 +595,7 @@ export function GamesAdmin({
                 <h2 className="text-sm font-semibold text-zinc-900">Game list</h2>
                 <p className="mt-0.5 text-xs text-zinc-500">
                   Showing {filteredGames.length} of {divisionGames.length}
-                  {listFilter !== "all" || fieldFilter !== "all" ? " (filtered)" : ""}.
+                  {listFilter !== "all" || fieldFilter !== "all" ? " (filtered)" : ""}, ordered by Game ID.
                 </p>
               </div>
               <label className="flex min-w-[12rem] flex-col gap-1">
@@ -656,6 +701,90 @@ function gameNeedsScore(game: AdminGameRow, now: number): boolean {
   if (game.schedulePlaceholder) return false;
   const start = new Date(game.scheduledAt).getTime();
   return start <= now && (game.homeRuns == null || game.awayRuns == null);
+}
+
+/** Numbered games first (numeric / natural order), then unnumbered by start time. */
+function sortGamesByGameNumber<T extends { gameNumber: string | null; scheduledAt: Date | string }>(
+  games: T[],
+): T[] {
+  return [...games].sort((a, b) => {
+    const na = a.gameNumber?.trim() ?? "";
+    const nb = b.gameNumber?.trim() ?? "";
+    const aHas = na.length > 0;
+    const bHas = nb.length > 0;
+    if (aHas && bHas) {
+      const aAllDigits = /^\d+$/.test(na);
+      const bAllDigits = /^\d+$/.test(nb);
+      const c =
+        aAllDigits && bAllDigits
+          ? Number(na) - Number(nb)
+          : na.localeCompare(nb, undefined, { numeric: true, sensitivity: "base" });
+      if (c !== 0) return c;
+    } else if (aHas && !bHas) return -1;
+    else if (!aHas && bHas) return 1;
+    const ta = typeof a.scheduledAt === "string" ? new Date(a.scheduledAt).getTime() : a.scheduledAt.getTime();
+    const tb = typeof b.scheduledAt === "string" ? new Date(b.scheduledAt).getTime() : b.scheduledAt.getTime();
+    return ta - tb;
+  });
+}
+
+function GamesAdminModal({
+  title,
+  description,
+  onClose,
+  children,
+}: {
+  title: string;
+  description: string;
+  onClose: () => void;
+  children: ReactNode;
+}) {
+  const titleId = useId();
+  const closeRef = useRef<HTMLButtonElement>(null);
+
+  useEffect(() => {
+    closeRef.current?.focus();
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key === "Escape") onClose();
+    };
+    document.addEventListener("keydown", onKey);
+    const prev = document.body.style.overflow;
+    document.body.style.overflow = "hidden";
+    return () => {
+      document.removeEventListener("keydown", onKey);
+      document.body.style.overflow = prev;
+    };
+  }, [onClose]);
+
+  return (
+    <div
+      className="fixed inset-0 z-[60] flex items-end justify-center bg-black/50 p-4 sm:items-center"
+      role="dialog"
+      aria-modal="true"
+      aria-labelledby={titleId}
+    >
+      <button type="button" className="absolute inset-0 cursor-default" aria-label="Close dialog" onClick={onClose} />
+      <div className="relative z-10 flex max-h-[min(90vh,44rem)] w-full max-w-2xl flex-col overflow-hidden rounded-2xl border border-zinc-200 bg-white shadow-xl">
+        <div className="flex items-start justify-between gap-3 border-b border-zinc-100 px-5 py-4">
+          <div className="min-w-0">
+            <h2 id={titleId} className="text-lg font-semibold text-zinc-900">
+              {title}
+            </h2>
+            <p className="mt-1 text-xs text-zinc-600">{description}</p>
+          </div>
+          <button
+            ref={closeRef}
+            type="button"
+            onClick={onClose}
+            className="shrink-0 rounded-lg px-2 py-1 text-sm font-medium text-zinc-500 hover:bg-zinc-100 hover:text-zinc-800"
+          >
+            Close
+          </button>
+        </div>
+        <div className="overflow-y-auto px-5 py-4">{children}</div>
+      </div>
+    </div>
+  );
 }
 
 function adminStatusBadgeClass(status: GameStatus): string {
