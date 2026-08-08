@@ -1206,7 +1206,11 @@ function GameCard({
               The wizard stores a placeholder time until you save a real slot here (clears the public “TBD”).
             </p>
             <ActionMessage state={bracketScheduleState} />
-            <form action={bracketScheduleAction} className="mt-3 flex flex-col gap-3">
+            <form
+              key={`bracket-sched-${game.id}-${game.schedulePlaceholder ? "tbd" : iso}-${game.fieldId}`}
+              action={bracketScheduleAction}
+              className="mt-3 flex flex-col gap-3"
+            >
               <input type="hidden" name="id" value={game.id} />
               <div className="grid gap-3 lg:grid-cols-2 xl:grid-cols-3">
                 <div>
@@ -1225,8 +1229,8 @@ function GameCard({
                     name="scheduledAt"
                     type="datetime-local"
                     required
-                    // Placeholder / TBD slots share a wizard seed time — don't prefill it or saves
-                    // look like a real day and can false-conflict with other seeded games.
+                    // TBD: leave empty so wizard seed times are not mistaken for real slots.
+                    // Remount via form key when schedulePlaceholder / scheduledAt changes after save.
                     defaultValue={
                       game.schedulePlaceholder
                         ? ""

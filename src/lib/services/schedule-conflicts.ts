@@ -129,9 +129,9 @@ export async function assertNoFieldScheduleConflict(opts: {
 
 /**
  * Older OBA seeded brackets marked first-round games (both teams known) as real
- * field bookings at the shared create-form start time. When two+ playoff games still
- * share the exact same field + instant, mark the non-TBD ones as TBD seed slots again.
- * Intentionally scheduled unique slots (one game per field/time) are left alone.
+ * field bookings at the shared create-form start time. Only repair clusters where
+ * every game in the slot is still non-TBD (the original bug). Mixed clusters are
+ * left alone so a freshly saved real slot is not flipped back to TBD.
  */
 export async function repairClusteredBracketSeedPlaceholders(tournamentId: string): Promise<number> {
   const games = await prisma.game.findMany({
@@ -152,8 +152,8 @@ export async function repairClusteredBracketSeedPlaceholders(tournamentId: strin
   }
 
   const toFix = [...groups.values()]
-    .filter((list) => list.length > 1)
-    .flatMap((list) => list.filter((g) => !g.schedulePlaceholder).map((g) => g.id));
+    .filter((list) => list.length > 1 && list.every((g) => !g.schedulePlaceholder))
+    .flatMap((list) => list.map((g) => g.id));
   if (toFix.length === 0) return 0;
 
   await prisma.game.updateMany({
