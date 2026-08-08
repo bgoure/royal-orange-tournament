@@ -60,25 +60,45 @@ type Props = {
   games: AdminGameRow[];
   fields: AdminFieldOption[];
   divisions: AdminDivisionTab[];
+  initialDivisionId?: string;
   tournamentName: string;
   tournamentTimezone: string;
+  onDivisionChange?: (divisionId: string) => void;
 };
 
 export function ScorekeeperView({
   games,
   fields,
   divisions,
+  initialDivisionId,
   tournamentName,
   tournamentTimezone,
+  onDivisionChange,
 }: Props) {
-  const [divisionId, setDivisionId] = useState(divisions[0]?.id ?? "");
+  const [divisionId, setDivisionIdState] = useState(() => {
+    if (initialDivisionId && divisions.some((d) => d.id === initialDivisionId)) {
+      return initialDivisionId;
+    }
+    return divisions[0]?.id ?? "";
+  });
   const [fieldFilter, setFieldFilter] = useState<string>("all");
   const [hideFinal, setHideFinal] = useState(true);
+
+  useEffect(() => {
+    if (initialDivisionId && divisions.some((d) => d.id === initialDivisionId)) {
+      setDivisionIdState(initialDivisionId);
+    }
+  }, [initialDivisionId, divisions]);
 
   const activeDivisionId = useMemo(() => {
     if (divisionId && divisions.some((d) => d.id === divisionId)) return divisionId;
     return divisions[0]?.id ?? "";
   }, [divisionId, divisions]);
+
+  function setDivisionId(nextId: string) {
+    setDivisionIdState(nextId);
+    onDivisionChange?.(nextId);
+  }
 
   const filtered = useMemo(() => {
     let list = [...games].sort((a, b) => {
@@ -108,7 +128,11 @@ export function ScorekeeperView({
             <p className="mt-0.5 text-xs text-zinc-500">Large inputs for phones and tablets. Times use {tournamentTimezone}.</p>
           </div>
           <Link
-            href="/admin/games"
+            href={
+              activeDivisionId
+                ? `/admin/games?division=${encodeURIComponent(activeDivisionId)}`
+                : "/admin/games"
+            }
             className="shrink-0 rounded-lg border border-zinc-300 bg-white px-3 py-2 text-sm font-semibold text-zinc-800 hover:bg-zinc-50"
           >
             Exit

@@ -10,12 +10,13 @@ import { getTournamentForRequest } from "@/lib/tournament-context";
 export default async function AdminGamesPage({
   searchParams,
 }: {
-  searchParams: Promise<{ mode?: string }>;
+  searchParams: Promise<{ mode?: string; division?: string }>;
 }) {
   const session = await auth();
   const tournament = await getTournamentForRequest();
   const sp = await searchParams;
   const mode = sp.mode === "scorekeeper" ? "scorekeeper" : "admin";
+  const divisionParam = typeof sp.division === "string" ? sp.division : undefined;
 
   if (!tournament) {
     return <AdminNoTournamentPlaceholder />;
@@ -51,12 +52,18 @@ export default async function AdminGamesPage({
   }));
   const isAdmin = session?.user?.role === "ADMIN";
 
+  const initialDivisionId =
+    divisionParam && divisions.some((d) => d.id === divisionParam)
+      ? divisionParam
+      : divisions[0]?.id;
+
   return (
     <GamesAdmin
       games={games as AdminGameRow[]}
       fields={fieldRows}
       poolsWithTeams={poolsWithTeams}
       divisions={divisions}
+      initialDivisionId={initialDivisionId}
       tournamentName={tournament.name}
       tournamentTimezone={tournament.timezone}
       isAdmin={isAdmin}

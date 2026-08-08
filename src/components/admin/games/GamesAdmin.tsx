@@ -2,6 +2,7 @@
 
 import { useActionState, useEffect, useId, useMemo, useRef, useState, type ReactNode } from "react";
 import Link from "next/link";
+import { usePathname, useRouter } from "next/navigation";
 import { GameKind, GameResultType, GameStatus } from "@prisma/client";
 import { publicGameStatusLabel } from "@/components/schedule/GameList";
 import type { Division, Field, Game, Pool, Team } from "@prisma/client";
@@ -83,6 +84,8 @@ type Props = {
   fields: AdminFieldOption[];
   poolsWithTeams: PoolWithTeams[];
   divisions: AdminDivisionTab[];
+  /** From `?division=` — sticky across refresh. */
+  initialDivisionId?: string;
   tournamentName: string;
   /** IANA zone for interpreting `datetime-local` values (matches tournament settings). */
   tournamentTimezone: string;
@@ -97,27 +100,59 @@ type Props = {
   }>;
 };
 
+function gamesAdminHref(opts: { mode?: "admin" | "scorekeeper"; divisionId?: string }) {
+  const params = new URLSearchParams();
+  if (opts.mode === "scorekeeper") params.set("mode", "scorekeeper");
+  if (opts.divisionId) params.set("division", opts.divisionId);
+  const q = params.toString();
+  return q ? `/admin/games?${q}` : "/admin/games";
+}
+
 export function GamesAdmin({
   games,
   fields,
   poolsWithTeams,
   divisions,
+  initialDivisionId,
   tournamentName,
   tournamentTimezone,
   isAdmin,
   mode = "admin",
   fieldConflicts = [],
 }: Props) {
+  const router = useRouter();
+  const pathname = usePathname();
   const [createState, createAction, createPending] = useActionState(createGame, undefined as GameActionResult | undefined);
   const [rrState, rrAction, rrPending] = useActionState(
     generatePoolRoundRobin,
     undefined as GameActionResult | undefined,
   );
-  const [divisionId, setDivisionId] = useState(divisions[0]?.id ?? "");
+  const [divisionId, setDivisionIdState] = useState(() => {
+    if (initialDivisionId && divisions.some((d) => d.id === initialDivisionId)) {
+      return initialDivisionId;
+    }
+    return divisions[0]?.id ?? "";
+  });
   const activeDivisionId = useMemo(() => {
     if (divisionId && divisions.some((d) => d.id === divisionId)) return divisionId;
     return divisions[0]?.id ?? "";
   }, [divisionId, divisions]);
+
+  // Stay in sync when the server passes a new `?division=` after navigation/refresh.
+  useEffect(() => {
+    if (initialDivisionId && divisions.some((d) => d.id === initialDivisionId)) {
+      setDivisionIdState(initialDivisionId);
+    }
+  }, [initialDivisionId, divisions]);
+
+  function setDivisionId(nextId: string) {
+    setDivisionIdState(nextId);
+    const params = new URLSearchParams();
+    if (mode === "scorekeeper") params.set("mode", "scorekeeper");
+    if (nextId) params.set("division", nextId);
+    const q = params.toString();
+    router.replace(q ? `${pathname}?${q}` : pathname, { scroll: false });
+  }
 
   const divisionPools = useMemo(
     () =>
@@ -214,8 +249,10 @@ export function GamesAdmin({
         games={games}
         fields={fields}
         divisions={divisions}
+        initialDivisionId={activeDivisionId}
         tournamentName={tournamentName}
         tournamentTimezone={tournamentTimezone}
+        onDivisionChange={setDivisionId}
       />
     );
   }
@@ -233,7 +270,7 @@ export function GamesAdmin({
       </div>
         <div className="flex flex-wrap gap-2">
           <Link
-            href="/admin/games?mode=scorekeeper"
+            href={gamesAdminHref({ mode: "scorekeeper", divisionId: activeDivisionId || undefined })}
             className="rounded-md bg-emerald-600 px-3 py-2 text-sm font-semibold text-white hover:bg-emerald-700"
           >
             Scorekeeper mode
