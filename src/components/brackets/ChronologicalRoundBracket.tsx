@@ -29,6 +29,8 @@ const HEADER_H = 48;
 const JOIN_INSET = 28;
 /** Raise each successive losers-lane column to show progression (G5 above G4, G7 above G5). */
 const LOSERS_PROGRESSION_LIFT = 52;
+/** Extra rise for the first losers-lane card (e.g. G4 under G3). */
+const LOSERS_FIRST_CARD_LIFT = 40;
 const IF_NEC_FOOTER_H = 88;
 
 /**
@@ -111,8 +113,44 @@ function isChampionshipColumn(col: { subtitle?: string }): boolean {
 }
 
 /**
+ * Snap games that have exactly one same-lane WINNER feeder onto that feeder's row
+ * (e.g. G3 with G1, G7 with G5).
+ * When `minFeederOrdinal` is set, skip feeders in earlier losers columns so the first
+ * losers card (G4) can sit higher without pulling G5/G7 down onto it.
+ */
+function snapSingleWinnerFeederRows(
+  perCol: GameRow[][],
+  edges: WinnerEdge[],
+  tops: Map<string, number>,
+  laneIds: Set<string>,
+  minFeederOrdinal = 0,
+): void {
+  const ordinalById = new Map<string, number>();
+  let ord = 0;
+  for (const games of perCol) {
+    if (games.length === 0) continue;
+    for (const g of games) ordinalById.set(g.id, ord);
+    ord += 1;
+  }
+
+  for (const games of perCol) {
+    for (const g of games) {
+      const feeders = edges.filter(
+        (e) => e.toGameId === g.id && laneIds.has(e.fromGameId) && laneIds.has(g.id),
+      );
+      if (feeders.length !== 1) continue;
+      const fromId = feeders[0]!.fromGameId;
+      if ((ordinalById.get(fromId) ?? 0) < minFeederOrdinal) continue;
+      const fromY = tops.get(fromId);
+      if (fromY == null) continue;
+      tops.set(g.id, fromY);
+    }
+  }
+}
+
+/**
  * Two-lane layout: winners on top, losers below with upward progression.
- * Singleton early winners (e.g. G1) are centered on the next winners column (G2/G3).
+ * Single winner-feeder chains stay on one row (G1↔G3, G5↔G7).
  */
 function layoutGameTops(
   columns: { games: GameRow[]; subtitle?: string }[],
@@ -129,6 +167,7 @@ function layoutGameTops(
   const losersByCol = columns.map((col) =>
     sortColumnGames(col.games, byGameId).filter((g) => isLosersLaneGame(g, byGameId)),
   );
+  const winnersIds = new Set(winnersByCol.flat().map((g) => g.id));
   const losersIds = new Set(losersByCol.flat().map((g) => g.id));
 
   const layoutBand = (perCol: GameRow[][], yOffset: number): number => {
@@ -180,39 +219,10 @@ function layoutGameTops(
   };
 
   layoutBand(winnersByCol, 0);
+  // G1↔G3 (and similar): keep the fed card on the feeder's row, not centered between G1/G2.
+  snapSingleWinnerFeederRows(winnersByCol, edges, tops, winnersIds);
 
-  // Align singleton winners columns with multi-game neighbors (G1↔G2/G3 or G1/G2↔G3).
-  for (let ci = 0; ci < winnersByCol.length - 1; ci++) {
-    const cur = winnersByCol[ci]!;
-    const next = winnersByCol[ci + 1]!;
-    if (cur.length === 1 && next.length >= 2) {
-      const centers = next
-        .map((g) => {
-          const ty = tops.get(g.id);
-          return ty == null ? null : ty + hOf(g.id) / 2;
-        })
-        .filter((n): n is number => n != null);
-      if (centers.length >= 2) {
-        const mid = (Math.min(...centers) + Math.max(...centers)) / 2;
-        const g = cur[0]!;
-        tops.set(g.id, mid - hOf(g.id) / 2);
-      }
-    } else if (cur.length >= 2 && next.length === 1) {
-      const centers = cur
-        .map((g) => {
-          const ty = tops.get(g.id);
-          return ty == null ? null : ty + hOf(g.id) / 2;
-        })
-        .filter((n): n is number => n != null);
-      if (centers.length >= 2) {
-        const mid = (Math.min(...centers) + Math.max(...centers)) / 2;
-        const g = next[0]!;
-        tops.set(g.id, mid - hOf(g.id) / 2);
-      }
-    }
-  }
-
-  // Recompute losers start from actual winners bottoms after centering
+  // Recompute losers start from actual winners bottoms after snap
   let winnersMax = 0;
   for (const col of winnersByCol) {
     for (const g of col) {
@@ -222,19 +232,23 @@ function layoutGameTops(
   const losersBandStart = winnersMax + BAND_GAP;
   layoutBand(losersByCol, losersBandStart);
 
-  // Staircase: each later losers column sits higher than the previous (progression).
+  // Raise the first losers card (G4), then staircase later losers columns.
   let losersColOrdinal = 0;
   for (const games of losersByCol) {
     if (games.length === 0) continue;
-    if (losersColOrdinal > 0) {
-      const lift = losersColOrdinal * LOSERS_PROGRESSION_LIFT;
-      for (const g of games) {
-        const y = tops.get(g.id);
-        if (y != null) tops.set(g.id, Math.max(COL_PAD_Y, y - lift));
-      }
+    const lift =
+      losersColOrdinal === 0
+        ? LOSERS_FIRST_CARD_LIFT
+        : LOSERS_FIRST_CARD_LIFT + losersColOrdinal * LOSERS_PROGRESSION_LIFT;
+    for (const g of games) {
+      const y = tops.get(g.id);
+      if (y != null) tops.set(g.id, Math.max(COL_PAD_Y, y - lift));
     }
     losersColOrdinal += 1;
   }
+
+  // Re-snap after lifts so G5↔G7 share a row (do not pin them back onto G4).
+  snapSingleWinnerFeederRows(losersByCol, edges, tops, losersIds, 1);
 
   // Championship + if-necessary: same horizon (align GF2 to GF1).
   const champCol = columns.findIndex((c) => isChampionshipColumn(c));
