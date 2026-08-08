@@ -112,6 +112,26 @@ function isChampionshipColumn(col: { subtitle?: string }): boolean {
   return s === "championship";
 }
 
+/** Put `toNum` on the same vertical row as `fromNum` when both exist. */
+function alignGameNumberRow(
+  games: GameRow[],
+  tops: Map<string, number>,
+  fromNum: string,
+  toNum: string,
+): void {
+  let from: GameRow | undefined;
+  let to: GameRow | undefined;
+  for (const g of games) {
+    const n = g.gameNumber?.trim() ?? "";
+    if (n === fromNum) from = g;
+    if (n === toNum) to = g;
+  }
+  if (!from || !to) return;
+  const y = tops.get(from.id);
+  if (y == null) return;
+  tops.set(to.id, y);
+}
+
 /**
  * Snap games that have exactly one same-lane WINNER feeder onto that feeder's row
  * (e.g. G3 with G1, G7 with G5).
@@ -191,7 +211,15 @@ function layoutGameTops(
           .filter((n): n is number => n != null);
 
         let y: number;
-        if (feeders.length > 0 && feederCenters.length > 0) {
+        const sameLaneFeeders = feeders.filter((e) => {
+          const fromLosers = losersIds.has(e.fromGameId);
+          const toLosers = losersIds.has(g.id);
+          return fromLosers === toLosers && tops.has(e.fromGameId);
+        });
+        if (sameLaneFeeders.length === 1) {
+          // Same row as the sole feeder (G1→G3), not vertically centered on it.
+          y = tops.get(sameLaneFeeders[0]!.fromGameId)!;
+        } else if (feederCenters.length > 0) {
           const avg = feederCenters.reduce((a, b) => a + b, 0) / feederCenters.length;
           y = avg - hOf(g.id) / 2;
         } else {
@@ -204,7 +232,18 @@ function layoutGameTops(
       for (let i = 0; i < tentative.length; i++) {
         const cur = tentative[i]!;
         if (i === 0) {
-          cur.y = Math.max(yOffset + COL_PAD_Y, cur.y);
+          // Do not clamp single-feeder snaps upward into a lower band offset.
+          const sole = edges.filter((e) => {
+            if (e.toGameId !== cur.id) return false;
+            const fromLosers = losersIds.has(e.fromGameId);
+            const toLosers = losersIds.has(cur.id);
+            return fromLosers === toLosers && tops.has(e.fromGameId);
+          });
+          if (sole.length === 1) {
+            cur.y = tops.get(sole[0]!.fromGameId)!;
+          } else {
+            cur.y = Math.max(yOffset + COL_PAD_Y, cur.y);
+          }
         } else {
           const prev = tentative[i - 1]!;
           const minY = prev.y + hOf(prev.id) + MIN_GAP;
@@ -219,8 +258,10 @@ function layoutGameTops(
   };
 
   layoutBand(winnersByCol, 0);
-  // G1↔G3 (and similar): keep the fed card on the feeder's row, not centered between G1/G2.
+  // Reinforce G1↔G3 (etc.) after band layout.
   snapSingleWinnerFeederRows(winnersByCol, edges, tops, winnersIds);
+  // Hard align common workbook pairs by game number (covers missing feeder edges).
+  alignGameNumberRow(winnersByCol.flat(), tops, "1", "3");
 
   // Recompute losers start from actual winners bottoms after snap
   let winnersMax = 0;
@@ -249,6 +290,7 @@ function layoutGameTops(
 
   // Re-snap after lifts so G5↔G7 share a row (do not pin them back onto G4).
   snapSingleWinnerFeederRows(losersByCol, edges, tops, losersIds, 1);
+  alignGameNumberRow(losersByCol.flat(), tops, "5", "7");
 
   // Championship + if-necessary: same horizon (align GF2 to GF1).
   const champCol = columns.findIndex((c) => isChampionshipColumn(c));
@@ -557,7 +599,7 @@ export function ChronologicalRoundBracket({
     <div role="region" aria-label="Chronological double-elimination rounds">
       <div
         ref={boardRef}
-        className="relative flex w-max min-w-full items-stretch gap-10"
+        className="relative flex w-max min-w-full items-stretch gap-5"
         style={{ minHeight: columnShellH }}
       >
         {columns.map((col, ci) => {
@@ -574,13 +616,20 @@ export function ChronologicalRoundBracket({
               }`}
               style={{ height: columnShellH }}
             >
-              <div className="shrink-0 border-b border-zinc-200 bg-white px-3 py-2">
+              <div
+                className="flex shrink-0 flex-col justify-center border-b border-zinc-200 bg-white px-3 py-2"
+                style={{ minHeight: HEADER_H }}
+              >
                 <h3 className="text-xs font-bold uppercase tracking-[0.08em] text-royal">
                   {col.label}
                 </h3>
                 {col.subtitle ? (
                   <p className="mt-0.5 text-[11px] font-medium text-zinc-600">{col.subtitle}</p>
-                ) : null}
+                ) : (
+                  <p className="mt-0.5 text-[11px] font-medium text-transparent" aria-hidden>
+                    &nbsp;
+                  </p>
+                )}
               </div>
               <div className="relative flex-1 px-3" style={{ height: contentH }}>
                 {games.length === 0 ? (

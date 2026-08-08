@@ -84,7 +84,7 @@ export function BidirectionalDeBracket({
     <div className="flex flex-col gap-3">
       <div
         {...{ [DIVISION_SWIPE_IGNORE]: "" }}
-        className="flex gap-4 overflow-x-auto pb-2"
+        className="flex gap-2 overflow-x-auto pb-2"
         role="region"
         aria-label="Bidirectional double-elimination bracket"
       >

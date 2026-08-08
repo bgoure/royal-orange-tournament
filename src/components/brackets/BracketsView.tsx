@@ -32,7 +32,7 @@ function BracketGrid({
   return (
     <div
       {...{ [DIVISION_SWIPE_IGNORE]: "" }}
-      className="mt-4 flex gap-6 overflow-x-auto pb-2 md:overflow-visible"
+      className="mt-4 flex gap-3 overflow-x-auto pb-2 md:overflow-visible"
       role="region"
       aria-label="Bracket rounds"
     >
