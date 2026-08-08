@@ -12,6 +12,7 @@ import {
 } from "@/lib/division-tab-utils";
 import { listFieldsForTournament, listPoolsForDivisionTabs, listTeamsForTournament } from "@/lib/services/pools";
 import { listGamesForTournament, listScheduleFilterFacets } from "@/lib/services/games";
+import { isBracketOnlyTournament } from "@/lib/services/tournament-format";
 import { PageTitle } from "@/components/ui/PublicHeading";
 import { tournamentPublicBasePath } from "@/lib/tournament-public-path";
 
@@ -25,10 +26,11 @@ export async function TournamentSchedulePublic({
   const publicBasePath = tournamentPublicBasePath(tournament);
   const sp = searchParams;
 
-  const [teams, fields, poolRows] = await Promise.all([
+  const [teams, fields, poolRows, bracketOnly] = await Promise.all([
     listTeamsForTournament(tournament.id),
     listFieldsForTournament(tournament.id),
     listPoolsForDivisionTabs(tournament.id),
+    isBracketOnlyTournament(tournament.id),
   ]);
 
   const divisionTabs = buildDivisionTabDescriptors(poolRows);
@@ -93,6 +95,7 @@ export async function TournamentSchedulePublic({
             scheduleCompactLayout
             scheduleDeprioritizeCompleted
             tournamentId={tournament.id}
+            showHomeAway={!bracketOnly}
           />
         </div>
       </DivisionSwipeBoundary>

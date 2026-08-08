@@ -11,11 +11,13 @@ export function HomeUpcomingGamesSection({
   divisionTabId,
   games,
   timezone,
+  showHomeAway = true,
 }: {
   tournamentId: string;
   divisionTabId: string | undefined;
   games: GameWithTeams[];
   timezone: string;
+  showHomeAway?: boolean;
 }) {
   const { isLoaded, getFavoriteTeamIdForDivision, tournamentId: ctxId } = useFavorites();
   const myTeamId = divisionTabId ? getFavoriteTeamIdForDivision(divisionTabId) : undefined;
@@ -37,6 +39,7 @@ export function HomeUpcomingGamesSection({
             games={games}
             calendarTimezone={timezone}
             tournamentId={tournamentId}
+            showHomeAway={showHomeAway}
           />
         </div>
       </section>
@@ -51,6 +54,7 @@ export function HomeUpcomingGamesSection({
           games={filtered}
           calendarTimezone={timezone}
           tournamentId={tournamentId}
+          showHomeAway={showHomeAway}
           emptyMessage={
             showOtherLabel
               ? "No other upcoming games in this division."

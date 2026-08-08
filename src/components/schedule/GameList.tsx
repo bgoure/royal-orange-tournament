@@ -81,6 +81,10 @@ function ahSuffix(which: "A" | "H") {
   );
 }
 
+function maybeAhSuffix(show: boolean, which: "A" | "H") {
+  return show ? ahSuffix(which) : null;
+}
+
 function gameWithTeamsToQuickPayload(g: GameWithTeams): QuickEditGamePayload {
   const home = scheduleSideLabel(g, "home");
   const away = scheduleSideLabel(g, "away");
@@ -236,6 +240,7 @@ function GameCardInner({
   resultsFinalInningsBadge = false,
   tournamentId,
   glassVariant = true,
+  showHomeAway = true,
 }: {
   g: GameWithTeams;
   compact?: boolean;
@@ -251,6 +256,8 @@ function GameCardInner({
   resultsFinalInningsBadge?: boolean;
   tournamentId?: string;
   glassVariant?: boolean;
+  /** Pool/RR tournaments show (A)/(H); bracket-only events hide them. */
+  showHomeAway?: boolean;
 }) {
   const quickEdit = usePublicQuickGameEdit();
   const quickOpen = quickEdit?.enabled
@@ -381,7 +388,7 @@ function GameCardInner({
           <TeamLogoMark team={g.awayTeam} sizeClass={logoSize} className={logoTone} />
           <span className="min-w-0 truncate">
             {awaySide.text}
-            {ahSuffix("A")}
+            {maybeAhSuffix(showHomeAway, "A")}
           </span>
           {tournamentId && g.awayTeamId ? (
             <FavoriteTeamButton
@@ -397,7 +404,7 @@ function GameCardInner({
           <TeamLogoMark team={g.homeTeam} sizeClass={logoSize} className={logoTone} />
           <span className="truncate">
             {homeSide.text}
-            {ahSuffix("H")}
+            {maybeAhSuffix(showHomeAway, "H")}
           </span>
           {tournamentId && g.homeTeamId ? (
             <FavoriteTeamButton
@@ -415,7 +422,7 @@ function GameCardInner({
           <TeamLogoMark team={g.awayTeam} sizeClass={scheduleLogoSize} className={logoTone} />
           <span className={awayNameClsSm}>
             {awaySide.text}
-            {ahSuffix("A")}
+            {maybeAhSuffix(showHomeAway, "A")}
           </span>
           {tournamentId && g.awayTeamId ? (
             <FavoriteTeamButton
@@ -430,7 +437,7 @@ function GameCardInner({
         <div className="flex min-w-0 flex-1 items-center justify-end gap-1.5 text-right">
           <span className={homeNameClsSm}>
             {homeSide.text}
-            {ahSuffix("H")}
+            {maybeAhSuffix(showHomeAway, "H")}
           </span>
           {tournamentId && g.homeTeamId ? (
             <FavoriteTeamButton
@@ -526,7 +533,7 @@ function GameCardInner({
               <TeamLogoMark team={g.awayTeam} sizeClass={logoSize} className={logoTone} />
               <p className={`min-w-0 truncate leading-snug ${awayNameCls}`}>
                 {awaySide.text}
-                {ahSuffix("A")}
+                {maybeAhSuffix(showHomeAway, "A")}
               </p>
               {tournamentId && g.awayTeamId ? (
                 <FavoriteTeamButton
@@ -544,7 +551,7 @@ function GameCardInner({
               <TeamLogoMark team={g.homeTeam} sizeClass={logoSize} className={logoTone} />
               <p className={`min-w-0 truncate leading-snug ${homeNameCls}`}>
                 {homeSide.text}
-                {ahSuffix("H")}
+                {maybeAhSuffix(showHomeAway, "H")}
               </p>
               {tournamentId && g.homeTeamId ? (
                 <FavoriteTeamButton
@@ -564,7 +571,7 @@ function GameCardInner({
             <TeamLogoMark team={g.awayTeam} sizeClass={logoSize} className={logoTone} />
             <span className="min-w-0 truncate">
               {awaySide.text}
-              {ahSuffix("A")}
+              {maybeAhSuffix(showHomeAway, "A")}
             </span>
             {tournamentId && g.awayTeamId ? (
               <FavoriteTeamButton
@@ -580,7 +587,7 @@ function GameCardInner({
             <TeamLogoMark team={g.homeTeam} sizeClass={logoSize} className={logoTone} />
             <span className="truncate">
               {homeSide.text}
-              {ahSuffix("H")}
+              {maybeAhSuffix(showHomeAway, "H")}
             </span>
             {tournamentId && g.homeTeamId ? (
               <FavoriteTeamButton
@@ -661,6 +668,7 @@ function HorizontalGameRow({
   resultsFinalInningsBadge = false,
   tournamentId,
   glassVariant = true,
+  showHomeAway = true,
 }: {
   rows: { g: GameWithTeams; fallbackSeq: number }[];
   liveProminent?: boolean;
@@ -672,6 +680,7 @@ function HorizontalGameRow({
   resultsFinalInningsBadge?: boolean;
   tournamentId?: string;
   glassVariant?: boolean;
+  showHomeAway?: boolean;
 }) {
   return (
     <ul
@@ -692,6 +701,7 @@ function HorizontalGameRow({
               resultsFinalInningsBadge={resultsFinalInningsBadge}
               tournamentId={tournamentId}
               glassVariant={glassVariant}
+              showHomeAway={showHomeAway}
             />
           </AnimatedListItem>
         ) : (
@@ -708,6 +718,7 @@ function HorizontalGameRow({
             resultsFinalInningsBadge={resultsFinalInningsBadge}
             tournamentId={tournamentId}
             glassVariant={glassVariant}
+            showHomeAway={showHomeAway}
           />
         ),
       )}
@@ -729,6 +740,7 @@ export function GameList({
   resultsFinalInningsBadge = false,
   tournamentId,
   glassVariant = true,
+  showHomeAway = true,
 }: {
   games: GameWithTeams[];
   /** Tournament IANA zone for “Live today” and schedule day grouping. */
@@ -752,6 +764,8 @@ export function GameList({
   tournamentId?: string;
   /** Glass card treatment (e.g. favorites strip only); omit gradients when true. */
   glassVariant?: boolean;
+  /** When false (bracket-only / no pool play), hide (A)/(H) markers. */
+  showHomeAway?: boolean;
 }) {
   if (games.length === 0) {
     return (
@@ -813,6 +827,7 @@ export function GameList({
             resultsFinalInningsBadge={resultsFinalInningsBadge}
             tournamentId={tournamentId}
             glassVariant={glassVariant}
+          showHomeAway={showHomeAway}
           />
         ) : (
           <ul className="flex flex-col gap-2">
@@ -828,6 +843,7 @@ export function GameList({
                 resultsFinalInningsBadge={resultsFinalInningsBadge}
                 tournamentId={tournamentId}
                 glassVariant={glassVariant}
+              showHomeAway={showHomeAway}
               />
             ))}
           </ul>
@@ -850,6 +866,7 @@ export function GameList({
             resultsFinalInningsBadge={resultsFinalInningsBadge}
             tournamentId={tournamentId}
             glassVariant={glassVariant}
+          showHomeAway={showHomeAway}
           />
         ) : null}
       </div>
@@ -879,6 +896,7 @@ export function GameList({
               resultsFinalInningsBadge={resultsFinalInningsBadge}
               tournamentId={tournamentId}
               glassVariant={glassVariant}
+            showHomeAway={showHomeAway}
             />
           ))}
         </ul>
@@ -907,6 +925,7 @@ export function GameList({
               resultsFinalInningsBadge={resultsFinalInningsBadge}
               tournamentId={tournamentId}
               glassVariant={glassVariant}
+            showHomeAway={showHomeAway}
             />
           ))}
         </ul>
@@ -935,6 +954,7 @@ export function GameList({
                 resultsFinalInningsBadge={resultsFinalInningsBadge}
                 tournamentId={tournamentId}
                 glassVariant={glassVariant}
+              showHomeAway={showHomeAway}
               />
             ))}
           </ul>
@@ -961,6 +981,7 @@ export function GameList({
                 resultsFinalInningsBadge={resultsFinalInningsBadge}
                 tournamentId={tournamentId}
                 glassVariant={glassVariant}
+              showHomeAway={showHomeAway}
               />
             ))}
           </ul>

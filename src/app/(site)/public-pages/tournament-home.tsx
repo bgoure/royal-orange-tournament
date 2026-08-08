@@ -118,6 +118,7 @@ export async function TournamentHomePublic({
             tournamentId={tournament.id}
             divisionTabId={resolvedDivisionId || undefined}
             timezone={tournament.timezone}
+            showHomeAway={!bracketOnly}
           />
 
           {!champion ? hqWeatherBlock : null}
@@ -141,6 +142,7 @@ export async function TournamentHomePublic({
               divisionTabId={resolvedDivisionId || undefined}
               games={upcomingGames}
               timezone={tournament.timezone}
+              showHomeAway={!bracketOnly}
             />
           ) : null}
 
@@ -154,6 +156,7 @@ export async function TournamentHomePublic({
                 horizontal
                 animateStagger
                 tournamentId={tournament.id}
+                showHomeAway={!bracketOnly}
                 emptyMessage="No recent games for this division yet."
                 emptyHint="Final scores, cancelled games, and games awaiting results appear here."
               />

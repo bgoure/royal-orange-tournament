@@ -15,11 +15,13 @@ function RoundColumn({
   games,
   timeZone,
   side,
+  showHomeAway = true,
 }: {
   round: BracketRound;
   games: GameRow[];
   timeZone?: string | null;
   side: "left" | "center" | "right";
+  showHomeAway?: boolean;
 }) {
   const sorted = [...games].sort((a, b) => matchSortIndex(a) - matchSortIndex(b));
   const border =
@@ -61,6 +63,7 @@ function RoundColumn({
               matchIndex={mi}
               prevRoundName={null}
               timeZone={timeZone}
+              showHomeAway={showHomeAway}
             />
           ))
         )}
@@ -73,10 +76,12 @@ export function BidirectionalDeBracket({
   rounds,
   byRound,
   timeZone,
+  showHomeAway = true,
 }: {
   rounds: BracketRound[];
   byRound: Map<string, GameRow[]>;
   timeZone?: string | null;
+  showHomeAway?: boolean;
 }) {
   const layout = bidirectionalDeLayout(rounds);
 
@@ -95,6 +100,7 @@ export function BidirectionalDeBracket({
             games={byRound.get(r.id) ?? []}
             timeZone={timeZone}
             side="left"
+            showHomeAway={showHomeAway}
           />
         ))}
         {layout.center ? (
@@ -103,6 +109,7 @@ export function BidirectionalDeBracket({
             games={byRound.get(layout.center.id) ?? []}
             timeZone={timeZone}
             side="center"
+            showHomeAway={showHomeAway}
           />
         ) : null}
         {layout.right.map((r) => (
@@ -112,6 +119,7 @@ export function BidirectionalDeBracket({
             games={byRound.get(r.id) ?? []}
             timeZone={timeZone}
             side="right"
+            showHomeAway={showHomeAway}
           />
         ))}
       </div>

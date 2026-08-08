@@ -41,6 +41,10 @@ function bracketAhTag(which: "A" | "H") {
   );
 }
 
+function maybeBracketAhTag(show: boolean, which: "A" | "H") {
+  return show ? bracketAhTag(which) : null;
+}
+
 const scheduleLogoSize = "h-7 w-7 min-h-[28px] min-w-[28px] shrink-0";
 const scoredLogoSize = "h-7 w-7 min-h-[28px] min-w-[28px]";
 
@@ -63,6 +67,7 @@ export function BracketGameCard({
   roundLabel,
   /** When many rounds are flattened into one list, use this for the orange G# chip fallback (otherwise `matchIndex` is used). */
   gLabelFallbackIndexZeroBased,
+  showHomeAway = true,
 }: {
   game: GameRow;
   /** BracketRound.roundIndex from DB (not index in UI column list). */
@@ -73,6 +78,8 @@ export function BracketGameCard({
   /** Mobile list / consolation: show round name above the time row. Omitted in grid columns (round is the column heading). */
   roundLabel?: string | null;
   gLabelFallbackIndexZeroBased?: number;
+  /** Pool/RR tournaments show (A)/(H); bracket-only events hide them. */
+  showHomeAway?: boolean;
 }) {
   const bm = game.bracketMatch;
   const bracketMatchIndex = bm?.matchIndex ?? matchIndex;
@@ -209,7 +216,7 @@ export function BracketGameCard({
                 className={`min-w-0 truncate text-xs font-bold leading-snug text-zinc-900 dark:text-zinc-100 ${slotLineTextClass(away)}`}
               >
                 {away.primary}
-                {!away.isPlaceholder ? bracketAhTag("A") : null}
+                {!away.isPlaceholder ? maybeBracketAhTag(showHomeAway, "A") : null}
               </p>
             </div>
             <span className="shrink-0 text-base font-bold tabular-nums text-zinc-900 dark:text-zinc-100">{game.awayRuns}</span>
@@ -221,7 +228,7 @@ export function BracketGameCard({
                 className={`min-w-0 truncate text-xs font-bold leading-snug text-zinc-900 dark:text-zinc-100 ${slotLineTextClass(home)}`}
               >
                 {home.primary}
-                {!home.isPlaceholder ? bracketAhTag("H") : null}
+                {!home.isPlaceholder ? maybeBracketAhTag(showHomeAway, "H") : null}
               </p>
             </div>
             <span className="shrink-0 text-base font-bold tabular-nums text-zinc-900 dark:text-zinc-100">{game.homeRuns}</span>
@@ -236,7 +243,7 @@ export function BracketGameCard({
                 className={`line-clamp-2 break-words text-sm leading-[1.15] ${slotLineTextClass(away)}`}
               >
                 {away.primary}
-                {!away.isPlaceholder ? bracketAhTag("A") : null}
+                {!away.isPlaceholder ? maybeBracketAhTag(showHomeAway, "A") : null}
               </p>
               {away.secondary ? <p className="mt-0.5 text-xs text-zinc-500 dark:text-zinc-400">{away.secondary}</p> : null}
             </div>
@@ -248,7 +255,7 @@ export function BracketGameCard({
                 className={`line-clamp-2 break-words text-sm leading-[1.15] ${slotLineTextClass(home)}`}
               >
                 {home.primary}
-                {!home.isPlaceholder ? bracketAhTag("H") : null}
+                {!home.isPlaceholder ? maybeBracketAhTag(showHomeAway, "H") : null}
               </p>
               {home.secondary ? <p className="mt-0.5 text-xs text-zinc-500 dark:text-zinc-400">{home.secondary}</p> : null}
             </div>

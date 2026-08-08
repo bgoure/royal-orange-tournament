@@ -474,11 +474,13 @@ export function ChronologicalRoundBracket({
   byRound,
   timeZone,
   format = "DOUBLE_ELIMINATION",
+  showHomeAway = true,
 }: {
   rounds: BracketRound[];
   byRound: Map<string, GameRow[]>;
   timeZone?: string | null;
   format?: BracketFormat | string;
+  showHomeAway?: boolean;
 }) {
   const boardRef = useRef<HTMLDivElement>(null);
   const [paths, setPaths] = useState<DrawnPath[]>([]);
@@ -648,6 +650,7 @@ export function ChronologicalRoundBracket({
                         matchIndex={mi}
                         prevRoundName={null}
                         timeZone={timeZone}
+                        showHomeAway={showHomeAway}
                         gLabelFallbackIndexZeroBased={
                           Number.isFinite(Number.parseInt(String(g.gameNumber ?? ""), 10))
                             ? Number.parseInt(String(g.gameNumber ?? ""), 10) - 1

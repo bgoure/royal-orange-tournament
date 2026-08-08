@@ -24,10 +24,12 @@ function BracketGrid({
   byRound,
   roundsOrdered,
   timeZone,
+  showHomeAway = true,
 }: {
   byRound: Map<string, GameRow[]>;
   roundsOrdered: BracketRound[];
   timeZone?: string | null;
+  showHomeAway?: boolean;
 }) {
   return (
     <div
@@ -62,6 +64,7 @@ function BracketGrid({
                     matchIndex={mi}
                     prevRoundName={prevRoundName}
                     timeZone={timeZone}
+                    showHomeAway={showHomeAway}
                   />
                 ))
               )}
@@ -78,11 +81,13 @@ function MobileBracketRoundNav({
   byRound,
   timeZone,
   onRoundChange,
+  showHomeAway = true,
 }: {
   visibleRounds: BracketRound[];
   byRound: Map<string, GameRow[]>;
   timeZone?: string | null;
   onRoundChange?: (roundIndex: number) => void;
+  showHomeAway?: boolean;
 }) {
   const [roundIdx, setRoundIdx] = useState(0);
   const safeIdx =
@@ -144,6 +149,7 @@ function MobileBracketRoundNav({
               matchIndex={mi}
               prevRoundName={prevRoundName}
               timeZone={timeZone}
+              showHomeAway={showHomeAway}
             />
           ))
         )}
@@ -160,11 +166,13 @@ function BracketSection({
   tournamentName,
   tournamentTimezone,
   consolationGames,
+  showHomeAway = true,
 }: {
   b: BracketWith;
   tournamentName: string;
   tournamentTimezone?: string | null;
   consolationGames: GameRow[];
+  showHomeAway?: boolean;
 }) {
   const [scope, setScope] = useState<BracketScopeFilter>("all");
   const [mobileRoundIdx, setMobileRoundIdx] = useState(0);
@@ -291,15 +299,22 @@ function BracketSection({
               byRound={byRound}
               timeZone={tournamentTimezone}
               format={b.format}
+              showHomeAway={showHomeAway}
             />
           ) : useBidirectional ? (
             <BidirectionalDeBracket
               rounds={roundsSorted}
               byRound={byRound}
               timeZone={tournamentTimezone}
+              showHomeAway={showHomeAway}
             />
           ) : (
-            <BracketGrid byRound={byRound} roundsOrdered={visibleRounds} timeZone={tournamentTimezone} />
+            <BracketGrid
+              byRound={byRound}
+              roundsOrdered={visibleRounds}
+              timeZone={tournamentTimezone}
+              showHomeAway={showHomeAway}
+            />
           )}
         </BracketZoomShell>
       </div>
@@ -311,6 +326,7 @@ function BracketSection({
               byRound={byRound}
               timeZone={tournamentTimezone}
               format={b.format}
+              showHomeAway={showHomeAway}
             />
           ) : (
             <MobileBracketRoundNav
@@ -319,6 +335,7 @@ function BracketSection({
               byRound={byRound}
               timeZone={tournamentTimezone}
               onRoundChange={setMobileRoundIdx}
+              showHomeAway={showHomeAway}
             />
           )}
         </BracketZoomShell>
@@ -328,6 +345,7 @@ function BracketSection({
         games={consolationGames}
         tournamentTimezone={tournamentTimezone}
         mobileBracketShowsFirstRoundOnly={mobileRoundIdx === 0}
+        showHomeAway={showHomeAway}
       />
     </section>
   );
@@ -337,11 +355,13 @@ function ConsolationGamesSection({
   games,
   tournamentTimezone,
   mobileBracketShowsFirstRoundOnly,
+  showHomeAway = true,
 }: {
   games: GameRow[];
   tournamentTimezone?: string | null;
   /** When false, hide this block below `md` while mobile bracket is not on round 1. */
   mobileBracketShowsFirstRoundOnly: boolean;
+  showHomeAway?: boolean;
 }) {
   if (games.length === 0) return null;
   const sorted = [...games].sort((a, b) => a.scheduledAt.getTime() - b.scheduledAt.getTime());
@@ -363,6 +383,7 @@ function ConsolationGamesSection({
             matchIndex={mi}
             prevRoundName={null}
             timeZone={tournamentTimezone}
+            showHomeAway={showHomeAway}
           />
         ))}
       </div>
@@ -375,6 +396,7 @@ export function BracketsView({
   consolationGames = [],
   tournamentName,
   tournamentTimezone,
+  showHomeAway = true,
 }: {
   brackets: BracketWith[];
   /** Consolation games for this tournament (parent filters by division tab). */
@@ -383,6 +405,8 @@ export function BracketsView({
   tournamentName: string;
   /** IANA zone from `tournament.timezone` — venue wall-clock for game times. */
   tournamentTimezone?: string | null;
+  /** When false (bracket-only / no pool play), hide (A)/(H) markers. */
+  showHomeAway?: boolean;
 }) {
   const consolationByDivision = useMemo(() => {
     const m = new Map<string, GameRow[]>();
@@ -418,6 +442,7 @@ export function BracketsView({
           tournamentName={tournamentName}
           tournamentTimezone={tournamentTimezone}
           consolationGames={consolationByDivision.get(b.divisionId) ?? []}
+          showHomeAway={showHomeAway}
         />
       ))}
     </div>

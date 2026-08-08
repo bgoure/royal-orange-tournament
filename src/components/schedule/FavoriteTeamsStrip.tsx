@@ -10,10 +10,12 @@ export function FavoriteTeamsStrip({
   tournamentId,
   divisionTabId,
   timezone,
+  showHomeAway = true,
 }: {
   tournamentId: string;
   divisionTabId: string | undefined;
   timezone?: string;
+  showHomeAway?: boolean;
 }) {
   const { isLoaded, getFavoriteTeamIdForDivision, tournamentId: ctxId } = useFavorites();
   const [games, setGames] = useState<GameWithTeams[]>([]);
@@ -68,6 +70,7 @@ export function FavoriteTeamsStrip({
         animateStagger
         scheduleCompactLayout
         tournamentId={tournamentId}
+        showHomeAway={showHomeAway}
         emptyMessage="No games for My Team in this division yet."
         emptyHint="Games appear here for the team you follow in this division."
       />

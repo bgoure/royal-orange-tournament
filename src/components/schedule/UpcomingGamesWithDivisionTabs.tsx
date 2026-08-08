@@ -9,6 +9,7 @@ export function UpcomingGamesWithDivisionTabs({
   tournamentId,
   emptyMessage = "No upcoming games scheduled for this division.",
   emptyHint = "Check another division or open the full schedule.",
+  showHomeAway = true,
 }: {
   games: GameWithTeams[];
   /** Tournament zone for “Live today” and ordering; wall times can still use viewer local. */
@@ -18,6 +19,7 @@ export function UpcomingGamesWithDivisionTabs({
   tournamentId?: string;
   emptyMessage?: string;
   emptyHint?: string;
+  showHomeAway?: boolean;
 }) {
   return (
     <div className="flex flex-col gap-3">
@@ -31,6 +33,7 @@ export function UpcomingGamesWithDivisionTabs({
         animateStagger
         scheduleCompactLayout
         tournamentId={tournamentId}
+        showHomeAway={showHomeAway}
       />
     </div>
   );

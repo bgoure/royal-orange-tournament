@@ -57,6 +57,7 @@ export async function TournamentBracketsPublic({
           initialResolvedDivisionId={resolvedDivisionId}
           tournamentName={tournament.name}
           tournamentTimezone={tournament.timezone}
+          showHomeAway={!bracketOnly}
         />
       </div>
     </DivisionSwipeBoundary>
