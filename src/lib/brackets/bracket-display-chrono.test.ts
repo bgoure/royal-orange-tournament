@@ -111,7 +111,11 @@ describe("gamesForOba6Seeded", () => {
     if (g6.home.kind === "loser") assert.equal(g6.home.of, "G2");
     if (g6.away.kind === "loser") assert.equal(g6.away.of, "G3");
 
-    assert.equal(games.filter((g) => g.roundGroup === "R2").length, 4);
+    assert.equal(games.filter((g) => g.roundGroup === "R2").length, 2);
+    assert.equal(games.filter((g) => g.roundGroup === "R3").length, 3);
+    assert.equal(games.find((g) => g.key === "G5")?.roundGroup, "R3");
+    assert.equal(games.find((g) => g.key === "G7")?.roundGroup, "R4");
+    assert.equal(games.find((g) => g.key === "G9")?.roundGroup, "R5");
     assert.deepEqual(oba6SeededRoundColumns(), [
       "Round 1",
       "Round 2",
@@ -119,6 +123,7 @@ describe("gamesForOba6Seeded", () => {
       "Round 4",
       "Round 5",
       "Round 6",
+      "Round 7",
     ]);
   });
 

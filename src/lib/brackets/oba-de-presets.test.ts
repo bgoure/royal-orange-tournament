@@ -68,10 +68,16 @@ describe("OBA DE presets", () => {
     assert.equal(games.filter((g) => g.roundName === "Round 4").length, 1);
   });
 
-  it("6-team map is Round 1–6 with two Round 1 games and implicit byes", () => {
+  it("6-team map is Round 1–7 with G5/G6 in Round 3 (not Round 2)", () => {
     const games = gamesForOba6Seeded(["s1", "s2", "s3", "s4", "s5", "s6"]);
     assert.equal(games.filter((g) => g.roundName === "Round 1").length, 2);
-    assert.equal(games.filter((g) => g.roundName === "Round 2").length, 4);
+    assert.equal(games.filter((g) => g.roundName === "Round 2").length, 2);
+    assert.equal(games.filter((g) => g.roundName === "Round 3").length, 3);
+    assert.equal(games.filter((g) => g.roundName === "Round 4").length, 1);
+    assert.equal(games.filter((g) => g.roundName === "Round 5").length, 1);
+    assert.equal(games.find((g) => g.key === "G5")?.roundName, "Round 3");
+    assert.equal(games.find((g) => g.key === "G7")?.roundName, "Round 4");
+    assert.equal(games.find((g) => g.key === "G9")?.roundName, "Round 5");
     assert.ok(games.every((g) => g.home.kind !== "bye" && g.away.kind !== "bye"));
     assert.equal(games.find((g) => g.key === "GF2")?.gameNumber, "11");
   });

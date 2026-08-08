@@ -204,10 +204,12 @@ export function oba5SeededRoundColumns(): string[] {
 }
 
 /**
- * 6-team seeded DE matching the Round 1–6 workbook layout:
- * R1 G1: 4 vs 5, G2: 3 vs 6 · R2 G3: 1 vs W1, G4: 2 vs W2, G5: L4 vs L1, G6: L2 vs L3 ·
- * R3 G7: W5 vs W6, G8: W3 vs W4 · R4 G9: W7 vs L8 · R5–6 championship G10/G11.
+ * 6-team seeded DE matching the Round 1–7 workbook layout:
+ * R1 G1: 4 vs 5, G2: 3 vs 6 · R2 G3: 1 vs W1, G4: 2 vs W2 ·
+ * R3 G5: L4 vs L1, G6: L2 vs L3, G8: W3 vs W4 · R4 G7: W5 vs W6 ·
+ * R5 G9: W7 vs L8 · R6–7 championship G10/G11.
  * `seeds` length 6; seeds[0] = seed 1 (strongest). Seeds 1–2 bye Round 1 (implicit).
+ * Game order below controls left→right round columns (first appearance of each roundGroup).
  */
 export function gamesForOba6Seeded(seeds: string[]): GameDef[] {
   const [s1, s2, s3, s4, s5, s6] = seeds;
@@ -253,8 +255,8 @@ export function gamesForOba6Seeded(seeds: string[]): GameDef[] {
     },
     {
       key: "G5",
-      roundGroup: "R2",
-      roundName: "Round 2",
+      roundGroup: "R3",
+      roundName: "Round 3",
       roundType: BracketRoundType.LOSERS,
       home: { kind: "loser", of: "G4" },
       away: { kind: "loser", of: "G1" },
@@ -262,21 +264,12 @@ export function gamesForOba6Seeded(seeds: string[]): GameDef[] {
     },
     {
       key: "G6",
-      roundGroup: "R2",
-      roundName: "Round 2",
+      roundGroup: "R3",
+      roundName: "Round 3",
       roundType: BracketRoundType.LOSERS,
       home: { kind: "loser", of: "G2" },
       away: { kind: "loser", of: "G3" },
       gameNumber: "6",
-    },
-    {
-      key: "G7",
-      roundGroup: "R3",
-      roundName: "Round 3",
-      roundType: BracketRoundType.LOSERS,
-      home: { kind: "winner", of: "G5" },
-      away: { kind: "winner", of: "G6" },
-      gameNumber: "7",
     },
     {
       key: "G8",
@@ -288,9 +281,18 @@ export function gamesForOba6Seeded(seeds: string[]): GameDef[] {
       gameNumber: "8",
     },
     {
-      key: "G9",
+      key: "G7",
       roundGroup: "R4",
       roundName: "Round 4",
+      roundType: BracketRoundType.LOSERS,
+      home: { kind: "winner", of: "G5" },
+      away: { kind: "winner", of: "G6" },
+      gameNumber: "7",
+    },
+    {
+      key: "G9",
+      roundGroup: "R5",
+      roundName: "Round 5",
       roundType: BracketRoundType.LOSERS,
       home: { kind: "winner", of: "G7" },
       away: { kind: "loser", of: "G8" },
@@ -319,7 +321,7 @@ export function gamesForOba6Seeded(seeds: string[]): GameDef[] {
 
 /** Round column labels for the 6-team seeded map (for tests / UI). */
 export function oba6SeededRoundColumns(): string[] {
-  return ["Round 1", "Round 2", "Round 3", "Round 4", "Round 5", "Round 6"];
+  return ["Round 1", "Round 2", "Round 3", "Round 4", "Round 5", "Round 6", "Round 7"];
 }
 
 function gamesForOba7(draw: string[]): GameDef[] {
@@ -816,5 +818,150 @@ export async function repairOba5RoundGroupingsForTournament(tournamentId: string
   });
   for (const b of brackets) {
     await repairOba5RoundGrouping(b.id);
+  }
+}
+
+/**
+ * Remap an existing oba_de_6 bracket to Round 1–7 workbook columns:
+ * R1 G1+G2 · R2 G3+G4 · R3 G5+G6+G8 · R4 G7 · R5 G9 · R6–7 championship.
+ * No-op when G5 is already off Round 2 (not sharing a round with G3). Preserves times/teams/feeders.
+ */
+export async function repairOba6RoundGrouping(bracketId: string): Promise<boolean> {
+  const bracket = await prisma.bracket.findUnique({
+    where: { id: bracketId },
+    select: { id: true, presetKey: true },
+  });
+  if (bracket?.presetKey !== "oba_de_6") return false;
+
+  const games = await prisma.game.findMany({
+    where: { bracketId },
+    select: {
+      id: true,
+      gameNumber: true,
+      bracketRoundId: true,
+      bracketMatch: { select: { id: true } },
+    },
+  });
+
+  const byNum = new Map<string, (typeof games)[number]>();
+  for (const g of games) {
+    const n = g.gameNumber?.trim() ?? "";
+    if (n) byNum.set(n, g);
+  }
+  const g3 = byNum.get("3");
+  const g5 = byNum.get("5");
+  if (!g3 || !g5) return false;
+  // Old layout kept G5 with G3 in Round 2; target separates them.
+  if (g3.bracketRoundId && g5.bracketRoundId && g3.bracketRoundId !== g5.bracketRoundId) {
+    return false;
+  }
+
+  type Slot = { name: string; roundType: BracketRoundType; roundIndex: number; position: number };
+  const plan: Record<string, Slot> = {
+    "1": { name: "Round 1", roundType: BracketRoundType.WINNERS, roundIndex: 0, position: 0 },
+    "2": { name: "Round 1", roundType: BracketRoundType.WINNERS, roundIndex: 0, position: 1 },
+    "3": { name: "Round 2", roundType: BracketRoundType.WINNERS, roundIndex: 1, position: 0 },
+    "4": { name: "Round 2", roundType: BracketRoundType.WINNERS, roundIndex: 1, position: 1 },
+    "5": { name: "Round 3", roundType: BracketRoundType.LOSERS, roundIndex: 2, position: 0 },
+    "6": { name: "Round 3", roundType: BracketRoundType.LOSERS, roundIndex: 2, position: 1 },
+    "8": { name: "Round 3", roundType: BracketRoundType.WINNERS, roundIndex: 2, position: 2 },
+    "7": { name: "Round 4", roundType: BracketRoundType.LOSERS, roundIndex: 3, position: 0 },
+    "9": { name: "Round 5", roundType: BracketRoundType.LOSERS, roundIndex: 4, position: 0 },
+    "10": { name: "Championship", roundType: BracketRoundType.FINAL, roundIndex: 5, position: 0 },
+    "11": { name: "Championship", roundType: BracketRoundType.FINAL, roundIndex: 5, position: 1 },
+  };
+
+  await prisma.$transaction(async (tx) => {
+    const existing = await tx.bracketRound.findMany({
+      where: { bracketId },
+      orderBy: { roundIndex: "asc" },
+    });
+    const claimed = new Set<string>();
+    const roundIdByIndex = new Map<number, string>();
+
+    const uniqueSlots = new Map<number, Slot>();
+    for (const slot of Object.values(plan)) {
+      if (!uniqueSlots.has(slot.roundIndex)) uniqueSlots.set(slot.roundIndex, slot);
+    }
+
+    for (const [roundIndex, slot] of [...uniqueSlots.entries()].sort((a, b) => a[0] - b[0])) {
+      const found =
+        existing.find((r) => !claimed.has(r.id) && r.roundIndex === roundIndex) ??
+        existing.find((r) => !claimed.has(r.id) && r.name === slot.name) ??
+        existing.find((r) => !claimed.has(r.id));
+      if (found) {
+        claimed.add(found.id);
+        await tx.bracketRound.update({
+          where: { id: found.id },
+          data: {
+            name: slot.name,
+            roundIndex,
+            roundType: slot.roundType,
+          },
+        });
+        roundIdByIndex.set(roundIndex, found.id);
+      } else {
+        const created = await tx.bracketRound.create({
+          data: {
+            bracketId,
+            name: slot.name,
+            roundIndex,
+            roundType: slot.roundType,
+          },
+        });
+        claimed.add(created.id);
+        roundIdByIndex.set(roundIndex, created.id);
+      }
+    }
+
+    for (const [num, game] of byNum) {
+      if (!game.bracketMatch) continue;
+      const n = Number.parseInt(num, 10);
+      await tx.bracketMatch.update({
+        where: { id: game.bracketMatch.id },
+        data: { matchIndex: 1000 + (Number.isFinite(n) ? n : 0) },
+      });
+    }
+
+    const keepRoundIds = new Set(roundIdByIndex.values());
+
+    for (const [num, slot] of Object.entries(plan)) {
+      const game = byNum.get(num);
+      if (!game) continue;
+      const roundId = roundIdByIndex.get(slot.roundIndex)!;
+      await tx.game.update({
+        where: { id: game.id },
+        data: { bracketRoundId: roundId, bracketPosition: slot.position },
+      });
+      if (game.bracketMatch) {
+        await tx.bracketMatch.update({
+          where: { id: game.bracketMatch.id },
+          data: { bracketRoundId: roundId, matchIndex: slot.position },
+        });
+      }
+    }
+
+    const leftover = await tx.bracketRound.findMany({
+      where: { bracketId, id: { notIn: [...keepRoundIds] } },
+      select: { id: true, _count: { select: { games: true, matches: true } } },
+    });
+    for (const r of leftover) {
+      if (r._count.games === 0 && r._count.matches === 0) {
+        await tx.bracketRound.delete({ where: { id: r.id } });
+      }
+    }
+  });
+
+  return true;
+}
+
+/** Repair all oba_de_6 brackets in a tournament that still keep G5/G6 in Round 2. */
+export async function repairOba6RoundGroupingsForTournament(tournamentId: string): Promise<void> {
+  const brackets = await prisma.bracket.findMany({
+    where: { tournamentId, presetKey: "oba_de_6" },
+    select: { id: true },
+  });
+  for (const b of brackets) {
+    await repairOba6RoundGrouping(b.id);
   }
 }

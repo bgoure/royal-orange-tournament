@@ -101,11 +101,11 @@ export const OBA_DE_PRESETS: Record<ObaDePresetKey, ObaDePreset> = {
     teamCount: 6,
     label: "Double elimination — 6 teams (seeded)",
     shortLabel: "DE · 6",
-    summary: "Round 1–6 columns; seeds 1–2 bye; 4 vs 5 and 3 vs 6 open; if-necessary final.",
+    summary: "Round 1–7 columns; seeds 1–2 bye; 4 vs 5 and 3 vs 6 open; if-necessary final.",
     explainer: [
       {
         title: "Overview",
-        body: "Six-team double elimination laid out in Round 1–6 columns (workbook style). Seeds 1–2 receive a Round 1 bye; seeds 3–6 play Games 1–2. A second loss eliminates a team.",
+        body: "Six-team double elimination laid out in Round 1–7 columns (workbook style). Seeds 1–2 receive a Round 1 bye; seeds 3–6 play Games 1–2. A second loss eliminates a team.",
       },
       {
         title: "Round 1",
@@ -113,15 +113,15 @@ export const OBA_DE_PRESETS: Record<ObaDePresetKey, ObaDePreset> = {
       },
       {
         title: "Round 2",
-        body: "Game 3: 1st seed vs winner of Game 1. Game 4: 2nd seed vs winner of Game 2. Game 5: loser of Game 4 vs loser of Game 1. Game 6: loser of Game 2 vs loser of Game 3.",
+        body: "Game 3: 1st seed vs winner of Game 1. Game 4: 2nd seed vs winner of Game 2.",
       },
       {
-        title: "Rounds 3–4",
-        body: "Round 3 Game 7: winner of Game 5 vs winner of Game 6; Game 8: winner of Game 3 vs winner of Game 4. Round 4 Game 9: winner of Game 7 vs loser of Game 8.",
+        title: "Rounds 3–5",
+        body: "Round 3 Game 5: loser of Game 4 vs loser of Game 1; Game 6: loser of Game 2 vs loser of Game 3; Game 8: winner of Game 3 vs winner of Game 4. Round 4 Game 7: winner of Game 5 vs winner of Game 6. Round 5 Game 9: winner of Game 7 vs loser of Game 8.",
       },
       {
-        title: "Rounds 5–6 (championship)",
-        body: "Round 5 Game 10: winner of Game 8 (undefeated path) vs winner of Game 9. Round 6 Game 11 is if-necessary when the losers champion wins Game 10.",
+        title: "Rounds 6–7 (championship)",
+        body: "Round 6 Game 10: winner of Game 8 (undefeated path) vs winner of Game 9. Round 7 Game 11 is if-necessary when the losers champion wins Game 10.",
       },
       {
         title: "Seeding / byes",
