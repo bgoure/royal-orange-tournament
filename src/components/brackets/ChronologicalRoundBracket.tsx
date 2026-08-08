@@ -125,19 +125,23 @@ function gameByNumber(games: GameRow[], num: string): GameRow | undefined {
   return undefined;
 }
 
-/** Put `toNum` on the same vertical row as `fromNum` when both exist. */
-function alignGameNumberRow(
+/**
+ * Align `toNum` so its vertical center matches `fromNum`.
+ * Keeps feeder connectors (G1→G3) horizontal when cards differ in height (1-line vs 2-line names).
+ */
+function alignGameNumberCenters(
   games: GameRow[],
   tops: Map<string, number>,
+  hOf: (id: string) => number,
   fromNum: string,
   toNum: string,
 ): void {
   const from = gameByNumber(games, fromNum);
   const to = gameByNumber(games, toNum);
   if (!from || !to) return;
-  const y = tops.get(from.id);
-  if (y == null) return;
-  tops.set(to.id, y);
+  const fromY = tops.get(from.id);
+  if (fromY == null) return;
+  tops.set(to.id, fromY + hOf(from.id) / 2 - hOf(to.id) / 2);
 }
 
 /** Sit `midNum` vertically between `aNum` and `bNum` (e.g. G7 between G5 and G6). */
@@ -163,15 +167,16 @@ function centerBetweenGameNumbers(
 }
 
 /**
- * Snap games that have exactly one same-lane WINNER feeder onto that feeder's row
- * (e.g. G3 with G1, G7 with G5).
+ * Snap games that have exactly one same-lane WINNER feeder onto that feeder's
+ * vertical center (e.g. G3 with G1, G4 with G2) so join lines stay straight.
  * When `minFeederOrdinal` is set, skip feeders in earlier losers columns so the first
- * losers card (G4) can sit higher without pulling G5/G7 down onto it.
+ * losers card (G4) can sit higher without pulling later games down onto it.
  */
 function snapSingleWinnerFeederRows(
   perCol: GameRow[][],
   edges: WinnerEdge[],
   tops: Map<string, number>,
+  hOf: (id: string) => number,
   laneIds: Set<string>,
   minFeederOrdinal = 0,
 ): void {
@@ -193,15 +198,15 @@ function snapSingleWinnerFeederRows(
       if ((ordinalById.get(fromId) ?? 0) < minFeederOrdinal) continue;
       const fromY = tops.get(fromId);
       if (fromY == null) continue;
-      tops.set(g.id, fromY);
+      tops.set(g.id, fromY + hOf(fromId) / 2 - hOf(g.id) / 2);
     }
   }
 }
 
 /**
  * Two-lane layout: winners on top, losers below with upward progression.
- * Single winner-feeder chains stay on one row (G1↔G3). G7 centers between G5/G6;
- * G9 centers between G10 (championship) and G5.
+ * Single winner-feeder chains share a horizontal center line (G1↔G3) even when
+ * card heights differ. G7 centers between G5/G6; G9 between G10 and G5.
  */
 function layoutGameTops(
   columns: { games: GameRow[]; subtitle?: string }[],
@@ -248,8 +253,9 @@ function layoutGameTops(
           return fromLosers === toLosers && tops.has(e.fromGameId);
         });
         if (sameLaneFeeders.length === 1) {
-          // Same row as the sole feeder (G1→G3), not vertically centered on it.
-          y = tops.get(sameLaneFeeders[0]!.fromGameId)!;
+          // Match vertical centers with the sole feeder (straight connector).
+          const fromId = sameLaneFeeders[0]!.fromGameId;
+          y = tops.get(fromId)! + hOf(fromId) / 2 - hOf(g.id) / 2;
         } else if (feederCenters.length > 0) {
           const avg = feederCenters.reduce((a, b) => a + b, 0) / feederCenters.length;
           y = avg - hOf(g.id) / 2;
@@ -271,7 +277,8 @@ function layoutGameTops(
             return fromLosers === toLosers && tops.has(e.fromGameId);
           });
           if (sole.length === 1) {
-            cur.y = tops.get(sole[0]!.fromGameId)!;
+            const fromId = sole[0]!.fromGameId;
+            cur.y = tops.get(fromId)! + hOf(fromId) / 2 - hOf(cur.id) / 2;
           } else {
             cur.y = Math.max(yOffset + COL_PAD_Y, cur.y);
           }
@@ -289,10 +296,10 @@ function layoutGameTops(
   };
 
   layoutBand(winnersByCol, 0);
-  // Reinforce G1↔G3 (etc.) after band layout.
-  snapSingleWinnerFeederRows(winnersByCol, edges, tops, winnersIds);
-  // Hard align common workbook pairs by game number (covers missing feeder edges).
-  alignGameNumberRow(winnersByCol.flat(), tops, "1", "3");
+  // Reinforce G1↔G3 / G2↔G4 (etc.) after band layout — center-aligned.
+  snapSingleWinnerFeederRows(winnersByCol, edges, tops, hOf, winnersIds);
+  alignGameNumberCenters(winnersByCol.flat(), tops, hOf, "1", "3");
+  alignGameNumberCenters(winnersByCol.flat(), tops, hOf, "2", "4");
 
   // Recompute losers start from actual winners bottoms after snap
   let winnersMax = 0;
@@ -321,7 +328,7 @@ function layoutGameTops(
 
   // Re-snap after lifts for single-feeder losers chains (e.g. 5-team G5→G7).
   // 6-team: G7 sits between G5 and G6; G9 between championship (G10) and G5.
-  snapSingleWinnerFeederRows(losersByCol, edges, tops, losersIds, 1);
+  snapSingleWinnerFeederRows(losersByCol, edges, tops, hOf, losersIds, 1);
   const losersFlat = losersByCol.flat();
   centerBetweenGameNumbers(losersFlat, tops, hOf, "7", "5", "6", losersIds);
 
@@ -415,7 +422,12 @@ function buildJoinPaths(edges: WinnerEdge[], board: HTMLElement): DrawnPath[] {
 
     if (sources.length === 1) {
       const s = sources[0]!;
-      paths.push({ d: `M ${s.x1} ${s.y1} H ${joinX} V ${meetY} H ${x2}` });
+      // Prefer a true horizontal when centers already match (1-line vs 2-line cards).
+      if (Math.abs(s.y1 - meetY) < 1.5) {
+        paths.push({ d: `M ${s.x1} ${s.y1} H ${x2}` });
+      } else {
+        paths.push({ d: `M ${s.x1} ${s.y1} H ${joinX} V ${meetY} H ${x2}` });
+      }
       continue;
     }
 
