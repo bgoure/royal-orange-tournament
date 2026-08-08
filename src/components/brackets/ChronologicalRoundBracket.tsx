@@ -147,6 +147,22 @@ function centerBetweenGameNumbers(
   tops.set(mid.id, midCenter - hOf(mid.id) / 2);
 }
 
+/** Place `upperNum` a step above `baseNum` (losers-lane progression). */
+function stepAboveGameNumber(
+  games: GameRow[],
+  tops: Map<string, number>,
+  upperNum: string,
+  baseNum: string,
+  lift: number,
+): void {
+  const upper = gameByNumber(games, upperNum);
+  const base = gameByNumber(games, baseNum);
+  if (!upper || !base) return;
+  const baseY = tops.get(base.id);
+  if (baseY == null) return;
+  tops.set(upper.id, Math.max(COL_PAD_Y, baseY - lift));
+}
+
 /**
  * Snap games that have exactly one same-lane WINNER feeder onto that feeder's
  * vertical center (e.g. G3 with G1, G4 with G2) so join lines stay straight.
@@ -187,7 +203,8 @@ function snapSingleWinnerFeederRows(
 /**
  * Two-lane layout: winners on top, losers below with upward progression.
  * Single winner-feeder chains share a horizontal center line (G1↔G3) even when
- * card heights differ. G7 centers between G5/G6; G9 between G10 and G5.
+ * card heights differ. 6-team: G7 between G5/G6, G9 between G10 and G5.
+ * 7-team: G10 between G7/G8, G11 stepped above G10.
  */
 function layoutGameTops(
   columns: { games: GameRow[]; subtitle?: string }[],
@@ -307,10 +324,13 @@ function layoutGameTops(
   }
 
   // Re-snap after lifts for single-feeder losers chains (e.g. 5-team G5→G7).
-  // 6-team: G7 sits between G5 and G6; G9 between championship (G10) and G5.
   snapSingleWinnerFeederRows(losersByCol, edges, tops, hOf, losersIds, 1);
   const losersFlat = losersByCol.flat();
+  // 6-team: G7 between G5 and G6.
   centerBetweenGameNumbers(losersFlat, tops, hOf, "7", "5", "6", losersIds);
+  // 7-team: G10 between G7 and G8; G11 steps up for progression.
+  centerBetweenGameNumbers(losersFlat, tops, hOf, "10", "7", "8", losersIds);
+  stepAboveGameNumber(losersFlat, tops, "11", "10", LOSERS_PROGRESSION_LIFT);
 
   // Championship + if-necessary: same horizon (align GF2 to GF1).
   const champCol = columns.findIndex((c) => isChampionshipColumn(c));
@@ -324,9 +344,13 @@ function layoutGameTops(
     }
   }
 
-  // After G10 is placed, park G9 halfway between G10 and G5.
+  // 6-team only: G9 is losers-lane — park halfway between championship G10 and G5.
+  // (7-team G9 is winners final; do not move it.)
   const allFlat = columns.flatMap((c) => c.games);
-  centerBetweenGameNumbers(allFlat, tops, hOf, "9", "10", "5");
+  const g9 = gameByNumber(allFlat, "9");
+  if (g9 && losersIds.has(g9.id)) {
+    centerBetweenGameNumbers(allFlat, tops, hOf, "9", "10", "5");
+  }
 
   return tops;
 }
