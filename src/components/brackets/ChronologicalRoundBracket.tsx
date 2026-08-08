@@ -156,22 +156,6 @@ function centerBetweenGameNumbers(
   tops.set(mid.id, midCenter - hOf(mid.id) / 2);
 }
 
-/** Place `upperNum` a step above `baseNum` (losers-lane progression). */
-function stepAboveGameNumber(
-  games: GameRow[],
-  tops: Map<string, number>,
-  upperNum: string,
-  baseNum: string,
-  lift: number,
-): void {
-  const upper = gameByNumber(games, upperNum);
-  const base = gameByNumber(games, baseNum);
-  if (!upper || !base) return;
-  const baseY = tops.get(base.id);
-  if (baseY == null) return;
-  tops.set(upper.id, Math.max(COL_PAD_Y, baseY - lift));
-}
-
 /**
  * Snap games that have exactly one same-lane WINNER feeder onto that feeder's row
  * (e.g. G3 with G1, G7 with G5).
@@ -211,7 +195,7 @@ function snapSingleWinnerFeederRows(
 /**
  * Two-lane layout: winners on top, losers below with upward progression.
  * Single winner-feeder chains stay on one row (G1↔G3). G7 centers between G5/G6;
- * G9 steps above G7.
+ * G9 centers between G10 (championship) and G5.
  */
 function layoutGameTops(
   columns: { games: GameRow[]; subtitle?: string }[],
@@ -330,11 +314,10 @@ function layoutGameTops(
   }
 
   // Re-snap after lifts for single-feeder losers chains (e.g. 5-team G5→G7).
-  // Skip flattening merge games: 6-team G7 sits between G5 and G6, then G9 steps up.
+  // 6-team: G7 sits between G5 and G6; G9 between championship (G10) and G5.
   snapSingleWinnerFeederRows(losersByCol, edges, tops, losersIds, 1);
   const losersFlat = losersByCol.flat();
   centerBetweenGameNumbers(losersFlat, tops, hOf, "7", "5", "6", losersIds);
-  stepAboveGameNumber(losersFlat, tops, "9", "7", LOSERS_PROGRESSION_LIFT);
 
   // Championship + if-necessary: same horizon (align GF2 to GF1).
   const champCol = columns.findIndex((c) => isChampionshipColumn(c));
@@ -347,6 +330,10 @@ function layoutGameTops(
       if (y1 != null) tops.set(gf2Game.id, y1);
     }
   }
+
+  // After G10 is placed, park G9 halfway between G10 and G5.
+  const allFlat = columns.flatMap((c) => c.games);
+  centerBetweenGameNumbers(allFlat, tops, hOf, "9", "10", "5");
 
   return tops;
 }
