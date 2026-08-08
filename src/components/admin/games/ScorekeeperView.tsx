@@ -212,7 +212,6 @@ function ScorekeeperGameCard({
       <form action={scoreAction} className="flex flex-col gap-4 p-4">
         <input type="hidden" name="id" value={game.id} />
         <input type="hidden" name="gameKind" value={game.gameKind} />
-        <input type="hidden" name="fieldHomeTeamId" value={game.homeTeamId ?? ""} />
         <input type="hidden" name="resultType" value={game.resultType || GameResultType.REGULAR} />
         <input type="hidden" name="status" value={status} />
         <input type="hidden" name="awayOffensiveInnings" value={game.awayOffensiveInnings ?? ""} />
@@ -223,6 +222,47 @@ function ScorekeeperGameCard({
             <input type="hidden" name="homeDefensiveInnings" value={game.homeDefensiveInnings ?? ""} />
           </>
         ) : null}
+
+        {game.homeTeamId && game.awayTeamId ? (
+          <fieldset className="rounded-xl border border-zinc-200 bg-zinc-50/80 px-3 py-3">
+            <legend className="px-1 text-[10px] font-semibold uppercase tracking-wide text-zinc-500">
+              Field home
+            </legend>
+            <p className="mb-2 text-[11px] leading-snug text-zinc-500">
+              Coin-flip until you set it. Choose who is home for the scorebook; swapping updates
+              home/away columns and paired stats.
+            </p>
+            <div className="flex flex-col gap-2">
+              <label className="flex min-h-11 cursor-pointer items-center gap-3 rounded-lg border border-zinc-200 bg-white px-3 text-sm text-zinc-800">
+                <input
+                  type="radio"
+                  name="fieldHomeTeamId"
+                  value={game.awayTeamId}
+                  className="size-5 border-zinc-300 text-emerald-600 focus:ring-emerald-500/30"
+                />
+                <span>
+                  <span className="font-semibold">{awayLabel}</span>
+                  <span className="ml-1 text-xs text-zinc-400">(currently Away)</span>
+                </span>
+              </label>
+              <label className="flex min-h-11 cursor-pointer items-center gap-3 rounded-lg border border-zinc-200 bg-white px-3 text-sm text-zinc-800">
+                <input
+                  type="radio"
+                  name="fieldHomeTeamId"
+                  value={game.homeTeamId}
+                  defaultChecked
+                  className="size-5 border-zinc-300 text-emerald-600 focus:ring-emerald-500/30"
+                />
+                <span>
+                  <span className="font-semibold">{homeLabel}</span>
+                  <span className="ml-1 text-xs text-zinc-400">(currently Home)</span>
+                </span>
+              </label>
+            </div>
+          </fieldset>
+        ) : (
+          <input type="hidden" name="fieldHomeTeamId" value="" />
+        )}
 
         <div>
           <p className="text-[10px] font-semibold uppercase tracking-wide text-zinc-500">Status</p>

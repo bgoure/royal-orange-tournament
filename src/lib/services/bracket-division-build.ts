@@ -17,6 +17,7 @@ import {
 import { resolveBracketTeamsFromStandings } from "./bracket-resolution";
 import { isDivisionRoundRobinCompleteForSeeding } from "./round-robin-division";
 import { advanceByeWinnersInRound0 } from "./bracket-advance";
+import { coinFlipHomeAwaySeats } from "./bracket-home-coin-flip";
 
 export type FirstRoundSide =
   | { poolId: string; rank: number }
@@ -317,6 +318,11 @@ export async function createDivisionPlayoffBracket(opts: CreateDivisionPlayoffOp
     where: { id: fieldId, tournamentId },
     select: { id: true },
   });
+  const tournamentMeta = await prisma.tournament.findUnique({
+    where: { id: tournamentId },
+    select: { hasPoolPlay: true },
+  });
+  const coinFlipHomeAway = tournamentMeta?.hasPoolPlay === false;
   if (!field) throw new Error("Field not found.");
 
   const maxOrder = await prisma.bracket.aggregate({
@@ -478,6 +484,11 @@ export async function createDivisionPlayoffBracket(opts: CreateDivisionPlayoffOp
           } else if (isTeamSide(fr.away)) {
             awayTeamId = fr.away.teamId;
           }
+          ({ homeTeamId, awayTeamId } = coinFlipHomeAwaySeats(
+            homeTeamId,
+            awayTeamId,
+            coinFlipHomeAway,
+          ));
         }
 
         const game = await tx.game.create({

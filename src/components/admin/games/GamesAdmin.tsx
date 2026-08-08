@@ -731,7 +731,9 @@ function GameCard({
                 Field home (record)
               </legend>
               <p className="mb-2 text-[11px] leading-snug text-zinc-500">
-                Which team is recorded as home in the app. Swapping updates home/away columns and paired stats.
+                {isPoolGame
+                  ? "Which team is recorded as home. Swapping updates home/away columns and paired stats."
+                  : "Bracket games start as a coin flip. Set field home when the game is underway — swapping updates home/away columns and paired stats."}
               </p>
               <div className="flex flex-col gap-2 sm:flex-row sm:flex-wrap">
                 <label className="flex cursor-pointer items-center gap-2 text-sm text-zinc-800">

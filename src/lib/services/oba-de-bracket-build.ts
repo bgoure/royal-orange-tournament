@@ -23,6 +23,7 @@ import {
 } from "@/lib/services/bracket-division-build";
 import { classicSingleElimOrder } from "@/lib/services/bracket-engine";
 import { advanceByeWinnersInRound0 } from "@/lib/services/bracket-advance";
+import { coinFlipHomeAwaySeats } from "@/lib/services/bracket-home-coin-flip";
 
 export type CreateObaDeBracketOptions = {
   tournamentId: string;
@@ -505,6 +506,13 @@ async function createFeederGraphBracket(
   });
   if (!field) throw new Error("Field not found.");
 
+  const tournament = await prisma.tournament.findUnique({
+    where: { id: tournamentId },
+    select: { hasPoolPlay: true },
+  });
+  /** Direct-to-brackets: no home advantage at create — coin-flip known seats. */
+  const coinFlipHomeAway = tournament?.hasPoolPlay === false;
+
   const maxOrder = await prisma.bracket.aggregate({
     where: { tournamentId },
     _max: { sortOrder: true },
@@ -564,6 +572,11 @@ async function createFeederGraphBracket(
         if (def.away.kind === "team") awayTeamId = def.away.teamId;
         if (def.home.kind === "bye") homeIsBye = true;
         if (def.away.kind === "bye") awayIsBye = true;
+        ({ homeTeamId, awayTeamId } = coinFlipHomeAwaySeats(
+          homeTeamId,
+          awayTeamId,
+          coinFlipHomeAway,
+        ));
 
         const game = await tx.game.create({
           data: {
