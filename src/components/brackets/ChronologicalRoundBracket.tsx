@@ -27,7 +27,7 @@ const BAND_GAP = 56;
 const COL_PAD_Y = 12;
 const HEADER_H = 48;
 const JOIN_INSET = 28;
-/** Raise each successive losers-lane column to show progression (G5 above G4, G7 above G5). */
+/** Raise each successive losers-lane column to show progression (G5 above G4, G9 above G7). */
 const LOSERS_PROGRESSION_LIFT = 52;
 /** Extra rise for the first losers-lane card (e.g. G4 under G3). */
 const LOSERS_FIRST_CARD_LIFT = 40;
@@ -112,6 +112,13 @@ function isChampionshipColumn(col: { subtitle?: string }): boolean {
   return s === "championship";
 }
 
+function gameByNumber(games: GameRow[], num: string): GameRow | undefined {
+  for (const g of games) {
+    if ((g.gameNumber?.trim() ?? "") === num) return g;
+  }
+  return undefined;
+}
+
 /** Put `toNum` on the same vertical row as `fromNum` when both exist. */
 function alignGameNumberRow(
   games: GameRow[],
@@ -119,17 +126,50 @@ function alignGameNumberRow(
   fromNum: string,
   toNum: string,
 ): void {
-  let from: GameRow | undefined;
-  let to: GameRow | undefined;
-  for (const g of games) {
-    const n = g.gameNumber?.trim() ?? "";
-    if (n === fromNum) from = g;
-    if (n === toNum) to = g;
-  }
+  const from = gameByNumber(games, fromNum);
+  const to = gameByNumber(games, toNum);
   if (!from || !to) return;
   const y = tops.get(from.id);
   if (y == null) return;
   tops.set(to.id, y);
+}
+
+/** Sit `midNum` vertically between `aNum` and `bNum` (e.g. G7 between G5 and G6). */
+function centerBetweenGameNumbers(
+  games: GameRow[],
+  tops: Map<string, number>,
+  hOf: (id: string) => number,
+  midNum: string,
+  aNum: string,
+  bNum: string,
+  laneIds?: Set<string>,
+): void {
+  const mid = gameByNumber(games, midNum);
+  const a = gameByNumber(games, aNum);
+  const b = gameByNumber(games, bNum);
+  if (!mid || !a || !b) return;
+  if (laneIds && (!laneIds.has(mid.id) || !laneIds.has(a.id) || !laneIds.has(b.id))) return;
+  const ya = tops.get(a.id);
+  const yb = tops.get(b.id);
+  if (ya == null || yb == null) return;
+  const midCenter = (ya + hOf(a.id) / 2 + yb + hOf(b.id) / 2) / 2;
+  tops.set(mid.id, midCenter - hOf(mid.id) / 2);
+}
+
+/** Place `upperNum` a step above `baseNum` (losers-lane progression). */
+function stepAboveGameNumber(
+  games: GameRow[],
+  tops: Map<string, number>,
+  upperNum: string,
+  baseNum: string,
+  lift: number,
+): void {
+  const upper = gameByNumber(games, upperNum);
+  const base = gameByNumber(games, baseNum);
+  if (!upper || !base) return;
+  const baseY = tops.get(base.id);
+  if (baseY == null) return;
+  tops.set(upper.id, Math.max(COL_PAD_Y, baseY - lift));
 }
 
 /**
@@ -170,7 +210,8 @@ function snapSingleWinnerFeederRows(
 
 /**
  * Two-lane layout: winners on top, losers below with upward progression.
- * Single winner-feeder chains stay on one row (G1↔G3, G5↔G7).
+ * Single winner-feeder chains stay on one row (G1↔G3). G7 centers between G5/G6;
+ * G9 steps above G7.
  */
 function layoutGameTops(
   columns: { games: GameRow[]; subtitle?: string }[],
@@ -288,9 +329,12 @@ function layoutGameTops(
     losersColOrdinal += 1;
   }
 
-  // Re-snap after lifts so G5↔G7 share a row (do not pin them back onto G4).
+  // Re-snap after lifts for single-feeder losers chains (e.g. 5-team G5→G7).
+  // Skip flattening merge games: 6-team G7 sits between G5 and G6, then G9 steps up.
   snapSingleWinnerFeederRows(losersByCol, edges, tops, losersIds, 1);
-  alignGameNumberRow(losersByCol.flat(), tops, "5", "7");
+  const losersFlat = losersByCol.flat();
+  centerBetweenGameNumbers(losersFlat, tops, hOf, "7", "5", "6", losersIds);
+  stepAboveGameNumber(losersFlat, tops, "9", "7", LOSERS_PROGRESSION_LIFT);
 
   // Championship + if-necessary: same horizon (align GF2 to GF1).
   const champCol = columns.findIndex((c) => isChampionshipColumn(c));
