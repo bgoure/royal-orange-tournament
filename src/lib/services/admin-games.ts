@@ -9,7 +9,7 @@ export function listGamesAdmin(tournamentId: string) {
       awayTeam: teamWithPublicLogoInclude,
       field: { include: { location: { select: { name: true } } } },
       pool: { include: { division: true } },
-      bracket: { select: { id: true, division: { select: { name: true } } } },
+      bracket: { select: { id: true, divisionId: true, division: { select: { id: true, name: true } } } },
       bracketRound: { select: { name: true, roundType: true } },
       division: { select: { id: true, name: true } },
       consolationHomePool: {

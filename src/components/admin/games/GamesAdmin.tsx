@@ -1,6 +1,6 @@
 "use client";
 
-import { useActionState, useMemo, useState } from "react";
+import { useActionState, useEffect, useMemo, useState } from "react";
 import Link from "next/link";
 import { GameKind, GameResultType, GameStatus } from "@prisma/client";
 import { publicGameStatusLabel } from "@/components/schedule/GameList";
@@ -26,7 +26,7 @@ export type AdminGameRow = Game & {
   awayTeam: Team | null;
   field: Field & { location: { name: string } };
   pool: (Pool & { division: Division }) | null;
-  bracket: { id: string } | null;
+  bracket: { id: string; divisionId?: string; division?: { id: string; name: string } | null } | null;
   division: { id: string; name: string } | null;
   consolationHomePool: { id: string; name: string } | null;
   consolationAwayPool: { id: string; name: string } | null;
@@ -35,8 +35,21 @@ export type AdminGameRow = Game & {
 export type PoolWithTeams = {
   poolId: string;
   label: string;
+  divisionId: string;
   teams: { id: string; name: string }[];
 };
+
+export type AdminDivisionTab = { id: string; name: string };
+
+export function gameDivisionId(g: AdminGameRow): string | null {
+  return (
+    g.pool?.division?.id ??
+    g.division?.id ??
+    g.bracket?.divisionId ??
+    g.bracket?.division?.id ??
+    null
+  );
+}
 
 const formClass =
   "rounded-md border border-zinc-300 bg-white px-2 py-1.5 text-sm text-zinc-900 shadow-sm focus:border-emerald-500 focus:outline-none focus:ring-2 focus:ring-emerald-500/20";
@@ -69,6 +82,7 @@ type Props = {
   games: AdminGameRow[];
   fields: AdminFieldOption[];
   poolsWithTeams: PoolWithTeams[];
+  divisions: AdminDivisionTab[];
   tournamentName: string;
   /** IANA zone for interpreting `datetime-local` values (matches tournament settings). */
   tournamentTimezone: string;
@@ -87,6 +101,7 @@ export function GamesAdmin({
   games,
   fields,
   poolsWithTeams,
+  divisions,
   tournamentName,
   tournamentTimezone,
   isAdmin,
@@ -98,21 +113,55 @@ export function GamesAdmin({
     generatePoolRoundRobin,
     undefined as GameActionResult | undefined,
   );
-  const [poolId, setPoolId] = useState(poolsWithTeams[0]?.poolId ?? "");
-  const [rrPoolId, setRrPoolId] = useState(poolsWithTeams[0]?.poolId ?? "");
+  const [divisionId, setDivisionId] = useState(divisions[0]?.id ?? "");
+  const activeDivisionId = useMemo(() => {
+    if (divisionId && divisions.some((d) => d.id === divisionId)) return divisionId;
+    return divisions[0]?.id ?? "";
+  }, [divisionId, divisions]);
+
+  const divisionPools = useMemo(
+    () =>
+      activeDivisionId
+        ? poolsWithTeams.filter((p) => p.divisionId === activeDivisionId)
+        : poolsWithTeams,
+    [poolsWithTeams, activeDivisionId],
+  );
+
+  const divisionGames = useMemo(() => {
+    if (!activeDivisionId) return games;
+    return games.filter((g) => gameDivisionId(g) === activeDivisionId);
+  }, [games, activeDivisionId]);
+
+  const [poolId, setPoolId] = useState(divisionPools[0]?.poolId ?? "");
+  const [rrPoolId, setRrPoolId] = useState(divisionPools[0]?.poolId ?? "");
   const [listFilter, setListFilter] = useState<"all" | "needs_score" | "unscheduled" | "live" | "final">(
     "all",
   );
   const [fieldFilter, setFieldFilter] = useState<string>("all");
 
+  // Keep pool pickers on a pool in the active division when the tab changes.
+  useEffect(() => {
+    if (divisionPools.length === 0) {
+      setPoolId("");
+      setRrPoolId("");
+      return;
+    }
+    if (!divisionPools.some((p) => p.poolId === poolId)) {
+      setPoolId(divisionPools[0]!.poolId);
+    }
+    if (!divisionPools.some((p) => p.poolId === rrPoolId)) {
+      setRrPoolId(divisionPools[0]!.poolId);
+    }
+  }, [divisionPools, poolId, rrPoolId]);
+
   const teamOptions = useMemo(() => {
-    const p = poolsWithTeams.find((x) => x.poolId === poolId);
+    const p = divisionPools.find((x) => x.poolId === poolId);
     return p?.teams ?? [];
-  }, [poolsWithTeams, poolId]);
+  }, [divisionPools, poolId]);
 
   const rrTeamCount = useMemo(() => {
-    return poolsWithTeams.find((x) => x.poolId === rrPoolId)?.teams.length ?? 0;
-  }, [poolsWithTeams, rrPoolId]);
+    return divisionPools.find((x) => x.poolId === rrPoolId)?.teams.length ?? 0;
+  }, [divisionPools, rrPoolId]);
 
   const filterCounts = useMemo(() => {
     const now = Date.now();
@@ -120,18 +169,18 @@ export function GamesAdmin({
     let unscheduled = 0;
     let live = 0;
     let final = 0;
-    for (const g of games) {
+    for (const g of divisionGames) {
       if (gameNeedsScore(g, now)) needs_score += 1;
       if (g.schedulePlaceholder) unscheduled += 1;
       if (g.status === GameStatus.LIVE) live += 1;
       if (g.status === GameStatus.FINAL) final += 1;
     }
-    return { all: games.length, needs_score, unscheduled, live, final };
-  }, [games]);
+    return { all: divisionGames.length, needs_score, unscheduled, live, final };
+  }, [divisionGames]);
 
   const filteredGames = useMemo(() => {
     const now = Date.now();
-    return games.filter((g) => {
+    return divisionGames.filter((g) => {
       if (fieldFilter !== "all" && g.fieldId !== fieldFilter) return false;
       switch (listFilter) {
         case "needs_score":
@@ -146,13 +195,14 @@ export function GamesAdmin({
           return true;
       }
     });
-  }, [games, listFilter, fieldFilter]);
+  }, [divisionGames, listFilter, fieldFilter]);
 
   if (mode === "scorekeeper") {
     return (
       <ScorekeeperView
         games={games}
         fields={fields}
+        divisions={divisions}
         tournamentName={tournamentName}
         tournamentTimezone={tournamentTimezone}
       />
@@ -189,6 +239,37 @@ export function GamesAdmin({
         </div>
       </header>
 
+      {divisions.length > 1 ? (
+        <div className="flex flex-wrap gap-2 border-b border-zinc-200 pb-2" role="tablist" aria-label="Division">
+          {divisions.map((d) => {
+            const selected = activeDivisionId === d.id;
+            const count = games.filter((g) => gameDivisionId(g) === d.id).length;
+            return (
+              <button
+                key={d.id}
+                type="button"
+                role="tab"
+                aria-selected={selected}
+                onClick={() => {
+                  setDivisionId(d.id);
+                  setListFilter("all");
+                }}
+                className={
+                  selected
+                    ? "rounded-full bg-zinc-900 px-3 py-1.5 text-sm font-medium text-white"
+                    : "rounded-full bg-zinc-100 px-3 py-1.5 text-sm font-medium text-zinc-700 hover:bg-zinc-200"
+                }
+              >
+                {d.name}
+                <span className={`ml-1.5 tabular-nums ${selected ? "opacity-80" : "text-zinc-500"}`}>
+                  {count}
+                </span>
+              </button>
+            );
+          })}
+        </div>
+      ) : null}
+
       {fieldConflicts.length > 0 ? (
         <div
           role="alert"
@@ -221,13 +302,19 @@ export function GamesAdmin({
           counts skip the bye slot (no bye games).
         </p>
         <ActionMessage state={rrState} />
-        {poolsWithTeams.length === 0 ? (
+        {divisionPools.length === 0 ? (
           <p className="mt-4 text-sm text-amber-800">
-            Add pools and teams under{" "}
-            <Link href="/admin/divisions" className="font-medium underline">
-              Divisions
-            </Link>{" "}
-            first.
+            {poolsWithTeams.length === 0 ? (
+              <>
+                Add pools and teams under{" "}
+                <Link href="/admin/divisions" className="font-medium underline">
+                  Divisions
+                </Link>{" "}
+                first.
+              </>
+            ) : (
+              <>No pools in this division. Switch tabs or add a pool under Divisions.</>
+            )}
           </p>
         ) : fields.length === 0 ? (
           <p className="mt-4 text-sm text-amber-800">
@@ -252,7 +339,7 @@ export function GamesAdmin({
                   onChange={(e) => setRrPoolId(e.target.value)}
                   className={`${formClass} mt-1 w-full`}
                 >
-                  {poolsWithTeams.map((p) => (
+                  {divisionPools.map((p) => (
                     <option key={p.poolId} value={p.poolId}>
                       {p.label} ({p.teams.length} teams)
                     </option>
@@ -325,13 +412,19 @@ export function GamesAdmin({
           recorded as home is set when you enter scores, not here.
         </p>
         <ActionMessage state={createState} />
-        {poolsWithTeams.length === 0 ? (
+        {divisionPools.length === 0 ? (
           <p className="mt-4 text-sm text-amber-800">
-            Add pools and teams under{" "}
-            <Link href="/admin/divisions" className="font-medium underline">
-              Divisions
-            </Link>{" "}
-            first.
+            {poolsWithTeams.length === 0 ? (
+              <>
+                Add pools and teams under{" "}
+                <Link href="/admin/divisions" className="font-medium underline">
+                  Divisions
+                </Link>{" "}
+                first.
+              </>
+            ) : (
+              <>No pools in this division. Switch tabs or add a pool under Divisions.</>
+            )}
           </p>
         ) : fields.length === 0 ? (
           <p className="mt-4 text-sm text-amber-800">
@@ -356,7 +449,7 @@ export function GamesAdmin({
                   onChange={(e) => setPoolId(e.target.value)}
                   className={`${formClass} mt-1 w-full`}
                 >
-                  {poolsWithTeams.map((p) => (
+                  {divisionPools.map((p) => (
                     <option key={p.poolId} value={p.poolId}>
                       {p.label}
                     </option>
@@ -443,8 +536,12 @@ export function GamesAdmin({
         )}
       </section>
 
-      {games.length === 0 ? (
-        <p className="text-sm text-zinc-500">No games scheduled yet.</p>
+      {divisionGames.length === 0 ? (
+        <p className="text-sm text-zinc-500">
+          {games.length === 0
+            ? "No games scheduled yet."
+            : "No games in this division yet. Switch tabs or create a game above."}
+        </p>
       ) : (
         <section className="flex flex-col gap-4">
           <div className="flex flex-col gap-3 border-b border-zinc-200 pb-4">
@@ -452,7 +549,7 @@ export function GamesAdmin({
               <div>
                 <h2 className="text-sm font-semibold text-zinc-900">Game list</h2>
                 <p className="mt-0.5 text-xs text-zinc-500">
-                  Showing {filteredGames.length} of {games.length}
+                  Showing {filteredGames.length} of {divisionGames.length}
                   {listFilter !== "all" || fieldFilter !== "all" ? " (filtered)" : ""}.
                 </p>
               </div>
@@ -534,7 +631,7 @@ export function GamesAdmin({
                   key={game.id}
                   game={game}
                   fields={fields}
-                  poolsWithTeams={poolsWithTeams}
+                  poolsWithTeams={divisionPools}
                   tournamentTimezone={tournamentTimezone}
                   isAdmin={isAdmin}
                 />

@@ -31,10 +31,13 @@ export default async function AdminGamesPage({
     return <p className="text-sm text-zinc-500">Tournament not found.</p>;
   }
 
+  const divisions = structure.divisions.map((d) => ({ id: d.id, name: d.name }));
+
   const poolsWithTeams: PoolWithTeams[] = structure.divisions.flatMap((d) =>
     d.pools.map((p) => ({
       poolId: p.id,
       label: `${d.name} → ${p.name}`,
+      divisionId: d.id,
       teams: p.teams.map((t) => ({
         id: t.id,
         name: t.name,
@@ -53,6 +56,7 @@ export default async function AdminGamesPage({
       games={games as AdminGameRow[]}
       fields={fieldRows}
       poolsWithTeams={poolsWithTeams}
+      divisions={divisions}
       tournamentName={tournament.name}
       tournamentTimezone={tournament.timezone}
       isAdmin={isAdmin}

@@ -7,7 +7,12 @@ import { publicGameStatusLabel } from "@/components/schedule/GameList";
 import { updateGameScoring, type GameActionResult } from "@/app/admin/_actions/games";
 import { ActionMessage } from "@/components/admin/structure/ActionMessage";
 import { formatFieldWithLocation } from "@/lib/field-display";
-import type { AdminFieldOption, AdminGameRow } from "@/components/admin/games/GamesAdmin";
+import {
+  gameDivisionId,
+  type AdminDivisionTab,
+  type AdminFieldOption,
+  type AdminGameRow,
+} from "@/components/admin/games/GamesAdmin";
 
 const SCOREKEEPER_STATUSES: GameStatus[] = [
   GameStatus.SCHEDULED,
@@ -54,13 +59,26 @@ function statusChipClass(status: GameStatus, selected: boolean) {
 type Props = {
   games: AdminGameRow[];
   fields: AdminFieldOption[];
+  divisions: AdminDivisionTab[];
   tournamentName: string;
   tournamentTimezone: string;
 };
 
-export function ScorekeeperView({ games, fields, tournamentName, tournamentTimezone }: Props) {
+export function ScorekeeperView({
+  games,
+  fields,
+  divisions,
+  tournamentName,
+  tournamentTimezone,
+}: Props) {
+  const [divisionId, setDivisionId] = useState(divisions[0]?.id ?? "");
   const [fieldFilter, setFieldFilter] = useState<string>("all");
   const [hideFinal, setHideFinal] = useState(true);
+
+  const activeDivisionId = useMemo(() => {
+    if (divisionId && divisions.some((d) => d.id === divisionId)) return divisionId;
+    return divisions[0]?.id ?? "";
+  }, [divisionId, divisions]);
 
   const filtered = useMemo(() => {
     let list = [...games].sort((a, b) => {
@@ -68,6 +86,9 @@ export function ScorekeeperView({ games, fields, tournamentName, tournamentTimez
       const tb = new Date(b.scheduledAt).getTime();
       return ta - tb;
     });
+    if (activeDivisionId) {
+      list = list.filter((g) => gameDivisionId(g) === activeDivisionId);
+    }
     if (fieldFilter !== "all") {
       list = list.filter((g) => g.fieldId === fieldFilter);
     }
@@ -75,7 +96,7 @@ export function ScorekeeperView({ games, fields, tournamentName, tournamentTimez
       list = list.filter((g) => g.status !== GameStatus.FINAL && g.status !== GameStatus.CANCELLED);
     }
     return list;
-  }, [games, fieldFilter, hideFinal]);
+  }, [games, activeDivisionId, fieldFilter, hideFinal]);
 
   return (
     <div className="flex w-full flex-col gap-4 pb-10">
@@ -93,6 +114,34 @@ export function ScorekeeperView({ games, fields, tournamentName, tournamentTimez
             Exit
           </Link>
         </div>
+
+        {divisions.length > 1 ? (
+          <div className="mt-3 flex flex-wrap gap-2" role="tablist" aria-label="Division">
+            {divisions.map((d) => {
+              const selected = activeDivisionId === d.id;
+              const count = games.filter((g) => gameDivisionId(g) === d.id).length;
+              return (
+                <button
+                  key={d.id}
+                  type="button"
+                  role="tab"
+                  aria-selected={selected}
+                  onClick={() => setDivisionId(d.id)}
+                  className={
+                    selected
+                      ? "rounded-full bg-zinc-900 px-3 py-1.5 text-sm font-medium text-white"
+                      : "rounded-full bg-zinc-100 px-3 py-1.5 text-sm font-medium text-zinc-700 hover:bg-zinc-200"
+                  }
+                >
+                  {d.name}
+                  <span className={`ml-1.5 tabular-nums ${selected ? "opacity-80" : "text-zinc-500"}`}>
+                    {count}
+                  </span>
+                </button>
+              );
+            })}
+          </div>
+        ) : null}
 
         <div className="mt-3 flex flex-col gap-2 sm:flex-row sm:items-center">
           <label className="flex min-w-0 flex-1 flex-col gap-1">
