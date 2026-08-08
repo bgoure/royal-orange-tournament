@@ -4,6 +4,7 @@
  */
 
 import { prisma } from "@/lib/db";
+import { formatGameScheduledAt } from "@/lib/datetime-tournament";
 
 export const DEFAULT_FIELD_OCCUPANCY_MINUTES = 90;
 
@@ -65,8 +66,11 @@ export function findOverlappingFieldPairs(
 }
 
 /**
- * Returns an error message if another non-cancelled game already occupies the field
- * for the proposed start (using default occupancy window).
+ * Returns an error message if another non-cancelled, non-placeholder game already occupies
+ * the field for the proposed start (using default occupancy window).
+ *
+ * TBD / `schedulePlaceholder` bracket slots are ignored — they share a wizard seed time until
+ * staff assigns a real slot (same as the admin conflict banner).
  */
 export async function assertNoFieldScheduleConflict(opts: {
   tournamentId: string;
@@ -74,8 +78,11 @@ export async function assertNoFieldScheduleConflict(opts: {
   scheduledAt: Date;
   excludeGameId?: string;
   durationMinutes?: number;
+  /** Tournament IANA zone — used only to phrase the error. */
+  timeZone?: string;
 }): Promise<string | null> {
   const duration = opts.durationMinutes ?? DEFAULT_FIELD_OCCUPANCY_MINUTES;
+  // Any game starting in (T - duration, T + duration) can overlap a duration-long slot at T.
   const windowStart = new Date(opts.scheduledAt.getTime() - duration * 60_000);
   const windowEnd = fieldOccupancyEnd(opts.scheduledAt, duration);
 
@@ -84,6 +91,7 @@ export async function assertNoFieldScheduleConflict(opts: {
       tournamentId: opts.tournamentId,
       fieldId: opts.fieldId,
       status: { not: "CANCELLED" },
+      schedulePlaceholder: false,
       ...(opts.excludeGameId ? { id: { not: opts.excludeGameId } } : {}),
       scheduledAt: {
         gt: windowStart,
@@ -113,7 +121,10 @@ export async function assertNoFieldScheduleConflict(opts: {
   const first = conflicting[0]!;
   const gn = first.gameNumber ? `Game #${first.gameNumber}` : "Another game";
   const fieldName = first.field?.name ?? "this field";
-  return `${gn} is already on ${fieldName} near that start time (assumes ~${duration}-min field slots). Pick a different field or time.`;
+  const when = opts.timeZone
+    ? formatGameScheduledAt(first.scheduledAt, opts.timeZone)
+    : first.scheduledAt.toISOString();
+  return `${gn} is already on ${fieldName} at ${when} (assumes ~${duration}-min field slots). Pick a different field or time.`;
 }
 
 /** List current double-books for an admin banner. */

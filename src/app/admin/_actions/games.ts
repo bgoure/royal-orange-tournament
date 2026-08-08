@@ -110,6 +110,7 @@ export async function createGame(
       tournamentId: tournament.id,
       fieldId: parsed.data.fieldId,
       scheduledAt,
+      timeZone: tournament.timezone,
     });
     if (conflict) return { ok: false, error: conflict };
 
@@ -400,6 +401,7 @@ export async function updateBracketGameSchedule(
       fieldId: d.fieldId,
       scheduledAt,
       excludeGameId: d.id,
+      timeZone: ctx.tournament.timezone,
     });
     if (conflict) return { ok: false, error: conflict };
 
@@ -523,6 +525,7 @@ export async function updateGameMeta(
       fieldId: d.fieldId,
       scheduledAt,
       excludeGameId: d.id,
+      timeZone: ctx.tournament.timezone,
     });
     if (conflict) return { ok: false, error: conflict };
 

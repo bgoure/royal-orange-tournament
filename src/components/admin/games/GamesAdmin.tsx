@@ -1225,9 +1225,20 @@ function GameCard({
                     name="scheduledAt"
                     type="datetime-local"
                     required
-                    defaultValue={formatJsDateAsDatetimeLocalInZone(new Date(iso), tournamentTimezone)}
+                    // Placeholder / TBD slots share a wizard seed time — don't prefill it or saves
+                    // look like a real day and can false-conflict with other seeded games.
+                    defaultValue={
+                      game.schedulePlaceholder
+                        ? ""
+                        : formatJsDateAsDatetimeLocalInZone(new Date(iso), tournamentTimezone)
+                    }
                     className={`${formClass} mt-1 w-full`}
                   />
+                  {game.schedulePlaceholder ? (
+                    <p className="mt-1 text-[10px] text-amber-700">
+                      Pick the real start time (wizard seed time is not used until you save).
+                    </p>
+                  ) : null}
                 </div>
                 <div>
                   <label className={labelClass}>Game ID / #</label>
