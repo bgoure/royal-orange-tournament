@@ -105,9 +105,9 @@ export function firstRoundSlotsForOba4(teamIds: string[]): FirstRoundSlot[] {
 }
 
 /**
- * 5-team seeded DE matching the Round 1–7 workbook layout:
- * R1 G1: 4 vs 5, G2: 2 vs 3 · R2 G3: 1 vs W1 · R3 G4: L1 vs L2 ·
- * R4 G5: W4 vs L3, G6: W2 vs W3 · R5 G7: L6 vs W5 · R6–7 championship.
+ * 5-team seeded DE matching the Round 1–6 workbook layout:
+ * R1 G1: 4 vs 5, G2: 2 vs 3 · R2 G3: 1 vs W1, G4: L1 vs L2 ·
+ * R3 G5: W4 vs L3, G6: W2 vs W3 · R4 G7: L6 vs W5 · R5–6 championship.
  * `seeds` length 5; seeds[0] = seed 1 (strongest). Seed 1 byes Round 1.
  */
 export function gamesForOba5Seeded(seeds: string[]): GameDef[] {
@@ -143,8 +143,8 @@ export function gamesForOba5Seeded(seeds: string[]): GameDef[] {
     },
     {
       key: "G4",
-      roundGroup: "R3",
-      roundName: "Round 3",
+      roundGroup: "R2",
+      roundName: "Round 2",
       roundType: BracketRoundType.LOSERS,
       home: { kind: "loser", of: "G1" },
       away: { kind: "loser", of: "G2" },
@@ -152,8 +152,8 @@ export function gamesForOba5Seeded(seeds: string[]): GameDef[] {
     },
     {
       key: "G5",
-      roundGroup: "R4",
-      roundName: "Round 4",
+      roundGroup: "R3",
+      roundName: "Round 3",
       roundType: BracketRoundType.LOSERS,
       home: { kind: "winner", of: "G4" },
       away: { kind: "loser", of: "G3" },
@@ -161,8 +161,8 @@ export function gamesForOba5Seeded(seeds: string[]): GameDef[] {
     },
     {
       key: "G6",
-      roundGroup: "R4",
-      roundName: "Round 4",
+      roundGroup: "R3",
+      roundName: "Round 3",
       roundType: BracketRoundType.WINNERS,
       home: { kind: "winner", of: "G2" },
       away: { kind: "winner", of: "G3" },
@@ -170,8 +170,8 @@ export function gamesForOba5Seeded(seeds: string[]): GameDef[] {
     },
     {
       key: "G7",
-      roundGroup: "R5",
-      roundName: "Round 5",
+      roundGroup: "R4",
+      roundName: "Round 4",
       roundType: BracketRoundType.LOSERS,
       home: { kind: "loser", of: "G6" },
       away: { kind: "winner", of: "G5" },
@@ -200,7 +200,7 @@ export function gamesForOba5Seeded(seeds: string[]): GameDef[] {
 
 /** Round column labels for the 5-team seeded map (for tests / UI). */
 export function oba5SeededRoundColumns(): string[] {
-  return ["Round 1", "Round 2", "Round 3", "Round 4", "Round 5", "Round 6", "Round 7"];
+  return ["Round 1", "Round 2", "Round 3", "Round 4", "Round 5", "Round 6"];
 }
 
 /**
@@ -678,7 +678,8 @@ export function randomizeDrawOrder(teamIds: string[], rng: () => number = Math.r
 }
 
 /**
- * Remap an existing oba_de_5 bracket so G1+G2 share Round 1 and G3 is alone in Round 2.
+ * Remap an existing oba_de_5 bracket to Round 1–6 workbook columns:
+ * R1 G1+G2 · R2 G3+G4 · R3 G5+G6 · R4 G7 · R5–6 championship.
  * No-op when already correct. Preserves game times, teams, and feeders.
  */
 export async function repairOba5RoundGrouping(bracketId: string): Promise<boolean> {
@@ -703,22 +704,23 @@ export async function repairOba5RoundGrouping(bracketId: string): Promise<boolea
     const n = g.gameNumber?.trim() ?? "";
     if (n) byNum.set(n, g);
   }
-  const g1 = byNum.get("1");
-  const g2 = byNum.get("2");
-  if (!g1 || !g2) return false;
-  if (g1.bracketRoundId && g1.bracketRoundId === g2.bracketRoundId) return false;
+  const g3 = byNum.get("3");
+  const g4 = byNum.get("4");
+  if (!g3 || !g4) return false;
+  // Already on target layout when G3 and G4 share a round.
+  if (g3.bracketRoundId && g3.bracketRoundId === g4.bracketRoundId) return false;
 
   type Slot = { name: string; roundType: BracketRoundType; roundIndex: number; position: number };
   const plan: Record<string, Slot> = {
     "1": { name: "Round 1", roundType: BracketRoundType.WINNERS, roundIndex: 0, position: 0 },
     "2": { name: "Round 1", roundType: BracketRoundType.WINNERS, roundIndex: 0, position: 1 },
     "3": { name: "Round 2", roundType: BracketRoundType.WINNERS, roundIndex: 1, position: 0 },
-    "4": { name: "Round 3", roundType: BracketRoundType.LOSERS, roundIndex: 2, position: 0 },
-    "5": { name: "Round 4", roundType: BracketRoundType.LOSERS, roundIndex: 3, position: 0 },
-    "6": { name: "Round 4", roundType: BracketRoundType.WINNERS, roundIndex: 3, position: 1 },
-    "7": { name: "Round 5", roundType: BracketRoundType.LOSERS, roundIndex: 4, position: 0 },
-    "8": { name: "Championship", roundType: BracketRoundType.FINAL, roundIndex: 5, position: 0 },
-    "9": { name: "Championship", roundType: BracketRoundType.FINAL, roundIndex: 5, position: 1 },
+    "4": { name: "Round 2", roundType: BracketRoundType.LOSERS, roundIndex: 1, position: 1 },
+    "5": { name: "Round 3", roundType: BracketRoundType.LOSERS, roundIndex: 2, position: 0 },
+    "6": { name: "Round 3", roundType: BracketRoundType.WINNERS, roundIndex: 2, position: 1 },
+    "7": { name: "Round 4", roundType: BracketRoundType.LOSERS, roundIndex: 3, position: 0 },
+    "8": { name: "Championship", roundType: BracketRoundType.FINAL, roundIndex: 4, position: 0 },
+    "9": { name: "Championship", roundType: BracketRoundType.FINAL, roundIndex: 4, position: 1 },
   };
 
   await prisma.$transaction(async (tx) => {

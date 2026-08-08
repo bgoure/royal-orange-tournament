@@ -184,7 +184,7 @@ export function BracketSeedBoard({
         <p className="mt-3 rounded-md border border-amber-300 bg-amber-50 px-3 py-2 text-xs text-amber-950">
           This bracket still has the older 1-game Round 1 layout. Delete it under Brackets and
           recreate with <span className="font-semibold">Double elimination — 5 teams (seeded)</span>{" "}
-          so Round 1 is Games 1–2 (4 vs 5 and 2 vs 3); seed 1 byes into Round 2.
+          so Round 1 is Games 1–2 and Round 2 is G3+G4; seed 1 byes into G3.
         </p>
       ) : null}
 

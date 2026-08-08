@@ -55,16 +55,17 @@ describe("OBA DE presets", () => {
     assert.deepEqual(new Set(ids.filter(Boolean)).size, 4);
   });
 
-  it("5-team map is Round 1–7 with G1+G2 in Round 1 and G3 alone in Round 2", () => {
+  it("5-team map is Round 1–6 with G1+G2 in R1 and G3+G4 in R2", () => {
     const games = gamesForOba5Seeded(["s1", "s2", "s3", "s4", "s5"]);
     const names = [...new Set(games.map((g) => g.roundName))];
     assert.ok(names.includes("Round 1"));
     assert.ok(names.includes("Round 4"));
     assert.ok(names.includes("Championship"));
+    assert.ok(!names.includes("Round 5"));
     assert.equal(games.filter((g) => g.roundName === "Round 1").length, 2);
-    assert.equal(games.filter((g) => g.roundName === "Round 2").length, 1);
-    assert.equal(games.filter((g) => g.roundName === "Round 3").length, 1);
-    assert.equal(games.filter((g) => g.roundName === "Round 4").length, 2);
+    assert.equal(games.filter((g) => g.roundName === "Round 2").length, 2);
+    assert.equal(games.filter((g) => g.roundName === "Round 3").length, 2);
+    assert.equal(games.filter((g) => g.roundName === "Round 4").length, 1);
   });
 
   it("6-team map is Round 1–6 with two Round 1 games and implicit byes", () => {

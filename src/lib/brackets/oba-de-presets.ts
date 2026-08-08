@@ -68,11 +68,11 @@ export const OBA_DE_PRESETS: Record<ObaDePresetKey, ObaDePreset> = {
     teamCount: 5,
     label: "Double elimination — 5 teams (seeded)",
     shortLabel: "DE · 5",
-    summary: "Round 1–7 columns; Round 1 is G1+G2; seed 1 byes into G3; if-necessary final.",
+    summary: "Round 1–6 columns; R1 G1+G2; R2 G3+G4; seed 1 byes into G3; if-necessary final.",
     explainer: [
       {
         title: "Overview",
-        body: "Five-team double elimination laid out in Round 1–7 columns (workbook style). Round 1 has two games (seeds 2–5); seed 1 receives a Round 1 bye into Game 3. A second loss eliminates a team.",
+        body: "Five-team double elimination laid out in Round 1–6 columns (workbook style). Round 1 has two games (seeds 2–5); seed 1 receives a Round 1 bye into Game 3. A second loss eliminates a team.",
       },
       {
         title: "Round 1",
@@ -80,15 +80,15 @@ export const OBA_DE_PRESETS: Record<ObaDePresetKey, ObaDePreset> = {
       },
       {
         title: "Round 2",
-        body: "Game 3: 1st seed vs winner of Game 1.",
+        body: "Game 3: 1st seed vs winner of Game 1. Game 4: loser of Game 1 vs loser of Game 2.",
       },
       {
-        title: "Rounds 3–5",
-        body: "Round 3 Game 4: loser of Game 1 vs loser of Game 2. Round 4 Game 5: winner of Game 4 vs loser of Game 3; Game 6: winner of Game 2 vs winner of Game 3. Round 5 Game 7: loser of Game 6 vs winner of Game 5.",
+        title: "Rounds 3–4",
+        body: "Round 3 Game 5: winner of Game 4 vs loser of Game 3; Game 6: winner of Game 2 vs winner of Game 3. Round 4 Game 7: loser of Game 6 vs winner of Game 5.",
       },
       {
-        title: "Rounds 6–7 (championship)",
-        body: "Round 6 Game 8: winner of Game 6 (undefeated) vs winner of Game 7. Round 7 Game 9 is if-necessary when the losers champion wins Game 8.",
+        title: "Rounds 5–6 (championship)",
+        body: "Round 5 Game 8: winner of Game 6 (undefeated) vs winner of Game 7. Round 6 Game 9 is if-necessary when the losers champion wins Game 8.",
       },
       {
         title: "Seeding / byes",
