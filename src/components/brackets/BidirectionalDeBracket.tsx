@@ -37,7 +37,7 @@ function RoundColumn({
       className={`${BRACKET_ROUND_COLUMN_CLASS} min-h-[280px] rounded-xl border px-3 py-3 ${border}`}
     >
       <div className="mb-3 shrink-0">
-        <h3 className="whitespace-nowrap border-b border-zinc-200 pb-1 text-xs font-bold uppercase tracking-[0.06em] text-royal">
+        <h3 className="border-b border-zinc-200 pb-1 text-xs font-bold uppercase tracking-[0.06em] text-royal">
           {round.name}
         </h3>
         <p className="mt-1 text-[11px] font-medium text-zinc-600">

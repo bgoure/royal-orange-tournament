@@ -185,7 +185,7 @@ export function BracketGameCard({
 
   return (
     <article
-      className={`w-max min-w-full rounded-2xl border border-white/45 shadow-[0_8px_30px_rgb(0,0,0,0.06)] backdrop-blur-md dark:border-zinc-600/55 dark:shadow-[0_8px_30px_rgb(0,0,0,0.25)] ${surfaceGradient} ${leftBorder} ${cardPadding}${quickShell}`}
+      className={`w-full rounded-2xl border border-white/45 shadow-[0_8px_30px_rgb(0,0,0,0.06)] backdrop-blur-md dark:border-zinc-600/55 dark:shadow-[0_8px_30px_rgb(0,0,0,0.25)] ${surfaceGradient} ${leftBorder} ${cardPadding}${quickShell}`}
       aria-label={`Bracket match ${gChipIndex + 1}`}
       {...quickInteract}
     >
@@ -214,6 +214,7 @@ export function BracketGameCard({
             <div className="flex min-w-0 flex-1 items-start gap-2">
               <TeamLogoMark team={away.team} sizeClass={scoredLogoSize} />
               <p
+                data-bracket-team-name
                 className={`min-w-0 text-xs font-bold leading-snug text-zinc-900 dark:text-zinc-100 ${BRACKET_TEAM_NAME_CLASS} ${slotLineTextClass(away)}`}
               >
                 {away.primary}
@@ -226,6 +227,7 @@ export function BracketGameCard({
             <div className="flex min-w-0 flex-1 items-start gap-2">
               <TeamLogoMark team={home.team} sizeClass={scoredLogoSize} />
               <p
+                data-bracket-team-name
                 className={`min-w-0 text-xs font-bold leading-snug text-zinc-900 dark:text-zinc-100 ${BRACKET_TEAM_NAME_CLASS} ${slotLineTextClass(home)}`}
               >
                 {home.primary}
@@ -240,7 +242,10 @@ export function BracketGameCard({
           <div className="flex min-w-0 items-start gap-1.5">
             <TeamLogoMark team={away.team} sizeClass={scheduleLogoSize} />
             <div className="min-w-0 flex-1">
-              <p className={`text-sm leading-[1.15] ${BRACKET_TEAM_NAME_CLASS} ${slotLineTextClass(away)}`}>
+              <p
+                data-bracket-team-name
+                className={`text-sm leading-[1.15] ${BRACKET_TEAM_NAME_CLASS} ${slotLineTextClass(away)}`}
+              >
                 {away.primary}
                 {!away.isPlaceholder ? maybeBracketAhTag(showHomeAway, "A") : null}
               </p>
@@ -250,7 +255,10 @@ export function BracketGameCard({
           <span className="shrink-0 self-center text-sm font-normal text-accent dark:text-accent-light">vs</span>
           <div className="flex min-w-0 items-start justify-end gap-1.5">
             <div className="min-w-0 flex-1 text-right">
-              <p className={`text-sm leading-[1.15] ${BRACKET_TEAM_NAME_CLASS} ${slotLineTextClass(home)}`}>
+              <p
+                data-bracket-team-name
+                className={`text-sm leading-[1.15] ${BRACKET_TEAM_NAME_CLASS} ${slotLineTextClass(home)}`}
+              >
                 {home.primary}
                 {!home.isPlaceholder ? maybeBracketAhTag(showHomeAway, "H") : null}
               </p>

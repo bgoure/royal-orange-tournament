@@ -6,9 +6,10 @@ import { BracketGameCard } from "@/components/brackets/BracketGameCard";
 import type { GameRow } from "@/components/brackets/bracket-types";
 import { matchSortIndex } from "@/components/brackets/bracket-slot-lines";
 import {
-  BRACKET_COL_MAX_PX,
-  BRACKET_COL_MIN_PX,
+  BRACKET_COL_DEFAULT_PX,
   BRACKET_ROUND_COLUMN_CLASS,
+  bracketColumnWidthForLongestWord,
+  longestWordWidthPx,
 } from "@/components/brackets/bracket-card-layout";
 import { chronologicalRoundColumns } from "@/lib/brackets/bracket-display";
 import {
@@ -581,31 +582,21 @@ export function ChronologicalRoundBracket({
       raf = requestAnimationFrame(() => {
         const nextHeights = new Map<string, number>();
         const nextColWidths: number[] = columns.map((col) => {
-          let maxW = BRACKET_COL_MIN_PX;
-          const header = board.querySelector<HTMLElement>(
-            `[data-bracket-col-header="${col.label}"]`,
-          );
-          if (header) {
-            maxW = Math.max(maxW, Math.ceil(header.scrollWidth + 24));
-          }
+          let longestWord = 0;
           for (const g of col.games) {
             const wrap = board.querySelector<HTMLElement>(`[data-bracket-game-id="${g.id}"]`);
             if (!wrap) continue;
-            const card = wrap.firstElementChild as HTMLElement | null;
-            const prevRight = wrap.style.right;
-            const prevWidth = wrap.style.width;
-            const prevCardWidth = card?.style.width ?? "";
-            wrap.style.right = "auto";
-            wrap.style.width = "max-content";
-            if (card) card.style.width = "max-content";
-            maxW = Math.max(maxW, Math.ceil(wrap.offsetWidth + 24));
-            wrap.style.right = prevRight;
-            wrap.style.width = prevWidth;
-            if (card) card.style.width = prevCardWidth;
             nextHeights.set(g.id, wrap.offsetHeight);
+            for (const nameEl of wrap.querySelectorAll<HTMLElement>("[data-bracket-team-name]")) {
+              const style = getComputedStyle(nameEl);
+              const font = `${style.fontStyle} ${style.fontWeight} ${style.fontSize} ${style.fontFamily}`;
+              // Prefer text without the (A)/(H) tag for word width.
+              const label = nameEl.childNodes[0]?.textContent ?? nameEl.textContent ?? "";
+              longestWord = Math.max(longestWord, longestWordWidthPx(label, font));
+            }
           }
-          // Prefer fitting longest unspaced token; allow growth for long city names.
-          return Math.min(BRACKET_COL_MAX_PX, Math.max(BRACKET_COL_MIN_PX, maxW));
+          // Stay at default when words fit; widen only for a long unbroken token.
+          return bracketColumnWidthForLongestWord(longestWord);
         });
 
         let heightsChanged = nextHeights.size !== heights.size;
@@ -688,16 +679,14 @@ export function ChronologicalRoundBracket({
               }`}
               style={{
                 height: columnShellH,
-                width: colWidths[ci] ?? BRACKET_COL_MIN_PX,
-                maxWidth: BRACKET_COL_MAX_PX,
+                width: colWidths[ci] ?? BRACKET_COL_DEFAULT_PX,
               }}
             >
               <div
-                data-bracket-col-header={col.label}
                 className="flex shrink-0 flex-col justify-center border-b border-zinc-200 bg-white px-3 py-2"
                 style={{ minHeight: HEADER_H }}
               >
-                <h3 className="whitespace-nowrap text-xs font-bold uppercase tracking-[0.08em] text-royal">
+                <h3 className="text-xs font-bold uppercase tracking-[0.08em] text-royal">
                   {col.label}
                 </h3>
                 {col.subtitle ? (

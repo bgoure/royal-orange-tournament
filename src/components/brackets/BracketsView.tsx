@@ -48,7 +48,7 @@ function BracketGrid({
             className={`${BRACKET_ROUND_COLUMN_CLASS} min-h-[320px] ${ri > 0 ? "border-l border-dashed border-zinc-200 pl-6" : ""}`}
           >
             <div className="mb-3 shrink-0">
-              <h3 className="whitespace-nowrap border-b border-royal/30 pb-1 text-xs font-bold uppercase tracking-[0.06em] text-royal">
+              <h3 className="border-b border-royal/30 pb-1 text-xs font-bold uppercase tracking-[0.06em] text-royal">
                 {r.name}
               </h3>
               <p className="mt-1 text-[11px] font-medium text-zinc-600">{roundTypeShortLabel(r.roundType)}</p>
