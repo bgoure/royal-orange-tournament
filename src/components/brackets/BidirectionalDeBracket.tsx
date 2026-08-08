@@ -2,6 +2,7 @@
 
 import type { BracketRound } from "@prisma/client";
 import { BracketGameCard } from "@/components/brackets/BracketGameCard";
+import { BRACKET_ROUND_COLUMN_CLASS } from "@/components/brackets/bracket-card-layout";
 import type { GameRow } from "@/components/brackets/bracket-types";
 import { matchSortIndex } from "@/components/brackets/bracket-slot-lines";
 import {
@@ -33,10 +34,10 @@ function RoundColumn({
 
   return (
     <div
-      className={`flex min-h-[280px] w-[min(100%,240px)] shrink-0 flex-col rounded-xl border px-3 py-3 ${border}`}
+      className={`${BRACKET_ROUND_COLUMN_CLASS} min-h-[280px] rounded-xl border px-3 py-3 ${border}`}
     >
       <div className="mb-3 shrink-0">
-        <h3 className="border-b border-zinc-200 pb-1 text-xs font-bold uppercase tracking-[0.06em] text-royal">
+        <h3 className="whitespace-nowrap border-b border-zinc-200 pb-1 text-xs font-bold uppercase tracking-[0.06em] text-royal">
           {round.name}
         </h3>
         <p className="mt-1 text-[11px] font-medium text-zinc-600">

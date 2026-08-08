@@ -7,6 +7,7 @@ import { EmptyState } from "@/components/ui/EmptyState";
 import { SectionTitle } from "@/components/ui/PublicHeading";
 import { BracketZoomShell } from "@/components/brackets/BracketZoomShell";
 import { BracketGameCard } from "@/components/brackets/BracketGameCard";
+import { BRACKET_ROUND_COLUMN_CLASS } from "@/components/brackets/bracket-card-layout";
 import { BidirectionalDeBracket } from "@/components/brackets/BidirectionalDeBracket";
 import { ChronologicalRoundBracket } from "@/components/brackets/ChronologicalRoundBracket";
 import { ChampionCelebration } from "@/components/brackets/ChampionCelebration";
@@ -44,10 +45,10 @@ function BracketGrid({
         return (
           <div
             key={r.id}
-            className={`flex min-h-[320px] w-[min(100%,260px)] shrink-0 flex-col ${ri > 0 ? "border-l border-dashed border-zinc-200 pl-6" : ""}`}
+            className={`${BRACKET_ROUND_COLUMN_CLASS} min-h-[320px] ${ri > 0 ? "border-l border-dashed border-zinc-200 pl-6" : ""}`}
           >
             <div className="mb-3 shrink-0">
-              <h3 className="border-b border-royal/30 pb-1 text-xs font-bold uppercase tracking-[0.06em] text-royal">
+              <h3 className="whitespace-nowrap border-b border-royal/30 pb-1 text-xs font-bold uppercase tracking-[0.06em] text-royal">
                 {r.name}
               </h3>
               <p className="mt-1 text-[11px] font-medium text-zinc-600">{roundTypeShortLabel(r.roundType)}</p>

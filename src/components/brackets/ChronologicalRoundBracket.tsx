@@ -5,6 +5,11 @@ import type { BracketFormat, BracketRound, BracketRoundType } from "@prisma/clie
 import { BracketGameCard } from "@/components/brackets/BracketGameCard";
 import type { GameRow } from "@/components/brackets/bracket-types";
 import { matchSortIndex } from "@/components/brackets/bracket-slot-lines";
+import {
+  BRACKET_COL_MAX_PX,
+  BRACKET_COL_MIN_PX,
+  BRACKET_ROUND_COLUMN_CLASS,
+} from "@/components/brackets/bracket-card-layout";
 import { chronologicalRoundColumns } from "@/lib/brackets/bracket-display";
 import {
   bracketLoserTeamId,
@@ -517,6 +522,7 @@ export function ChronologicalRoundBracket({
   const [paths, setPaths] = useState<DrawnPath[]>([]);
   const [boardSize, setBoardSize] = useState({ w: 0, h: 0 });
   const [heights, setHeights] = useState<Map<string, number>>(() => new Map());
+  const [colWidths, setColWidths] = useState<number[]>([]);
 
   const allGamesFlat = useMemo(() => [...byRound.values()].flat(), [byRound]);
   const byGameId = useMemo(() => gameIdMap(allGamesFlat), [allGamesFlat]);
@@ -574,10 +580,34 @@ export function ChronologicalRoundBracket({
       cancelAnimationFrame(raf);
       raf = requestAnimationFrame(() => {
         const nextHeights = new Map<string, number>();
-        for (const g of allGames) {
-          const el = board.querySelector<HTMLElement>(`[data-bracket-game-id="${g.id}"]`);
-          if (el) nextHeights.set(g.id, el.offsetHeight);
-        }
+        const nextColWidths: number[] = columns.map((col) => {
+          let maxW = BRACKET_COL_MIN_PX;
+          const header = board.querySelector<HTMLElement>(
+            `[data-bracket-col-header="${col.label}"]`,
+          );
+          if (header) {
+            maxW = Math.max(maxW, Math.ceil(header.scrollWidth + 24));
+          }
+          for (const g of col.games) {
+            const wrap = board.querySelector<HTMLElement>(`[data-bracket-game-id="${g.id}"]`);
+            if (!wrap) continue;
+            const card = wrap.firstElementChild as HTMLElement | null;
+            const prevRight = wrap.style.right;
+            const prevWidth = wrap.style.width;
+            const prevCardWidth = card?.style.width ?? "";
+            wrap.style.right = "auto";
+            wrap.style.width = "max-content";
+            if (card) card.style.width = "max-content";
+            maxW = Math.max(maxW, Math.ceil(wrap.offsetWidth + 24));
+            wrap.style.right = prevRight;
+            wrap.style.width = prevWidth;
+            if (card) card.style.width = prevCardWidth;
+            nextHeights.set(g.id, wrap.offsetHeight);
+          }
+          // Prefer fitting longest unspaced token; allow growth for long city names.
+          return Math.min(BRACKET_COL_MAX_PX, Math.max(BRACKET_COL_MIN_PX, maxW));
+        });
+
         let heightsChanged = nextHeights.size !== heights.size;
         if (!heightsChanged) {
           for (const [id, h] of nextHeights) {
@@ -587,8 +617,16 @@ export function ChronologicalRoundBracket({
             }
           }
         }
+        let widthsChanged =
+          nextColWidths.length !== colWidths.length ||
+          nextColWidths.some((w, i) => w !== colWidths[i]);
+
         if (heightsChanged) {
           setHeights(nextHeights);
+          return;
+        }
+        if (widthsChanged) {
+          setColWidths(nextColWidths);
           return;
         }
 
@@ -605,6 +643,7 @@ export function ChronologicalRoundBracket({
     const hardRemeasure = () => {
       // Force card height re-read after rotate / zoom (layout can briefly be stale).
       setHeights(new Map());
+      setColWidths([]);
       measureAndDraw();
     };
 
@@ -624,7 +663,7 @@ export function ChronologicalRoundBracket({
       window.removeEventListener("bracket-zoom-change", measureAndDraw);
       vv?.removeEventListener("resize", measureAndDraw);
     };
-  }, [allGames, winnerEdges, heights, tops, contentH, gf1, gf2, ifNecUi.shaded]);
+  }, [allGames, columns, winnerEdges, heights, colWidths, tops, contentH, gf1, gf2, ifNecUi.shaded]);
 
   const columnShellH = contentH + HEADER_H;
 
@@ -642,18 +681,23 @@ export function ChronologicalRoundBracket({
           return (
             <div
               key={`${col.label}-${ci}`}
-              className={`relative z-0 flex w-[min(100%,240px)] shrink-0 flex-col overflow-hidden rounded-xl border ${
+              className={`relative z-0 ${BRACKET_ROUND_COLUMN_CLASS} rounded-xl border ${
                 shade
                   ? "border-zinc-200 bg-zinc-100/90 opacity-55"
                   : "border-zinc-200 bg-zinc-50/80"
               }`}
-              style={{ height: columnShellH }}
+              style={{
+                height: columnShellH,
+                width: colWidths[ci] ?? BRACKET_COL_MIN_PX,
+                maxWidth: BRACKET_COL_MAX_PX,
+              }}
             >
               <div
+                data-bracket-col-header={col.label}
                 className="flex shrink-0 flex-col justify-center border-b border-zinc-200 bg-white px-3 py-2"
                 style={{ minHeight: HEADER_H }}
               >
-                <h3 className="text-xs font-bold uppercase tracking-[0.08em] text-royal">
+                <h3 className="whitespace-nowrap text-xs font-bold uppercase tracking-[0.08em] text-royal">
                   {col.label}
                 </h3>
                 {col.subtitle ? (

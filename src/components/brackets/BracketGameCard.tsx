@@ -9,6 +9,7 @@ import { TeamLogoMark } from "@/components/ui/TeamLogo";
 import { GAME_CARD_STATUS_STYLES, publicGameStatusLabel } from "@/components/schedule/GameList";
 import type { GameRow } from "@/components/brackets/bracket-types";
 import { getBracketSlotSources } from "@/lib/brackets/game-slot-sources";
+import { BRACKET_TEAM_NAME_CLASS } from "@/components/brackets/bracket-card-layout";
 import { slotLines, slotLineTextClass } from "@/components/brackets/bracket-slot-lines";
 import type { QuickEditGamePayload } from "@/components/public-admin/PublicQuickGameProvider";
 import { usePublicQuickGameEdit } from "@/components/public-admin/PublicQuickGameProvider";
@@ -184,7 +185,7 @@ export function BracketGameCard({
 
   return (
     <article
-      className={`min-w-0 rounded-2xl border border-white/45 shadow-[0_8px_30px_rgb(0,0,0,0.06)] backdrop-blur-md dark:border-zinc-600/55 dark:shadow-[0_8px_30px_rgb(0,0,0,0.25)] ${surfaceGradient} ${leftBorder} ${cardPadding}${quickShell}`}
+      className={`w-max min-w-full rounded-2xl border border-white/45 shadow-[0_8px_30px_rgb(0,0,0,0.06)] backdrop-blur-md dark:border-zinc-600/55 dark:shadow-[0_8px_30px_rgb(0,0,0,0.25)] ${surfaceGradient} ${leftBorder} ${cardPadding}${quickShell}`}
       aria-label={`Bracket match ${gChipIndex + 1}`}
       {...quickInteract}
     >
@@ -209,11 +210,11 @@ export function BracketGameCard({
 
       {hasScore ? (
         <div className="mt-1.5 space-y-1">
-          <div className="flex min-w-0 items-center justify-between gap-2">
-            <div className="flex min-w-0 items-center gap-2">
+          <div className="flex items-start justify-between gap-2">
+            <div className="flex min-w-0 flex-1 items-start gap-2">
               <TeamLogoMark team={away.team} sizeClass={scoredLogoSize} />
               <p
-                className={`min-w-0 truncate text-xs font-bold leading-snug text-zinc-900 dark:text-zinc-100 ${slotLineTextClass(away)}`}
+                className={`min-w-0 text-xs font-bold leading-snug text-zinc-900 dark:text-zinc-100 ${BRACKET_TEAM_NAME_CLASS} ${slotLineTextClass(away)}`}
               >
                 {away.primary}
                 {!away.isPlaceholder ? maybeBracketAhTag(showHomeAway, "A") : null}
@@ -221,11 +222,11 @@ export function BracketGameCard({
             </div>
             <span className="shrink-0 text-base font-bold tabular-nums text-zinc-900 dark:text-zinc-100">{game.awayRuns}</span>
           </div>
-          <div className="flex min-w-0 items-center justify-between gap-2">
-            <div className="flex min-w-0 items-center gap-2">
+          <div className="flex items-start justify-between gap-2">
+            <div className="flex min-w-0 flex-1 items-start gap-2">
               <TeamLogoMark team={home.team} sizeClass={scoredLogoSize} />
               <p
-                className={`min-w-0 truncate text-xs font-bold leading-snug text-zinc-900 dark:text-zinc-100 ${slotLineTextClass(home)}`}
+                className={`min-w-0 text-xs font-bold leading-snug text-zinc-900 dark:text-zinc-100 ${BRACKET_TEAM_NAME_CLASS} ${slotLineTextClass(home)}`}
               >
                 {home.primary}
                 {!home.isPlaceholder ? maybeBracketAhTag(showHomeAway, "H") : null}
@@ -235,13 +236,11 @@ export function BracketGameCard({
           </div>
         </div>
       ) : (
-        <div className="mt-1.5 flex min-w-0 items-start gap-1.5 sm:gap-2">
-          <div className="flex min-w-0 flex-1 items-start gap-1.5">
+        <div className="mt-1.5 grid grid-cols-[minmax(0,1fr)_auto_minmax(0,1fr)] items-start gap-x-1.5 sm:gap-x-2">
+          <div className="flex min-w-0 items-start gap-1.5">
             <TeamLogoMark team={away.team} sizeClass={scheduleLogoSize} />
             <div className="min-w-0 flex-1">
-              <p
-                className={`line-clamp-2 break-words text-sm leading-[1.15] ${slotLineTextClass(away)}`}
-              >
+              <p className={`text-sm leading-[1.15] ${BRACKET_TEAM_NAME_CLASS} ${slotLineTextClass(away)}`}>
                 {away.primary}
                 {!away.isPlaceholder ? maybeBracketAhTag(showHomeAway, "A") : null}
               </p>
@@ -249,11 +248,9 @@ export function BracketGameCard({
             </div>
           </div>
           <span className="shrink-0 self-center text-sm font-normal text-accent dark:text-accent-light">vs</span>
-          <div className="flex min-w-0 flex-1 items-start justify-end gap-1.5">
+          <div className="flex min-w-0 items-start justify-end gap-1.5">
             <div className="min-w-0 flex-1 text-right">
-              <p
-                className={`line-clamp-2 break-words text-sm leading-[1.15] ${slotLineTextClass(home)}`}
-              >
+              <p className={`text-sm leading-[1.15] ${BRACKET_TEAM_NAME_CLASS} ${slotLineTextClass(home)}`}>
                 {home.primary}
                 {!home.isPlaceholder ? maybeBracketAhTag(showHomeAway, "H") : null}
               </p>
