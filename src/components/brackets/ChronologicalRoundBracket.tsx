@@ -181,21 +181,35 @@ function layoutGameTops(
 
   layoutBand(winnersByCol, 0);
 
-  // Center a single winners-lane card on the vertical span of the next winners column (G1 ↔ G2/G3).
+  // Align singleton winners columns with multi-game neighbors (G1↔G2/G3 or G1/G2↔G3).
   for (let ci = 0; ci < winnersByCol.length - 1; ci++) {
     const cur = winnersByCol[ci]!;
     const next = winnersByCol[ci + 1]!;
-    if (cur.length !== 1 || next.length < 2) continue;
-    const centers = next
-      .map((g) => {
-        const ty = tops.get(g.id);
-        return ty == null ? null : ty + hOf(g.id) / 2;
-      })
-      .filter((n): n is number => n != null);
-    if (centers.length < 2) continue;
-    const mid = (Math.min(...centers) + Math.max(...centers)) / 2;
-    const g = cur[0]!;
-    tops.set(g.id, mid - hOf(g.id) / 2);
+    if (cur.length === 1 && next.length >= 2) {
+      const centers = next
+        .map((g) => {
+          const ty = tops.get(g.id);
+          return ty == null ? null : ty + hOf(g.id) / 2;
+        })
+        .filter((n): n is number => n != null);
+      if (centers.length >= 2) {
+        const mid = (Math.min(...centers) + Math.max(...centers)) / 2;
+        const g = cur[0]!;
+        tops.set(g.id, mid - hOf(g.id) / 2);
+      }
+    } else if (cur.length >= 2 && next.length === 1) {
+      const centers = cur
+        .map((g) => {
+          const ty = tops.get(g.id);
+          return ty == null ? null : ty + hOf(g.id) / 2;
+        })
+        .filter((n): n is number => n != null);
+      if (centers.length >= 2) {
+        const mid = (Math.min(...centers) + Math.max(...centers)) / 2;
+        const g = next[0]!;
+        tops.set(g.id, mid - hOf(g.id) / 2);
+      }
+    }
   }
 
   // Recompute losers start from actual winners bottoms after centering

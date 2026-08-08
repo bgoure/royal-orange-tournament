@@ -106,9 +106,9 @@ export function firstRoundSlotsForOba4(teamIds: string[]): FirstRoundSlot[] {
 
 /**
  * 5-team seeded DE matching the Round 1–7 workbook layout:
- * R1 G1: 4 vs 5 · R2 G2: 2 vs 3, G3: 1 vs W1 · R3 G4: L1 vs L2 ·
+ * R1 G1: 4 vs 5, G2: 2 vs 3 · R2 G3: 1 vs W1 · R3 G4: L1 vs L2 ·
  * R4 G5: W4 vs L3, G6: W2 vs W3 · R5 G7: L6 vs W5 · R6–7 championship.
- * `seeds` length 5; seeds[0] = seed 1 (strongest).
+ * `seeds` length 5; seeds[0] = seed 1 (strongest). Seed 1 byes Round 1.
  */
 export function gamesForOba5Seeded(seeds: string[]): GameDef[] {
   const [s1, s2, s3, s4, s5] = seeds;
@@ -125,8 +125,8 @@ export function gamesForOba5Seeded(seeds: string[]): GameDef[] {
     },
     {
       key: "G2",
-      roundGroup: "R2",
-      roundName: "Round 2",
+      roundGroup: "R1",
+      roundName: "Round 1",
       roundType: BracketRoundType.WINNERS,
       home: { kind: "team", teamId: s2 },
       away: { kind: "team", teamId: s3 },
@@ -675,4 +675,144 @@ export async function createObaDeBracket(opts: CreateObaDeBracketOptions): Promi
 /** Optional helper for tests / wizard: randomize draw order. */
 export function randomizeDrawOrder(teamIds: string[], rng: () => number = Math.random): string[] {
   return shuffleCopy(teamIds, rng);
+}
+
+/**
+ * Remap an existing oba_de_5 bracket so G1+G2 share Round 1 and G3 is alone in Round 2.
+ * No-op when already correct. Preserves game times, teams, and feeders.
+ */
+export async function repairOba5RoundGrouping(bracketId: string): Promise<boolean> {
+  const bracket = await prisma.bracket.findUnique({
+    where: { id: bracketId },
+    select: { id: true, presetKey: true },
+  });
+  if (bracket?.presetKey !== "oba_de_5") return false;
+
+  const games = await prisma.game.findMany({
+    where: { bracketId },
+    select: {
+      id: true,
+      gameNumber: true,
+      bracketRoundId: true,
+      bracketMatch: { select: { id: true } },
+    },
+  });
+
+  const byNum = new Map<string, (typeof games)[number]>();
+  for (const g of games) {
+    const n = g.gameNumber?.trim() ?? "";
+    if (n) byNum.set(n, g);
+  }
+  const g1 = byNum.get("1");
+  const g2 = byNum.get("2");
+  if (!g1 || !g2) return false;
+  if (g1.bracketRoundId && g1.bracketRoundId === g2.bracketRoundId) return false;
+
+  type Slot = { name: string; roundType: BracketRoundType; roundIndex: number; position: number };
+  const plan: Record<string, Slot> = {
+    "1": { name: "Round 1", roundType: BracketRoundType.WINNERS, roundIndex: 0, position: 0 },
+    "2": { name: "Round 1", roundType: BracketRoundType.WINNERS, roundIndex: 0, position: 1 },
+    "3": { name: "Round 2", roundType: BracketRoundType.WINNERS, roundIndex: 1, position: 0 },
+    "4": { name: "Round 3", roundType: BracketRoundType.LOSERS, roundIndex: 2, position: 0 },
+    "5": { name: "Round 4", roundType: BracketRoundType.LOSERS, roundIndex: 3, position: 0 },
+    "6": { name: "Round 4", roundType: BracketRoundType.WINNERS, roundIndex: 3, position: 1 },
+    "7": { name: "Round 5", roundType: BracketRoundType.LOSERS, roundIndex: 4, position: 0 },
+    "8": { name: "Championship", roundType: BracketRoundType.FINAL, roundIndex: 5, position: 0 },
+    "9": { name: "Championship", roundType: BracketRoundType.FINAL, roundIndex: 5, position: 1 },
+  };
+
+  await prisma.$transaction(async (tx) => {
+    const existing = await tx.bracketRound.findMany({
+      where: { bracketId },
+      orderBy: { roundIndex: "asc" },
+    });
+    const claimed = new Set<string>();
+    const roundIdByIndex = new Map<number, string>();
+
+    const uniqueSlots = new Map<number, Slot>();
+    for (const slot of Object.values(plan)) {
+      if (!uniqueSlots.has(slot.roundIndex)) uniqueSlots.set(slot.roundIndex, slot);
+    }
+
+    for (const [roundIndex, slot] of [...uniqueSlots.entries()].sort((a, b) => a[0] - b[0])) {
+      const found =
+        existing.find((r) => !claimed.has(r.id) && r.roundIndex === roundIndex) ??
+        existing.find((r) => !claimed.has(r.id) && r.name === slot.name) ??
+        existing.find((r) => !claimed.has(r.id));
+      if (found) {
+        claimed.add(found.id);
+        await tx.bracketRound.update({
+          where: { id: found.id },
+          data: {
+            name: slot.name,
+            roundIndex,
+            roundType: slot.roundType,
+          },
+        });
+        roundIdByIndex.set(roundIndex, found.id);
+      } else {
+        const created = await tx.bracketRound.create({
+          data: {
+            bracketId,
+            name: slot.name,
+            roundIndex,
+            roundType: slot.roundType,
+          },
+        });
+        claimed.add(created.id);
+        roundIdByIndex.set(roundIndex, created.id);
+      }
+    }
+
+    // Avoid unique (bracketRoundId, matchIndex) collisions while reshuffling.
+    for (const [num, game] of byNum) {
+      if (!game.bracketMatch) continue;
+      const n = Number.parseInt(num, 10);
+      await tx.bracketMatch.update({
+        where: { id: game.bracketMatch.id },
+        data: { matchIndex: 1000 + (Number.isFinite(n) ? n : 0) },
+      });
+    }
+
+    const keepRoundIds = new Set(roundIdByIndex.values());
+
+    for (const [num, slot] of Object.entries(plan)) {
+      const game = byNum.get(num);
+      if (!game) continue;
+      const roundId = roundIdByIndex.get(slot.roundIndex)!;
+      await tx.game.update({
+        where: { id: game.id },
+        data: { bracketRoundId: roundId, bracketPosition: slot.position },
+      });
+      if (game.bracketMatch) {
+        await tx.bracketMatch.update({
+          where: { id: game.bracketMatch.id },
+          data: { bracketRoundId: roundId, matchIndex: slot.position },
+        });
+      }
+    }
+
+    const leftover = await tx.bracketRound.findMany({
+      where: { bracketId, id: { notIn: [...keepRoundIds] } },
+      select: { id: true, _count: { select: { games: true, matches: true } } },
+    });
+    for (const r of leftover) {
+      if (r._count.games === 0 && r._count.matches === 0) {
+        await tx.bracketRound.delete({ where: { id: r.id } });
+      }
+    }
+  });
+
+  return true;
+}
+
+/** Repair all oba_de_5 brackets in a tournament that still use the old Round 1 layout. */
+export async function repairOba5RoundGroupingsForTournament(tournamentId: string): Promise<void> {
+  const brackets = await prisma.bracket.findMany({
+    where: { tournamentId, presetKey: "oba_de_5" },
+    select: { id: true },
+  });
+  for (const b of brackets) {
+    await repairOba5RoundGrouping(b.id);
+  }
 }

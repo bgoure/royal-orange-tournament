@@ -1,5 +1,6 @@
 import { GameKind } from "@prisma/client";
 import { prisma } from "@/lib/db";
+import { repairOba5RoundGroupingsForTournament } from "@/lib/services/oba-de-bracket-build";
 
 /** Shared shape for public bracket-style games (playoff + consolation). */
 export const publicBracketStyleGameInclude = {
@@ -43,10 +44,12 @@ export const publicBracketStyleGameInclude = {
   consolationAwayPool: { include: { division: true } },
 } as const;
 
-export function listBracketsForTournament(
+export async function listBracketsForTournament(
   tournamentId: string,
   opts?: { publishedOnly?: boolean },
 ) {
+  await repairOba5RoundGroupingsForTournament(tournamentId);
+
   return prisma.bracket.findMany({
     where: {
       tournamentId,

@@ -57,18 +57,21 @@ describe("chronologicalRoundColumns", () => {
 });
 
 describe("gamesForOba5Seeded", () => {
-  it("opens with seed 4 vs 5; seeds 1–3 enter in Round 2", () => {
+  it("opens with G1+G2 in Round 1; seed 1 enters Round 2 as G3", () => {
     const games = gamesForOba5Seeded(["s1", "s2", "s3", "s4", "s5"]);
-    assert.equal(games.filter((g) => g.roundGroup === "R1").length, 1);
+    assert.equal(games.filter((g) => g.roundGroup === "R1").length, 2);
     const g1 = games.find((g) => g.key === "G1")!;
+    const g2 = games.find((g) => g.key === "G2")!;
     assert.equal(g1.home.kind, "team");
     assert.equal(g1.away.kind, "team");
     if (g1.home.kind === "team") assert.equal(g1.home.teamId, "s4");
     if (g1.away.kind === "team") assert.equal(g1.away.teamId, "s5");
+    if (g2.home.kind === "team") assert.equal(g2.home.teamId, "s2");
+    if (g2.away.kind === "team") assert.equal(g2.away.teamId, "s3");
     const r2 = games.filter((g) => g.roundGroup === "R2");
-    assert.equal(r2.length, 2);
-    assert.ok(r2.some((g) => g.home.kind === "team" && g.home.teamId === "s1"));
-    assert.ok(r2.some((g) => g.home.kind === "team" && g.home.teamId === "s2"));
+    assert.equal(r2.length, 1);
+    assert.equal(r2[0]!.key, "G3");
+    assert.ok(r2[0]!.home.kind === "team" && r2[0]!.home.teamId === "s1");
   });
 });
 

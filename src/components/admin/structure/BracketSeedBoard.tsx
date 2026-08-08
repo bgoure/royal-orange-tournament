@@ -180,20 +180,18 @@ export function BracketSeedBoard({
         </p>
       ) : null}
 
-      {(presetKey === "oba_de_5" && matches.length > 1) ||
-      (teams.length === 5 && matches.length === 2) ? (
+      {presetKey === "oba_de_5" && matches.length === 1 ? (
         <p className="mt-3 rounded-md border border-amber-300 bg-amber-50 px-3 py-2 text-xs text-amber-950">
-          This bracket still has the older 2-game Round 1 layout. Delete it under Brackets and
+          This bracket still has the older 1-game Round 1 layout. Delete it under Brackets and
           recreate with <span className="font-semibold">Double elimination — 5 teams (seeded)</span>{" "}
-          so Round 1 is only seed 4 vs seed 5 (seeds 1–3 sit out).
+          so Round 1 is Games 1–2 (4 vs 5 and 2 vs 3); seed 1 byes into Round 2.
         </p>
       ) : null}
 
-      {presetKey === "oba_de_5" && matches.length === 1 ? (
+      {presetKey === "oba_de_5" && matches.length === 2 ? (
         <p className="mt-3 rounded-md border border-emerald-200 bg-emerald-50/80 px-3 py-2 text-xs text-emerald-950">
-          Seeded 5-team map: Round 1 is one game (seeds 4 vs 5). Seeds 1–3 are already placed into
-          Round 2 from create order — put the two Round 1 teams in the seats below; leave the other
-          three in Sitting out.
+          Seeded 5-team map: Round 1 is two games (4 vs 5, 2 vs 3). Seed 1 byes into Round 2 (G3) —
+          put the four Round 1 teams in the seats below; leave seed 1 in Sitting out.
         </p>
       ) : null}
 

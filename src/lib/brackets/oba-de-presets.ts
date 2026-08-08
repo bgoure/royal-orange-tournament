@@ -68,19 +68,19 @@ export const OBA_DE_PRESETS: Record<ObaDePresetKey, ObaDePreset> = {
     teamCount: 5,
     label: "Double elimination — 5 teams (seeded)",
     shortLabel: "DE · 5",
-    summary: "Round 1–7 columns; seeds 1–3 bye; 4 vs 5 opens; if-necessary final.",
+    summary: "Round 1–7 columns; Round 1 is G1+G2; seed 1 byes into G3; if-necessary final.",
     explainer: [
       {
         title: "Overview",
-        body: "Five-team double elimination laid out in Round 1–7 columns (workbook style). Seeds 1–3 receive a Round 1 bye; only seeds 4 and 5 play Game 1. A second loss eliminates a team.",
+        body: "Five-team double elimination laid out in Round 1–7 columns (workbook style). Round 1 has two games (seeds 2–5); seed 1 receives a Round 1 bye into Game 3. A second loss eliminates a team.",
       },
       {
         title: "Round 1",
-        body: "Game 1: 4th seed vs 5th seed.",
+        body: "Game 1: 4th seed vs 5th seed. Game 2: 2nd seed vs 3rd seed.",
       },
       {
         title: "Round 2",
-        body: "Game 2: 2nd seed vs 3rd seed. Game 3: 1st seed vs winner of Game 1.",
+        body: "Game 3: 1st seed vs winner of Game 1.",
       },
       {
         title: "Rounds 3–5",
@@ -92,7 +92,7 @@ export const OBA_DE_PRESETS: Record<ObaDePresetKey, ObaDePreset> = {
       },
       {
         title: "Seeding / byes",
-        body: "Team list order is seed order (1 = strongest). Seeds 1–3 sit out Round 1; seed 4 plays seed 5.",
+        body: "Team list order is seed order (1 = strongest). Seed 1 sits out Round 1; seeds 2–5 play Games 1–2.",
       },
     ],
   },
