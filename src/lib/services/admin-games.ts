@@ -1,7 +1,9 @@
 import { prisma } from "@/lib/db";
+import { repairClusteredBracketSeedPlaceholders } from "@/lib/services/schedule-conflicts";
 import { teamWithPublicLogoInclude } from "@/lib/team-logo";
 
-export function listGamesAdmin(tournamentId: string) {
+export async function listGamesAdmin(tournamentId: string) {
+  await repairClusteredBracketSeedPlaceholders(tournamentId);
   return prisma.game.findMany({
     where: { tournamentId },
     include: {

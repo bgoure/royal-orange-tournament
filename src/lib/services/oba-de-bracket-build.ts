@@ -586,7 +586,9 @@ async function createFeederGraphBracket(
             homeTeamId,
             awayTeamId,
             scheduledAt,
-            schedulePlaceholder: homeTeamId == null || awayTeamId == null,
+            // Always TBD until staff saves a real slot under Games — do not treat the
+            // create-form start time as a field booking (that collided across divisions).
+            schedulePlaceholder: true,
             status: GameStatus.SCHEDULED,
             resultType: "REGULAR",
             gameKind: GameKind.PLAYOFF,

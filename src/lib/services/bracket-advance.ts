@@ -600,7 +600,7 @@ export async function advanceBracketWinnerFromGame(gameId: string): Promise<void
             homeTeamId: game.homeTeamId,
             awayTeamId: game.awayTeamId,
             status: "SCHEDULED",
-            schedulePlaceholder: false,
+            // Keep TBD — seed time is not a real field booking.
           },
         });
       }
@@ -814,7 +814,8 @@ export async function advanceByeWinnersInRound0(bracketId: string): Promise<void
         resultType: homeBye ? "FORFEIT_AWAY_WINS" : "FORFEIT_HOME_WINS",
         homeRuns: homeBye ? 0 : 1,
         awayRuns: awayBye ? 0 : 1,
-        schedulePlaceholder: false,
+        // Bye has no field slot — leave TBD so seed times do not block the diamond.
+        schedulePlaceholder: true,
       },
     });
   }

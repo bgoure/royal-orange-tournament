@@ -127,6 +127,42 @@ export async function assertNoFieldScheduleConflict(opts: {
   return `${gn} is already on ${fieldName} at ${when} (assumes ~${duration}-min field slots). Pick a different field or time.`;
 }
 
+/**
+ * Older OBA seeded brackets marked first-round games (both teams known) as real
+ * field bookings at the shared create-form start time. When two+ playoff games still
+ * share the exact same field + instant, mark the non-TBD ones as TBD seed slots again.
+ * Intentionally scheduled unique slots (one game per field/time) are left alone.
+ */
+export async function repairClusteredBracketSeedPlaceholders(tournamentId: string): Promise<number> {
+  const games = await prisma.game.findMany({
+    where: {
+      tournamentId,
+      gameKind: "PLAYOFF",
+      status: { not: "CANCELLED" },
+    },
+    select: { id: true, fieldId: true, scheduledAt: true, schedulePlaceholder: true },
+  });
+
+  const groups = new Map<string, typeof games>();
+  for (const g of games) {
+    const key = `${g.fieldId}:${g.scheduledAt.getTime()}`;
+    const list = groups.get(key) ?? [];
+    list.push(g);
+    groups.set(key, list);
+  }
+
+  const toFix = [...groups.values()]
+    .filter((list) => list.length > 1)
+    .flatMap((list) => list.filter((g) => !g.schedulePlaceholder).map((g) => g.id));
+  if (toFix.length === 0) return 0;
+
+  await prisma.game.updateMany({
+    where: { id: { in: toFix } },
+    data: { schedulePlaceholder: true },
+  });
+  return toFix.length;
+}
+
 /** List current double-books for an admin banner. */
 export async function listFieldScheduleConflicts(
   tournamentId: string,

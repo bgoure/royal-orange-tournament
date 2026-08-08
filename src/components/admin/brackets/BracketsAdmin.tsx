@@ -1006,7 +1006,7 @@ export function BracketsAdmin({
                   </div>
                 ) : null}
                 <div>
-                  <label className={labelClass}>First-round start ({tournamentTimezone})</label>
+                  <label className={labelClass}>Suggested first-round start ({tournamentTimezone})</label>
                   <input
                     name="scheduledAt"
                     type="datetime-local"
@@ -1014,9 +1014,13 @@ export function BracketsAdmin({
                     defaultValue={defaultStart}
                     className={`${formClass} mt-1 w-full`}
                   />
+                  <p className="mt-1 text-[10px] text-zinc-500">
+                    Games stay TBD until you set each slot under Games — this does not book the field for every
+                    division.
+                  </p>
                 </div>
                 <div>
-                  <label className={labelClass}>Hours between rounds</label>
+                  <label className={labelClass}>Hours between rounds (seed spacing)</label>
                   <input
                     name="hoursBetweenRounds"
                     type="number"
