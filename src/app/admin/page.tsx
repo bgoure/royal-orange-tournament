@@ -92,12 +92,12 @@ export default async function AdminTournamentsHubPage() {
                   </td>
                   <td className="px-4 py-3">
                     <div className="flex flex-col items-end gap-2 sm:flex-row sm:justify-end">
-                      <Link
+                      <a
                         href={selectHref}
                         className="inline-flex items-center justify-center rounded-lg bg-emerald-600 px-3 py-2 text-xs font-semibold text-white hover:bg-emerald-700"
                       >
                         Open admin
-                      </Link>
+                      </a>
                       <Link
                         href={publicPath}
                         className="text-xs font-medium text-zinc-500 underline-offset-2 hover:text-zinc-800 hover:underline"

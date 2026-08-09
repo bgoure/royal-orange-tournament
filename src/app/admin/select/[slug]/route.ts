@@ -1,4 +1,3 @@
-import { cookies } from "next/headers";
 import { NextResponse } from "next/server";
 import { auth } from "@/auth";
 import { prisma } from "@/lib/db";
@@ -50,9 +49,10 @@ export async function GET(
   const url = new URL(request.url);
   const next = safeAdminNextPath(url.searchParams.get("next"));
 
-  const jar = await cookies();
-  jar.set(ADMIN_TOURNAMENT_SLUG_COOKIE, tournament.slug, cookieOpts);
-  jar.set(TOURNAMENT_SLUG_COOKIE, tournament.slug, cookieOpts);
-
-  return NextResponse.redirect(new URL(next, request.url));
+  // Set cookies on the redirect response so Set-Cookie survives the 302
+  // (cookies().set() before redirect is unreliable with client Link navigations).
+  const res = NextResponse.redirect(new URL(next, request.url));
+  res.cookies.set(ADMIN_TOURNAMENT_SLUG_COOKIE, tournament.slug, cookieOpts);
+  res.cookies.set(TOURNAMENT_SLUG_COOKIE, tournament.slug, cookieOpts);
+  return res;
 }

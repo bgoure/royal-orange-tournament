@@ -73,7 +73,7 @@ function SidebarPanel({
 
   const nextForSelect =
     pathname.startsWith("/admin") && pathname !== "/admin" && pathname !== "/admin/"
-      ? pathname
+      ? `${pathname}${search ? `?${search}` : ""}`
       : "/admin/tournament-settings";
 
   return (
@@ -129,10 +129,12 @@ function SidebarPanel({
             >
               {tournaments.map((t) => {
                 const active = t.slug === currentTournamentSlug;
+                const href = selectHref(t.slug, nextForSelect);
                 return (
-                  <Link
+                  // Full document navigation so the select route’s Set-Cookie + redirect sticks.
+                  <a
                     key={t.slug}
-                    href={selectHref(t.slug, nextForSelect)}
+                    href={href}
                     role="option"
                     aria-selected={active}
                     onClick={() => {
@@ -152,7 +154,7 @@ function SidebarPanel({
                       ) : null}
                     </span>
                     <span className="mt-0.5 block font-mono text-[10px] text-zinc-500">/{t.slug}</span>
-                  </Link>
+                  </a>
                 );
               })}
               <div className="my-1 border-t border-zinc-700" />
