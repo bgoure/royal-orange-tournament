@@ -37,7 +37,7 @@ function RoundColumn({
     <div
       className={`${BRACKET_ROUND_COLUMN_CLASS} min-h-[280px] rounded-xl border px-3 py-3 ${border}`}
     >
-      <div className="mb-3 shrink-0">
+      <div className="mb-3 shrink-0 text-center">
         <h3 className="border-b border-zinc-200 pb-1 text-xs font-bold uppercase tracking-[0.06em] text-royal">
           {withBracketRoundDay(round.name, sorted, timeZone)}
         </h3>

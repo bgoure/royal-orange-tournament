@@ -700,7 +700,7 @@ export function ChronologicalRoundBracket({
               }}
             >
               <div
-                className="flex shrink-0 flex-col justify-center border-b border-zinc-200 bg-white px-3 py-2"
+                className="flex shrink-0 flex-col items-center justify-center border-b border-zinc-200 bg-white px-3 py-2 text-center"
                 style={{ minHeight: HEADER_H }}
               >
                 <h3 className="text-xs font-bold uppercase tracking-[0.08em] text-royal">

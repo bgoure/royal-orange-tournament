@@ -48,7 +48,7 @@ function BracketGrid({
             key={r.id}
             className={`${BRACKET_ROUND_COLUMN_CLASS} min-h-[320px] ${ri > 0 ? "border-l border-dashed border-zinc-200 pl-6" : ""}`}
           >
-            <div className="mb-3 shrink-0">
+            <div className="mb-3 shrink-0 text-center">
               <h3 className="border-b border-royal/30 pb-1 text-xs font-bold uppercase tracking-[0.06em] text-royal">
                 {withBracketRoundDay(r.name, games, timeZone)}
               </h3>
