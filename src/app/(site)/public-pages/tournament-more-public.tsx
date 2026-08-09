@@ -11,11 +11,13 @@ import {
 } from "@/components/icons/MoreMenuIcons";
 import { PageTitle } from "@/components/ui/PublicHeading";
 import { publicGlassLinkTile } from "@/lib/public-glass-card";
+import { isBracketOnlyTournament } from "@/lib/services/tournament-format";
 import { tournamentPathFromBase, tournamentPublicBasePath } from "@/lib/tournament-public-path";
 
 export async function TournamentMorePublic({ tournament }: { tournament: Tournament }) {
   const publicBasePath = tournamentPublicBasePath(tournament);
   const tp = (s: string) => tournamentPathFromBase(publicBasePath, s);
+  const showRules = !(await isBracketOnlyTournament(tournament.id));
 
   const links: { href: string; label: string; description: string; icon: ReactNode }[] = [
     ...(tournament.showPublicAnnouncements !== false
@@ -34,12 +36,16 @@ export async function TournamentMorePublic({ tournament }: { tournament: Tournam
       description: "Game Fields and Directions",
       icon: <MoreIconLocations />,
     },
-    {
-      href: tp("rules"),
-      label: "Tournament Rules & Resources",
-      description: "Know your Tournament!",
-      icon: <MoreIconRules />,
-    },
+    ...(showRules
+      ? [
+          {
+            href: tp("rules"),
+            label: "Tournament Rules & Resources",
+            description: "Know your Tournament!",
+            icon: <MoreIconRules />,
+          },
+        ]
+      : []),
     { href: tp("social"), label: "Social", description: "Follow Us!", icon: <MoreIconSocial /> },
     { href: tp("settings"), label: "Settings", description: "Admin items", icon: <MoreIconSettings /> },
   ];

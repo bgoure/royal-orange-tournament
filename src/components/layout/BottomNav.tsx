@@ -19,6 +19,7 @@ export function BottomNav({
   publicBasePath,
   showPublicAnnouncements = true,
   showResults = true,
+  showRules = true,
   shareUrl,
   tournamentName,
 }: {
@@ -27,6 +28,8 @@ export function BottomNav({
   showPublicAnnouncements?: boolean;
   /** When false, Results tab is hidden (bracket-only tournaments). */
   showResults?: boolean;
+  /** When false, Rules is omitted from More (bracket-only until reworked). */
+  showRules?: boolean;
   shareUrl: string;
   tournamentName: string;
 }) {
@@ -52,12 +55,16 @@ export function BottomNav({
       description: "Game Fields and Directions",
       icon: <MoreIconLocations />,
     },
-    {
-      href: tp("rules"),
-      label: "Tournament Rules & Resources",
-      description: "Know your Tournament!",
-      icon: <MoreIconRules />,
-    },
+    ...(showRules
+      ? [
+          {
+            href: tp("rules"),
+            label: "Tournament Rules & Resources",
+            description: "Know your Tournament!",
+            icon: <MoreIconRules />,
+          },
+        ]
+      : []),
     { href: tp("social"), label: "Social", description: "Follow Us!", icon: <MoreIconSocial /> },
     { href: tp("settings"), label: "Settings", description: "Theme & account", icon: <MoreIconSettings /> },
   ];
@@ -112,7 +119,7 @@ export function BottomNav({
 
   const matchPrefixes = [
     ...(showPublicAnnouncements ? [tp("announcements")] : []),
-    tp("rules"),
+    ...(showRules ? [tp("rules")] : []),
     tp("locations"),
     tp("more"),
     tp("settings"),

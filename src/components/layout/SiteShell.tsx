@@ -96,6 +96,7 @@ export async function SiteShell({
           publicBasePath={publicBasePath}
           showPublicAnnouncements={tournament.showPublicAnnouncements}
           showResults={showResults}
+          showRules={showRules}
           shareUrl={shareUrl}
           tournamentName={tournament.name}
         />
