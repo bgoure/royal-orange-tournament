@@ -44,6 +44,7 @@ export async function SiteShell({
       isBracketOnlyTournament(tournament.id),
     ]);
   const showResults = !bracketOnly;
+  const showRules = !bracketOnly;
 
   const isAdmin = session?.user?.role === "ADMIN" || session?.user?.role === "POWER_USER";
   const quickFieldOptions = fieldRows.map((f) => ({
@@ -63,6 +64,7 @@ export async function SiteShell({
           cookieDivision={cookieDivision}
           shareUrl={shareUrl}
           showResults={showResults}
+          showRules={showRules}
         />
         <PwaInstallPrompt />
         <PublicQuickGameProvider
