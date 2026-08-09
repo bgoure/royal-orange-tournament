@@ -89,4 +89,76 @@ describe("resolveChampionFromBracket", () => {
     } as unknown as BracketWith;
     assert.equal(resolveChampionFromBracket(bracket), null);
   });
+
+  it("qualifier with bye seeds concludes from if-necessary FINAL (not Round-1 entrants alone)", () => {
+    // Seed 1 only appears in R2 (bye); Round 1 has other teams who are later eliminated.
+    const bracket = {
+      division: { id: "div-aa", name: "AA" },
+      format: "DOUBLE_ELIMINATION",
+      isQualifier: true,
+      qualifyingTeamCount: 2,
+      grandFinalMode: "IF_NECESSARY",
+      concludedAt: null,
+      rounds: [
+        {
+          id: "r0",
+          bracketId: "br1",
+          name: "Round 1",
+          roundIndex: 0,
+          roundType: BracketRoundType.WINNERS,
+        },
+        {
+          id: "r-final",
+          bracketId: "br1",
+          name: "Championship",
+          roundIndex: 5,
+          roundType: BracketRoundType.FINAL,
+        },
+      ],
+      games: [
+        {
+          bracketRoundId: "r0",
+          bracketPosition: 0,
+          status: GameStatus.FINAL,
+          resultType: "REGULAR" as const,
+          homeTeamId: "t-a",
+          awayTeamId: "t-b",
+          homeRuns: 1,
+          awayRuns: 0,
+          homeTeam: { id: "t-a", name: "Early A", pool: null, logo: null },
+          awayTeam: { id: "t-b", name: "Early B", pool: null, logo: null },
+        },
+        {
+          // Undefeated home (Mets) loses GF1 → if-necessary GF2 required
+          bracketRoundId: "r-final",
+          bracketPosition: 0,
+          status: GameStatus.FINAL,
+          resultType: "REGULAR" as const,
+          homeTeamId: "t-mets",
+          awayTeamId: "t-twins",
+          homeRuns: 3,
+          awayRuns: 6,
+          homeTeam: { id: "t-mets", name: "Mets", pool: null, logo: null },
+          awayTeam: { id: "t-twins", name: "Twins", pool: null, logo: null },
+        },
+        {
+          bracketRoundId: "r-final",
+          bracketPosition: 1,
+          status: GameStatus.FINAL,
+          resultType: "REGULAR" as const,
+          homeTeamId: "t-twins",
+          awayTeamId: "t-mets",
+          homeRuns: 16,
+          awayRuns: 18,
+          homeTeam: { id: "t-twins", name: "Twins", pool: null, logo: null },
+          awayTeam: { id: "t-mets", name: "Mets", pool: null, logo: null },
+        },
+      ],
+    } as unknown as BracketWith;
+
+    const r = resolveChampionFromBracket(bracket);
+    assert.ok(r);
+    assert.equal(r!.isQualifier, true);
+    assert.equal(r!.winnerTeam.name, "Mets");
+  });
 });

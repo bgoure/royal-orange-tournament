@@ -131,21 +131,13 @@ async function maybeConcludeQualifier(bracketId: string): Promise<void> {
       awayTeamId: true,
       homeRuns: true,
       awayRuns: true,
-      bracketRound: { select: { roundIndex: true } },
     },
   });
+  // Include bye seeds that never appear in Round 1 (OBA 5–7 seeded maps).
   const entrants = new Set<string>();
   for (const g of games) {
-    if (g.bracketRound?.roundIndex === 0) {
-      if (g.homeTeamId) entrants.add(g.homeTeamId);
-      if (g.awayTeamId) entrants.add(g.awayTeamId);
-    }
-  }
-  if (entrants.size === 0) {
-    for (const g of games) {
-      if (g.homeTeamId) entrants.add(g.homeTeamId);
-      if (g.awayTeamId) entrants.add(g.awayTeamId);
-    }
+    if (g.homeTeamId) entrants.add(g.homeTeamId);
+    if (g.awayTeamId) entrants.add(g.awayTeamId);
   }
   const alive = aliveTeamIds({
     format: bracket.format,

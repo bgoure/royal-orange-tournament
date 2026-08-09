@@ -21,64 +21,21 @@ function teamFromGames(bracket: BracketWith, teamId: string): TeamWithPool | nul
   return null;
 }
 
-function entrantIdsFromBracket(bracket: BracketWith): string[] {
+/**
+ * Every team that has appeared in a bracket game.
+ * Do not use Round 1 alone — OBA seeded maps give byes to top seeds who never play R1.
+ */
+export function entrantIdsFromBracket(bracket: BracketWith): string[] {
   const ids = new Set<string>();
-  const r0 = bracket.rounds.find((r) => r.roundIndex === 0);
-  if (r0) {
-    for (const g of bracket.games) {
-      if (g.bracketRoundId !== r0.id) continue;
-      if (g.homeTeamId) ids.add(g.homeTeamId);
-      if (g.awayTeamId) ids.add(g.awayTeamId);
-    }
-  }
-  if (ids.size === 0) {
-    for (const g of bracket.games) {
-      if (g.homeTeamId) ids.add(g.homeTeamId);
-      if (g.awayTeamId) ids.add(g.awayTeamId);
-    }
+  for (const g of bracket.games) {
+    if (g.homeTeamId) ids.add(g.homeTeamId);
+    if (g.awayTeamId) ids.add(g.awayTeamId);
   }
   return [...ids];
 }
 
-/**
- * Resolve champion / qualifiers for public UI.
- * - Normal: FINAL series complete → single champion (GF2 if if-necessary).
- * - Qualifier: when alive teams ≤ qualifyingTeamCount (or concludedAt set).
- */
-export function resolveBracketOutcome(bracket: BracketWith): ResolvedBracketOutcome | null {
-  const isQualifier = bracket.isQualifier === true;
-  const qualifyingTeamCount = Math.max(1, bracket.qualifyingTeamCount ?? 1);
-  const divisionName = bracket.division.name;
-
-  if (isQualifier || qualifyingTeamCount > 1) {
-    const entrants = entrantIdsFromBracket(bracket);
-    const alive = aliveTeamIds({
-      format: bracket.format,
-      entrantTeamIds: entrants,
-      games: bracket.games,
-    });
-    const concluded =
-      bracket.concludedAt != null ||
-      (entrants.length > 0 && alive.length > 0 && alive.length <= qualifyingTeamCount);
-
-    if (!concluded) return null;
-
-    const qualifiedTeams = alive
-      .map((id) => teamFromGames(bracket, id))
-      .filter((t): t is TeamWithPool => t != null && Boolean(t.name));
-
-    if (qualifiedTeams.length === 0) return null;
-
-    return {
-      divisionName,
-      winnerTeam: qualifiedTeams[0]!,
-      qualifiedTeams,
-      isQualifier: true,
-      qualifyingTeamCount,
-      concluded: true,
-    };
-  }
-
+/** Winner of a completed championship / if-necessary series, or null if still open. */
+function resolveChampionshipSeriesWinner(bracket: BracketWith): TeamWithPool | null {
   const finalRound = bracket.rounds.find((r) => r.roundType === BracketRoundType.FINAL);
   if (!finalRound) return null;
 
@@ -92,26 +49,12 @@ export function resolveBracketOutcome(bracket: BracketWith): ResolvedBracketOutc
   const gf2 = finalGames[1] ?? null;
 
   if (bracket.grandFinalMode === "IF_NECESSARY" && gf2) {
-    // Series complete only when GF1 crowns undefeated (home) or GF2 is FINAL.
     if (gf1.status === GameStatus.FINAL) {
       const w1 = bracketWinnerTeamId(gf1);
-      if (w1 && w1 === gf1.homeTeamId && !gf2.status) {
-        // shouldn't happen
-      }
       if (w1 && w1 === gf1.homeTeamId) {
-        // Undefeated won GF1 — no GF2 needed
         const winnerTeam =
           gf1.homeTeamId === w1 ? gf1.homeTeam : gf1.awayTeamId === w1 ? gf1.awayTeam : null;
-        if (winnerTeam?.name) {
-          return {
-            divisionName,
-            winnerTeam,
-            qualifiedTeams: [winnerTeam],
-            isQualifier: false,
-            qualifyingTeamCount: 1,
-            concluded: true,
-          };
-        }
+        if (winnerTeam?.name) return winnerTeam;
       }
     }
     if (gf2.status === GameStatus.FINAL) {
@@ -119,16 +62,7 @@ export function resolveBracketOutcome(bracket: BracketWith): ResolvedBracketOutc
       if (!w2) return null;
       const winnerTeam =
         gf2.homeTeamId === w2 ? gf2.homeTeam : gf2.awayTeamId === w2 ? gf2.awayTeam : null;
-      if (winnerTeam?.name) {
-        return {
-          divisionName,
-          winnerTeam,
-          qualifiedTeams: [winnerTeam],
-          isQualifier: false,
-          qualifyingTeamCount: 1,
-          concluded: true,
-        };
-      }
+      if (winnerTeam?.name) return winnerTeam;
     }
     return null;
   }
@@ -143,19 +77,72 @@ export function resolveBracketOutcome(bracket: BracketWith): ResolvedBracketOutc
         : game.awayTeamId === winnerId
           ? game.awayTeam
           : null;
-    if (winnerTeam?.name) {
-      return {
-        divisionName,
-        winnerTeam,
-        qualifiedTeams: [winnerTeam],
-        isQualifier: false,
-        qualifyingTeamCount: 1,
-        concluded: true,
-      };
-    }
+    if (winnerTeam?.name) return winnerTeam;
   }
 
   return null;
+}
+
+/**
+ * Resolve champion / qualifiers for public UI.
+ * - Normal: FINAL series complete → single champion (GF2 if if-necessary).
+ * - Qualifier: when alive teams ≤ qualifyingTeamCount, championship series done, or concludedAt set.
+ */
+export function resolveBracketOutcome(bracket: BracketWith): ResolvedBracketOutcome | null {
+  const isQualifier = bracket.isQualifier === true;
+  const qualifyingTeamCount = Math.max(1, bracket.qualifyingTeamCount ?? 1);
+  const divisionName = bracket.division.name;
+  const seriesWinner = resolveChampionshipSeriesWinner(bracket);
+
+  if (isQualifier || qualifyingTeamCount > 1) {
+    const entrants = entrantIdsFromBracket(bracket);
+    const alive = aliveTeamIds({
+      format: bracket.format,
+      entrantTeamIds: entrants,
+      games: bracket.games,
+    });
+    const concluded =
+      bracket.concludedAt != null ||
+      seriesWinner != null ||
+      (entrants.length > 0 && alive.length > 0 && alive.length <= qualifyingTeamCount);
+
+    if (!concluded) return null;
+
+    const aliveTeams = alive
+      .map((id) => teamFromGames(bracket, id))
+      .filter((t): t is TeamWithPool => t != null && Boolean(t.name));
+
+    let qualifiedTeams = aliveTeams;
+    if (seriesWinner) {
+      const rest = aliveTeams.filter((t) => t.id !== seriesWinner.id);
+      qualifiedTeams = [seriesWinner, ...rest];
+    }
+
+    if (qualifiedTeams.length === 0 && seriesWinner) {
+      qualifiedTeams = [seriesWinner];
+    }
+    if (qualifiedTeams.length === 0) return null;
+
+    return {
+      divisionName,
+      winnerTeam: seriesWinner ?? qualifiedTeams[0]!,
+      qualifiedTeams,
+      isQualifier: true,
+      qualifyingTeamCount,
+      concluded: true,
+    };
+  }
+
+  if (!seriesWinner) return null;
+
+  return {
+    divisionName,
+    winnerTeam: seriesWinner,
+    qualifiedTeams: [seriesWinner],
+    isQualifier: false,
+    qualifyingTeamCount: 1,
+    concluded: true,
+  };
 }
 
 /** Back-compat wrapper used by existing call sites. */
