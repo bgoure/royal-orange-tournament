@@ -1,6 +1,15 @@
 "use client";
 
-import { useActionState, useEffect, useId, useMemo, useRef, useState, type ReactNode } from "react";
+import {
+  useActionState,
+  useEffect,
+  useId,
+  useMemo,
+  useRef,
+  useState,
+  type MouseEvent,
+  type ReactNode,
+} from "react";
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
 import { GameKind, GameResultType, GameStatus } from "@prisma/client";
@@ -632,7 +641,8 @@ export function GamesAdmin({
                 <h2 className="text-sm font-semibold text-zinc-900">Game list</h2>
                 <p className="mt-0.5 text-xs text-zinc-500">
                   Showing {filteredGames.length} of {divisionGames.length}
-                  {listFilter !== "all" || fieldFilter !== "all" ? " (filtered)" : ""}, ordered by Game ID.
+                  {listFilter !== "all" || fieldFilter !== "all" ? " (filtered)" : ""}, ordered by Game
+                  ID. Expand a game for locked details; Edit opens a modal.
                 </p>
               </div>
               <label className="flex min-w-[12rem] flex-col gap-1">
@@ -707,7 +717,7 @@ export function GamesAdmin({
               </button>
             </p>
           ) : (
-            <div className="flex flex-col gap-6">
+            <div className="flex flex-col gap-2">
               {filteredGames.map((game) => (
                 <GameCard
                   key={game.id}
@@ -770,11 +780,13 @@ function GamesAdminModal({
   description,
   onClose,
   children,
+  size = "md",
 }: {
   title: string;
   description: string;
   onClose: () => void;
   children: ReactNode;
+  size?: "md" | "lg";
 }) {
   const titleId = useId();
   const closeRef = useRef<HTMLButtonElement>(null);
@@ -801,7 +813,13 @@ function GamesAdminModal({
       aria-labelledby={titleId}
     >
       <button type="button" className="absolute inset-0 cursor-default" aria-label="Close dialog" onClick={onClose} />
-      <div className="relative z-10 flex max-h-[min(90vh,44rem)] w-full max-w-2xl flex-col overflow-hidden rounded-2xl border border-zinc-200 bg-white shadow-xl">
+      <div
+        className={`relative z-10 flex w-full flex-col overflow-hidden rounded-2xl border border-zinc-200 bg-white shadow-xl ${
+          size === "lg"
+            ? "max-h-[min(92vh,56rem)] max-w-3xl"
+            : "max-h-[min(90vh,44rem)] max-w-2xl"
+        }`}
+      >
         <div className="flex items-start justify-between gap-3 border-b border-zinc-100 px-5 py-4">
           <div className="min-w-0">
             <h2 id={titleId} className="text-lg font-semibold text-zinc-900">
@@ -820,6 +838,15 @@ function GamesAdminModal({
         </div>
         <div className="overflow-y-auto px-5 py-4">{children}</div>
       </div>
+    </div>
+  );
+}
+
+function LockedField({ label, value }: { label: string; value: ReactNode }) {
+  return (
+    <div className="min-w-0">
+      <dt className={labelClass}>{label}</dt>
+      <dd className="mt-0.5 truncate text-sm text-zinc-900">{value ?? "—"}</dd>
     </div>
   );
 }
@@ -877,6 +904,7 @@ function GameCard({
   tournamentTimezone: string;
   isAdmin: boolean;
 }) {
+  const [editing, setEditing] = useState(false);
   const [scoreState, scoreAction, scorePending] = useActionState(
     updateGameScoring,
     undefined as GameActionResult | undefined,
@@ -911,449 +939,574 @@ function GameCard({
     return out.sort((a, b) => a.label.localeCompare(b.label));
   }, [poolsWithTeams]);
 
+  useEffect(() => {
+    if (
+      scoreState?.ok ||
+      metaState?.ok ||
+      bracketScheduleState?.ok ||
+      bracketTeamsState?.ok ||
+      delState?.ok
+    ) {
+      setEditing(false);
+    }
+  }, [scoreState, metaState, bracketScheduleState, bracketTeamsState, delState]);
+
   const awayLabel = game.awayTeam ? game.awayTeam.name : "TBD";
   const homeLabel = game.homeTeam ? game.homeTeam.name : "TBD";
   const iso = typeof game.scheduledAt === "string" ? game.scheduledAt : new Date(game.scheduledAt).toISOString();
   const isPoolGame = game.gameKind === GameKind.POOL;
+  const hasScore = game.homeRuns != null && game.awayRuns != null;
+  const scoreLine = hasScore ? `${game.awayRuns}–${game.homeRuns}` : "—";
+  const contextLine = game.pool
+    ? `${game.pool.division.name} — ${game.pool.name}`
+    : game.gameKind === GameKind.CONSOLATION && game.division
+      ? `${game.division.name} · Consolation`
+      : "Bracket";
+  const whenLabel = game.schedulePlaceholder ? "Time TBD" : fmtWhen(iso, tournamentTimezone);
+  const fieldLabel = formatFieldWithLocation(game.field.name, game.field.location.name);
+
+  function openEdit(e: MouseEvent<HTMLButtonElement>) {
+    e.preventDefault();
+    e.stopPropagation();
+    setEditing(true);
+  }
 
   return (
-    <article
-      className={`overflow-hidden rounded-xl border bg-white shadow-sm ${gameCardAccentClass(game)}`}
-    >
-      <div className="flex flex-wrap items-start justify-between gap-3 border-b border-zinc-100 bg-zinc-50 px-4 py-3">
-        <div>
-          <p className="text-xs font-medium text-zinc-500">
-            {game.schedulePlaceholder ? (
-              <span className="font-semibold text-amber-800">Time TBD</span>
-            ) : (
-              fmtWhen(iso, tournamentTimezone)
-            )}
-          </p>
-          <p className="text-base font-semibold text-zinc-900">
-            {awayLabel} <span className="font-normal text-zinc-400">vs</span> {homeLabel}
-          </p>
-          <p className="text-xs text-zinc-600">
-            {formatFieldWithLocation(game.field.name, game.field.location.name)}
-            {game.pool
-              ? ` · ${game.pool.division.name} — ${game.pool.name}`
-              : game.gameKind === GameKind.CONSOLATION && game.division
-                ? ` · ${game.division.name} · Consolation Game`
-                : " · Bracket (no pool)"}
-          </p>
-        </div>
-        <div className="flex flex-wrap items-center gap-2">
-          <span className={`rounded-full px-2.5 py-0.5 text-xs font-semibold ${adminStatusBadgeClass(game.status)}`}>
-            {game.status === GameStatus.LIVE ? (
-              <span className="inline-flex items-center gap-1.5">
-                <span className="relative flex size-1.5">
-                  <span className="absolute inline-flex size-full animate-ping rounded-full bg-red-500 opacity-75" />
-                  <span className="relative inline-flex size-1.5 rounded-full bg-red-600" />
-                </span>
-                {publicGameStatusLabel(game.status)}
-              </span>
-            ) : (
-              publicGameStatusLabel(game.status)
-            )}
+    <>
+      <details
+        className={`group overflow-hidden rounded-xl border bg-white shadow-sm ${gameCardAccentClass(game)}`}
+      >
+        <summary className="flex cursor-pointer list-none flex-wrap items-center gap-3 px-4 py-3 marker:content-none [&::-webkit-details-marker]:hidden">
+          <span
+            aria-hidden
+            className="inline-flex size-5 shrink-0 items-center justify-center rounded border border-zinc-200 bg-zinc-50 text-zinc-500 transition group-open:rotate-90"
+          >
+            ▸
           </span>
-          {isAdmin ? (
-            <ConfirmForm
-              message={
-                game.poolId
-                  ? "Delete this game? Standings will be recalculated for the pool."
-                  : game.gameKind === GameKind.CONSOLATION
-                    ? "Delete this consolation game? This cannot be undone."
-                    : "Delete this bracket game? This cannot be undone."
-              }
-              action={delAction}
-              className="inline"
-            >
-              <input type="hidden" name="id" value={game.id} />
-              <button type="submit" disabled={delPending} className={btnDanger}>
-                Delete
-              </button>
-            </ConfirmForm>
-          ) : null}
-        </div>
-      </div>
-
-      <div className="p-4">
-        <ActionMessage state={delState} />
-        <h3 className="text-xs font-semibold uppercase tracking-wide text-zinc-500">Scoring &amp; innings</h3>
-        <p className="mt-1 text-[11px] text-zinc-500">
-          {isPoolGame
-            ? "Pool: runs and defensive IP for each side; offensive IP defaults from opponent defensive when left blank. Final games need both runs and both defensive innings."
-            : "Playoff / consolation: runs (and optional offensive IP); defensive IP not required for standings."}
-        </p>
-        <ActionMessage state={scoreState} />
-        <form action={scoreAction} className="mt-3">
-          <input type="hidden" name="id" value={game.id} />
-          <input type="hidden" name="gameKind" value={game.gameKind} />
-          {game.homeTeamId && game.awayTeamId ? (
-            <fieldset className="mb-3 rounded-lg border border-zinc-200 bg-zinc-50/80 px-3 py-2">
-              <legend className="px-1 text-[10px] font-semibold uppercase tracking-wide text-zinc-500">
-                Field home (record)
-              </legend>
-              <p className="mb-2 text-[11px] leading-snug text-zinc-500">
-                {isPoolGame
-                  ? "Which team is recorded as home. Swapping updates home/away columns and paired stats."
-                  : "Bracket games start as a coin flip. Set field home when the game is underway — swapping updates home/away columns and paired stats."}
+          <div className="min-w-0 flex-1">
+            <div className="flex flex-wrap items-baseline gap-x-2 gap-y-0.5">
+              {game.gameNumber ? (
+                <span className="text-xs font-semibold uppercase tracking-wide text-zinc-500">
+                  {game.gameNumber}
+                </span>
+              ) : null}
+              <p className="text-sm font-semibold text-zinc-900">
+                {awayLabel} <span className="font-normal text-zinc-400">vs</span> {homeLabel}
               </p>
-              <div className="flex flex-col gap-2 sm:flex-row sm:flex-wrap">
-                <label className="flex cursor-pointer items-center gap-2 text-sm text-zinc-800">
-                  <input
-                    type="radio"
-                    name="fieldHomeTeamId"
-                    value={game.awayTeamId}
-                    className="size-4 border-zinc-300 text-emerald-600 focus:ring-emerald-500/30"
-                  />
-                  <span>
-                    <span className="font-medium">{awayLabel}</span>
-                    <span className="ml-1 text-xs text-zinc-400">(A)</span>
-                  </span>
-                </label>
-                <label className="flex cursor-pointer items-center gap-2 text-sm text-zinc-800">
-                  <input
-                    type="radio"
-                    name="fieldHomeTeamId"
-                    value={game.homeTeamId}
-                    defaultChecked
-                    className="size-4 border-zinc-300 text-emerald-600 focus:ring-emerald-500/30"
-                  />
-                  <span>
-                    <span className="font-medium">{homeLabel}</span>
-                    <span className="ml-1 text-xs text-zinc-400">(H)</span>
-                  </span>
-                </label>
-              </div>
-            </fieldset>
-          ) : (
-            <input type="hidden" name="fieldHomeTeamId" value="" />
-          )}
-          {!isPoolGame ? (
-            <>
-              <input type="hidden" name="homeDefensiveInnings" value={game.homeDefensiveInnings ?? ""} />
-              <input type="hidden" name="awayDefensiveInnings" value={game.awayDefensiveInnings ?? ""} />
-            </>
-          ) : null}
-          <div className="flex flex-wrap items-end gap-3">
-            <div className={`grid grid-cols-2 gap-3 ${isPoolGame ? "sm:grid-cols-4" : "sm:grid-cols-2"}`}>
-              <div>
-                <span className={labelClass}>
-                  Runs — {awayLabel} <span className="font-normal text-zinc-400">(A)</span>
-                </span>
-                <input
-                  name="awayRuns"
-                  type="number"
-                  min={0}
-                  defaultValue={game.awayRuns ?? ""}
-                  className={`${formClass} mt-1 w-20`}
-                />
-              </div>
-              {isPoolGame ? (
-                <div>
-                  <span className={labelClass}>
-                    Def. IP — {awayLabel} <span className="font-normal text-zinc-400">(A)</span>
-                  </span>
-                  <input
-                    name="awayDefensiveInnings"
-                    type="number"
-                    step={0.1}
-                    min={0}
-                    defaultValue={game.awayDefensiveInnings ?? ""}
-                    className={`${formClass} mt-1 w-24`}
-                  />
-                </div>
-              ) : null}
-              <div>
-                <span className={labelClass}>
-                  Runs — {homeLabel} <span className="font-normal text-zinc-400">(H)</span>
-                </span>
-                <input
-                  name="homeRuns"
-                  type="number"
-                  min={0}
-                  defaultValue={game.homeRuns ?? ""}
-                  className={`${formClass} mt-1 w-20`}
-                />
-              </div>
-              {isPoolGame ? (
-                <div>
-                  <span className={labelClass}>
-                    Def. IP — {homeLabel} <span className="font-normal text-zinc-400">(H)</span>
-                  </span>
-                  <input
-                    name="homeDefensiveInnings"
-                    type="number"
-                    step={0.1}
-                    min={0}
-                    defaultValue={game.homeDefensiveInnings ?? ""}
-                    className={`${formClass} mt-1 w-24`}
-                  />
-                </div>
+              {hasScore ? (
+                <span className="tabular-nums text-sm font-semibold text-zinc-700">{scoreLine}</span>
               ) : null}
             </div>
-            <div>
-              <span className={labelClass}>Off. IP (opt)</span>
-              <div className="mt-1 flex gap-2">
-                <input
-                  name="awayOffensiveInnings"
-                  type="number"
-                  step={0.1}
-                  min={0}
-                  placeholder={`${awayLabel} (A)`}
-                  defaultValue={game.awayOffensiveInnings ?? ""}
-                  className={`${formClass} w-20`}
-                />
-                <input
-                  name="homeOffensiveInnings"
-                  type="number"
-                  step={0.1}
-                  min={0}
-                  placeholder={`${homeLabel} (H)`}
-                  defaultValue={game.homeOffensiveInnings ?? ""}
-                  className={`${formClass} w-20`}
-                />
-              </div>
-            </div>
-            <div>
-              <span className={labelClass}>Status</span>
-              <select name="status" defaultValue={game.status} className={`${formClass} mt-1 w-36`}>
-                {GAME_STATUS_OPTIONS.map((s) => (
-                  <option key={s} value={s}>
-                    {publicGameStatusLabel(s)}
-                  </option>
-                ))}
-              </select>
-            </div>
-            <div>
-              <span className={labelClass}>Result</span>
-              <select name="resultType" defaultValue={game.resultType} className={`${formClass} mt-1 min-w-[10rem]`}>
-                {RESULT_OPTIONS.map((r) => (
-                  <option key={r} value={r}>
-                    {r.replace(/_/g, " ")}
-                  </option>
-                ))}
-              </select>
-            </div>
-            <button type="submit" disabled={scorePending} className={btnPrimary}>
-              {scorePending ? "Saving…" : "Save scores"}
-            </button>
-          </div>
-        </form>
-      </div>
-
-      {game.poolId ? (
-        <div className="border-t border-zinc-100 p-4">
-          <h3 className="text-xs font-semibold uppercase tracking-wide text-zinc-500">Schedule &amp; matchup</h3>
-          <ActionMessage state={metaState} />
-          <form action={metaAction} className="mt-3 flex flex-col gap-3">
-            <input type="hidden" name="id" value={game.id} />
-            <div className="grid gap-3 lg:grid-cols-2 xl:grid-cols-3">
-              <div>
-                <label className={labelClass}>Pool</label>
-                <select
-                  name="poolId"
-                  required
-                  value={metaPoolId}
-                  onChange={(e) => setMetaPoolId(e.target.value)}
-                  className={`${formClass} mt-1 w-full`}
-                >
-                  {poolsWithTeams.map((p) => (
-                    <option key={p.poolId} value={p.poolId}>
-                      {p.label}
-                    </option>
-                  ))}
-                </select>
-              </div>
-              <div>
-                <label className={labelClass}>Field</label>
-                <select name="fieldId" required defaultValue={game.fieldId} className={`${formClass} mt-1 w-full`}>
-                  {fields.map((f) => (
-                    <option key={f.id} value={f.id}>
-                      {f.label}
-                    </option>
-                  ))}
-                </select>
-              </div>
-              <div>
-                <label className={labelClass}>Start ({tournamentTimezone})</label>
-                <input
-                  name="scheduledAt"
-                  type="datetime-local"
-                  required
-                  defaultValue={formatJsDateAsDatetimeLocalInZone(new Date(iso), tournamentTimezone)}
-                  className={`${formClass} mt-1 w-full`}
-                />
-              </div>
-              <div>
-                <label className={labelClass}>Away</label>
-                <select
-                  name="awayTeamId"
-                  required
-                  defaultValue={game.awayTeamId ?? ""}
-                  className={`${formClass} mt-1 w-full`}
-                >
-                  <option value="">Select…</option>
-                  {metaTeams.map((t) => (
-                    <option key={t.id} value={t.id}>
-                      {t.name}
-                    </option>
-                  ))}
-                </select>
-              </div>
-              <div>
-                <label className={labelClass}>Home</label>
-                <select
-                  name="homeTeamId"
-                  required
-                  defaultValue={game.homeTeamId ?? ""}
-                  className={`${formClass} mt-1 w-full`}
-                >
-                  <option value="">Select…</option>
-                  {metaTeams.map((t) => (
-                    <option key={t.id} value={t.id}>
-                      {t.name}
-                    </option>
-                  ))}
-                </select>
-              </div>
-              <div>
-                <label className={labelClass}>Game ID / #</label>
-                <input
-                  name="gameNumber"
-                  type="text"
-                  maxLength={64}
-                  defaultValue={game.gameNumber ?? ""}
-                  placeholder="Director label or bracket game #"
-                  className={`${formClass} mt-1 w-full`}
-                />
-                <p className="mt-1 text-[10px] text-zinc-500">Clear the field and save to remove.</p>
-              </div>
-            </div>
-            <button type="submit" disabled={metaPending} className={`${btnSecondary} w-fit px-3 py-2 text-sm`}>
-              {metaPending ? "Saving…" : "Save schedule & teams"}
-            </button>
-          </form>
-        </div>
-      ) : (
-        <>
-          <div className="border-t border-zinc-100 p-4">
-            <h3 className="text-xs font-semibold uppercase tracking-wide text-zinc-500">Schedule &amp; location</h3>
-            <p className="mt-1 text-xs text-zinc-600">
-              The wizard stores a placeholder time until you save a real slot here (clears the public “TBD”).
+            <p className="mt-0.5 text-xs text-zinc-600">
+              <span className={game.schedulePlaceholder ? "font-semibold text-amber-800" : ""}>
+                {whenLabel}
+              </span>
+              {" · "}
+              {fieldLabel}
+              {" · "}
+              {contextLine}
             </p>
-            <ActionMessage state={bracketScheduleState} />
-            <form
-              key={`bracket-sched-${game.id}-${game.schedulePlaceholder ? "tbd" : iso}-${game.fieldId}`}
-              action={bracketScheduleAction}
-              className="mt-3 flex flex-col gap-3"
+          </div>
+          <div className="flex flex-wrap items-center gap-2">
+            <span
+              className={`rounded-full px-2.5 py-0.5 text-xs font-semibold ${adminStatusBadgeClass(game.status)}`}
             >
-              <input type="hidden" name="id" value={game.id} />
-              <div className="grid gap-3 lg:grid-cols-2 xl:grid-cols-3">
-                <div>
-                  <label className={labelClass}>Field</label>
-                  <select name="fieldId" required defaultValue={game.fieldId} className={`${formClass} mt-1 w-full`}>
-                    {fields.map((f) => (
-                      <option key={f.id} value={f.id}>
-                        {f.label}
-                      </option>
-                    ))}
-                  </select>
-                </div>
-                <div>
-                  <label className={labelClass}>Start ({tournamentTimezone})</label>
-                  <input
-                    name="scheduledAt"
-                    type="datetime-local"
-                    required
-                    // TBD: leave empty so wizard seed times are not mistaken for real slots.
-                    // Remount via form key when schedulePlaceholder / scheduledAt changes after save.
-                    defaultValue={
-                      game.schedulePlaceholder
-                        ? ""
-                        : formatJsDateAsDatetimeLocalInZone(new Date(iso), tournamentTimezone)
-                    }
-                    className={`${formClass} mt-1 w-full`}
-                  />
-                  {game.schedulePlaceholder ? (
-                    <p className="mt-1 text-[10px] text-amber-700">
-                      Pick the real start time (wizard seed time is not used until you save).
+              {game.status === GameStatus.LIVE ? (
+                <span className="inline-flex items-center gap-1.5">
+                  <span className="relative flex size-1.5">
+                    <span className="absolute inline-flex size-full animate-ping rounded-full bg-red-500 opacity-75" />
+                    <span className="relative inline-flex size-1.5 rounded-full bg-red-600" />
+                  </span>
+                  {publicGameStatusLabel(game.status)}
+                </span>
+              ) : (
+                publicGameStatusLabel(game.status)
+              )}
+            </span>
+            <button type="button" onClick={openEdit} className={`${btnSecondary} px-3 py-1.5 text-sm`}>
+              Edit
+            </button>
+          </div>
+        </summary>
+
+        <div className="border-t border-zinc-100 bg-zinc-50/60 px-4 py-3">
+          <dl className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
+            <LockedField label="Game ID / #" value={game.gameNumber || "—"} />
+            <LockedField label="When" value={whenLabel} />
+            <LockedField label="Field" value={fieldLabel} />
+            <LockedField label="Context" value={contextLine} />
+            <LockedField label="Away" value={awayLabel} />
+            <LockedField label="Home" value={homeLabel} />
+            <LockedField label={`Runs — ${awayLabel} (A)`} value={game.awayRuns ?? "—"} />
+            <LockedField label={`Runs — ${homeLabel} (H)`} value={game.homeRuns ?? "—"} />
+            {isPoolGame ? (
+              <>
+                <LockedField
+                  label={`Def. IP — ${awayLabel} (A)`}
+                  value={game.awayDefensiveInnings ?? "—"}
+                />
+                <LockedField
+                  label={`Def. IP — ${homeLabel} (H)`}
+                  value={game.homeDefensiveInnings ?? "—"}
+                />
+              </>
+            ) : null}
+            <LockedField label={`Off. IP — ${awayLabel} (A)`} value={game.awayOffensiveInnings ?? "—"} />
+            <LockedField label={`Off. IP — ${homeLabel} (H)`} value={game.homeOffensiveInnings ?? "—"} />
+            <LockedField label="Status" value={publicGameStatusLabel(game.status)} />
+            <LockedField label="Result" value={game.resultType.replace(/_/g, " ")} />
+          </dl>
+          <p className="mt-3 text-xs text-zinc-500">Fields are locked here. Use Edit to change this game.</p>
+          <div className="mt-3 flex flex-wrap gap-2">
+            <button type="button" onClick={() => setEditing(true)} className={btnPrimary}>
+              Edit game
+            </button>
+          </div>
+        </div>
+      </details>
+
+      {editing ? (
+        <GamesAdminModal
+          size="lg"
+          title={
+            game.gameNumber
+              ? `Edit ${game.gameNumber}`
+              : `Edit ${awayLabel} vs ${homeLabel}`
+          }
+          description="Update scoring, schedule, field, and teams for this game. Saves refresh the list."
+          onClose={() => setEditing(false)}
+        >
+          <ActionMessage state={delState} />
+          <div className="flex flex-col gap-6">
+            <div>
+              <h3 className="text-xs font-semibold uppercase tracking-wide text-zinc-500">
+                Scoring &amp; innings
+              </h3>
+              <p className="mt-1 text-[11px] text-zinc-500">
+                {isPoolGame
+                  ? "Pool: runs and defensive IP for each side; offensive IP defaults from opponent defensive when left blank. Final games need both runs and both defensive innings."
+                  : "Playoff / consolation: runs (and optional offensive IP); defensive IP not required for standings."}
+              </p>
+              <ActionMessage state={scoreState} />
+              <form action={scoreAction} className="mt-3">
+                <input type="hidden" name="id" value={game.id} />
+                <input type="hidden" name="gameKind" value={game.gameKind} />
+                {game.homeTeamId && game.awayTeamId ? (
+                  <fieldset className="mb-3 rounded-lg border border-zinc-200 bg-zinc-50/80 px-3 py-2">
+                    <legend className="px-1 text-[10px] font-semibold uppercase tracking-wide text-zinc-500">
+                      Field home (record)
+                    </legend>
+                    <p className="mb-2 text-[11px] leading-snug text-zinc-500">
+                      {isPoolGame
+                        ? "Which team is recorded as home. Swapping updates home/away columns and paired stats."
+                        : "Bracket games start as a coin flip. Set field home when the game is underway — swapping updates home/away columns and paired stats."}
                     </p>
-                  ) : null}
+                    <div className="flex flex-col gap-2 sm:flex-row sm:flex-wrap">
+                      <label className="flex cursor-pointer items-center gap-2 text-sm text-zinc-800">
+                        <input
+                          type="radio"
+                          name="fieldHomeTeamId"
+                          value={game.awayTeamId}
+                          className="size-4 border-zinc-300 text-emerald-600 focus:ring-emerald-500/30"
+                        />
+                        <span>
+                          <span className="font-medium">{awayLabel}</span>
+                          <span className="ml-1 text-xs text-zinc-400">(A)</span>
+                        </span>
+                      </label>
+                      <label className="flex cursor-pointer items-center gap-2 text-sm text-zinc-800">
+                        <input
+                          type="radio"
+                          name="fieldHomeTeamId"
+                          value={game.homeTeamId}
+                          defaultChecked
+                          className="size-4 border-zinc-300 text-emerald-600 focus:ring-emerald-500/30"
+                        />
+                        <span>
+                          <span className="font-medium">{homeLabel}</span>
+                          <span className="ml-1 text-xs text-zinc-400">(H)</span>
+                        </span>
+                      </label>
+                    </div>
+                  </fieldset>
+                ) : (
+                  <input type="hidden" name="fieldHomeTeamId" value="" />
+                )}
+                {!isPoolGame ? (
+                  <>
+                    <input type="hidden" name="homeDefensiveInnings" value={game.homeDefensiveInnings ?? ""} />
+                    <input type="hidden" name="awayDefensiveInnings" value={game.awayDefensiveInnings ?? ""} />
+                  </>
+                ) : null}
+                <div className="flex flex-wrap items-end gap-3">
+                  <div className={`grid grid-cols-2 gap-3 ${isPoolGame ? "sm:grid-cols-4" : "sm:grid-cols-2"}`}>
+                    <div>
+                      <span className={labelClass}>
+                        Runs — {awayLabel} <span className="font-normal text-zinc-400">(A)</span>
+                      </span>
+                      <input
+                        name="awayRuns"
+                        type="number"
+                        min={0}
+                        defaultValue={game.awayRuns ?? ""}
+                        className={`${formClass} mt-1 w-20`}
+                      />
+                    </div>
+                    {isPoolGame ? (
+                      <div>
+                        <span className={labelClass}>
+                          Def. IP — {awayLabel} <span className="font-normal text-zinc-400">(A)</span>
+                        </span>
+                        <input
+                          name="awayDefensiveInnings"
+                          type="number"
+                          step={0.1}
+                          min={0}
+                          defaultValue={game.awayDefensiveInnings ?? ""}
+                          className={`${formClass} mt-1 w-24`}
+                        />
+                      </div>
+                    ) : null}
+                    <div>
+                      <span className={labelClass}>
+                        Runs — {homeLabel} <span className="font-normal text-zinc-400">(H)</span>
+                      </span>
+                      <input
+                        name="homeRuns"
+                        type="number"
+                        min={0}
+                        defaultValue={game.homeRuns ?? ""}
+                        className={`${formClass} mt-1 w-20`}
+                      />
+                    </div>
+                    {isPoolGame ? (
+                      <div>
+                        <span className={labelClass}>
+                          Def. IP — {homeLabel} <span className="font-normal text-zinc-400">(H)</span>
+                        </span>
+                        <input
+                          name="homeDefensiveInnings"
+                          type="number"
+                          step={0.1}
+                          min={0}
+                          defaultValue={game.homeDefensiveInnings ?? ""}
+                          className={`${formClass} mt-1 w-24`}
+                        />
+                      </div>
+                    ) : null}
+                  </div>
+                  <div>
+                    <span className={labelClass}>Off. IP (opt)</span>
+                    <div className="mt-1 flex gap-2">
+                      <input
+                        name="awayOffensiveInnings"
+                        type="number"
+                        step={0.1}
+                        min={0}
+                        placeholder={`${awayLabel} (A)`}
+                        defaultValue={game.awayOffensiveInnings ?? ""}
+                        className={`${formClass} w-20`}
+                      />
+                      <input
+                        name="homeOffensiveInnings"
+                        type="number"
+                        step={0.1}
+                        min={0}
+                        placeholder={`${homeLabel} (H)`}
+                        defaultValue={game.homeOffensiveInnings ?? ""}
+                        className={`${formClass} w-20`}
+                      />
+                    </div>
+                  </div>
+                  <div>
+                    <span className={labelClass}>Status</span>
+                    <select name="status" defaultValue={game.status} className={`${formClass} mt-1 w-36`}>
+                      {GAME_STATUS_OPTIONS.map((s) => (
+                        <option key={s} value={s}>
+                          {publicGameStatusLabel(s)}
+                        </option>
+                      ))}
+                    </select>
+                  </div>
+                  <div>
+                    <span className={labelClass}>Result</span>
+                    <select
+                      name="resultType"
+                      defaultValue={game.resultType}
+                      className={`${formClass} mt-1 min-w-[10rem]`}
+                    >
+                      {RESULT_OPTIONS.map((r) => (
+                        <option key={r} value={r}>
+                          {r.replace(/_/g, " ")}
+                        </option>
+                      ))}
+                    </select>
+                  </div>
+                  <button type="submit" disabled={scorePending} className={btnPrimary}>
+                    {scorePending ? "Saving…" : "Save scores"}
+                  </button>
                 </div>
-                <div>
-                  <label className={labelClass}>Game ID / #</label>
-                  <input
-                    name="gameNumber"
-                    type="text"
-                    maxLength={64}
-                    defaultValue={game.gameNumber ?? ""}
-                    placeholder="Director label or bracket game #"
-                    className={`${formClass} mt-1 w-full`}
-                  />
-                  <p className="mt-1 text-[10px] text-zinc-500">Clear the field and save to remove.</p>
-                </div>
-              </div>
-              <button
-                type="submit"
-                disabled={bracketSchedulePending}
-                className={`${btnSecondary} w-fit px-3 py-2 text-sm`}
-              >
-                {bracketSchedulePending ? "Saving…" : "Save schedule & location"}
-              </button>
-            </form>
-          </div>
-          <div className="border-t border-zinc-100 p-4">
-            <h3 className="text-xs font-semibold uppercase tracking-wide text-zinc-500">Teams (override)</h3>
-            <p className="mt-1 text-xs text-zinc-600">Adjust matchups after standings seeding, or fix one-off swaps.</p>
-            <ActionMessage state={bracketTeamsState} />
-            <form action={bracketTeamsAction} className="mt-3 flex flex-col gap-3">
-              <input type="hidden" name="id" value={game.id} />
-              <div className="grid gap-3 sm:grid-cols-2">
-                <div>
-                  <label className={labelClass}>Away</label>
-                  <select
-                    name="awayTeamId"
-                    required
-                    defaultValue={game.awayTeamId ?? ""}
-                    className={`${formClass} mt-1 w-full`}
+              </form>
+            </div>
+
+            {game.poolId ? (
+              <div className="border-t border-zinc-100 pt-4">
+                <h3 className="text-xs font-semibold uppercase tracking-wide text-zinc-500">
+                  Schedule &amp; matchup
+                </h3>
+                <ActionMessage state={metaState} />
+                <form action={metaAction} className="mt-3 flex flex-col gap-3">
+                  <input type="hidden" name="id" value={game.id} />
+                  <div className="grid gap-3 sm:grid-cols-2">
+                    <div>
+                      <label className={labelClass}>Pool</label>
+                      <select
+                        name="poolId"
+                        required
+                        value={metaPoolId}
+                        onChange={(e) => setMetaPoolId(e.target.value)}
+                        className={`${formClass} mt-1 w-full`}
+                      >
+                        {poolsWithTeams.map((p) => (
+                          <option key={p.poolId} value={p.poolId}>
+                            {p.label}
+                          </option>
+                        ))}
+                      </select>
+                    </div>
+                    <div>
+                      <label className={labelClass}>Field</label>
+                      <select
+                        name="fieldId"
+                        required
+                        defaultValue={game.fieldId}
+                        className={`${formClass} mt-1 w-full`}
+                      >
+                        {fields.map((f) => (
+                          <option key={f.id} value={f.id}>
+                            {f.label}
+                          </option>
+                        ))}
+                      </select>
+                    </div>
+                    <div>
+                      <label className={labelClass}>Start ({tournamentTimezone})</label>
+                      <input
+                        name="scheduledAt"
+                        type="datetime-local"
+                        required
+                        defaultValue={formatJsDateAsDatetimeLocalInZone(new Date(iso), tournamentTimezone)}
+                        className={`${formClass} mt-1 w-full`}
+                      />
+                    </div>
+                    <div>
+                      <label className={labelClass}>Away</label>
+                      <select
+                        name="awayTeamId"
+                        required
+                        defaultValue={game.awayTeamId ?? ""}
+                        className={`${formClass} mt-1 w-full`}
+                      >
+                        <option value="">Select…</option>
+                        {metaTeams.map((t) => (
+                          <option key={t.id} value={t.id}>
+                            {t.name}
+                          </option>
+                        ))}
+                      </select>
+                    </div>
+                    <div>
+                      <label className={labelClass}>Home</label>
+                      <select
+                        name="homeTeamId"
+                        required
+                        defaultValue={game.homeTeamId ?? ""}
+                        className={`${formClass} mt-1 w-full`}
+                      >
+                        <option value="">Select…</option>
+                        {metaTeams.map((t) => (
+                          <option key={t.id} value={t.id}>
+                            {t.name}
+                          </option>
+                        ))}
+                      </select>
+                    </div>
+                    <div>
+                      <label className={labelClass}>Game ID / #</label>
+                      <input
+                        name="gameNumber"
+                        type="text"
+                        maxLength={64}
+                        defaultValue={game.gameNumber ?? ""}
+                        placeholder="Director label or bracket game #"
+                        className={`${formClass} mt-1 w-full`}
+                      />
+                      <p className="mt-1 text-[10px] text-zinc-500">Clear the field and save to remove.</p>
+                    </div>
+                  </div>
+                  <button
+                    type="submit"
+                    disabled={metaPending}
+                    className={`${btnSecondary} w-fit px-3 py-2 text-sm`}
                   >
-                    <option value="">Select…</option>
-                    {allTeamsFlat.map((t) => (
-                      <option key={t.id} value={t.id}>
-                        {t.label}
-                      </option>
-                    ))}
-                  </select>
-                </div>
-                <div>
-                  <label className={labelClass}>Home</label>
-                  <select
-                    name="homeTeamId"
-                    required
-                    defaultValue={game.homeTeamId ?? ""}
-                    className={`${formClass} mt-1 w-full`}
-                  >
-                    <option value="">Select…</option>
-                    {allTeamsFlat.map((t) => (
-                      <option key={t.id} value={t.id}>
-                        {t.label}
-                      </option>
-                    ))}
-                  </select>
-                </div>
+                    {metaPending ? "Saving…" : "Save schedule & teams"}
+                  </button>
+                </form>
               </div>
-              <button
-                type="submit"
-                disabled={bracketTeamsPending}
-                className={`${btnSecondary} w-fit px-3 py-2 text-sm`}
-              >
-                {bracketTeamsPending ? "Saving…" : "Save teams"}
-              </button>
-            </form>
+            ) : (
+              <>
+                <div className="border-t border-zinc-100 pt-4">
+                  <h3 className="text-xs font-semibold uppercase tracking-wide text-zinc-500">
+                    Schedule &amp; location
+                  </h3>
+                  <p className="mt-1 text-xs text-zinc-600">
+                    The wizard stores a placeholder time until you save a real slot here (clears the public
+                    “TBD”).
+                  </p>
+                  <ActionMessage state={bracketScheduleState} />
+                  <form
+                    key={`bracket-sched-${game.id}-${game.schedulePlaceholder ? "tbd" : iso}-${game.fieldId}`}
+                    action={bracketScheduleAction}
+                    className="mt-3 flex flex-col gap-3"
+                  >
+                    <input type="hidden" name="id" value={game.id} />
+                    <div className="grid gap-3 sm:grid-cols-2">
+                      <div>
+                        <label className={labelClass}>Field</label>
+                        <select
+                          name="fieldId"
+                          required
+                          defaultValue={game.fieldId}
+                          className={`${formClass} mt-1 w-full`}
+                        >
+                          {fields.map((f) => (
+                            <option key={f.id} value={f.id}>
+                              {f.label}
+                            </option>
+                          ))}
+                        </select>
+                      </div>
+                      <div>
+                        <label className={labelClass}>Start ({tournamentTimezone})</label>
+                        <input
+                          name="scheduledAt"
+                          type="datetime-local"
+                          required
+                          defaultValue={
+                            game.schedulePlaceholder
+                              ? ""
+                              : formatJsDateAsDatetimeLocalInZone(new Date(iso), tournamentTimezone)
+                          }
+                          className={`${formClass} mt-1 w-full`}
+                        />
+                        {game.schedulePlaceholder ? (
+                          <p className="mt-1 text-[10px] text-amber-700">
+                            Pick the real start time (wizard seed time is not used until you save).
+                          </p>
+                        ) : null}
+                      </div>
+                      <div>
+                        <label className={labelClass}>Game ID / #</label>
+                        <input
+                          name="gameNumber"
+                          type="text"
+                          maxLength={64}
+                          defaultValue={game.gameNumber ?? ""}
+                          placeholder="Director label or bracket game #"
+                          className={`${formClass} mt-1 w-full`}
+                        />
+                        <p className="mt-1 text-[10px] text-zinc-500">Clear the field and save to remove.</p>
+                      </div>
+                    </div>
+                    <button
+                      type="submit"
+                      disabled={bracketSchedulePending}
+                      className={`${btnSecondary} w-fit px-3 py-2 text-sm`}
+                    >
+                      {bracketSchedulePending ? "Saving…" : "Save schedule & location"}
+                    </button>
+                  </form>
+                </div>
+                <div className="border-t border-zinc-100 pt-4">
+                  <h3 className="text-xs font-semibold uppercase tracking-wide text-zinc-500">
+                    Teams (override)
+                  </h3>
+                  <p className="mt-1 text-xs text-zinc-600">
+                    Adjust matchups after standings seeding, or fix one-off swaps.
+                  </p>
+                  <ActionMessage state={bracketTeamsState} />
+                  <form action={bracketTeamsAction} className="mt-3 flex flex-col gap-3">
+                    <input type="hidden" name="id" value={game.id} />
+                    <div className="grid gap-3 sm:grid-cols-2">
+                      <div>
+                        <label className={labelClass}>Away</label>
+                        <select
+                          name="awayTeamId"
+                          required
+                          defaultValue={game.awayTeamId ?? ""}
+                          className={`${formClass} mt-1 w-full`}
+                        >
+                          <option value="">Select…</option>
+                          {allTeamsFlat.map((t) => (
+                            <option key={t.id} value={t.id}>
+                              {t.label}
+                            </option>
+                          ))}
+                        </select>
+                      </div>
+                      <div>
+                        <label className={labelClass}>Home</label>
+                        <select
+                          name="homeTeamId"
+                          required
+                          defaultValue={game.homeTeamId ?? ""}
+                          className={`${formClass} mt-1 w-full`}
+                        >
+                          <option value="">Select…</option>
+                          {allTeamsFlat.map((t) => (
+                            <option key={t.id} value={t.id}>
+                              {t.label}
+                            </option>
+                          ))}
+                        </select>
+                      </div>
+                    </div>
+                    <button
+                      type="submit"
+                      disabled={bracketTeamsPending}
+                      className={`${btnSecondary} w-fit px-3 py-2 text-sm`}
+                    >
+                      {bracketTeamsPending ? "Saving…" : "Save teams"}
+                    </button>
+                  </form>
+                </div>
+              </>
+            )}
+
+            {isAdmin ? (
+              <div className="border-t border-zinc-100 pt-4">
+                <h3 className="text-xs font-semibold uppercase tracking-wide text-zinc-500">Danger zone</h3>
+                <ConfirmForm
+                  message={
+                    game.poolId
+                      ? "Delete this game? Standings will be recalculated for the pool."
+                      : game.gameKind === GameKind.CONSOLATION
+                        ? "Delete this consolation game? This cannot be undone."
+                        : "Delete this bracket game? This cannot be undone."
+                  }
+                  action={delAction}
+                  className="mt-3"
+                >
+                  <input type="hidden" name="id" value={game.id} />
+                  <button type="submit" disabled={delPending} className={btnDanger}>
+                    {delPending ? "Deleting…" : "Delete game"}
+                  </button>
+                </ConfirmForm>
+              </div>
+            ) : null}
           </div>
-        </>
-      )}
-    </article>
+        </GamesAdminModal>
+      ) : null}
+    </>
   );
 }
