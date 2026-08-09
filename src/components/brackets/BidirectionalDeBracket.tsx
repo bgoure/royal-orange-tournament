@@ -9,6 +9,7 @@ import {
   bidirectionalDeLayout,
   roundTypeShortLabel,
 } from "@/lib/brackets/bracket-display";
+import { withBracketRoundDay } from "@/lib/datetime-tournament";
 import { DIVISION_SWIPE_IGNORE } from "@/lib/division-swipe-ignore";
 
 function RoundColumn({
@@ -38,7 +39,7 @@ function RoundColumn({
     >
       <div className="mb-3 shrink-0">
         <h3 className="border-b border-zinc-200 pb-1 text-xs font-bold uppercase tracking-[0.06em] text-royal">
-          {round.name}
+          {withBracketRoundDay(round.name, sorted, timeZone)}
         </h3>
         <p className="mt-1 text-[11px] font-medium text-zinc-600">
           {side === "left"

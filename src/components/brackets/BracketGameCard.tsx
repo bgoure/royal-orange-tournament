@@ -2,7 +2,7 @@
 
 import type { KeyboardEvent } from "react";
 import { GameKind } from "@prisma/client";
-import { formatBracketGameScheduledAt } from "@/lib/datetime-tournament";
+import { formatBracketGameTimeOnly } from "@/lib/datetime-tournament";
 import { brandCardGradientClass } from "@/lib/brand-card-gradient";
 import { poolCardLabelTextClass } from "@/lib/pool-card-label";
 import { TeamLogoMark } from "@/components/ui/TeamLogo";
@@ -46,8 +46,8 @@ function maybeBracketAhTag(show: boolean, which: "A" | "H") {
   return show ? bracketAhTag(which) : null;
 }
 
-const scheduleLogoSize = "h-7 w-7 min-h-[28px] min-w-[28px] shrink-0";
-const scoredLogoSize = "h-7 w-7 min-h-[28px] min-w-[28px]";
+const scheduleLogoSize = "h-8 w-8 min-h-[32px] min-w-[32px] shrink-0";
+const scoredLogoSize = "h-8 w-8 min-h-[32px] min-w-[32px]";
 
 function bracketGameIdLabel(game: GameRow, listIndexZeroBased: number): string {
   const n = game.gameNumber?.trim();
@@ -179,7 +179,7 @@ export function BracketGameCard({
     </div>
   );
 
-  const timeLine = formatBracketGameScheduledAt(game.scheduledAt, timeZone, game.schedulePlaceholder);
+  const timeOnly = formatBracketGameTimeOnly(game.scheduledAt, timeZone, game.schedulePlaceholder);
 
   const hasScore = game.status === "FINAL" && game.homeRuns != null && game.awayRuns != null;
 
@@ -195,23 +195,21 @@ export function BracketGameCard({
         </p>
       ) : null}
 
-      <div className="flex justify-center">
+      <div className="flex flex-wrap items-center justify-center gap-x-2 gap-y-1">
         <span className="inline-block rounded-md bg-accent px-2.5 py-0.5 text-[11px] font-bold tabular-nums text-white">
           {gameIdLabel}
         </span>
+        <span className="text-[13px] font-bold leading-none tabular-nums text-zinc-900 dark:text-zinc-100">
+          {timeOnly}
+        </span>
       </div>
 
-      <div className="mt-1.5 flex flex-col items-center gap-0.5 text-center">
-        <p className="min-w-0 text-[13px] font-bold leading-snug text-zinc-900 dark:text-zinc-100">
-          {timeLine}
-        </p>
-        {metaRow}
-      </div>
+      <div className="mt-1.5 flex flex-col items-center gap-0.5 text-center">{metaRow}</div>
 
       {hasScore ? (
-        <div className="mt-1.5 space-y-1">
+        <div className="mt-1.5 space-y-2">
           <div className="flex items-start justify-between gap-2">
-            <div className="flex min-w-0 flex-1 items-start gap-2">
+            <div className="flex min-w-0 flex-1 flex-col items-start gap-1">
               <TeamLogoMark team={away.team} sizeClass={scoredLogoSize} />
               <p
                 data-bracket-team-name
@@ -221,10 +219,12 @@ export function BracketGameCard({
                 {!away.isPlaceholder ? maybeBracketAhTag(showHomeAway, "A") : null}
               </p>
             </div>
-            <span className="shrink-0 text-base font-bold tabular-nums text-zinc-900 dark:text-zinc-100">{game.awayRuns}</span>
+            <span className="shrink-0 self-center text-base font-bold tabular-nums text-zinc-900 dark:text-zinc-100">
+              {game.awayRuns}
+            </span>
           </div>
           <div className="flex items-start justify-between gap-2">
-            <div className="flex min-w-0 flex-1 items-start gap-2">
+            <div className="flex min-w-0 flex-1 flex-col items-start gap-1">
               <TeamLogoMark team={home.team} sizeClass={scoredLogoSize} />
               <p
                 data-bracket-team-name
@@ -234,14 +234,16 @@ export function BracketGameCard({
                 {!home.isPlaceholder ? maybeBracketAhTag(showHomeAway, "H") : null}
               </p>
             </div>
-            <span className="shrink-0 text-base font-bold tabular-nums text-zinc-900 dark:text-zinc-100">{game.homeRuns}</span>
+            <span className="shrink-0 self-center text-base font-bold tabular-nums text-zinc-900 dark:text-zinc-100">
+              {game.homeRuns}
+            </span>
           </div>
         </div>
       ) : (
         <div className="mt-1.5 grid grid-cols-[minmax(0,1fr)_auto_minmax(0,1fr)] items-start gap-x-1.5 sm:gap-x-2">
-          <div className="flex min-w-0 items-start gap-1.5">
+          <div className="flex min-w-0 flex-col items-center gap-1 text-center">
             <TeamLogoMark team={away.team} sizeClass={scheduleLogoSize} />
-            <div className="min-w-0 flex-1">
+            <div className="min-w-0 w-full">
               <p
                 data-bracket-team-name
                 className={`text-sm leading-[1.15] ${BRACKET_TEAM_NAME_CLASS} ${slotLineTextClass(away)}`}
@@ -249,12 +251,15 @@ export function BracketGameCard({
                 {away.primary}
                 {!away.isPlaceholder ? maybeBracketAhTag(showHomeAway, "A") : null}
               </p>
-              {away.secondary ? <p className="mt-0.5 text-xs text-zinc-500 dark:text-zinc-400">{away.secondary}</p> : null}
+              {away.secondary ? (
+                <p className="mt-0.5 text-xs text-zinc-500 dark:text-zinc-400">{away.secondary}</p>
+              ) : null}
             </div>
           </div>
           <span className="shrink-0 self-center text-sm font-normal text-accent dark:text-accent-light">vs</span>
-          <div className="flex min-w-0 items-start justify-end gap-1.5">
-            <div className="min-w-0 flex-1 text-right">
+          <div className="flex min-w-0 flex-col items-center gap-1 text-center">
+            <TeamLogoMark team={home.team} sizeClass={scheduleLogoSize} />
+            <div className="min-w-0 w-full">
               <p
                 data-bracket-team-name
                 className={`text-sm leading-[1.15] ${BRACKET_TEAM_NAME_CLASS} ${slotLineTextClass(home)}`}
@@ -262,9 +267,10 @@ export function BracketGameCard({
                 {home.primary}
                 {!home.isPlaceholder ? maybeBracketAhTag(showHomeAway, "H") : null}
               </p>
-              {home.secondary ? <p className="mt-0.5 text-xs text-zinc-500 dark:text-zinc-400">{home.secondary}</p> : null}
+              {home.secondary ? (
+                <p className="mt-0.5 text-xs text-zinc-500 dark:text-zinc-400">{home.secondary}</p>
+              ) : null}
             </div>
-            <TeamLogoMark team={home.team} sizeClass={scheduleLogoSize} />
           </div>
         </div>
       )}

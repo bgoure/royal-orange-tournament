@@ -91,6 +91,63 @@ export function formatBracketGameScheduledAt(
   return new Intl.DateTimeFormat(undefined, opts).format(d);
 }
 
+/** Time only for the Game ID row (date lives on the round column title). */
+export function formatBracketGameTimeOnly(
+  d: Date,
+  timeZone?: string | null,
+  schedulePlaceholder?: boolean,
+): string {
+  if (schedulePlaceholder) return "TBD";
+  const opts: Intl.DateTimeFormatOptions = {
+    hour: "numeric",
+    minute: "2-digit",
+  };
+  if (timeZone?.trim()) opts.timeZone = timeZone.trim();
+  return new Intl.DateTimeFormat(undefined, opts).format(d);
+}
+
+/** Long month + day for round headers, e.g. "August 9". */
+export function formatBracketRoundDayLabel(
+  d: Date,
+  timeZone?: string | null,
+): string {
+  const opts: Intl.DateTimeFormatOptions = {
+    month: "long",
+    day: "numeric",
+  };
+  if (timeZone?.trim()) opts.timeZone = timeZone.trim();
+  return new Intl.DateTimeFormat(undefined, opts).format(d);
+}
+
+/**
+ * Earliest non-TBD game day in a round/column, or null when every game is still a placeholder.
+ */
+export function earliestBracketRoundDayLabel(
+  games: ReadonlyArray<{ scheduledAt: Date | string; schedulePlaceholder?: boolean | null }>,
+  timeZone?: string | null,
+): string | null {
+  let earliest: Date | null = null;
+  for (const g of games) {
+    if (g.schedulePlaceholder) continue;
+    const at = typeof g.scheduledAt === "string" ? new Date(g.scheduledAt) : g.scheduledAt;
+    if (Number.isNaN(at.getTime())) continue;
+    if (earliest == null || at.getTime() < earliest.getTime()) earliest = at;
+  }
+  if (!earliest) return null;
+  return formatBracketRoundDayLabel(earliest, timeZone);
+}
+
+/** e.g. "Round 1 - August 9" when a real day is known. */
+export function withBracketRoundDay(
+  baseLabel: string,
+  games: ReadonlyArray<{ scheduledAt: Date | string; schedulePlaceholder?: boolean | null }>,
+  timeZone?: string | null,
+): string {
+  const day = earliestBracketRoundDayLabel(games, timeZone);
+  if (!day) return baseLabel;
+  return `${baseLabel} - ${day}`;
+}
+
 /** `YYYY-MM-DD` in tournament zone (matches public schedule `day` query values). */
 export function tournamentCalendarDayKey(d: Date, timeZone: string): string {
   return new Intl.DateTimeFormat("en-CA", {

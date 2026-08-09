@@ -20,6 +20,7 @@ import {
   roundTypeShortLabel,
   type BracketScopeFilter,
 } from "@/lib/brackets/bracket-display";
+import { withBracketRoundDay } from "@/lib/datetime-tournament";
 
 function BracketGrid({
   byRound,
@@ -49,7 +50,7 @@ function BracketGrid({
           >
             <div className="mb-3 shrink-0">
               <h3 className="border-b border-royal/30 pb-1 text-xs font-bold uppercase tracking-[0.06em] text-royal">
-                {r.name}
+                {withBracketRoundDay(r.name, games, timeZone)}
               </h3>
               <p className="mt-1 text-[11px] font-medium text-zinc-600">{roundTypeShortLabel(r.roundType)}</p>
             </div>
@@ -125,7 +126,9 @@ function MobileBracketRoundNav({
           ← Prev
         </button>
         <div className="min-w-0 flex-1 text-center">
-          <p className="text-sm font-bold uppercase tracking-wide text-royal">{r.name}</p>
+          <p className="text-sm font-bold uppercase tracking-wide text-royal">
+            {withBracketRoundDay(r.name, games, timeZone)}
+          </p>
           <p className="text-xs font-medium text-zinc-600">{roundTypeShortLabel(r.roundType)}</p>
         </div>
         <button

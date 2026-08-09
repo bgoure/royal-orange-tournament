@@ -12,6 +12,7 @@ import {
   longestWordWidthPx,
 } from "@/components/brackets/bracket-card-layout";
 import { chronologicalRoundColumns } from "@/lib/brackets/bracket-display";
+import { withBracketRoundDay } from "@/lib/datetime-tournament";
 import {
   bracketLoserTeamId,
   bracketLossCountsFromGames,
@@ -27,11 +28,11 @@ type WinnerEdge = {
 
 type DrawnPath = { d: string; dashed?: boolean };
 
-const EST_CARD_H = 118;
+const EST_CARD_H = 148;
 const MIN_GAP = 36;
 const BAND_GAP = 56;
 const COL_PAD_Y = 12;
-const HEADER_H = 48;
+const HEADER_H = 56;
 const JOIN_INSET = 28;
 /** Raise each successive losers-lane column to show progression (G5 above G4, G9 above G7). */
 const LOSERS_PROGRESSION_LIFT = 52;
@@ -703,7 +704,7 @@ export function ChronologicalRoundBracket({
                 style={{ minHeight: HEADER_H }}
               >
                 <h3 className="text-xs font-bold uppercase tracking-[0.08em] text-royal">
-                  {col.label}
+                  {withBracketRoundDay(col.label, games, timeZone)}
                 </h3>
                 {col.subtitle ? (
                   <p className="mt-0.5 text-[11px] font-medium text-zinc-600">{col.subtitle}</p>
