@@ -6,9 +6,12 @@ import {
   type BracketActionResult,
 } from "@/app/admin/_actions/brackets";
 import { ActionMessage } from "@/components/admin/structure/ActionMessage";
-import { obaImplicitByeSeedTargets } from "@/lib/brackets/oba-de-presets";
-
 export type SeedBoardTeam = { id: string; name: string };
+
+export type ByeSeedSeatProp = {
+  label: string;
+  team: SeedBoardTeam | null;
+};
 
 export type SeedBoardSide =
   | { kind: "team"; teamId: string; name: string }
@@ -31,8 +34,11 @@ export type SeedBoardProps = {
   canConfigure: boolean;
   /** Named format preset (e.g. oba_de_5) — adjusts Round 1 seeding copy. */
   presetKey?: string | null;
-  /** Pre-filled OBA bye seeds (seed 1, seed 2, …) from Round 2 home seats. */
-  initialByeSeedTeams?: (SeedBoardTeam | null)[];
+  /**
+   * Mid-bracket bye-seed seats (discovered from feeders: one open side + one feeder).
+   * Used for OBA 5–7 and any map with the same shape.
+   */
+  byeSeedSeats?: ByeSeedSeatProp[];
 };
 
 type SlotSide = "home" | "away";
@@ -52,16 +58,12 @@ export function BracketSeedBoard({
   matches: initialMatches,
   canConfigure,
   presetKey,
-  initialByeSeedTeams = [],
+  byeSeedSeats = [],
 }: SeedBoardProps) {
-  const byeTargets = useMemo(() => obaImplicitByeSeedTargets(presetKey), [presetKey]);
   const [matches, setMatches] = useState(initialMatches);
-  const [byeSeedIds, setByeSeedIds] = useState<(string | null)[]>(() => {
-    const n = byeTargets.length;
-    if (n === 0) return [];
-    const init = Array.from({ length: n }, (_, i) => initialByeSeedTeams[i]?.id ?? null);
-    return init;
-  });
+  const [byeSeedIds, setByeSeedIds] = useState<(string | null)[]>(() =>
+    byeSeedSeats.map((s) => s.team?.id ?? null),
+  );
   const [drag, setDrag] = useState<DragPayload | null>(null);
   const [state, formAction, pending] = useActionState(
     saveBracketRoundZeroSeeding,
@@ -75,11 +77,11 @@ export function BracketSeedBoard({
         if (side.kind === "team") m.set(side.teamId, side.name);
       }
     }
-    for (const t of initialByeSeedTeams) {
-      if (t) m.set(t.id, t.name);
+    for (const s of byeSeedSeats) {
+      if (s.team) m.set(s.team.id, s.team.name);
     }
     return m;
-  }, [teams, initialMatches, initialByeSeedTeams]);
+  }, [teams, initialMatches, byeSeedSeats]);
 
   const placedTeamIds = useMemo(() => {
     const ids = new Set<string>();
@@ -209,7 +211,8 @@ export function BracketSeedBoard({
   );
   const byeSeedTeamIdsJson = JSON.stringify(byeSeedIds.filter((id): id is string => id != null));
   const byeSeedsReady =
-    byeTargets.length === 0 || byeSeedIds.every((id) => id != null);
+    byeSeedSeats.length === 0 ||
+    (byeSeedIds.length === byeSeedSeats.length && byeSeedIds.every((id) => id != null));
 
   return (
     <div className="rounded-xl border border-emerald-200 bg-emerald-50/40 p-4">
@@ -341,20 +344,21 @@ export function BracketSeedBoard({
 
         {editable ? (
           <div className="flex flex-col gap-3">
-            {byeTargets.length > 0 ? (
+            {byeSeedSeats.length > 0 ? (
               <div className="rounded-lg border border-dashed border-sky-300 bg-sky-50/80 p-3">
                 <p className="text-[10px] font-semibold uppercase tracking-wide text-sky-900">
                   Round 1 bye seeds
                 </p>
                 <p className="mt-1 text-[11px] leading-snug text-sky-900/80">
-                  Drop the strongest remaining teams here. Save writes them onto Round 2 (opponent TBD).
+                  Drop the strongest remaining teams here (Seed 1 = strongest). Save writes them onto
+                  later-round seats; the feeder opponent stays TBD until Round 1 is played.
                 </p>
                 <div className="mt-2 flex flex-col gap-2">
-                  {byeTargets.map((target, index) => {
+                  {byeSeedSeats.map((seat, index) => {
                     const teamId = byeSeedIds[index] ?? null;
                     return (
                       <div
-                        key={target.gameNumber}
+                        key={`${seat.label}-${index}`}
                         onDragOver={(e) => e.preventDefault()}
                         onDrop={() => {
                           if (!drag) return;
@@ -364,7 +368,7 @@ export function BracketSeedBoard({
                         className="min-h-[52px] rounded-md border border-sky-200 bg-white px-2 py-1.5"
                       >
                         <p className="text-[10px] font-semibold uppercase tracking-wide text-sky-800">
-                          {target.label}
+                          {seat.label}
                         </p>
                         <div className="mt-1">
                           {teamId ? (
@@ -384,7 +388,7 @@ export function BracketSeedBoard({
                               {teamNameById.get(teamId) ?? "Team"}
                             </button>
                           ) : (
-                            <p className="text-xs text-sky-700/70">Drop seed {target.seedRank}</p>
+                            <p className="text-xs text-sky-700/70">Drop seed {index + 1}</p>
                           )}
                         </div>
                       </div>
@@ -427,7 +431,7 @@ export function BracketSeedBoard({
               </div>
             )}
 
-            {byeTargets.length > 0 && bankTeams.length > 0 ? (
+            {byeSeedSeats.length > 0 && bankTeams.length > 0 ? (
               <div className="rounded-lg border border-dashed border-zinc-300 bg-zinc-50/80 p-3">
                 <p className="text-[10px] font-semibold uppercase tracking-wide text-zinc-500">
                   Unplaced teams
@@ -463,8 +467,8 @@ export function BracketSeedBoard({
                 BYE
               </button>
               <p className="mt-2 text-[11px] leading-snug text-amber-900/80">
-                Drag onto an Away/Home seat for a walkover. OBA 5–7 maps use the bye-seed slots above
-                instead of this chip for top seeds.
+                Drag onto an Away/Home seat for a walkover. Formats with mid-round bye seeds use the
+                slots above instead of this chip for top seeds.
               </p>
             </div>
           </div>

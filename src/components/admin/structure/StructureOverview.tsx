@@ -27,7 +27,7 @@ export type StructureSeedBoard = {
   teams: SeedBoardTeam[];
   matches: SeedBoardMatch[];
   presetKey?: string | null;
-  initialByeSeedTeams?: (SeedBoardTeam | null)[];
+  byeSeedSeats?: { label: string; team: SeedBoardTeam | null }[];
 };
 
 type DivisionRow = {
@@ -105,7 +105,7 @@ export function StructureOverview({
                 teams={active.seedBoard.teams}
                 matches={active.seedBoard.matches}
                 presetKey={active.seedBoard.presetKey}
-                initialByeSeedTeams={active.seedBoard.initialByeSeedTeams}
+                byeSeedSeats={active.seedBoard.byeSeedSeats}
                 canConfigure={canConfigure}
               />
             </section>

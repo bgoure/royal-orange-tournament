@@ -5,9 +5,9 @@ import {
   StructureOverview,
   type StructureSeedBoard,
 } from "@/components/admin/structure/StructureOverview";
-import { obaImplicitByeSeedTargets } from "@/lib/brackets/oba-de-presets";
 import { prisma } from "@/lib/db";
 import { can } from "@/lib/rbac/permissions";
+import { listBracketImplicitSeedSeats } from "@/lib/services/bracket-seed-seats";
 import { getTournamentForRequest } from "@/lib/tournament-context";
 import type { SeedBoardSide } from "@/components/admin/structure/BracketSeedBoard";
 
@@ -55,13 +55,6 @@ export default async function AdminStructurePage({
           avoidRematchesUntilForced: true,
           presetKey: true,
           _count: { select: { games: true, rounds: true } },
-          games: {
-            where: { gameNumber: { in: ["3", "4", "5"] } },
-            select: {
-              gameNumber: true,
-              homeTeam: { select: { id: true, name: true } },
-            },
-          },
           rounds: {
             where: { roundIndex: 0 },
             take: 1,
@@ -90,6 +83,62 @@ export default async function AdminStructurePage({
     session?.user?.role != null && can(session.user.role, "bracket:configure");
 
   const openBuilder = sp.builder === "1";
+
+  const divisionRows = await Promise.all(
+    divisions.map(async (d) => {
+      const b = d.brackets[0] ?? null;
+      const round0 = b?.rounds[0] ?? null;
+      const allTeams = d.pools.flatMap((p) => p.teams);
+      let seedBoard: StructureSeedBoard | null = null;
+      if (b && round0 && round0.matches.length > 0) {
+        const seedSeats = await listBracketImplicitSeedSeats(b.id);
+        seedBoard = {
+          bracketId: b.id,
+          bracketName: b.name,
+          presetKey: b.presetKey,
+          teams: allTeams,
+          byeSeedSeats: seedSeats.map((s) => ({
+            label: s.label,
+            team: s.team,
+          })),
+          matches: round0.matches.map((m) => {
+            const g = m.game;
+            const locked =
+              g?.status === "LIVE" ||
+              (g?.status === "FINAL" && g.resultType === "REGULAR");
+            return {
+              matchId: m.id,
+              matchIndex: m.matchIndex,
+              home: toSide(m.homeIsBye, m.game?.homeTeam),
+              away: toSide(m.awayIsBye, m.game?.awayTeam),
+              locked,
+            };
+          }),
+        };
+      }
+      return {
+        id: d.id,
+        name: d.name,
+        pools: d.pools.map((p) => ({
+          id: p.id,
+          name: p.name,
+          teams: p.teams,
+        })),
+        bracket: b
+          ? {
+              id: b.id,
+              name: b.name,
+              format: b.format,
+              published: b.published,
+              avoidRematchesUntilForced: b.avoidRematchesUntilForced,
+              rounds: b._count.rounds,
+              games: b._count.games,
+            }
+          : null,
+        seedBoard,
+      };
+    }),
+  );
 
   return (
     <div className="flex flex-col gap-8">
@@ -128,62 +177,7 @@ export default async function AdminStructurePage({
       <StructureOverview
         key={tournament.id}
         openBuilder={openBuilder}
-        divisions={divisions.map((d) => {
-          const b = d.brackets[0] ?? null;
-          const round0 = b?.rounds[0] ?? null;
-          const allTeams = d.pools.flatMap((p) => p.teams);
-          let seedBoard: StructureSeedBoard | null = null;
-          if (b && round0 && round0.matches.length > 0) {
-            const byeTargets = obaImplicitByeSeedTargets(b.presetKey);
-            const byeByGame = new Map(
-              b.games.map((g) => [g.gameNumber ?? "", g.homeTeam] as const),
-            );
-            seedBoard = {
-              bracketId: b.id,
-              bracketName: b.name,
-              presetKey: b.presetKey,
-              teams: allTeams,
-              initialByeSeedTeams: byeTargets.map((t) => {
-                const team = byeByGame.get(t.gameNumber);
-                return team ? { id: team.id, name: team.name } : null;
-              }),
-              matches: round0.matches.map((m) => {
-                const g = m.game;
-                const locked =
-                  g?.status === "LIVE" ||
-                  (g?.status === "FINAL" && g.resultType === "REGULAR");
-                return {
-                  matchId: m.id,
-                  matchIndex: m.matchIndex,
-                  home: toSide(m.homeIsBye, m.game?.homeTeam),
-                  away: toSide(m.awayIsBye, m.game?.awayTeam),
-                  locked,
-                };
-              }),
-            };
-          }
-          return {
-            id: d.id,
-            name: d.name,
-            pools: d.pools.map((p) => ({
-              id: p.id,
-              name: p.name,
-              teams: p.teams,
-            })),
-            bracket: b
-              ? {
-                  id: b.id,
-                  name: b.name,
-                  format: b.format,
-                  published: b.published,
-                  avoidRematchesUntilForced: b.avoidRematchesUntilForced,
-                  rounds: b._count.rounds,
-                  games: b._count.games,
-                }
-              : null,
-            seedBoard,
-          };
-        })}
+        divisions={divisionRows}
         canConfigure={canConfigure}
       />
     </div>

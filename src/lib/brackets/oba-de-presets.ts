@@ -8,7 +8,10 @@
 
 export type ObaDePresetKey = "oba_de_4" | "oba_de_5" | "oba_de_6" | "oba_de_7";
 
-/** Implicit Round-1 bye seeds placed on later games (home seat) for seeded OBA maps. */
+/**
+ * Documented OBA bye-seed game numbers (home seat). Runtime placement discovers seats from
+ * feeder wiring via `listBracketImplicitSeedSeats` so custom maps get the same behavior.
+ */
 export type ObaImplicitByeSeedTarget = {
   /** 1-based seed rank among bye recipients (seed 1 first). */
   seedRank: number;
@@ -17,7 +20,7 @@ export type ObaImplicitByeSeedTarget = {
   label: string;
 };
 
-/** Where sit-out / bye seeds must be written after Round 1 reseeding. */
+/** Expected OBA sit-out seats (for docs/tests). Prefer feeder discovery at runtime. */
 export function obaImplicitByeSeedTargets(
   presetKey: string | null | undefined,
 ): ObaImplicitByeSeedTarget[] {
