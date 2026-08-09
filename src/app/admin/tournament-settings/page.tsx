@@ -105,7 +105,11 @@ export default async function AdminTournamentSettingsPage() {
             canManage={canManage}
           />
         </div>
-        <TournamentRenameForm tournamentName={tournament.name} canManage={canManage} />
+        <TournamentRenameForm
+          tournamentName={tournament.name}
+          shortLabel={tournament.shortLabel}
+          canManage={canManage}
+        />
         <TournamentSlugForm tournamentSlug={tournament.slug} canManage={canManage} />
         <TournamentPublicSwitcherOrderForm
           publicSwitcherOrder={tournament.publicSwitcherOrder}
@@ -159,7 +163,11 @@ export default async function AdminTournamentSettingsPage() {
           canManage={canManage}
         />
       </div>
-      <TournamentRenameForm tournamentName={tournament.name} canManage={canManage} />
+      <TournamentRenameForm
+        tournamentName={tournament.name}
+        shortLabel={tournament.shortLabel}
+        canManage={canManage}
+      />
       <TournamentSlugForm tournamentSlug={tournament.slug} canManage={canManage} />
       <TournamentPublicSwitcherOrderForm
         publicSwitcherOrder={tournament.publicSwitcherOrder}

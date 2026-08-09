@@ -30,9 +30,11 @@ function SuccessBanner({ state }: { state: ContentActionResult | undefined }) {
 
 export function TournamentRenameForm({
   tournamentName,
+  shortLabel,
   canManage,
 }: {
   tournamentName: string;
+  shortLabel: string | null;
   canManage: boolean;
 }) {
   const [state, action, pending] = useActionState(
@@ -53,18 +55,19 @@ export function TournamentRenameForm({
     <section className="rounded-xl border border-zinc-200 bg-zinc-50/80 p-6">
       <h2 className="text-sm font-semibold text-zinc-900">Tournament name</h2>
       <p className="mt-1 text-xs text-zinc-600">
-        Public name in headers, switcher, and most pages. The site URL slug is unchanged.
+        Public name in headers, switcher, and most pages. The orange accent under the white title is the short label —
+        leave it blank to hide it. The site URL slug is unchanged.
       </p>
       <ErrorBanner state={state} />
       <SuccessBanner state={state} />
-      <form action={action} className="mt-4 flex max-w-xl flex-col gap-3 sm:flex-row sm:flex-wrap sm:items-end">
-        <div className="min-w-0 flex-1">
+      <form action={action} className="mt-4 flex max-w-xl flex-col gap-3">
+        <div className="min-w-0">
           <label htmlFor="tournament-name" className={labelClass}>
-            Name
+            Name (white)
           </label>
           <input
             id="tournament-name"
-            key={tournamentName}
+            key={`name-${tournamentName}`}
             name="name"
             type="text"
             required
@@ -73,8 +76,23 @@ export function TournamentRenameForm({
             className={`${formClass} mt-1 w-full`}
           />
         </div>
-        <button type="submit" disabled={pending} className={btnPrimary}>
-          {pending ? "Saving…" : "Save name"}
+        <div className="min-w-0">
+          <label htmlFor="tournament-short-label" className={labelClass}>
+            Header accent (orange)
+          </label>
+          <input
+            id="tournament-short-label"
+            key={`short-${shortLabel ?? ""}`}
+            name="shortLabel"
+            type="text"
+            maxLength={64}
+            defaultValue={shortLabel ?? ""}
+            placeholder="e.g. Classic 2026 — leave blank for none"
+            className={`${formClass} mt-1 w-full`}
+          />
+        </div>
+        <button type="submit" disabled={pending} className={`${btnPrimary} w-fit`}>
+          {pending ? "Saving…" : "Save"}
         </button>
       </form>
     </section>

@@ -46,6 +46,13 @@ export function parsedOptionalCoordinates(latRaw: string | undefined, lonRaw: st
 
 export const tournamentRenameSchema = z.object({
   name: z.string().trim().min(1, "Name is required").max(200),
+  /** Orange accent under the public header title; empty clears it. */
+  shortLabel: z
+    .string()
+    .trim()
+    .max(64)
+    .optional()
+    .transform((v) => (v && v.length > 0 ? v : null)),
 });
 
 /** Raw slug input — normalized with `slugifyTournamentName` before uniqueness checks. */

@@ -39,6 +39,7 @@ export async function updateTournamentName(
 
   const parsed = tournamentRenameSchema.safeParse({
     name: formData.get("name"),
+    shortLabel: formData.get("shortLabel") ?? "",
   });
   if (!parsed.success) {
     return { ok: false, error: parsed.error.flatten().formErrors.join(", ") || "Invalid name" };
@@ -47,13 +48,16 @@ export async function updateTournamentName(
   try {
     await prisma.tournament.update({
       where: { id: c.tournament.id },
-      data: { name: parsed.data.name },
+      data: {
+        name: parsed.data.name,
+        shortLabel: parsed.data.shortLabel,
+      },
     });
     revalidatePath("/", "layout");
     await revalidatePublishedTournamentSites();
     revalidatePath("/admin", "layout");
     revalidatePath("/admin/tournament-settings");
-    return { ok: true, notice: "Tournament name updated." };
+    return { ok: true, notice: "Tournament name and header accent updated." };
   } catch (e) {
     return { ok: false, error: e instanceof Error ? e.message : "Failed to update name" };
   }
