@@ -28,6 +28,7 @@ export default async function AdminAnnouncementsPage() {
       tournamentName={tournament.name}
       canManage={canManage}
       canDelete={canDelete}
+      showPublicAnnouncements={tournament.showPublicAnnouncements}
     />
   );
 }

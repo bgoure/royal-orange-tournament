@@ -37,6 +37,37 @@ export async function updateShowPublicSponsorsSection(
   }
 }
 
+export async function updateShowPublicAnnouncements(
+  _prev: ContentActionResult | undefined,
+  formData: FormData,
+): Promise<ContentActionResult> {
+  void _prev;
+  const c = await contentCtx();
+  if ("error" in c) return { ok: false, error: c.error };
+  if (!assertContentManage(c.session.user.role)) return contentDeny();
+
+  const show = parseShowFlag(formData, "showPublicAnnouncements");
+  if (show === null) return { ok: false, error: "Invalid value" };
+
+  try {
+    await prisma.tournament.update({
+      where: { id: c.tournament.id },
+      data: { showPublicAnnouncements: show },
+    });
+    revalidatePath("/admin/announcements");
+    revalidatePath("/admin/tournament-settings");
+    await revalidatePublishedTournamentSites();
+    return {
+      ok: true,
+      notice: show
+        ? "Announcements are visible on the public site."
+        : "Announcements are hidden on the public site (home, More menu, and history page).",
+    };
+  } catch (e) {
+    return { ok: false, error: e instanceof Error ? e.message : "Save failed" };
+  }
+}
+
 export async function updateShowPublicFaqSection(
   _prev: ContentActionResult | undefined,
   formData: FormData,

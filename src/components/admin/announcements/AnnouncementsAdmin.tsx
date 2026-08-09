@@ -9,6 +9,9 @@ import {
   updateAnnouncement,
   type AnnouncementActionResult,
 } from "@/app/admin/_actions/announcements";
+import type { ContentActionResult } from "@/app/admin/_actions/content-shared";
+import { updateShowPublicAnnouncements } from "@/app/admin/_actions/tournament-public-sections";
+import { ActionMessage } from "@/components/admin/structure/ActionMessage";
 import { ConfirmForm } from "@/components/admin/structure/ConfirmForm";
 
 const formClass =
@@ -20,6 +23,11 @@ const btnSecondary =
   "rounded-md border border-zinc-300 bg-white px-3 py-2 text-sm font-medium text-zinc-800 hover:bg-zinc-50 disabled:opacity-50";
 const btnDanger =
   "rounded-md border border-red-200 bg-red-50 px-2 py-1 text-xs font-medium text-red-800 hover:bg-red-100";
+
+const segBtn = (active: boolean) =>
+  `rounded-lg px-3 py-2 text-sm font-medium transition-colors ${
+    active ? "bg-emerald-600 text-white shadow-sm" : "bg-zinc-100 text-zinc-700 hover:bg-zinc-200"
+  }`;
 
 function fmtLocal(d: Date) {
   const x = typeof d === "string" ? new Date(d) : d;
@@ -70,12 +78,18 @@ export function AnnouncementsAdmin({
   tournamentName,
   canManage,
   canDelete = false,
+  showPublicAnnouncements = true,
 }: {
   items: Announcement[];
   tournamentName: string;
   canManage: boolean;
   canDelete?: boolean;
+  showPublicAnnouncements?: boolean;
 }) {
+  const [visibilityState, visibilityAction, visibilityPending] = useActionState(
+    updateShowPublicAnnouncements,
+    undefined as ContentActionResult | undefined,
+  );
   const [createState, createAction, createPending] = useActionState(
     createAnnouncement,
     undefined as AnnouncementActionResult | undefined,
@@ -93,6 +107,43 @@ export function AnnouncementsAdmin({
           View site ↗
         </Link>
       </header>
+
+      <section className="rounded-xl border border-zinc-200 bg-zinc-50/80 p-4">
+        <h2 className="text-sm font-semibold text-zinc-900">Public site — Announcements</h2>
+        <p className="mt-1 text-xs text-zinc-600">
+          Hide the home announcements block, the More menu link, and the public history page — or show them.
+          Admin tools here stay available either way.
+        </p>
+        <ActionMessage state={visibilityState} />
+        {canManage ? (
+          <div className="mt-3 flex flex-wrap items-center gap-2">
+            <form action={visibilityAction} className="inline">
+              <input type="hidden" name="showPublicAnnouncements" value="true" />
+              <button
+                type="submit"
+                disabled={visibilityPending || showPublicAnnouncements}
+                className={segBtn(showPublicAnnouncements)}
+              >
+                Show section
+              </button>
+            </form>
+            <form action={visibilityAction} className="inline">
+              <input type="hidden" name="showPublicAnnouncements" value="false" />
+              <button
+                type="submit"
+                disabled={visibilityPending || !showPublicAnnouncements}
+                className={segBtn(!showPublicAnnouncements)}
+              >
+                Hide section
+              </button>
+            </form>
+          </div>
+        ) : (
+          <p className="mt-2 text-xs text-zinc-500">
+            Current: {showPublicAnnouncements ? "Visible" : "Hidden"}
+          </p>
+        )}
+      </section>
 
       {!canManage ? (
         <p className="text-sm text-zinc-600">You don’t have permission to manage announcements.</p>
