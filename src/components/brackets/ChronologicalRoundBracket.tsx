@@ -325,10 +325,15 @@ function layoutGameTops(
   }
 
   // Re-snap after lifts for single-feeder losers chains (e.g. 5-team G5→G7).
+  // Note: snap aligns G7 with G5; 5-team then steps G7 up again below.
   snapSingleWinnerFeederRows(losersByCol, edges, tops, hOf, losersIds, 1);
   const losersFlat = losersByCol.flat();
   // 6-team: G7 between G5 and G6.
   centerBetweenGameNumbers(losersFlat, tops, hOf, "7", "5", "6", losersIds);
+  // 5-team: no losers-lane G6 — raise G7 above G5 by the same step as G4→G5.
+  if (!gameByNumber(losersFlat, "6")) {
+    stepAboveGameNumber(losersFlat, tops, "7", "5", LOSERS_PROGRESSION_LIFT);
+  }
   // 7-team: G10 between G7 and G8; G11 steps up for progression.
   centerBetweenGameNumbers(losersFlat, tops, hOf, "10", "7", "8", losersIds);
   stepAboveGameNumber(losersFlat, tops, "11", "10", LOSERS_PROGRESSION_LIFT);
