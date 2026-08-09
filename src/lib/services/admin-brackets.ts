@@ -72,7 +72,7 @@ export async function listBracketFeederMatches(tournamentId: string) {
     select: {
       id: true,
       name: true,
-      division: { select: { name: true } },
+      division: { select: { id: true, name: true } },
       rounds: {
         orderBy: { roundIndex: "asc" },
         select: {
@@ -98,6 +98,7 @@ export async function listBracketFeederMatches(tournamentId: string) {
 
   return brackets.map((b) => ({
     bracketId: b.id,
+    divisionId: b.division.id,
     bracketName: `${b.name} · ${b.division.name}`,
     matches: b.rounds.flatMap((r) =>
       r.matches.map((m) => ({

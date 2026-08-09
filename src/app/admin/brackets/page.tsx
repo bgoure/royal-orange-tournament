@@ -14,9 +14,15 @@ import { can } from "@/lib/rbac/permissions";
 import { getTournamentForRequest } from "@/lib/tournament-context";
 import { tournamentPublicBasePath } from "@/lib/tournament-public-path";
 
-export default async function AdminBracketsPage() {
+export default async function AdminBracketsPage({
+  searchParams,
+}: {
+  searchParams: Promise<{ division?: string }>;
+}) {
   const session = await auth();
   const tournament = await getTournamentForRequest();
+  const sp = await searchParams;
+  const divisionParam = typeof sp.division === "string" ? sp.division : undefined;
 
   if (!tournament) {
     return <AdminNoTournamentPlaceholder />;
@@ -51,6 +57,11 @@ export default async function AdminBracketsPage() {
     label: formatFieldWithLocation(f.name, f.location.name),
   }));
 
+  const initialDivisionId =
+    divisionParam && divisions.some((d) => d.id === divisionParam)
+      ? divisionParam
+      : divisions[0]?.id;
+
   return (
     <BracketsAdmin
       pools={pools}
@@ -59,6 +70,7 @@ export default async function AdminBracketsPage() {
       brackets={brackets}
       consolationGames={consolationGames}
       feederBrackets={feederBrackets}
+      initialDivisionId={initialDivisionId}
       tournamentName={tournament.name}
       publicSitePath={tournamentPublicBasePath(tournament)}
       tournamentTimezone={tournament.timezone}

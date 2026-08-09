@@ -2,6 +2,7 @@
 
 import { useActionState, useEffect, useMemo, useState } from "react";
 import Link from "next/link";
+import { usePathname, useRouter } from "next/navigation";
 import type { BracketFormat } from "@prisma/client";
 import {
   applyBracketResolution,
@@ -65,6 +66,7 @@ type BracketRow = {
 
 type FeederBracketRow = {
   bracketId: string;
+  divisionId: string;
   bracketName: string;
   matches: FeederMatchRow[];
 };
@@ -103,6 +105,8 @@ type Props = {
   brackets: BracketRow[];
   consolationGames: ConsolationAdminRow[];
   feederBrackets?: FeederBracketRow[];
+  /** From `?division=` — sticky across refresh. */
+  initialDivisionId?: string;
   tournamentName: string;
   /** Canonical public site base (`/{slug}` live or `/{folder}/{slug}` when archived). */
   publicSitePath: string;
@@ -377,11 +381,64 @@ export function BracketsAdmin({
   brackets,
   consolationGames,
   feederBrackets = [],
+  initialDivisionId,
   tournamentName,
   publicSitePath,
   tournamentTimezone,
   canConfigure,
 }: Props) {
+  const router = useRouter();
+  const pathname = usePathname();
+
+  const [divisionId, setDivisionIdState] = useState(() => {
+    if (initialDivisionId && divisions.some((d) => d.id === initialDivisionId)) {
+      return initialDivisionId;
+    }
+    return divisions[0]?.id ?? "";
+  });
+  const activeDivisionId = useMemo(() => {
+    if (divisionId && divisions.some((d) => d.id === divisionId)) return divisionId;
+    return divisions[0]?.id ?? "";
+  }, [divisionId, divisions]);
+
+  useEffect(() => {
+    if (initialDivisionId && divisions.some((d) => d.id === initialDivisionId)) {
+      setDivisionIdState(initialDivisionId);
+    }
+  }, [initialDivisionId, divisions]);
+
+  function setDivisionId(nextId: string) {
+    setDivisionIdState(nextId);
+    const params = new URLSearchParams();
+    if (nextId) params.set("division", nextId);
+    const q = params.toString();
+    router.replace(q ? `${pathname}?${q}` : pathname, { scroll: false });
+  }
+
+  const divisionPools = useMemo(
+    () => (activeDivisionId ? pools.filter((p) => p.divisionId === activeDivisionId) : pools),
+    [pools, activeDivisionId],
+  );
+  const divisionBrackets = useMemo(
+    () =>
+      activeDivisionId ? brackets.filter((b) => b.division.id === activeDivisionId) : brackets,
+    [brackets, activeDivisionId],
+  );
+  const divisionConsolationGames = useMemo(
+    () =>
+      activeDivisionId
+        ? consolationGames.filter((g) => g.division?.id === activeDivisionId)
+        : consolationGames,
+    [consolationGames, activeDivisionId],
+  );
+  const divisionFeederBrackets = useMemo(
+    () =>
+      activeDivisionId
+        ? feederBrackets.filter((fb) => fb.divisionId === activeDivisionId)
+        : feederBrackets,
+    [feederBrackets, activeDivisionId],
+  );
+
   const [advState, advAction, advPending] = useActionState(
     updatePoolTeamsAdvancing,
     undefined as BracketActionResult | undefined,
@@ -417,7 +474,11 @@ export function BracketsAdmin({
 
   const defaultStart = formatJsDateAsDatetimeLocalInZone(new Date(), tournamentTimezone);
 
-  const creatableDivisions = useMemo(() => divisions.filter((d) => !d.hasBracket), [divisions]);
+  const creatableDivisions = useMemo(() => {
+    const open = divisions.filter((d) => !d.hasBracket);
+    if (!activeDivisionId) return open;
+    return open.filter((d) => d.id === activeDivisionId);
+  }, [divisions, activeDivisionId]);
 
   const [wizardDivisionId, setWizardDivisionId] = useState(creatableDivisions[0]?.id ?? "");
 
@@ -430,6 +491,12 @@ export function BracketsAdmin({
     () => divisions.find((d) => d.id === effectiveDivisionId),
     [divisions, effectiveDivisionId],
   );
+
+  useEffect(() => {
+    if (creatableDivisions.some((d) => d.id === activeDivisionId)) {
+      setWizardDivisionId(activeDivisionId);
+    }
+  }, [activeDivisionId, creatableDivisions]);
 
   const [entrySize, setEntrySize] = useState<number>(8);
   const [createFormat, setCreateFormat] = useState<
@@ -471,10 +538,25 @@ export function BracketsAdmin({
     // eslint-disable-next-line react-hooks/exhaustive-deps -- intentional: seedMode is written, not read for branching beyond defaults
   }, [selectedDivision, divisionTeams.length, seededDePreset]);
 
-  const divisionsWithPools = useMemo(() => divisions.filter((d) => d.pools.length > 0), [divisions]);
+  const divisionsWithPools = useMemo(() => {
+    const withPools = divisions.filter((d) => d.pools.length > 0);
+    if (!activeDivisionId) return withPools;
+    return withPools.filter((d) => d.id === activeDivisionId);
+  }, [divisions, activeDivisionId]);
   const [consolationDivisionId, setConsolationDivisionId] = useState(
     divisionsWithPools[0]?.id ?? "",
   );
+
+  useEffect(() => {
+    if (divisionsWithPools.some((d) => d.id === activeDivisionId)) {
+      setConsolationDivisionId(activeDivisionId);
+    } else if (
+      divisionsWithPools.length > 0 &&
+      !divisionsWithPools.some((d) => d.id === consolationDivisionId)
+    ) {
+      setConsolationDivisionId(divisionsWithPools[0]!.id);
+    }
+  }, [activeDivisionId, divisionsWithPools, consolationDivisionId]);
   const consolationPools = useMemo(() => {
     const d = divisionsWithPools.find((x) => x.id === consolationDivisionId);
     return d?.pools ?? [];
@@ -501,11 +583,46 @@ export function BracketsAdmin({
           <Link href={tournamentPathFromBase(publicSitePath, "brackets")} className={`${btnSecondary}`}>
             Public brackets ↗
           </Link>
-          <Link href="/admin/games" className={`${btnSecondary}`}>
+          <Link
+            href={
+              activeDivisionId
+                ? `/admin/games?division=${encodeURIComponent(activeDivisionId)}`
+                : "/admin/games"
+            }
+            className={`${btnSecondary}`}
+          >
             Games
           </Link>
         </div>
       </header>
+
+      {divisions.length > 1 ? (
+        <div className="flex flex-wrap gap-2 border-b border-zinc-200 pb-2" role="tablist" aria-label="Division">
+          {divisions.map((d) => {
+            const selected = activeDivisionId === d.id;
+            const count = brackets.filter((b) => b.division.id === d.id).length;
+            return (
+              <button
+                key={d.id}
+                type="button"
+                role="tab"
+                aria-selected={selected}
+                onClick={() => setDivisionId(d.id)}
+                className={
+                  selected
+                    ? "rounded-full bg-zinc-900 px-3 py-1.5 text-sm font-medium text-white"
+                    : "rounded-full bg-zinc-100 px-3 py-1.5 text-sm font-medium text-zinc-700 hover:bg-zinc-200"
+                }
+              >
+                {d.name}
+                <span className={`ml-1.5 tabular-nums ${selected ? "opacity-80" : "text-zinc-500"}`}>
+                  {count}
+                </span>
+              </button>
+            );
+          })}
+        </div>
+      ) : null}
 
       {!canConfigure ? (
         <p className="text-sm text-zinc-600">
@@ -658,9 +775,9 @@ export function BracketsAdmin({
             </button>
           </form>
 
-          {consolationGames.length > 0 ? (
+          {divisionConsolationGames.length > 0 ? (
             <ul className="mt-6 flex flex-col gap-3 border-t border-zinc-100 pt-6">
-              {consolationGames.map((g) => (
+              {divisionConsolationGames.map((g) => (
                 <li
                   key={g.id}
                   className="flex flex-wrap items-start justify-between gap-3 rounded-lg border border-zinc-100 bg-zinc-50/50 p-3 text-sm"
@@ -698,10 +815,10 @@ export function BracketsAdmin({
         <h2 className="text-sm font-semibold text-zinc-900">Advancing teams per pool</h2>
         <p className="mt-1 text-xs text-zinc-500">0 = this pool does not feed pool standings ranks for seed labels.</p>
         <div className="mt-4 flex flex-col gap-3">
-          {pools.length === 0 ? (
+          {divisionPools.length === 0 ? (
             <p className="text-sm text-zinc-500">No pools yet.</p>
           ) : (
-            pools.map((p) =>
+            divisionPools.map((p) =>
               canConfigure ? (
                 <form
                   key={p.id}
@@ -1075,7 +1192,7 @@ export function BracketsAdmin({
         </section>
       ) : null}
 
-      {canConfigure && brackets.length > 0 ? (
+      {canConfigure ? (
         <section className="rounded-xl border border-zinc-200 bg-white p-6 shadow-sm">
           <h2 className="text-sm font-semibold text-zinc-900">Playoff brackets</h2>
           <p className="mt-1 text-xs text-zinc-500">
@@ -1085,8 +1202,11 @@ export function BracketsAdmin({
             existing tree. <strong className="font-medium text-zinc-700">Delete bracket</strong> removes the
             playoff tree so you can run the create wizard again.
           </p>
+          {divisionBrackets.length === 0 ? (
+            <p className="mt-4 text-sm text-zinc-500">No playoff bracket for this division yet.</p>
+          ) : (
           <ul className="mt-4 flex flex-col gap-4">
-            {brackets.map((b) => {
+            {divisionBrackets.map((b) => {
               const rrComplete = b.poolGamesTotal > 0 && b.poolGamesIncomplete === 0;
               const canApplyStandings = b.usesPoolSeeding && rrComplete;
               const canReset = b.usesPoolSeeding ? rrComplete : true;
@@ -1273,10 +1393,11 @@ export function BracketsAdmin({
             );
             })}
           </ul>
+          )}
         </section>
       ) : null}
 
-      {brackets.length > 0 ? (
+      {divisions.length <= 1 && brackets.length > 0 ? (
         <section>
           <h2 className="text-sm font-semibold text-zinc-900">All playoff brackets</h2>
           <ul className="mt-2 list-inside list-disc text-sm text-zinc-700">
@@ -1289,14 +1410,14 @@ export function BracketsAdmin({
         </section>
       ) : null}
 
-      {canConfigure && feederBrackets.length > 0 ? (
+      {canConfigure && divisionFeederBrackets.length > 0 ? (
         <section className="flex flex-col gap-4">
           <h2 className="text-sm font-semibold text-zinc-900">Custom feeder map (Phase D)</h2>
           <p className="text-xs text-zinc-600">
             Edit cross-bracket drops and seat feeders for poster-style (9/27-team) maps. Classic
             brackets already have auto-wired paths at create time.
           </p>
-          {feederBrackets.map((fb) => (
+          {divisionFeederBrackets.map((fb) => (
             <BracketFeederEditor
               key={fb.bracketId}
               bracketName={fb.bracketName}
