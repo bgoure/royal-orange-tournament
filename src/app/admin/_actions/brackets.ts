@@ -566,7 +566,11 @@ export async function resetPlayoffBracket(
       });
       await tx.bracket.update({
         where: { id: existing.id },
-        data: { needsResolutionRefresh: true },
+        data: {
+          needsResolutionRefresh: true,
+          // Prior championship / qualifier conclusion must not survive a competitive reset.
+          concludedAt: null,
+        },
       });
     });
 

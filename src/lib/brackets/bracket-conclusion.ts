@@ -86,7 +86,10 @@ function resolveChampionshipSeriesWinner(bracket: BracketWith): TeamWithPool | n
 /**
  * Resolve champion / qualifiers for public UI.
  * - Normal: FINAL series complete → single champion (GF2 if if-necessary).
- * - Qualifier: when alive teams ≤ qualifyingTeamCount, championship series done, or concludedAt set.
+ * - Qualifier: championship series done, or enough teams eliminated that ≤ N remain alive.
+ *
+ * Never crown from `concludedAt` alone or from “N teams seeded with zero losses” —
+ * after a bracket reset that would falsely congratulate the first assigned team.
  */
 export function resolveBracketOutcome(bracket: BracketWith): ResolvedBracketOutcome | null {
   const isQualifier = bracket.isQualifier === true;
@@ -101,10 +104,13 @@ export function resolveBracketOutcome(bracket: BracketWith): ResolvedBracketOutc
       entrantTeamIds: entrants,
       games: bracket.games,
     });
-    const concluded =
-      bracket.concludedAt != null ||
-      seriesWinner != null ||
-      (entrants.length > 0 && alive.length > 0 && alive.length <= qualifyingTeamCount);
+    // Require real eliminations (alive < field) so empty/reset brackets never conclude.
+    const fieldReducedToQualifiers =
+      entrants.length > qualifyingTeamCount &&
+      alive.length > 0 &&
+      alive.length <= qualifyingTeamCount &&
+      alive.length < entrants.length;
+    const concluded = seriesWinner != null || fieldReducedToQualifiers;
 
     if (!concluded) return null;
 

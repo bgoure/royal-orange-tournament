@@ -161,4 +161,60 @@ describe("resolveChampionFromBracket", () => {
     assert.equal(r!.isQualifier, true);
     assert.equal(r!.winnerTeam.name, "Mets");
   });
+
+  it("does not congratulate when qualifier teams are seeded but no scores exist", () => {
+    const bracket = {
+      division: { id: "div-aa", name: "AA" },
+      format: "DOUBLE_ELIMINATION",
+      isQualifier: true,
+      qualifyingTeamCount: 2,
+      grandFinalMode: "IF_NECESSARY",
+      // Stale flag from a prior finish (e.g. reset forgot to clear) must not crown anyone.
+      concludedAt: new Date("2026-08-08T00:00:00.000Z"),
+      rounds: [
+        {
+          id: "r0",
+          bracketId: "br1",
+          name: "Round 1",
+          roundIndex: 0,
+          roundType: BracketRoundType.WINNERS,
+        },
+        {
+          id: "r-final",
+          bracketId: "br1",
+          name: "Championship",
+          roundIndex: 5,
+          roundType: BracketRoundType.FINAL,
+        },
+      ],
+      games: [
+        {
+          bracketRoundId: "r0",
+          bracketPosition: 0,
+          status: GameStatus.SCHEDULED,
+          resultType: "REGULAR" as const,
+          homeTeamId: "t-a",
+          awayTeamId: "t-b",
+          homeRuns: null,
+          awayRuns: null,
+          homeTeam: { id: "t-a", name: "Team A", pool: null, logo: null },
+          awayTeam: { id: "t-b", name: "Team B", pool: null, logo: null },
+        },
+        {
+          bracketRoundId: "r-final",
+          bracketPosition: 0,
+          status: GameStatus.SCHEDULED,
+          resultType: "REGULAR" as const,
+          homeTeamId: "t-mets",
+          awayTeamId: null,
+          homeRuns: null,
+          awayRuns: null,
+          homeTeam: { id: "t-mets", name: "Mets", pool: null, logo: null },
+          awayTeam: null,
+        },
+      ],
+    } as unknown as BracketWith;
+
+    assert.equal(resolveChampionFromBracket(bracket), null);
+  });
 });

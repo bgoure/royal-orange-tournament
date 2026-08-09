@@ -139,13 +139,20 @@ async function maybeConcludeQualifier(bracketId: string): Promise<void> {
     if (g.homeTeamId) entrants.add(g.homeTeamId);
     if (g.awayTeamId) entrants.add(g.awayTeamId);
   }
+  const entrantIds = [...entrants];
   const alive = aliveTeamIds({
     format: bracket.format,
-    entrantTeamIds: [...entrants],
+    entrantTeamIds: entrantIds,
     games,
   });
   const need = Math.max(1, bracket.qualifyingTeamCount);
-  if (alive.length > 0 && alive.length <= need) {
+  // Require eliminations so seeding / reset (everyone still alive) never marks concluded.
+  if (
+    entrantIds.length > need &&
+    alive.length > 0 &&
+    alive.length <= need &&
+    alive.length < entrantIds.length
+  ) {
     await prisma.bracket.update({
       where: { id: bracketId },
       data: { concludedAt: new Date() },

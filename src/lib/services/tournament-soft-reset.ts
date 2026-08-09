@@ -41,6 +41,11 @@ export async function softResetTournamentProgressForId(tournamentId: string): Pr
 
   await recomputeAllPoolsForTournament(tournamentId);
 
+  await prisma.bracket.updateMany({
+    where: { tournamentId },
+    data: { concludedAt: null },
+  });
+
   const brackets = await prisma.bracket.findMany({
     where: { tournamentId },
     select: { id: true },
