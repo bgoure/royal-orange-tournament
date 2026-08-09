@@ -12,7 +12,11 @@ import { assertPoolInTournament } from "@/lib/services/admin-structure";
 import { assertConsolationSlotsAvailable } from "@/lib/services/consolation-slots";
 import { createDivisionPlayoffBracket } from "@/lib/services/bracket-division-build";
 import { createObaDeBracket } from "@/lib/services/oba-de-bracket-build";
-import { isObaDePresetKey, type ObaDePresetKey } from "@/lib/brackets/oba-de-presets";
+import {
+  isObaDePresetKey,
+  obaImplicitByeSeedTargets,
+  type ObaDePresetKey,
+} from "@/lib/brackets/oba-de-presets";
 import { bracketUsesPoolSeeding } from "@/lib/services/admin-brackets";
 import { gameCompetitiveResetData } from "@/lib/services/game-competitive-reset";
 import { resolveBracketTeamsFromStandings } from "@/lib/services/bracket-resolution";
@@ -636,8 +640,13 @@ export async function saveBracketRoundZeroSeeding(
   if (!can(ctx.session.user.role, "bracket:configure")) return deny();
 
   let slotsRaw: unknown;
+  let byeSeedTeamIdsRaw: unknown = [];
   try {
     slotsRaw = JSON.parse(String(formData.get("slots") ?? "[]"));
+    const byeRaw = formData.get("byeSeedTeamIds");
+    if (byeRaw != null && String(byeRaw).trim() !== "") {
+      byeSeedTeamIdsRaw = JSON.parse(String(byeRaw));
+    }
   } catch {
     return { ok: false, error: "Invalid seeding payload" };
   }
@@ -645,6 +654,7 @@ export async function saveBracketRoundZeroSeeding(
   const parsed = saveBracketRoundZeroSeedingSchema.safeParse({
     bracketId: formData.get("bracketId"),
     slots: slotsRaw,
+    byeSeedTeamIds: byeSeedTeamIdsRaw,
   });
   if (!parsed.success) {
     return {
@@ -656,7 +666,7 @@ export async function saveBracketRoundZeroSeeding(
   try {
     const bracket = await prisma.bracket.findFirst({
       where: { id: parsed.data.bracketId, tournamentId: ctx.tournament.id },
-      select: { id: true, divisionId: true },
+      select: { id: true, divisionId: true, presetKey: true },
     });
     if (!bracket) return { ok: false, error: "Bracket not found" };
 
@@ -722,6 +732,25 @@ export async function saveBracketRoundZeroSeeding(
         }
       }
     }
+    for (const teamId of parsed.data.byeSeedTeamIds) {
+      if (!divisionTeamIds.has(teamId)) {
+        return { ok: false, error: "A Round 1 bye seed is not in this division." };
+      }
+    }
+
+    const byeTargets = obaImplicitByeSeedTargets(bracket.presetKey);
+    if (byeTargets.length > 0) {
+      if (parsed.data.byeSeedTeamIds.length !== byeTargets.length) {
+        return {
+          ok: false,
+          error: `This map needs ${byeTargets.length} Round 1 bye seed(s) assigned (Seed 1${
+            byeTargets.length > 1 ? `–${byeTargets.length}` : ""
+          } into Round 2).`,
+        };
+      }
+    } else if (parsed.data.byeSeedTeamIds.length > 0) {
+      return { ok: false, error: "Bye seed list is only used for OBA 5–7 team maps." };
+    }
 
     await prisma.$transaction(async (tx) => {
       for (const slot of parsed.data.slots) {
@@ -778,6 +807,23 @@ export async function saveBracketRoundZeroSeeding(
           resultType: "REGULAR",
         },
       });
+
+      // Place OBA implicit bye seeds (e.g. seeds 1–2 on G3/G4 home; away stays TBD for feeders).
+      for (let i = 0; i < byeTargets.length; i++) {
+        const target = byeTargets[i]!;
+        const teamId = parsed.data.byeSeedTeamIds[i]!;
+        const updated = await tx.game.updateMany({
+          where: {
+            bracketId: bracket.id,
+            gameNumber: target.gameNumber,
+            status: { in: ["SCHEDULED", "POSTPONED", "CANCELLED"] },
+          },
+          data: { homeTeamId: teamId },
+        });
+        if (updated.count === 0) {
+          throw new Error(`Could not place ${target.label} — game #${target.gameNumber} not found.`);
+        }
+      }
     });
 
     await advanceByeWinnersInRound0(bracket.id);

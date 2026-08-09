@@ -8,6 +8,34 @@
 
 export type ObaDePresetKey = "oba_de_4" | "oba_de_5" | "oba_de_6" | "oba_de_7";
 
+/** Implicit Round-1 bye seeds placed on later games (home seat) for seeded OBA maps. */
+export type ObaImplicitByeSeedTarget = {
+  /** 1-based seed rank among bye recipients (seed 1 first). */
+  seedRank: number;
+  gameNumber: string;
+  /** Short admin label. */
+  label: string;
+};
+
+/** Where sit-out / bye seeds must be written after Round 1 reseeding. */
+export function obaImplicitByeSeedTargets(
+  presetKey: string | null | undefined,
+): ObaImplicitByeSeedTarget[] {
+  switch (presetKey) {
+    case "oba_de_5":
+      return [{ seedRank: 1, gameNumber: "3", label: "Seed 1 → G3 (Round 2)" }];
+    case "oba_de_6":
+      return [
+        { seedRank: 1, gameNumber: "3", label: "Seed 1 → G3 (Round 2)" },
+        { seedRank: 2, gameNumber: "4", label: "Seed 2 → G4 (Round 2)" },
+      ];
+    case "oba_de_7":
+      return [{ seedRank: 1, gameNumber: "5", label: "Seed 1 → G5 (Round 2)" }];
+    default:
+      return [];
+  }
+}
+
 export type BracketFormatPresetKey =
   | "single_elim_classic"
   | "double_elim_classic"

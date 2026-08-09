@@ -6,6 +6,7 @@ import {
   type BracketActionResult,
 } from "@/app/admin/_actions/brackets";
 import { ActionMessage } from "@/components/admin/structure/ActionMessage";
+import { obaImplicitByeSeedTargets } from "@/lib/brackets/oba-de-presets";
 
 export type SeedBoardTeam = { id: string; name: string };
 
@@ -30,6 +31,8 @@ export type SeedBoardProps = {
   canConfigure: boolean;
   /** Named format preset (e.g. oba_de_5) — adjusts Round 1 seeding copy. */
   presetKey?: string | null;
+  /** Pre-filled OBA bye seeds (seed 1, seed 2, …) from Round 2 home seats. */
+  initialByeSeedTeams?: (SeedBoardTeam | null)[];
 };
 
 type SlotSide = "home" | "away";
@@ -49,8 +52,16 @@ export function BracketSeedBoard({
   matches: initialMatches,
   canConfigure,
   presetKey,
+  initialByeSeedTeams = [],
 }: SeedBoardProps) {
+  const byeTargets = useMemo(() => obaImplicitByeSeedTargets(presetKey), [presetKey]);
   const [matches, setMatches] = useState(initialMatches);
+  const [byeSeedIds, setByeSeedIds] = useState<(string | null)[]>(() => {
+    const n = byeTargets.length;
+    if (n === 0) return [];
+    const init = Array.from({ length: n }, (_, i) => initialByeSeedTeams[i]?.id ?? null);
+    return init;
+  });
   const [drag, setDrag] = useState<DragPayload | null>(null);
   const [state, formAction, pending] = useActionState(
     saveBracketRoundZeroSeeding,
@@ -64,8 +75,11 @@ export function BracketSeedBoard({
         if (side.kind === "team") m.set(side.teamId, side.name);
       }
     }
+    for (const t of initialByeSeedTeams) {
+      if (t) m.set(t.id, t.name);
+    }
     return m;
-  }, [teams, initialMatches]);
+  }, [teams, initialMatches, initialByeSeedTeams]);
 
   const placedTeamIds = useMemo(() => {
     const ids = new Set<string>();
@@ -73,8 +87,11 @@ export function BracketSeedBoard({
       if (match.home.kind === "team") ids.add(match.home.teamId);
       if (match.away.kind === "team") ids.add(match.away.teamId);
     }
+    for (const id of byeSeedIds) {
+      if (id) ids.add(id);
+    }
     return ids;
-  }, [matches]);
+  }, [matches, byeSeedIds]);
 
   const bankTeams = teams.filter((t) => !placedTeamIds.has(t.id));
   const anyLocked = matches.some((m) => m.locked);
@@ -88,7 +105,59 @@ export function BracketSeedBoard({
     );
   }
 
+  function removeTeamFromByeSeeds(teamId: string) {
+    setByeSeedIds((prev) => prev.map((id) => (id === teamId ? null : id)));
+  }
+
+  function placeOnByeSeed(index: number, payload: DragPayload) {
+    if (payload.type !== "team") return;
+    let displaced: string | null = null;
+    setByeSeedIds((prev) => {
+      const next = [...prev];
+      displaced = next[index] ?? null;
+      for (let i = 0; i < next.length; i++) {
+        if (next[i] === payload.teamId) next[i] = null;
+      }
+      next[index] = payload.teamId;
+      return next;
+    });
+    setMatches((prev) => {
+      let next = prev.map((m) => {
+        let home = m.home;
+        let away = m.away;
+        if (home.kind === "team" && home.teamId === payload.teamId) home = { kind: "empty" };
+        if (away.kind === "team" && away.teamId === payload.teamId) away = { kind: "empty" };
+        return home === m.home && away === m.away ? m : { ...m, home, away };
+      });
+      if (payload.from && displaced) {
+        const { matchId: fromId, side: fromSide } = payload.from;
+        const swapTeamId = displaced;
+        next = next.map((m) =>
+          m.matchId === fromId
+            ? {
+                ...m,
+                [fromSide]: {
+                  kind: "team" as const,
+                  teamId: swapTeamId,
+                  name: teamNameById.get(swapTeamId) ?? "Team",
+                },
+              }
+            : m,
+        );
+      } else if (payload.from) {
+        const { matchId: fromId, side: fromSide } = payload.from;
+        next = next.map((m) =>
+          m.matchId === fromId ? { ...m, [fromSide]: { kind: "empty" as const } } : m,
+        );
+      }
+      return next;
+    });
+  }
+
   function placeOn(matchId: string, side: SlotSide, payload: DragPayload) {
+    if (payload.type === "team") {
+      removeTeamFromByeSeeds(payload.teamId);
+    }
     setMatches((prev) => {
       const target = prev.find((m) => m.matchId === matchId);
       if (!target || target.locked) return prev;
@@ -138,6 +207,9 @@ export function BracketSeedBoard({
       away: sideToSave(m.away),
     })),
   );
+  const byeSeedTeamIdsJson = JSON.stringify(byeSeedIds.filter((id): id is string => id != null));
+  const byeSeedsReady =
+    byeTargets.length === 0 || byeSeedIds.every((id) => id != null);
 
   return (
     <div className="rounded-xl border border-emerald-200 bg-emerald-50/40 p-4">
@@ -154,9 +226,15 @@ export function BracketSeedBoard({
           <form action={formAction} className="flex flex-wrap items-center gap-2">
             <input type="hidden" name="bracketId" value={bracketId} />
             <input type="hidden" name="slots" value={slotsJson} />
+            <input type="hidden" name="byeSeedTeamIds" value={byeSeedTeamIdsJson} />
             <button
               type="submit"
-              disabled={pending}
+              disabled={pending || !byeSeedsReady}
+              title={
+                byeSeedsReady
+                  ? undefined
+                  : "Assign every Round 1 bye seed (Seed 1 / Seed 2) before saving"
+              }
               className="rounded-md bg-emerald-600 px-3 py-2 text-sm font-medium text-white hover:bg-emerald-700 disabled:opacity-50"
             >
               {pending ? "Saving…" : "Save Round 1"}
@@ -190,22 +268,23 @@ export function BracketSeedBoard({
 
       {presetKey === "oba_de_5" && matches.length === 2 ? (
         <p className="mt-3 rounded-md border border-emerald-200 bg-emerald-50/80 px-3 py-2 text-xs text-emerald-950">
-          Seeded 5-team map: Round 1 is two games (4 vs 5, 2 vs 3). Seed 1 byes into Round 2 (G3) —
-          put the four Round 1 teams in the seats below; leave seed 1 in Sitting out.
+          Seeded 5-team map: Round 1 is two games (4 vs 5, 2 vs 3). Drop <strong>Seed 1</strong> into
+          the bye slot on the right — they fill G3 home (Round 2).
         </p>
       ) : null}
 
       {presetKey === "oba_de_6" && matches.length === 2 ? (
         <p className="mt-3 rounded-md border border-emerald-200 bg-emerald-50/80 px-3 py-2 text-xs text-emerald-950">
-          Seeded 6-team map: Round 1 is two games (4 vs 5, 3 vs 6). Seeds 1–2 bye into Round 2 (G3/G4)
-          — put the four Round 1 teams in the seats below; leave seeds 1–2 in Sitting out.
+          Seeded 6-team map: Round 1 is 4 vs 5 and 3 vs 6. Drop <strong>Seed 1</strong> and{" "}
+          <strong>Seed 2</strong> into the bye slots on the right — they fill G3 / G4 home (Round 2).
+          Opponent seats stay TBD until Round 1 winners advance.
         </p>
       ) : null}
 
       {presetKey === "oba_de_7" && matches.length === 3 ? (
         <p className="mt-3 rounded-md border border-emerald-200 bg-emerald-50/80 px-3 py-2 text-xs text-emerald-950">
-          Seeded 7-team map: Round 1 is three games (4 vs 5, 3 vs 6, 2 vs 7). Seed 1 byes into Round 2
-          (G5) — put the six Round 1 teams in the seats below; leave seed 1 in Sitting out.
+          Seeded 7-team map: Round 1 is three games. Drop <strong>Seed 1</strong> into the bye slot on
+          the right — they fill G5 home (Round 2). Opponent stays TBD until the Round 1 winner advances.
         </p>
       ) : null}
 
@@ -262,43 +341,113 @@ export function BracketSeedBoard({
 
         {editable ? (
           <div className="flex flex-col gap-3">
-            <div
-              className="rounded-lg border border-dashed border-sky-300 bg-sky-50/80 p-3"
-              onDragOver={(e) => e.preventDefault()}
-              onDrop={() => {
-                // Park a team as Round 1 sit-out (clear from any seat).
-                if (drag?.type === "team" || drag?.type === "bye") {
-                  if (drag.from) clearSide(drag.from.matchId, drag.from.side);
-                  setDrag(null);
-                }
-              }}
-            >
-              <p className="text-[10px] font-semibold uppercase tracking-wide text-sky-900">
-                Sitting out (Round 1 bye)
-              </p>
-              <div className="mt-2 flex min-h-[48px] flex-wrap gap-1.5">
-                {bankTeams.length === 0 ? (
-                  <p className="text-xs text-sky-800/70">All teams are in Round 1 seats</p>
-                ) : (
-                  bankTeams.map((t) => (
+            {byeTargets.length > 0 ? (
+              <div className="rounded-lg border border-dashed border-sky-300 bg-sky-50/80 p-3">
+                <p className="text-[10px] font-semibold uppercase tracking-wide text-sky-900">
+                  Round 1 bye seeds
+                </p>
+                <p className="mt-1 text-[11px] leading-snug text-sky-900/80">
+                  Drop the strongest remaining teams here. Save writes them onto Round 2 (opponent TBD).
+                </p>
+                <div className="mt-2 flex flex-col gap-2">
+                  {byeTargets.map((target, index) => {
+                    const teamId = byeSeedIds[index] ?? null;
+                    return (
+                      <div
+                        key={target.gameNumber}
+                        onDragOver={(e) => e.preventDefault()}
+                        onDrop={() => {
+                          if (!drag) return;
+                          placeOnByeSeed(index, drag);
+                          setDrag(null);
+                        }}
+                        className="min-h-[52px] rounded-md border border-sky-200 bg-white px-2 py-1.5"
+                      >
+                        <p className="text-[10px] font-semibold uppercase tracking-wide text-sky-800">
+                          {target.label}
+                        </p>
+                        <div className="mt-1">
+                          {teamId ? (
+                            <button
+                              type="button"
+                              draggable
+                              onDragStart={() => setDrag({ type: "team", teamId })}
+                              onDragEnd={() => setDrag(null)}
+                              onClick={() =>
+                                setByeSeedIds((prev) =>
+                                  prev.map((id, i) => (i === index ? null : id)),
+                                )
+                              }
+                              title="Click to remove · drag to move"
+                              className="cursor-grab rounded-md border border-emerald-200 bg-emerald-50 px-2 py-1 text-xs font-medium text-emerald-900"
+                            >
+                              {teamNameById.get(teamId) ?? "Team"}
+                            </button>
+                          ) : (
+                            <p className="text-xs text-sky-700/70">Drop seed {target.seedRank}</p>
+                          )}
+                        </div>
+                      </div>
+                    );
+                  })}
+                </div>
+              </div>
+            ) : (
+              <div
+                className="rounded-lg border border-dashed border-sky-300 bg-sky-50/80 p-3"
+                onDragOver={(e) => e.preventDefault()}
+                onDrop={() => {
+                  if (drag?.type === "team" || drag?.type === "bye") {
+                    if (drag.from) clearSide(drag.from.matchId, drag.from.side);
+                    setDrag(null);
+                  }
+                }}
+              >
+                <p className="text-[10px] font-semibold uppercase tracking-wide text-sky-900">
+                  Sitting out (Round 1 bye)
+                </p>
+                <div className="mt-2 flex min-h-[48px] flex-wrap gap-1.5">
+                  {bankTeams.length === 0 ? (
+                    <p className="text-xs text-sky-800/70">All teams are in Round 1 seats</p>
+                  ) : (
+                    bankTeams.map((t) => (
+                      <button
+                        key={t.id}
+                        type="button"
+                        draggable
+                        onDragStart={() => setDrag({ type: "team", teamId: t.id })}
+                        onDragEnd={() => setDrag(null)}
+                        className="cursor-grab rounded-md border border-sky-300 bg-white px-2 py-1 text-xs font-medium text-sky-950 active:cursor-grabbing"
+                      >
+                        {t.name}
+                      </button>
+                    ))
+                  )}
+                </div>
+              </div>
+            )}
+
+            {byeTargets.length > 0 && bankTeams.length > 0 ? (
+              <div className="rounded-lg border border-dashed border-zinc-300 bg-zinc-50/80 p-3">
+                <p className="text-[10px] font-semibold uppercase tracking-wide text-zinc-500">
+                  Unplaced teams
+                </p>
+                <div className="mt-2 flex min-h-[40px] flex-wrap gap-1.5">
+                  {bankTeams.map((t) => (
                     <button
                       key={t.id}
                       type="button"
                       draggable
                       onDragStart={() => setDrag({ type: "team", teamId: t.id })}
                       onDragEnd={() => setDrag(null)}
-                      className="cursor-grab rounded-md border border-sky-300 bg-white px-2 py-1 text-xs font-medium text-sky-950 active:cursor-grabbing"
+                      className="cursor-grab rounded-md border border-zinc-300 bg-white px-2 py-1 text-xs font-medium text-zinc-800 active:cursor-grabbing"
                     >
                       {t.name}
                     </button>
-                  ))
-                )}
+                  ))}
+                </div>
               </div>
-              <p className="mt-2 text-[11px] leading-snug text-sky-900/80">
-                Drop a team here to sit them out of Round 1. Drag from here into Away/Home seats to
-                place them in a game.
-              </p>
-            </div>
+            ) : null}
 
             <div className="rounded-lg border border-dashed border-amber-300 bg-amber-50/80 p-3">
               <p className="text-[10px] font-semibold uppercase tracking-wide text-amber-900">
@@ -314,8 +463,8 @@ export function BracketSeedBoard({
                 BYE
               </button>
               <p className="mt-2 text-[11px] leading-snug text-amber-900/80">
-                Not a drop target for teams. Drag this chip onto an Away/Home seat for a walkover.
-                Empty seats also save as BYE.
+                Drag onto an Away/Home seat for a walkover. OBA 5–7 maps use the bye-seed slots above
+                instead of this chip for top seeds.
               </p>
             </div>
           </div>

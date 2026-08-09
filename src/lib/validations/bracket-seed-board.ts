@@ -17,6 +17,8 @@ export const saveBracketRoundZeroSeedingSchema = z
         }),
       )
       .min(1),
+    /** Ordered seed-1, seed-2, … for OBA maps that bye into Round 2 (G3/G4/G5). */
+    byeSeedTeamIds: z.array(z.string().min(1)).optional().default([]),
   })
   .superRefine((data, ctx) => {
     const teamIds: string[] = [];
@@ -32,10 +34,21 @@ export const saveBracketRoundZeroSeedingSchema = z
       if ("teamId" in s.home) teamIds.push(s.home.teamId);
       if ("teamId" in s.away) teamIds.push(s.away.teamId);
     }
+    for (const id of data.byeSeedTeamIds) {
+      if (teamIds.includes(id)) {
+        ctx.addIssue({
+          code: "custom",
+          message: "A Round 1 bye seed cannot also appear in a Round 1 game.",
+          path: ["byeSeedTeamIds"],
+        });
+        break;
+      }
+      teamIds.push(id);
+    }
     if (new Set(teamIds).size !== teamIds.length) {
       ctx.addIssue({
         code: "custom",
-        message: "Each team can only appear once in Round 1.",
+        message: "Each team can only appear once in Round 1 seeding.",
         path: ["slots"],
       });
     }

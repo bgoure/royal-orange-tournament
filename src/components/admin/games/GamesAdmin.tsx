@@ -1432,7 +1432,8 @@ function GameCard({
                     Teams (override)
                   </h3>
                   <p className="mt-1 text-xs text-zinc-600">
-                    Adjust matchups after standings seeding, or fix one-off swaps.
+                    Adjust matchups after standings seeding, or fix one-off swaps. Either side may stay{" "}
+                    <strong>TBD</strong> (e.g. seed-1 bye on G3 home while the Round 1 winner is still open).
                   </p>
                   <ActionMessage state={bracketTeamsState} />
                   <form action={bracketTeamsAction} className="mt-3 flex flex-col gap-3">
@@ -1442,11 +1443,10 @@ function GameCard({
                         <label className={labelClass}>Away</label>
                         <select
                           name="awayTeamId"
-                          required
                           defaultValue={game.awayTeamId ?? ""}
                           className={`${formClass} mt-1 w-full`}
                         >
-                          <option value="">Select…</option>
+                          <option value="">TBD</option>
                           {allTeamsFlat.map((t) => (
                             <option key={t.id} value={t.id}>
                               {t.label}
@@ -1458,11 +1458,10 @@ function GameCard({
                         <label className={labelClass}>Home</label>
                         <select
                           name="homeTeamId"
-                          required
                           defaultValue={game.homeTeamId ?? ""}
                           className={`${formClass} mt-1 w-full`}
                         >
-                          <option value="">Select…</option>
+                          <option value="">TBD</option>
                           {allTeamsFlat.map((t) => (
                             <option key={t.id} value={t.id}>
                               {t.label}

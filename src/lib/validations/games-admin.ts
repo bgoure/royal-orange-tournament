@@ -58,13 +58,26 @@ export const updateBracketGameScheduleSchema = z.object({
 });
 
 /** Home/away for manual bracket games only. */
+const optionalTeamId = z.preprocess(
+  (v) => (v == null || v === "" ? null : String(v)),
+  z.string().min(1).nullable(),
+);
+
+/** Bracket/consolation team override — either side may be TBD (feeder / bye-seed seat). */
 export const updateBracketGameTeamsSchema = z
   .object({
     id: z.string().min(1),
-    homeTeamId: z.string().min(1),
-    awayTeamId: z.string().min(1),
+    homeTeamId: optionalTeamId,
+    awayTeamId: optionalTeamId,
   })
-  .refine((d) => d.homeTeamId !== d.awayTeamId, { message: "Home and away must be different teams" });
+  .refine((d) => d.homeTeamId != null || d.awayTeamId != null, {
+    message: "Set at least one team (the other may stay TBD)",
+  })
+  .refine(
+    (d) =>
+      d.homeTeamId == null || d.awayTeamId == null || d.homeTeamId !== d.awayTeamId,
+    { message: "Home and away must be different teams" },
+  );
 
 export const updateGameNumberSchema = z.object({
   id: z.string().min(1),

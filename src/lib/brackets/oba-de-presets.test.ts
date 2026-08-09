@@ -5,6 +5,7 @@ import {
   getObaDePreset,
   isObaDePresetKey,
   OBA_DE_PRESETS,
+  obaImplicitByeSeedTargets,
   wizardFormatOptionsForTeamCount,
 } from "./oba-de-presets";
 import {
@@ -32,6 +33,18 @@ describe("OBA DE presets", () => {
       );
     }
     assert.equal(Object.keys(OBA_DE_PRESETS).length, 4);
+  });
+
+  it("maps implicit bye seeds to Round 2 game numbers", () => {
+    assert.deepEqual(
+      obaImplicitByeSeedTargets("oba_de_6").map((t) => t.gameNumber),
+      ["3", "4"],
+    );
+    assert.deepEqual(
+      obaImplicitByeSeedTargets("oba_de_7").map((t) => t.gameNumber),
+      ["5"],
+    );
+    assert.equal(obaImplicitByeSeedTargets("oba_de_4").length, 0);
   });
 
   it("filters wizard options by team count", () => {

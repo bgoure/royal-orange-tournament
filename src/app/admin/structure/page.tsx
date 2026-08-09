@@ -5,6 +5,7 @@ import {
   StructureOverview,
   type StructureSeedBoard,
 } from "@/components/admin/structure/StructureOverview";
+import { obaImplicitByeSeedTargets } from "@/lib/brackets/oba-de-presets";
 import { prisma } from "@/lib/db";
 import { can } from "@/lib/rbac/permissions";
 import { getTournamentForRequest } from "@/lib/tournament-context";
@@ -54,6 +55,13 @@ export default async function AdminStructurePage({
           avoidRematchesUntilForced: true,
           presetKey: true,
           _count: { select: { games: true, rounds: true } },
+          games: {
+            where: { gameNumber: { in: ["3", "4", "5"] } },
+            select: {
+              gameNumber: true,
+              homeTeam: { select: { id: true, name: true } },
+            },
+          },
           rounds: {
             where: { roundIndex: 0 },
             take: 1,
@@ -126,11 +134,19 @@ export default async function AdminStructurePage({
           const allTeams = d.pools.flatMap((p) => p.teams);
           let seedBoard: StructureSeedBoard | null = null;
           if (b && round0 && round0.matches.length > 0) {
+            const byeTargets = obaImplicitByeSeedTargets(b.presetKey);
+            const byeByGame = new Map(
+              b.games.map((g) => [g.gameNumber ?? "", g.homeTeam] as const),
+            );
             seedBoard = {
               bracketId: b.id,
               bracketName: b.name,
               presetKey: b.presetKey,
               teams: allTeams,
+              initialByeSeedTeams: byeTargets.map((t) => {
+                const team = byeByGame.get(t.gameNumber);
+                return team ? { id: team.id, name: team.name } : null;
+              }),
               matches: round0.matches.map((m) => {
                 const g = m.game;
                 const locked =

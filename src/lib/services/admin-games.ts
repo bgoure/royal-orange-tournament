@@ -37,20 +37,22 @@ export async function assertGameInTournament(gameId: string, tournamentId: strin
 /** Bracket games: both teams must belong to the tournament (via pool → division). */
 export async function assertTeamsInBracketTournament(
   tournamentId: string,
-  homeTeamId: string,
-  awayTeamId: string,
+  homeTeamId: string | null,
+  awayTeamId: string | null,
 ) {
-  if (homeTeamId === awayTeamId) {
+  if (homeTeamId && awayTeamId && homeTeamId === awayTeamId) {
     throw new Error("Home and away cannot be the same team");
   }
+  const ids = [homeTeamId, awayTeamId].filter((id): id is string => id != null);
+  if (ids.length === 0) throw new Error("At least one team is required");
   const teams = await prisma.team.findMany({
-    where: { id: { in: [homeTeamId, awayTeamId] } },
+    where: { id: { in: ids } },
     include: { pool: { include: { division: { select: { tournamentId: true } } } } },
   });
-  if (teams.length !== 2) throw new Error("One or both teams not found");
+  if (teams.length !== ids.length) throw new Error("One or both teams not found");
   for (const t of teams) {
     if (t.pool.division.tournamentId !== tournamentId) {
-      throw new Error("Both teams must belong to this tournament");
+      throw new Error("Teams must belong to this tournament");
     }
   }
 }

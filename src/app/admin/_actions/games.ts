@@ -439,7 +439,10 @@ export async function updateBracketGameTeams(
     awayTeamId: formData.get("awayTeamId"),
   });
   if (!parsed.success) {
-    return { ok: false, error: "Invalid teams" };
+    return {
+      ok: false,
+      error: parsed.error.flatten().formErrors.join(", ") || "Invalid teams",
+    };
   }
 
   const bracketTeamsScopeErr = await assertGameDivisionScope(
