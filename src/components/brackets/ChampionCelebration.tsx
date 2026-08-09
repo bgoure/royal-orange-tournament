@@ -10,7 +10,10 @@ export type ChampionCelebrationProps = {
   divisionName: string;
   winnerTeam: TeamWithPublicLogo & { name: string };
   className?: string;
-  /** Optional qualifier / multi-advancer line under the congratulations copy. */
+  /**
+   * Optional secondary line (e.g. other teams advancing). Does not change the
+   * primary “winning the …” congratulations copy.
+   */
   subtitle?: string;
 };
 
@@ -96,7 +99,7 @@ export function ChampionCelebration({
   return (
     <section
       className={`relative isolate overflow-hidden rounded-2xl border border-royal/25 bg-gradient-to-b from-royal-50/90 via-white/92 to-amber-50/45 px-4 py-6 shadow-md backdrop-blur-md sm:px-6 dark:from-royal-950/55 dark:via-zinc-900/75 dark:to-amber-950/25 ${className}`.trim()}
-      aria-label={subtitle ? `Qualified: ${winnerTeam.name}` : `Champion: ${winnerTeam.name}`}
+      aria-label={`Champion: ${winnerTeam.name}`}
     >
       <div className="relative z-10 flex flex-col items-stretch">
         <motion.div
@@ -135,15 +138,7 @@ export function ChampionCelebration({
         <p className="mx-auto mt-4 max-w-lg text-center text-sm leading-snug text-zinc-800 sm:text-base">
           Congratulations to <strong className="font-bold text-zinc-900">{winnerTeam.name}</strong> for
           <br />
-          {subtitle ? (
-            <>
-              advancing from <strong className="font-bold text-royal">{divisionTournamentBold}</strong>
-            </>
-          ) : (
-            <>
-              winning the <strong className="font-bold text-royal">{divisionTournamentBold}</strong>
-            </>
-          )}
+          winning the <strong className="font-bold text-royal">{divisionTournamentBold}</strong>
         </p>
         {subtitle ? (
           <p className="mx-auto mt-2 max-w-lg text-center text-xs font-medium text-zinc-600 sm:text-sm">

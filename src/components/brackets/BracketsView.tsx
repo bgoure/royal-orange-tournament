@@ -229,13 +229,16 @@ function BracketSection({
           divisionName={champion.divisionName}
           winnerTeam={champion.winnerTeam}
           className="mb-4"
-          subtitle={
-            champion.isQualifier && champion.qualifiedTeams && champion.qualifiedTeams.length > 1
-              ? `Qualifiers: ${champion.qualifiedTeams.map((t) => t.name).join(" · ")}`
-              : champion.isQualifier
-                ? "Qualified for next tournament"
-                : undefined
-          }
+          subtitle={(() => {
+            // Always crown the series winner with “winning the …”. For top-N
+            // qualifiers, list other advancers under the main congratulations.
+            if (!champion.isQualifier || !champion.qualifiedTeams) return undefined;
+            const others = champion.qualifiedTeams
+              .filter((t) => t.id !== champion.winnerTeam.id)
+              .map((t) => t.name)
+              .filter(Boolean);
+            return others.length > 0 ? `Also advancing: ${others.join(" · ")}` : undefined;
+          })()}
         />
       ) : null}
       <SectionTitle id={`bracket-heading-${b.id}`} className="normal-case tracking-normal">
