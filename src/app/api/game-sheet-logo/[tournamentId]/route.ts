@@ -15,6 +15,7 @@ export async function GET(
   }
   return new NextResponse(row.data, {
     headers: {
+      "Access-Control-Allow-Origin": "*",
       "Content-Type": row.mimeType,
       "Cache-Control": "public, max-age=86400, stale-while-revalidate=604800",
     },

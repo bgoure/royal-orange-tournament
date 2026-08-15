@@ -79,11 +79,13 @@ export function BidirectionalDeBracket({
   byRound,
   timeZone,
   showHomeAway = true,
+  fitContent = false,
 }: {
   rounds: BracketRound[];
   byRound: Map<string, GameRow[]>;
   timeZone?: string | null;
   showHomeAway?: boolean;
+  fitContent?: boolean;
 }) {
   const layout = bidirectionalDeLayout(rounds);
 
@@ -91,7 +93,7 @@ export function BidirectionalDeBracket({
     <div className="flex flex-col gap-3">
       <div
         {...{ [DIVISION_SWIPE_IGNORE]: "" }}
-        className="flex gap-2 overflow-x-auto pb-2"
+        className={`flex gap-2 pb-2 ${fitContent ? "w-max overflow-visible" : "overflow-x-auto"}`}
         role="region"
         aria-label="Bidirectional double-elimination bracket"
       >

@@ -27,16 +27,21 @@ function BracketGrid({
   roundsOrdered,
   timeZone,
   showHomeAway = true,
+  fitContent = false,
 }: {
   byRound: Map<string, GameRow[]>;
   roundsOrdered: BracketRound[];
   timeZone?: string | null;
   showHomeAway?: boolean;
+  /** Size to the full tree (export) instead of scrolling. */
+  fitContent?: boolean;
 }) {
   return (
     <div
       {...{ [DIVISION_SWIPE_IGNORE]: "" }}
-      className="mt-4 flex gap-3 overflow-x-auto pb-2 md:overflow-visible"
+      className={`flex gap-3 pb-2 ${
+        fitContent ? "w-max overflow-visible" : "mt-4 overflow-x-auto md:overflow-visible"
+      }`}
       role="region"
       aria-label="Bracket rounds"
     >
@@ -165,6 +170,80 @@ function MobileBracketRoundNav({
 const scopeBtn =
   "min-h-10 rounded-lg border-2 px-[14px] py-2 text-sm font-semibold transition-colors duration-200 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-royal focus-visible:ring-offset-2 active:opacity-90 md:min-h-10";
 
+export function BracketDesktopTree({
+  b,
+  tournamentTimezone,
+  showHomeAway = true,
+  fitContent = false,
+}: {
+  b: BracketWith;
+  tournamentTimezone?: string | null;
+  showHomeAway?: boolean;
+  fitContent?: boolean;
+}) {
+  const roundsSorted = useMemo(
+    () => [...b.rounds].sort((a, c) => a.roundIndex - c.roundIndex),
+    [b.rounds],
+  );
+  const isObaChronological = !!b.presetKey && isObaDePresetKey(b.presetKey);
+  const visibleRounds = useMemo(
+    () => filterRoundsForScope(roundsSorted, "all"),
+    [roundsSorted],
+  );
+  const visibleRoundIds = useMemo(() => new Set(visibleRounds.map((r) => r.id)), [visibleRounds]);
+  const gamesInScope = useMemo(
+    () => b.games.filter((g) => g.bracketRoundId && visibleRoundIds.has(g.bracketRoundId)),
+    [b.games, visibleRoundIds],
+  );
+  const byRound = useMemo(() => {
+    const m = new Map<string, GameRow[]>();
+    for (const g of gamesInScope) {
+      const key = g.bracketRoundId ?? "unassigned";
+      const list = m.get(key) ?? [];
+      list.push(g);
+      m.set(key, list);
+    }
+    return m;
+  }, [gamesInScope]);
+
+  const useChronologicalRounds = isObaChronological;
+  const useBidirectional =
+    !useChronologicalRounds &&
+    (b.format === "DOUBLE_ELIMINATION" || b.format === "TRIPLE_ELIMINATION");
+
+  if (useChronologicalRounds) {
+    return (
+      <ChronologicalRoundBracket
+        rounds={roundsSorted}
+        byRound={byRound}
+        timeZone={tournamentTimezone}
+        format={b.format}
+        showHomeAway={showHomeAway}
+      />
+    );
+  }
+  if (useBidirectional) {
+    return (
+      <BidirectionalDeBracket
+        rounds={roundsSorted}
+        byRound={byRound}
+        timeZone={tournamentTimezone}
+        showHomeAway={showHomeAway}
+        fitContent={fitContent}
+      />
+    );
+  }
+  return (
+    <BracketGrid
+      byRound={byRound}
+      roundsOrdered={visibleRounds}
+      timeZone={tournamentTimezone}
+      showHomeAway={showHomeAway}
+      fitContent={fitContent}
+    />
+  );
+}
+
 function BracketSection({
   b,
   tournamentName,
@@ -214,12 +293,6 @@ function BracketSection({
   }, [gamesInScope]);
 
   const visibleRoundsKey = useMemo(() => visibleRounds.map((r) => r.id).join("|"), [visibleRounds]);
-
-  const useChronologicalRounds = isObaChronological && (!showScope || scope === "all");
-  const useBidirectional =
-    !useChronologicalRounds &&
-    (b.format === "DOUBLE_ELIMINATION" || b.format === "TRIPLE_ELIMINATION") &&
-    (!showScope || scope === "all");
 
   return (
     <section className="min-w-0" aria-labelledby={`bracket-heading-${b.id}`}>
@@ -298,39 +371,19 @@ function BracketSection({
 
       <div className="mt-4 hidden md:block">
         <BracketZoomShell>
-          {useChronologicalRounds ? (
-            <ChronologicalRoundBracket
-              rounds={roundsSorted}
-              byRound={byRound}
-              timeZone={tournamentTimezone}
-              format={b.format}
-              showHomeAway={showHomeAway}
-            />
-          ) : useBidirectional ? (
-            <BidirectionalDeBracket
-              rounds={roundsSorted}
-              byRound={byRound}
-              timeZone={tournamentTimezone}
-              showHomeAway={showHomeAway}
-            />
-          ) : (
-            <BracketGrid
-              byRound={byRound}
-              roundsOrdered={visibleRounds}
-              timeZone={tournamentTimezone}
-              showHomeAway={showHomeAway}
-            />
-          )}
+          <BracketDesktopTree
+            b={b}
+            tournamentTimezone={tournamentTimezone}
+            showHomeAway={showHomeAway}
+          />
         </BracketZoomShell>
       </div>
       <div className="mt-4 md:hidden">
         <BracketZoomShell>
-          {useChronologicalRounds ? (
-            <ChronologicalRoundBracket
-              rounds={roundsSorted}
-              byRound={byRound}
-              timeZone={tournamentTimezone}
-              format={b.format}
+          {isObaChronological ? (
+            <BracketDesktopTree
+              b={b}
+              tournamentTimezone={tournamentTimezone}
               showHomeAway={showHomeAway}
             />
           ) : (

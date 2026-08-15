@@ -12,6 +12,8 @@ import { listBracketsForTournament, listConsolationGamesForTournament } from "@/
 import { listPoolsForDivisionTabs } from "@/lib/services/pools";
 import { isBracketOnlyTournament } from "@/lib/services/tournament-format";
 import { tournamentPublicBasePath } from "@/lib/tournament-public-path";
+import { prisma } from "@/lib/db";
+import { resolveGameSheetHeaderLogoUrl } from "@/lib/game-sheet-header-logo";
 
 export async function TournamentBracketsPublic({
   tournament,
@@ -27,11 +29,21 @@ export async function TournamentBracketsPublic({
   const bracketOnly = await isBracketOnlyTournament(tournament.id);
   const publishedOnly = !bracketOnly;
 
-  const [brackets, poolsForTabs, consolationGames] = await Promise.all([
+  const [brackets, poolsForTabs, consolationGames, headerLogoRow] = await Promise.all([
     listBracketsForTournament(tournament.id, { publishedOnly }),
     listPoolsForDivisionTabs(tournament.id),
     listConsolationGamesForTournament(tournament.id, { publishedOnly }),
+    prisma.gameSheetHeaderLogo.findUnique({
+      where: { tournamentId: tournament.id },
+      select: { updatedAt: true },
+    }),
   ]);
+
+  const headerLogoUrl = resolveGameSheetHeaderLogoUrl({
+    tournamentId: tournament.id,
+    gameSheetLogoRightUrl: tournament.gameSheetLogoRightUrl,
+    gameSheetHeaderLogo: headerLogoRow,
+  });
 
   const divisionDescriptors = buildDivisionTabDescriptors(poolsForTabs);
   const cookieDivision = await getDivisionTabCookie();
@@ -56,7 +68,9 @@ export async function TournamentBracketsPublic({
           consolationGames={consolationGames}
           initialResolvedDivisionId={resolvedDivisionId}
           tournamentName={tournament.name}
+          tournamentShortLabel={tournament.shortLabel}
           tournamentTimezone={tournament.timezone}
+          headerLogoUrl={headerLogoUrl}
           showHomeAway={!bracketOnly}
         />
       </div>
