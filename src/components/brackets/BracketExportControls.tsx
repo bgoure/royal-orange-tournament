@@ -87,9 +87,6 @@ export function BracketExportControls({
   return (
     <div className="print:hidden">
       <div className="flex items-center gap-1.5">
-        <span className="mr-0.5 text-[11px] font-medium uppercase tracking-wide text-zinc-500">
-          Download
-        </span>
         <button
           type="button"
           disabled={busy}

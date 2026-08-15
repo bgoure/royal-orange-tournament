@@ -14,6 +14,10 @@ const MIN_PCT = 50;
 const MAX_PCT = 200;
 const STEP_PCT = 15;
 
+/** Desktop: 50% wider than the site column, capped to the viewport. */
+export const BRACKET_DESKTOP_WIDE_CLASS =
+  "md:w-[min(150%,calc(100vw-2rem))] md:ml-[calc((100%-min(150%,calc(100vw-2rem)))/2)] md:mr-[calc((100%-min(150%,calc(100vw-2rem)))/2)]";
+
 function touchDistance(touches: TouchList | ReactTouchEvent["touches"]): number {
   if (touches.length < 2) return 0;
   const a = touches[0]!;
@@ -134,24 +138,22 @@ export function BracketZoomShell({
           </button>
         </div>
       </div>
-      <div className="md:w-[min(150%,calc(100vw-2rem))] md:ml-[calc((100%-min(150%,calc(100vw-2rem)))/2)] md:mr-[calc((100%-min(150%,calc(100vw-2rem)))/2)]">
+      <div
+        ref={scrollerRef}
+        className="overflow-x-auto overflow-y-auto pb-2"
+        style={{ WebkitOverflowScrolling: "touch", touchAction: "pan-x pan-y" }}
+        onTouchStart={onTouchStart}
+        onTouchEnd={onTouchEnd}
+        onTouchCancel={onTouchEnd}
+      >
         <div
-          ref={scrollerRef}
-          className="overflow-x-auto overflow-y-auto pb-2"
-          style={{ WebkitOverflowScrolling: "touch", touchAction: "pan-x pan-y" }}
-          onTouchStart={onTouchStart}
-          onTouchEnd={onTouchEnd}
-          onTouchCancel={onTouchEnd}
+          className="origin-top-left will-change-transform"
+          style={{
+            transform: `scale(${scale})`,
+            width: scale !== 1 ? `${100 / scale}%` : undefined,
+          }}
         >
-          <div
-            className="origin-top-left will-change-transform"
-            style={{
-              transform: `scale(${scale})`,
-              width: scale !== 1 ? `${100 / scale}%` : undefined,
-            }}
-          >
-            {children}
-          </div>
+          {children}
         </div>
       </div>
     </div>

@@ -6,7 +6,7 @@ import type { BracketRound } from "@prisma/client";
 import { EmptyState } from "@/components/ui/EmptyState";
 import { SectionTitle } from "@/components/ui/PublicHeading";
 import { BracketExportControls } from "@/components/brackets/BracketExportControls";
-import { BracketZoomShell } from "@/components/brackets/BracketZoomShell";
+import { BracketZoomShell, BRACKET_DESKTOP_WIDE_CLASS } from "@/components/brackets/BracketZoomShell";
 import { BracketGameCard } from "@/components/brackets/BracketGameCard";
 import { BRACKET_ROUND_COLUMN_CLASS } from "@/components/brackets/bracket-card-layout";
 import { BidirectionalDeBracket } from "@/components/brackets/BidirectionalDeBracket";
@@ -315,6 +315,7 @@ function BracketSection({
           })()}
         />
       ) : null}
+      <div className={BRACKET_DESKTOP_WIDE_CLASS}>
       <SectionTitle id={`bracket-heading-${b.id}`} className="normal-case tracking-normal">
         {b.name}
         {b.isQualifier ? (
@@ -400,6 +401,7 @@ function BracketSection({
             />
           )}
         </BracketZoomShell>
+      </div>
       </div>
 
       <ConsolationGamesSection
