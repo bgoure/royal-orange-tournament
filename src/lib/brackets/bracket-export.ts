@@ -53,7 +53,7 @@ export function formatBracketExportCreatedAt(now: Date, timeZone?: string | null
   const zone = timeZone?.trim() || "utc";
   const dt = DateTime.fromJSDate(now, { zone });
   const stamp = dt.isValid ? dt.toFormat("LLL d, yyyy") : DateTime.fromJSDate(now).toFormat("LLL d, yyyy");
-  return `created at ${stamp}`;
+  return `created on ${stamp}`;
 }
 
 export function downloadDataUrl(dataUrl: string, filename: string) {
