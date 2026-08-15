@@ -12,6 +12,7 @@ import {
   deletePlayoffBracket,
   resetPlayoffBracket,
   toggleBracketPublished,
+  updateBracketQualifierSettings,
   updatePoolTeamsAdvancing,
   type BracketActionResult,
 } from "@/app/admin/_actions/brackets";
@@ -127,6 +128,76 @@ function isTeamSide(side: FirstRoundSide): side is { teamId: string } {
 
 function isPoolSide(side: FirstRoundSide): side is { poolId: string; rank: number } {
   return "poolId" in side;
+}
+
+function BracketQualifierForm({
+  bracketId,
+  isQualifier: initialQualifier,
+  qualifyingTeamCount: initialCount,
+  action,
+  pending,
+}: {
+  bracketId: string;
+  isQualifier: boolean;
+  qualifyingTeamCount: number;
+  action: (formData: FormData) => void;
+  pending: boolean;
+}) {
+  const [isQualifier, setIsQualifier] = useState(initialQualifier);
+  const [count, setCount] = useState(Math.max(1, initialCount));
+
+  useEffect(() => {
+    setIsQualifier(initialQualifier);
+    setCount(Math.max(1, initialCount));
+  }, [initialQualifier, initialCount]);
+
+  return (
+    <form
+      action={action}
+      className="mt-3 rounded-lg border border-zinc-200 bg-white px-3 py-2.5"
+    >
+      <input type="hidden" name="bracketId" value={bracketId} />
+      <p className={labelClass}>Qualifier spots</p>
+      <p className="mt-0.5 text-[11px] text-zinc-500">
+        Editable any time. Congratulations on the public site only shows when this is 1.
+      </p>
+      <div className="mt-2 flex flex-wrap items-end gap-3">
+        <label className="flex items-center gap-2 text-sm text-zinc-700">
+          <input
+            type="checkbox"
+            name="isQualifier"
+            value="1"
+            checked={isQualifier}
+            onChange={(e) => setIsQualifier(e.target.checked)}
+            className="rounded border-zinc-300"
+          />
+          Qualifier tournament
+        </label>
+        {isQualifier ? (
+          <div>
+            <label className={labelClass} htmlFor={`qualifyingTeamCount-${bracketId}`}>
+              Teams that advance
+            </label>
+            <input
+              id={`qualifyingTeamCount-${bracketId}`}
+              name="qualifyingTeamCount"
+              type="number"
+              min={1}
+              max={64}
+              value={count}
+              onChange={(e) => setCount(Number(e.target.value) || 1)}
+              className={`${formClass} mt-1 w-20`}
+            />
+          </div>
+        ) : (
+          <input type="hidden" name="qualifyingTeamCount" value="1" />
+        )}
+        <button type="submit" disabled={pending} className={btnSecondary}>
+          {pending ? "Saving…" : "Save spots"}
+        </button>
+      </div>
+    </form>
+  );
 }
 
 /**
@@ -463,6 +534,10 @@ export function BracketsAdmin({
     resetPlayoffBracket,
     undefined as BracketActionResult | undefined,
   );
+  const [qualifierState, qualifierAction, qualifierPending] = useActionState(
+    updateBracketQualifierSettings,
+    undefined as BracketActionResult | undefined,
+  );
   const [consolationCreateState, consolationCreateAction, consolationCreatePending] = useActionState(
     createConsolationGameAction,
     undefined as BracketActionResult | undefined,
@@ -645,6 +720,7 @@ export function BracketsAdmin({
       <ActionMessage state={resolveState} />
       <ActionMessage state={deleteState} />
       <ActionMessage state={resetState} />
+      <ActionMessage state={qualifierState} />
       <ActionMessage state={consolationCreateState} />
       <ActionMessage state={consolationDeleteState} />
 
@@ -994,7 +1070,8 @@ export function BracketsAdmin({
                       <span className="font-medium">Qualifier tournament</span>
                       <span className="mt-0.5 block text-xs text-zinc-500">
                         Conclude when N teams remain alive (e.g. send 2 teams to the next event). Remaining
-                        games are not required once those spots are locked.
+                        games are not required once those spots are locked. You can change N later on the
+                        playoff bracket below — Congratulations only appears when N is 1.
                       </span>
                     </span>
                   </label>
@@ -1332,6 +1409,13 @@ export function BracketsAdmin({
                         </p>
                       )}
                     </div>
+                    <BracketQualifierForm
+                      bracketId={b.id}
+                      isQualifier={b.isQualifier}
+                      qualifyingTeamCount={b.qualifyingTeamCount}
+                      action={qualifierAction}
+                      pending={qualifierPending}
+                    />
                   </div>
                   <div className="flex flex-wrap gap-2">
                     <form action={publishAction}>

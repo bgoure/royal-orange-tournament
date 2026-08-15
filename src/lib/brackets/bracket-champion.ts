@@ -12,9 +12,19 @@ export type ResolvedBracketChampion = {
   winnerTeam: TeamWithPool;
   qualifiedTeams?: TeamWithPool[];
   isQualifier?: boolean;
+  qualifyingTeamCount?: number;
 };
 
 export { resolveBracketOutcome };
+
+/** Trophy / “Congratulations” banner is for a single champion, not top-N qualifier fields. */
+export function shouldShowChampionCelebration(
+  champion: Pick<ResolvedBracketChampion, "isQualifier" | "qualifyingTeamCount"> | null,
+): boolean {
+  if (!champion) return false;
+  const n = Math.max(1, champion.qualifyingTeamCount ?? 1);
+  return n < 2;
+}
 
 /**
  * When the championship / qualifier conclusion rules are met, returns the primary
@@ -37,7 +47,7 @@ export async function getBracketChampionForDivisionTab(
     .sort((a, b) => a.sortOrder - b.sortOrder || a.name.localeCompare(b.name));
   for (const b of matching) {
     const r = resolveChampionFromBracket(b);
-    if (r) return r;
+    if (r && shouldShowChampionCelebration(r)) return r;
   }
   return null;
 }

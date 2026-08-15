@@ -160,5 +160,6 @@ export function resolveChampionFromBracket(bracket: BracketWith) {
     winnerTeam: outcome.winnerTeam,
     qualifiedTeams: outcome.qualifiedTeams,
     isQualifier: outcome.isQualifier,
+    qualifyingTeamCount: outcome.qualifyingTeamCount,
   };
 }

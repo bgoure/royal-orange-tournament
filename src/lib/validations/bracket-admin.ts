@@ -147,6 +147,21 @@ export const toggleBracketPublishedSchema = z.object({
   published: z.enum(["0", "1"]).transform((v) => v === "1"),
 });
 
+export const updateBracketQualifierSchema = z
+  .object({
+    bracketId: z.string().min(1),
+    isQualifier: z
+      .enum(["0", "1"])
+      .optional()
+      .default("0")
+      .transform((v) => v === "1"),
+    qualifyingTeamCount: z.coerce.number().int().min(1).max(64).optional().default(1),
+  })
+  .transform((data) => ({
+    ...data,
+    qualifyingTeamCount: data.isQualifier ? data.qualifyingTeamCount : 1,
+  }));
+
 export const resolveBracketSchema = z.object({
   bracketId: z.string().min(1),
 });

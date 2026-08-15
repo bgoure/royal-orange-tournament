@@ -109,19 +109,11 @@ async function placeIntoMatchSeat(matchId: string, teamId: string): Promise<bool
   return false;
 }
 
-async function maybeConcludeQualifier(bracketId: string): Promise<void> {
-  const bracket = await prisma.bracket.findUnique({
-    where: { id: bracketId },
-    select: {
-      format: true,
-      isQualifier: true,
-      qualifyingTeamCount: true,
-      concludedAt: true,
-    },
-  });
-  if (!bracket || bracket.concludedAt) return;
-  if (!bracket.isQualifier && bracket.qualifyingTeamCount <= 1) return;
-
+async function qualifierFieldReducedToN(
+  bracketId: string,
+  format: string,
+  need: number,
+): Promise<boolean> {
   const games = await prisma.game.findMany({
     where: { bracketId },
     select: {
@@ -141,21 +133,75 @@ async function maybeConcludeQualifier(bracketId: string): Promise<void> {
   }
   const entrantIds = [...entrants];
   const alive = aliveTeamIds({
-    format: bracket.format,
+    format,
     entrantTeamIds: entrantIds,
     games,
   });
-  const need = Math.max(1, bracket.qualifyingTeamCount);
   // Require eliminations so seeding / reset (everyone still alive) never marks concluded.
-  if (
+  return (
     entrantIds.length > need &&
     alive.length > 0 &&
     alive.length <= need &&
     alive.length < entrantIds.length
-  ) {
+  );
+}
+
+async function maybeConcludeQualifier(bracketId: string): Promise<void> {
+  const bracket = await prisma.bracket.findUnique({
+    where: { id: bracketId },
+    select: {
+      format: true,
+      isQualifier: true,
+      qualifyingTeamCount: true,
+      concludedAt: true,
+    },
+  });
+  if (!bracket || bracket.concludedAt) return;
+  if (!bracket.isQualifier && bracket.qualifyingTeamCount <= 1) return;
+
+  const need = Math.max(1, bracket.qualifyingTeamCount);
+  if (await qualifierFieldReducedToN(bracketId, bracket.format, need)) {
     await prisma.bracket.update({
       where: { id: bracketId },
       data: { concludedAt: new Date() },
+    });
+  }
+}
+
+/** Recompute `concludedAt` after directors change qualifier N mid-event. */
+export async function resyncQualifierConclusion(bracketId: string): Promise<void> {
+  const bracket = await prisma.bracket.findUnique({
+    where: { id: bracketId },
+    select: {
+      format: true,
+      isQualifier: true,
+      qualifyingTeamCount: true,
+      concludedAt: true,
+    },
+  });
+  if (!bracket) return;
+
+  if (!bracket.isQualifier && bracket.qualifyingTeamCount <= 1) {
+    if (bracket.concludedAt) {
+      await prisma.bracket.update({
+        where: { id: bracketId },
+        data: { concludedAt: null },
+      });
+    }
+    return;
+  }
+
+  const need = Math.max(1, bracket.qualifyingTeamCount);
+  const reduced = await qualifierFieldReducedToN(bracketId, bracket.format, need);
+  if (reduced && !bracket.concludedAt) {
+    await prisma.bracket.update({
+      where: { id: bracketId },
+      data: { concludedAt: new Date() },
+    });
+  } else if (!reduced && bracket.concludedAt) {
+    await prisma.bracket.update({
+      where: { id: bracketId },
+      data: { concludedAt: null },
     });
   }
 }

@@ -2,9 +2,17 @@ import assert from "node:assert/strict";
 import { describe, it } from "node:test";
 import { BracketRoundType, GameStatus } from "@prisma/client";
 import type { BracketWith } from "@/components/brackets/bracket-types";
-import { resolveChampionFromBracket } from "./bracket-champion";
+import { resolveChampionFromBracket, shouldShowChampionCelebration } from "./bracket-champion";
 
 describe("resolveChampionFromBracket", () => {
+  it("hides congratulations when two or more teams advance", () => {
+    assert.equal(shouldShowChampionCelebration({ qualifyingTeamCount: 2, isQualifier: true }), false);
+    assert.equal(shouldShowChampionCelebration({ qualifyingTeamCount: 3, isQualifier: true }), false);
+    assert.equal(shouldShowChampionCelebration({ qualifyingTeamCount: 1, isQualifier: true }), true);
+    assert.equal(shouldShowChampionCelebration({ qualifyingTeamCount: 1, isQualifier: false }), true);
+    assert.equal(shouldShowChampionCelebration(null), false);
+  });
+
   const base = {
     division: { id: "div1", name: "10U" },
     rounds: [
@@ -50,6 +58,7 @@ describe("resolveChampionFromBracket", () => {
     const r = resolveChampionFromBracket(bracket);
     assert.equal(r?.divisionName, "10U");
     assert.equal(r?.winnerTeam.name, "Thunder");
+    assert.equal(shouldShowChampionCelebration(r), true);
   });
 
   it("returns null without a FINAL round", () => {
@@ -160,6 +169,43 @@ describe("resolveChampionFromBracket", () => {
     assert.ok(r);
     assert.equal(r!.isQualifier, true);
     assert.equal(r!.winnerTeam.name, "Mets");
+    assert.equal(shouldShowChampionCelebration(r), false);
+  });
+
+  it("shows congratulations when a qualifier is reduced to 1 advancing team", () => {
+    const bracket = {
+      ...base,
+      isQualifier: true,
+      qualifyingTeamCount: 1,
+      games: [
+        {
+          bracketRoundId: "r-final",
+          bracketPosition: 0,
+          status: GameStatus.FINAL,
+          resultType: "REGULAR" as const,
+          homeTeamId: "t-home",
+          awayTeamId: "t-away",
+          homeRuns: 4,
+          awayRuns: 1,
+          homeTeam: {
+            id: "t-home",
+            name: "Thunder",
+            pool: null,
+            logo: null,
+          },
+          awayTeam: {
+            id: "t-away",
+            name: "Lightning",
+            pool: null,
+            logo: null,
+          },
+        },
+      ],
+    } as unknown as BracketWith;
+
+    const r = resolveChampionFromBracket(bracket);
+    assert.equal(r?.winnerTeam.name, "Thunder");
+    assert.equal(shouldShowChampionCelebration(r), true);
   });
 
   it("does not congratulate when qualifier teams are seeded but no scores exist", () => {

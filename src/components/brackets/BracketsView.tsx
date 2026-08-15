@@ -13,7 +13,7 @@ import { ChronologicalRoundBracket } from "@/components/brackets/ChronologicalRo
 import { ChampionCelebration } from "@/components/brackets/ChampionCelebration";
 import type { BracketWith, GameRow } from "@/components/brackets/bracket-types";
 import { matchSortIndex } from "@/components/brackets/bracket-slot-lines";
-import { resolveChampionFromBracket } from "@/lib/brackets/bracket-champion";
+import { resolveChampionFromBracket, shouldShowChampionCelebration } from "@/lib/brackets/bracket-champion";
 import { isObaDePresetKey } from "@/lib/brackets/oba-de-presets";
 import {
   filterRoundsForScope,
@@ -223,15 +223,13 @@ function BracketSection({
 
   return (
     <section className="min-w-0" aria-labelledby={`bracket-heading-${b.id}`}>
-      {champion ? (
+      {champion && shouldShowChampionCelebration(champion) ? (
         <ChampionCelebration
           tournamentName={tournamentName}
           divisionName={champion.divisionName}
           winnerTeam={champion.winnerTeam}
           className="mb-4"
           subtitle={(() => {
-            // Always crown the series winner with “winning the …”. For top-N
-            // qualifiers, list other advancers under the main congratulations.
             if (!champion.isQualifier || !champion.qualifiedTeams) return undefined;
             const others = champion.qualifiedTeams
               .filter((t) => t.id !== champion.winnerTeam.id)
