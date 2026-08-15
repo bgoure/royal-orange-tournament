@@ -718,10 +718,8 @@ export function ChronologicalRoundBracket({
           return (
             <div
               key={`${col.label}-${ci}`}
-              className={`relative z-0 ${BRACKET_ROUND_COLUMN_CLASS} rounded-xl border ${
-                shade
-                  ? "border-zinc-200 bg-zinc-100/90 opacity-55"
-                  : "border-zinc-200 bg-zinc-50/80"
+              className={`relative ${BRACKET_ROUND_COLUMN_CLASS} rounded-xl ${
+                shade ? "bg-zinc-100" : "bg-zinc-50"
               }`}
               style={{
                 height: columnShellH,
@@ -780,6 +778,13 @@ export function ChronologicalRoundBracket({
                   ))
                 )}
               </div>
+              {/* Paint borders above connector SVG so round edges stay unbroken. */}
+              <div
+                className={`pointer-events-none absolute inset-0 z-[15] rounded-xl border ${
+                  shade ? "border-zinc-300" : "border-zinc-200"
+                }`}
+                aria-hidden
+              />
             </div>
           );
         })}

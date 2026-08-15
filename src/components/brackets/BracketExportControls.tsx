@@ -135,6 +135,7 @@ export function BracketExportControls({
             headerLogoUrl={headerLogoUrl}
             tournamentTimezone={tournamentTimezone}
             showHomeAway={showHomeAway}
+            createdAt={new Date()}
             onReady={onReady}
           />
         </>

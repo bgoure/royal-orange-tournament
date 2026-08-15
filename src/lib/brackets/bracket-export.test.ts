@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import { describe, it } from "node:test";
-import { bracketExportBasename, fitScale } from "./bracket-export";
+import { bracketExportBasename, bracketExportSubtitle, fitScale } from "./bracket-export";
 
 describe("bracket export helpers", () => {
   it("scales small trees up and large trees down to fill the page box", () => {
@@ -14,5 +14,11 @@ describe("bracket export helpers", () => {
       bracketExportBasename({ tournamentName: "Royal Orange Classic 2026", divisionName: "10U" }),
       "royal-orange-classic-2026-10u-bracket",
     );
+  });
+
+  it("drops a duplicate division prefix from the export subtitle", () => {
+    assert.equal(bracketExportSubtitle("AAA", "AAA PLAYOFFS"), "AAA PLAYOFFS");
+    assert.equal(bracketExportSubtitle("10U", "Playoffs"), "10U · Playoffs");
+    assert.equal(bracketExportSubtitle("AAA", "AAA"), "AAA");
   });
 });
