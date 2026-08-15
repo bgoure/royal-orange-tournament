@@ -162,6 +162,11 @@ export const updateBracketQualifierSchema = z
     qualifyingTeamCount: data.isQualifier ? data.qualifyingTeamCount : 1,
   }));
 
+export const toggleBracketCelebrationSchema = z.object({
+  bracketId: z.string().min(1),
+  posted: z.enum(["0", "1"]).transform((v) => v === "1"),
+});
+
 export const resolveBracketSchema = z.object({
   bracketId: z.string().min(1),
 });

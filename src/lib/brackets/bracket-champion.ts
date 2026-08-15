@@ -13,15 +13,22 @@ export type ResolvedBracketChampion = {
   qualifiedTeams?: TeamWithPool[];
   isQualifier?: boolean;
   qualifyingTeamCount?: number;
+  /** Directors must post the banner; it never auto-appears from scores alone. */
+  celebrationPosted?: boolean;
 };
 
 export { resolveBracketOutcome };
 
-/** Trophy / “Congratulations” banner is for a single champion, not top-N qualifier fields. */
+/**
+ * Trophy / “Congratulations” banner: single advancing team, and only after directors post it.
+ */
 export function shouldShowChampionCelebration(
-  champion: Pick<ResolvedBracketChampion, "isQualifier" | "qualifyingTeamCount"> | null,
+  champion: Pick<
+    ResolvedBracketChampion,
+    "isQualifier" | "qualifyingTeamCount" | "celebrationPosted"
+  > | null,
 ): boolean {
-  if (!champion) return false;
+  if (!champion?.celebrationPosted) return false;
   const n = Math.max(1, champion.qualifyingTeamCount ?? 1);
   return n < 2;
 }

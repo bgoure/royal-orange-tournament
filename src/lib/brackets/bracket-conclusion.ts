@@ -161,5 +161,6 @@ export function resolveChampionFromBracket(bracket: BracketWith) {
     qualifiedTeams: outcome.qualifiedTeams,
     isQualifier: outcome.isQualifier,
     qualifyingTeamCount: outcome.qualifyingTeamCount,
+    celebrationPosted: bracket.celebrationPostedAt != null,
   };
 }

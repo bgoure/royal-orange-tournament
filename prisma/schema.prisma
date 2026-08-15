@@ -467,6 +467,8 @@ model Bracket {
   qualifyingTeamCount Int @default(1)
   /// Set when qualifier/championship conclusion rules are satisfied.
   concludedAt DateTime?
+  /// Directors post the public Congratulations banner; null means it stays hidden.
+  celebrationPostedAt DateTime?
   /// Hidden on the public site until turned on; admins may publish with placeholder schedule/teams.
   published    Boolean        @default(false)
   /// Set when pool play changes; cleared after directors re-apply standings to seeded slots.

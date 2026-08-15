@@ -32,10 +32,16 @@ import {
   toggleBracketPublishedSchema,
   updateBracketFeederSchema,
   updateBracketQualifierSchema,
+  toggleBracketCelebrationSchema,
   updatePoolAdvancingSchema,
 } from "@/lib/validations/bracket-admin";
 import { saveBracketRoundZeroSeedingSchema } from "@/lib/validations/bracket-seed-board";
 import { advanceByeWinnersInRound0, resyncQualifierConclusion } from "@/lib/services/bracket-advance";
+import { listBracketsForTournament } from "@/lib/services/brackets";
+import {
+  resolveChampionFromBracket,
+  shouldShowChampionCelebration,
+} from "@/lib/brackets/bracket-champion";
 import type { Session } from "next-auth";
 import { GrandFinalMode } from "@prisma/client";
 
@@ -407,6 +413,68 @@ export async function updateBracketQualifierSettings(
   }
 }
 
+export async function toggleBracketCelebrationPosted(
+  _prev: BracketActionResult | undefined,
+  formData: FormData,
+): Promise<BracketActionResult> {
+  const ctx = await bracketContext();
+  if ("error" in ctx) return { ok: false, error: ctx.error };
+  if (!can(ctx.session.user.role, "bracket:configure")) return deny();
+
+  const parsed = toggleBracketCelebrationSchema.safeParse({
+    bracketId: formData.get("bracketId"),
+    posted: formData.get("posted") ?? "0",
+  });
+  if (!parsed.success) {
+    return { ok: false, error: parsed.error.flatten().formErrors.join(", ") || "Invalid input" };
+  }
+
+  try {
+    const existing = await prisma.bracket.findFirst({
+      where: { id: parsed.data.bracketId, tournamentId: ctx.tournament.id },
+      select: { id: true, divisionId: true },
+    });
+    if (!existing) return { ok: false, error: "Bracket not found" };
+    const scopeErr = await assertDivisionScope(
+      ctx.session.user.id,
+      ctx.session.user.role,
+      existing.divisionId,
+    );
+    if (scopeErr) return { ok: false, error: scopeErr };
+
+    if (parsed.data.posted) {
+      const brackets = await listBracketsForTournament(ctx.tournament.id);
+      const bracket = brackets.find((b) => b.id === parsed.data.bracketId);
+      if (!bracket) return { ok: false, error: "Bracket not found" };
+      const outcome = resolveChampionFromBracket(bracket);
+      if (!outcome) {
+        return {
+          ok: false,
+          error: "No champion yet — finish the championship (or set qualifier spots to 1) first.",
+        };
+      }
+      if (!shouldShowChampionCelebration({ ...outcome, celebrationPosted: true })) {
+        return {
+          ok: false,
+          error: "Set teams that advance to 1 before posting Congratulations.",
+        };
+      }
+    }
+
+    const ok = await prisma.bracket.updateMany({
+      where: { id: parsed.data.bracketId, tournamentId: ctx.tournament.id },
+      data: { celebrationPostedAt: parsed.data.posted ? new Date() : null },
+    });
+    if (ok.count === 0) return { ok: false, error: "Bracket not found" };
+    revalidatePath("/admin/brackets");
+    await revalidatePublishedTournamentSites();
+    return { ok: true };
+  } catch (e) {
+    const msg = e instanceof Error ? e.message : "Failed to update congratulations banner";
+    return { ok: false, error: msg };
+  }
+}
+
 export async function applyBracketResolution(
   _prev: BracketActionResult | undefined,
   formData: FormData,
@@ -624,6 +692,7 @@ export async function resetPlayoffBracket(
           needsResolutionRefresh: true,
           // Prior championship / qualifier conclusion must not survive a competitive reset.
           concludedAt: null,
+          celebrationPostedAt: null,
         },
       });
     });

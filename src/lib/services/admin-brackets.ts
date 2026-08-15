@@ -43,6 +43,7 @@ export async function listBracketsSummary(tournamentId: string) {
       grandFinalMode: true,
       isQualifier: true,
       qualifyingTeamCount: true,
+      celebrationPostedAt: true,
       published: true,
       needsResolutionRefresh: true,
       division: { select: { id: true, name: true } },

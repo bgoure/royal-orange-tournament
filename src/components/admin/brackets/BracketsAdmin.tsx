@@ -13,6 +13,7 @@ import {
   resetPlayoffBracket,
   toggleBracketPublished,
   updateBracketQualifierSettings,
+  toggleBracketCelebrationPosted,
   updatePoolTeamsAdvancing,
   type BracketActionResult,
 } from "@/app/admin/_actions/brackets";
@@ -56,6 +57,7 @@ type BracketRow = {
   grandFinalMode: GrandFinalMode;
   isQualifier: boolean;
   qualifyingTeamCount: number;
+  celebrationPostedAt: Date | null;
   published: boolean;
   needsResolutionRefresh: boolean;
   division: { id: string; name: string };
@@ -159,7 +161,8 @@ function BracketQualifierForm({
       <input type="hidden" name="bracketId" value={bracketId} />
       <p className={labelClass}>Qualifier spots</p>
       <p className="mt-0.5 text-[11px] text-zinc-500">
-        Editable any time. Congratulations on the public site only shows when this is 1.
+        Editable any time. Post Congratulations separately when you want the public banner (only when this
+        is 1).
       </p>
       <div className="mt-2 flex flex-wrap items-end gap-3">
         <label className="flex items-center gap-2 text-sm text-zinc-700">
@@ -196,6 +199,37 @@ function BracketQualifierForm({
           {pending ? "Saving…" : "Save spots"}
         </button>
       </div>
+    </form>
+  );
+}
+
+function BracketCelebrationForm({
+  bracketId,
+  posted,
+  action,
+  pending,
+}: {
+  bracketId: string;
+  posted: boolean;
+  action: (formData: FormData) => void;
+  pending: boolean;
+}) {
+  return (
+    <form
+      action={action}
+      className="mt-3 rounded-lg border border-zinc-200 bg-white px-3 py-2.5"
+    >
+      <input type="hidden" name="bracketId" value={bracketId} />
+      <input type="hidden" name="posted" value={posted ? "0" : "1"} />
+      <p className={labelClass}>Congratulations banner</p>
+      <p className="mt-0.5 text-[11px] text-zinc-500">
+        {posted
+          ? "Live on the public home and brackets pages. Hide it anytime, or it stays hidden if qualifier spots are 2 or more."
+          : "Stays hidden until you post it. Needs a decided champion and 1 team advancing."}
+      </p>
+      <button type="submit" disabled={pending} className={`mt-2 ${posted ? btnSecondary : btnPrimary}`}>
+        {pending ? "Saving…" : posted ? "Hide congratulations" : "Post congratulations"}
+      </button>
     </form>
   );
 }
@@ -538,6 +572,10 @@ export function BracketsAdmin({
     updateBracketQualifierSettings,
     undefined as BracketActionResult | undefined,
   );
+  const [celebrationState, celebrationAction, celebrationPending] = useActionState(
+    toggleBracketCelebrationPosted,
+    undefined as BracketActionResult | undefined,
+  );
   const [consolationCreateState, consolationCreateAction, consolationCreatePending] = useActionState(
     createConsolationGameAction,
     undefined as BracketActionResult | undefined,
@@ -721,6 +759,7 @@ export function BracketsAdmin({
       <ActionMessage state={deleteState} />
       <ActionMessage state={resetState} />
       <ActionMessage state={qualifierState} />
+      <ActionMessage state={celebrationState} />
       <ActionMessage state={consolationCreateState} />
       <ActionMessage state={consolationDeleteState} />
 
@@ -1071,7 +1110,7 @@ export function BracketsAdmin({
                       <span className="mt-0.5 block text-xs text-zinc-500">
                         Conclude when N teams remain alive (e.g. send 2 teams to the next event). Remaining
                         games are not required once those spots are locked. You can change N later on the
-                        playoff bracket below — Congratulations only appears when N is 1.
+                        playoff bracket below. Congratulations only appears when N is 1 and you post it.
                       </span>
                     </span>
                   </label>
@@ -1415,6 +1454,12 @@ export function BracketsAdmin({
                       qualifyingTeamCount={b.qualifyingTeamCount}
                       action={qualifierAction}
                       pending={qualifierPending}
+                    />
+                    <BracketCelebrationForm
+                      bracketId={b.id}
+                      posted={b.celebrationPostedAt != null}
+                      action={celebrationAction}
+                      pending={celebrationPending}
                     />
                   </div>
                   <div className="flex flex-wrap gap-2">

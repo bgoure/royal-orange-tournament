@@ -5,11 +5,23 @@ import type { BracketWith } from "@/components/brackets/bracket-types";
 import { resolveChampionFromBracket, shouldShowChampionCelebration } from "./bracket-champion";
 
 describe("resolveChampionFromBracket", () => {
-  it("hides congratulations when two or more teams advance", () => {
+  it("hides congratulations until directors post it, and never for 2+ advancers", () => {
     assert.equal(shouldShowChampionCelebration({ qualifyingTeamCount: 2, isQualifier: true }), false);
+    assert.equal(
+      shouldShowChampionCelebration({ qualifyingTeamCount: 2, isQualifier: true, celebrationPosted: true }),
+      false,
+    );
     assert.equal(shouldShowChampionCelebration({ qualifyingTeamCount: 3, isQualifier: true }), false);
-    assert.equal(shouldShowChampionCelebration({ qualifyingTeamCount: 1, isQualifier: true }), true);
-    assert.equal(shouldShowChampionCelebration({ qualifyingTeamCount: 1, isQualifier: false }), true);
+    assert.equal(shouldShowChampionCelebration({ qualifyingTeamCount: 1, isQualifier: true }), false);
+    assert.equal(shouldShowChampionCelebration({ qualifyingTeamCount: 1, isQualifier: false }), false);
+    assert.equal(
+      shouldShowChampionCelebration({ qualifyingTeamCount: 1, isQualifier: true, celebrationPosted: true }),
+      true,
+    );
+    assert.equal(
+      shouldShowChampionCelebration({ qualifyingTeamCount: 1, isQualifier: false, celebrationPosted: true }),
+      true,
+    );
     assert.equal(shouldShowChampionCelebration(null), false);
   });
 
@@ -58,7 +70,9 @@ describe("resolveChampionFromBracket", () => {
     const r = resolveChampionFromBracket(bracket);
     assert.equal(r?.divisionName, "10U");
     assert.equal(r?.winnerTeam.name, "Thunder");
-    assert.equal(shouldShowChampionCelebration(r), true);
+    assert.equal(r?.celebrationPosted, false);
+    assert.equal(shouldShowChampionCelebration(r), false);
+    assert.equal(shouldShowChampionCelebration({ ...r!, celebrationPosted: true }), true);
   });
 
   it("returns null without a FINAL round", () => {
@@ -172,11 +186,12 @@ describe("resolveChampionFromBracket", () => {
     assert.equal(shouldShowChampionCelebration(r), false);
   });
 
-  it("shows congratulations when a qualifier is reduced to 1 advancing team", () => {
+  it("shows congratulations only after celebrationPostedAt is set", () => {
     const bracket = {
       ...base,
       isQualifier: true,
       qualifyingTeamCount: 1,
+      celebrationPostedAt: new Date("2026-08-15T16:00:00.000Z"),
       games: [
         {
           bracketRoundId: "r-final",
@@ -204,7 +219,7 @@ describe("resolveChampionFromBracket", () => {
     } as unknown as BracketWith;
 
     const r = resolveChampionFromBracket(bracket);
-    assert.equal(r?.winnerTeam.name, "Thunder");
+    assert.equal(r?.celebrationPosted, true);
     assert.equal(shouldShowChampionCelebration(r), true);
   });
 
