@@ -81,39 +81,71 @@ export function BracketExportControls({
   if (brackets.length === 0) return null;
 
   const busy = job != null;
+  const iconBtn =
+    "inline-flex size-9 items-center justify-center rounded-lg border border-zinc-300 bg-white text-zinc-800 shadow-sm hover:bg-zinc-50 disabled:opacity-50";
 
   return (
-    <div className="flex flex-col gap-2 print:hidden">
-      <div className="flex flex-wrap items-center gap-2">
-        <p className="mr-1 text-[11px] font-semibold uppercase tracking-wide text-zinc-500">
-          Save bracket
-        </p>
+    <div className="print:hidden">
+      <div className="flex items-center gap-1.5">
+        <span className="mr-0.5 text-[11px] font-medium uppercase tracking-wide text-zinc-500">
+          Download
+        </span>
         <button
           type="button"
           disabled={busy}
+          aria-label={busy && job.format === "png" ? "Preparing PNG" : "Download PNG"}
+          title="Download PNG"
           onClick={() => {
             setError(null);
             setJob({ format: "png", nonce: Date.now() });
           }}
-          className="inline-flex min-h-10 items-center rounded-lg border border-zinc-200/80 bg-white/80 px-3 py-1.5 text-sm font-semibold text-zinc-800 shadow-sm backdrop-blur-md hover:bg-white disabled:opacity-50"
+          className={iconBtn}
         >
-          {busy && job.format === "png" ? "Preparing…" : "PNG"}
+          {busy && job.format === "png" ? (
+            <span className="text-[10px] font-semibold">…</span>
+          ) : (
+            <svg viewBox="0 0 24 24" className="size-5" fill="none" stroke="currentColor" strokeWidth={1.75} aria-hidden>
+              <rect x="3" y="5" width="18" height="14" rx="2" />
+              <circle cx="8.5" cy="10" r="1.25" fill="currentColor" stroke="none" />
+              <path d="M21 16.5l-5.2-5.2a1.5 1.5 0 00-2.1 0L6 19" strokeLinecap="round" strokeLinejoin="round" />
+            </svg>
+          )}
         </button>
         <button
           type="button"
           disabled={busy}
+          aria-label={busy && job.format === "pdf" ? "Preparing PDF" : "Download PDF"}
+          title="Download PDF"
           onClick={() => {
             setError(null);
             setJob({ format: "pdf", nonce: Date.now() });
           }}
-          className="inline-flex min-h-10 items-center rounded-lg border border-zinc-200/80 bg-white/80 px-3 py-1.5 text-sm font-semibold text-zinc-800 shadow-sm backdrop-blur-md hover:bg-white disabled:opacity-50"
+          className={iconBtn}
         >
-          {busy && job.format === "pdf" ? "Preparing…" : "PDF"}
+          {busy && job.format === "pdf" ? (
+            <span className="text-[10px] font-semibold">…</span>
+          ) : (
+            <svg viewBox="0 0 24 24" className="size-5" fill="none" stroke="currentColor" strokeWidth={1.75} aria-hidden>
+              <path d="M7 3h7l5 5v13a1 1 0 01-1 1H7a1 1 0 01-1-1V4a1 1 0 011-1z" strokeLinejoin="round" />
+              <path d="M14 3v5h5" strokeLinejoin="round" />
+              <text
+                x="12"
+                y="16.25"
+                textAnchor="middle"
+                fill="currentColor"
+                stroke="none"
+                fontSize="6.5"
+                fontWeight="700"
+                fontFamily="ui-sans-serif, system-ui, sans-serif"
+              >
+                PDF
+              </text>
+            </svg>
+          )}
         </button>
-        <span className="text-xs text-zinc-500">Landscape, one page</span>
       </div>
       {error ? (
-        <p className="text-sm text-red-700" role="alert">
+        <p className="mt-1 text-sm text-red-700" role="alert">
           {error}
         </p>
       ) : null}

@@ -30,7 +30,14 @@ function notifyZoomChange() {
  * - Mobile: pinch to zoom (no buttons)
  * - Desktop (md+): +/- zoom controls
  */
-export function BracketZoomShell({ children }: { children: ReactNode }) {
+export function BracketZoomShell({
+  children,
+  toolbarStart,
+}: {
+  children: ReactNode;
+  /** Left side of the toolbar (e.g. download). Zoom stays on the right on desktop. */
+  toolbarStart?: ReactNode;
+}) {
   const [scalePct, setScalePct] = useState(100);
   const scale = scalePct / 100;
   const pinchRef = useRef<{ startDist: number; startPct: number } | null>(null);
@@ -89,53 +96,62 @@ export function BracketZoomShell({ children }: { children: ReactNode }) {
 
   return (
     <div className="relative" {...{ [DIVISION_SWIPE_IGNORE]: "" }}>
-      <div className="mb-2 hidden items-center justify-end gap-1 md:flex">
-        <span className="mr-1 text-[11px] font-medium uppercase tracking-wide text-zinc-500">
-          Zoom
-        </span>
-        <button
-          type="button"
-          className="inline-flex size-9 items-center justify-center rounded-lg border border-zinc-300 bg-white text-lg font-semibold text-zinc-800 shadow-sm disabled:opacity-40"
-          aria-label="Zoom out"
-          disabled={scalePct <= MIN_PCT}
-          onClick={() => setScale((p) => p - STEP_PCT)}
-        >
-          −
-        </button>
-        <button
-          type="button"
-          className="min-w-14 rounded-lg border border-zinc-300 bg-white px-2 py-1.5 text-xs font-semibold tabular-nums text-zinc-800 shadow-sm"
-          aria-label="Reset zoom"
-          onClick={() => setScale(100)}
-        >
-          {scalePct}%
-        </button>
-        <button
-          type="button"
-          className="inline-flex size-9 items-center justify-center rounded-lg border border-zinc-300 bg-white text-lg font-semibold text-zinc-800 shadow-sm disabled:opacity-40"
-          aria-label="Zoom in"
-          disabled={scalePct >= MAX_PCT}
-          onClick={() => setScale((p) => p + STEP_PCT)}
-        >
-          +
-        </button>
-      </div>
       <div
-        ref={scrollerRef}
-        className="overflow-x-auto overflow-y-auto pb-2"
-        style={{ WebkitOverflowScrolling: "touch", touchAction: "pan-x pan-y" }}
-        onTouchStart={onTouchStart}
-        onTouchEnd={onTouchEnd}
-        onTouchCancel={onTouchEnd}
+        className={`mb-2 items-center gap-2 ${
+          toolbarStart ? "flex justify-between" : "hidden justify-end md:flex"
+        }`}
       >
+        <div className="min-w-0">{toolbarStart}</div>
+        <div className="hidden items-center gap-1 md:flex">
+          <span className="mr-1 text-[11px] font-medium uppercase tracking-wide text-zinc-500">
+            Zoom
+          </span>
+          <button
+            type="button"
+            className="inline-flex size-9 items-center justify-center rounded-lg border border-zinc-300 bg-white text-lg font-semibold text-zinc-800 shadow-sm disabled:opacity-40"
+            aria-label="Zoom out"
+            disabled={scalePct <= MIN_PCT}
+            onClick={() => setScale((p) => p - STEP_PCT)}
+          >
+            −
+          </button>
+          <button
+            type="button"
+            className="min-w-14 rounded-lg border border-zinc-300 bg-white px-2 py-1.5 text-xs font-semibold tabular-nums text-zinc-800 shadow-sm"
+            aria-label="Reset zoom"
+            onClick={() => setScale(100)}
+          >
+            {scalePct}%
+          </button>
+          <button
+            type="button"
+            className="inline-flex size-9 items-center justify-center rounded-lg border border-zinc-300 bg-white text-lg font-semibold text-zinc-800 shadow-sm disabled:opacity-40"
+            aria-label="Zoom in"
+            disabled={scalePct >= MAX_PCT}
+            onClick={() => setScale((p) => p + STEP_PCT)}
+          >
+            +
+          </button>
+        </div>
+      </div>
+      <div className="md:w-[min(150%,calc(100vw-2rem))] md:ml-[calc((100%-min(150%,calc(100vw-2rem)))/2)] md:mr-[calc((100%-min(150%,calc(100vw-2rem)))/2)]">
         <div
-          className="origin-top-left will-change-transform"
-          style={{
-            transform: `scale(${scale})`,
-            width: scale !== 1 ? `${100 / scale}%` : undefined,
-          }}
+          ref={scrollerRef}
+          className="overflow-x-auto overflow-y-auto pb-2"
+          style={{ WebkitOverflowScrolling: "touch", touchAction: "pan-x pan-y" }}
+          onTouchStart={onTouchStart}
+          onTouchEnd={onTouchEnd}
+          onTouchCancel={onTouchEnd}
         >
-          {children}
+          <div
+            className="origin-top-left will-change-transform"
+            style={{
+              transform: `scale(${scale})`,
+              width: scale !== 1 ? `${100 / scale}%` : undefined,
+            }}
+          >
+            {children}
+          </div>
         </div>
       </div>
     </div>

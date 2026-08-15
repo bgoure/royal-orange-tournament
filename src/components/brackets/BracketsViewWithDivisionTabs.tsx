@@ -3,7 +3,6 @@
 import { useMemo } from "react";
 import { useSearchParams } from "next/navigation";
 import { BracketsView } from "@/components/brackets/BracketsView";
-import { BracketExportControls } from "@/components/brackets/BracketExportControls";
 import type { BracketWith, GameRow } from "@/components/brackets/bracket-types";
 import {
   defaultDivisionTabId,
@@ -88,25 +87,16 @@ export function BracketsViewWithDivisionTabs({
       {brackets.length > 0 && visibleBrackets.length === 0 ? (
         <p className="text-sm text-zinc-500">No published playoff bracket for this division.</p>
       ) : (
-        <div className="flex flex-col gap-3">
-          <BracketExportControls
-            brackets={visibleBrackets}
-            consolationGames={visibleConsolation}
-            tournamentName={tournamentName}
-            tournamentShortLabel={tournamentShortLabel}
-            divisionName={divisionName}
-            headerLogoUrl={headerLogoUrl}
-            tournamentTimezone={tournamentTimezone}
-            showHomeAway={showHomeAway}
-          />
-          <BracketsView
-            brackets={visibleBrackets}
-            consolationGames={visibleConsolation}
-            tournamentName={tournamentName}
-            tournamentTimezone={tournamentTimezone}
-            showHomeAway={showHomeAway}
-          />
-        </div>
+        <BracketsView
+          brackets={visibleBrackets}
+          consolationGames={visibleConsolation}
+          tournamentName={tournamentName}
+          tournamentShortLabel={tournamentShortLabel}
+          divisionName={divisionName}
+          headerLogoUrl={headerLogoUrl}
+          tournamentTimezone={tournamentTimezone}
+          showHomeAway={showHomeAway}
+        />
       )}
     </>
   );

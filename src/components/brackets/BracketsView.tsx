@@ -1,10 +1,11 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useState, type ReactNode } from "react";
 import { DIVISION_SWIPE_IGNORE } from "@/lib/division-swipe-ignore";
 import type { BracketRound } from "@prisma/client";
 import { EmptyState } from "@/components/ui/EmptyState";
 import { SectionTitle } from "@/components/ui/PublicHeading";
+import { BracketExportControls } from "@/components/brackets/BracketExportControls";
 import { BracketZoomShell } from "@/components/brackets/BracketZoomShell";
 import { BracketGameCard } from "@/components/brackets/BracketGameCard";
 import { BRACKET_ROUND_COLUMN_CLASS } from "@/components/brackets/bracket-card-layout";
@@ -250,12 +251,14 @@ function BracketSection({
   tournamentTimezone,
   consolationGames,
   showHomeAway = true,
+  exportToolbar,
 }: {
   b: BracketWith;
   tournamentName: string;
   tournamentTimezone?: string | null;
   consolationGames: GameRow[];
   showHomeAway?: boolean;
+  exportToolbar?: () => ReactNode;
 }) {
   const [scope, setScope] = useState<BracketScopeFilter>("all");
   const [mobileRoundIdx, setMobileRoundIdx] = useState(0);
@@ -370,7 +373,7 @@ function BracketSection({
       ) : null}
 
       <div className="mt-4 hidden md:block">
-        <BracketZoomShell>
+        <BracketZoomShell toolbarStart={exportToolbar?.()}>
           <BracketDesktopTree
             b={b}
             tournamentTimezone={tournamentTimezone}
@@ -379,7 +382,7 @@ function BracketSection({
         </BracketZoomShell>
       </div>
       <div className="mt-4 md:hidden">
-        <BracketZoomShell>
+        <BracketZoomShell toolbarStart={exportToolbar?.()}>
           {isObaChronological ? (
             <BracketDesktopTree
               b={b}
@@ -453,7 +456,10 @@ export function BracketsView({
   brackets,
   consolationGames = [],
   tournamentName,
+  tournamentShortLabel,
   tournamentTimezone,
+  headerLogoUrl,
+  divisionName,
   showHomeAway = true,
 }: {
   brackets: BracketWith[];
@@ -461,8 +467,11 @@ export function BracketsView({
   consolationGames?: GameRow[];
   /** Public tournament title for champion banner copy. */
   tournamentName: string;
+  tournamentShortLabel?: string | null;
   /** IANA zone from `tournament.timezone` — venue wall-clock for game times. */
   tournamentTimezone?: string | null;
+  headerLogoUrl?: string | null;
+  divisionName?: string | null;
   /** When false (bracket-only / no pool play), hide (A)/(H) markers. */
   showHomeAway?: boolean;
 }) {
@@ -491,9 +500,22 @@ export function BracketsView({
     );
   }
 
+  const renderExportToolbar = () => (
+    <BracketExportControls
+      brackets={brackets}
+      consolationGames={consolationGames}
+      tournamentName={tournamentName}
+      tournamentShortLabel={tournamentShortLabel}
+      divisionName={divisionName}
+      headerLogoUrl={headerLogoUrl}
+      tournamentTimezone={tournamentTimezone}
+      showHomeAway={showHomeAway}
+    />
+  );
+
   return (
     <div className="flex flex-col gap-6">
-      {brackets.map((b) => (
+      {brackets.map((b, i) => (
         <BracketSection
           key={b.id}
           b={b}
@@ -501,6 +523,7 @@ export function BracketsView({
           tournamentTimezone={tournamentTimezone}
           consolationGames={consolationByDivision.get(b.divisionId) ?? []}
           showHomeAway={showHomeAway}
+          exportToolbar={i === 0 ? renderExportToolbar : undefined}
         />
       ))}
     </div>
