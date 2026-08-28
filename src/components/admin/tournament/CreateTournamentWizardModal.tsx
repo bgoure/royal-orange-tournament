@@ -12,9 +12,7 @@ import {
 } from "@/lib/brackets/oba-de-presets";
 import {
   nextPowerOfTwoAtLeast,
-  WIZARD_DEFAULT_TEAMS_EXTRA_DIVISION,
   WIZARD_DEFAULT_TEAMS_PER_DIVISION,
-  WIZARD_MAX_DIVISIONS,
   WIZARD_MAX_POOLS_PER_DIVISION,
   WIZARD_MAX_TEAMS_PER_DIVISION,
   WIZARD_MAX_TEAMS_TOURNAMENT,
@@ -124,13 +122,13 @@ export function CreateTournamentWizardModal({ onClose }: Props) {
   const [format, setFormat] = useState<Format>("round_robin");
   const [bracketKind, setBracketKind] = useState<BracketKind>("DOUBLE_ELIMINATION");
   const [bracketStyle, setBracketStyle] = useState<BracketStyle>("traditional");
-  const [divisionCount, setDivisionCount] = useState(1);
-  const [skipDivisionNames, setSkipDivisionNames] = useState(false);
-  const [divisionNameDrafts, setDivisionNameDrafts] = useState<string[]>([""]);
+  const divisionCount = 1;
+  const skipDivisionNames = true;
+  const skipTeamNames = true;
+  const divisionNameDrafts = [""];
   const [teamsPerDivision, setTeamsPerDivision] = useState<number[]>([
     WIZARD_DEFAULT_TEAMS_PER_DIVISION,
   ]);
-  const [skipTeamNames, setSkipTeamNames] = useState(false);
   const [teamNameDraftsByDiv, setTeamNameDraftsByDiv] = useState<string[][]>([
     Array(WIZARD_DEFAULT_TEAMS_PER_DIVISION).fill(""),
   ]);
@@ -208,38 +206,6 @@ export function CreateTournamentWizardModal({ onClose }: Props) {
     document.addEventListener("keydown", onKey);
     return () => document.removeEventListener("keydown", onKey);
   }, [onClose, pending, step]);
-
-  function syncDivisionCount(n: number) {
-    const count = Math.min(WIZARD_MAX_DIVISIONS, Math.max(1, n));
-    setDivisionCount(count);
-    setDivisionNameDrafts((prev) => {
-      const next = [...prev];
-      while (next.length < count) next.push("");
-      return next.slice(0, count);
-    });
-    setPoolCounts((prev) => {
-      const next = [...prev];
-      while (next.length < count) next.push(2);
-      return next.slice(0, count);
-    });
-    setEntrySizeByDiv((prev) => {
-      const next = [...prev];
-      while (next.length < count) next.push(8);
-      return next.slice(0, count);
-    });
-    setTeamsPerDivision((prev) => {
-      const next = [...prev];
-      while (next.length < count) next.push(WIZARD_DEFAULT_TEAMS_EXTRA_DIVISION);
-      return next.slice(0, count);
-    });
-    setTeamNameDraftsByDiv((prev) => {
-      const next = [...prev];
-      while (next.length < count) {
-        next.push(Array(WIZARD_DEFAULT_TEAMS_EXTRA_DIVISION).fill(""));
-      }
-      return next.slice(0, count);
-    });
-  }
 
   function setDivisionTeamCount(di: number, n: number) {
     const count = Math.min(WIZARD_MAX_TEAMS_PER_DIVISION, Math.max(0, n));
@@ -645,119 +611,19 @@ export function CreateTournamentWizardModal({ onClose }: Props) {
                   autoFocus
                 />
               </div>
-
               <div>
-                <label className={labelClass}>Number of divisions</label>
+                <label className={labelClass}>How many teams</label>
                 <input
                   type="number"
-                  min={1}
-                  max={WIZARD_MAX_DIVISIONS}
-                  value={divisionCount}
-                  onChange={(e) => syncDivisionCount(Number(e.target.value) || 1)}
+                  min={2}
+                  max={WIZARD_MAX_TEAMS_PER_DIVISION}
+                  value={teamsPerDivision[0] ?? WIZARD_DEFAULT_TEAMS_PER_DIVISION}
+                  onChange={(e) => setDivisionTeamCount(0, Number(e.target.value) || 0)}
                   className={`${formClass} mt-1 w-32`}
                 />
-              </div>
-
-              <div>
-                <div className="flex flex-wrap items-center justify-between gap-2">
-                  <p className={labelClass}>Division names</p>
-                  <label className="flex items-center gap-2 text-xs text-zinc-600">
-                    <input
-                      type="checkbox"
-                      checked={skipDivisionNames}
-                      onChange={(e) => setSkipDivisionNames(e.target.checked)}
-                    />
-                    Use Division1, Division2…
-                  </label>
-                </div>
-                {!skipDivisionNames ? (
-                  <div className="mt-2 flex flex-col gap-2">
-                    {Array.from({ length: divisionCount }, (_, i) => (
-                      <input
-                        key={i}
-                        value={divisionNameDrafts[i] ?? ""}
-                        onChange={(e) => {
-                          const next = [...divisionNameDrafts];
-                          next[i] = e.target.value;
-                          setDivisionNameDrafts(next);
-                        }}
-                        placeholder={`Division ${i + 1}`}
-                        className={`${formClass} w-full`}
-                      />
-                    ))}
-                  </div>
-                ) : (
-                  <p className="mt-2 text-xs text-zinc-500">{divisionNames.join(", ")}</p>
-                )}
-              </div>
-
-              <div>
-                <div className="flex flex-wrap items-center justify-between gap-2">
-                  <p className={labelClass}>Teams per division</p>
-                  <label className="flex items-center gap-2 text-xs text-zinc-600">
-                    <input
-                      type="checkbox"
-                      checked={skipTeamNames}
-                      onChange={(e) => setSkipTeamNames(e.target.checked)}
-                    />
-                    Use placeholders (Division · Team N)
-                  </label>
-                </div>
-                <p className="mt-1 text-xs text-zinc-500">
-                  Each division can have a different count. Total:{" "}
-                  <span className="font-medium text-zinc-700">{teamCount}</span>
-                </p>
-                <div className="mt-3 flex flex-col gap-4">
-                  {divisionNames.map((divName, di) => {
-                    const count = teamsPerDivision[di] ?? 0;
-                    const drafts = teamNameDraftsByDiv[di] ?? [];
-                    return (
-                      <div key={di} className="rounded-lg border border-zinc-200 p-3">
-                        <div className="flex flex-wrap items-end gap-3">
-                          <div className="min-w-[120px] flex-1">
-                            <p className="text-sm font-medium text-zinc-900">{divName}</p>
-                          </div>
-                          <div>
-                            <label className={labelClass}>Teams</label>
-                            <input
-                              type="number"
-                              min={1}
-                              max={WIZARD_MAX_TEAMS_PER_DIVISION}
-                              value={count}
-                              onChange={(e) => setDivisionTeamCount(di, Number(e.target.value) || 0)}
-                              className={`${formClass} mt-1 w-20`}
-                            />
-                          </div>
-                        </div>
-                        {!skipTeamNames ? (
-                          <textarea
-                            value={drafts.join("\n")}
-                            onChange={(e) => {
-                              const lines = e.target.value.split(/\r?\n/);
-                              setTeamNameDraftsByDiv((prev) => {
-                                const next = prev.map((row) => [...row]);
-                                next[di] = Array.from({ length: count }, (_, i) => lines[i] ?? "");
-                                return next;
-                              });
-                            }}
-                            rows={Math.min(8, Math.max(3, count))}
-                            placeholder={`One team per line for ${divName}`}
-                            className={`${formClass} mt-2 w-full font-mono text-xs`}
-                          />
-                        ) : (
-                          <p className="mt-2 text-xs text-zinc-500">
-                            {(teamsByDivision[di] ?? []).slice(0, 6).join(", ")}
-                            {(teamsByDivision[di] ?? []).length > 6
-                              ? ` … (+${(teamsByDivision[di] ?? []).length - 6} more)`
-                              : ""}
-                          </p>
-                        )}
-                      </div>
-                    );
-                  })}
-                </div>
                 <p className="mt-2 text-xs text-zinc-500">
-                  Creates a draft (not public). Venue, dates, and schedule are set in tournament settings.
+                  Creates a draft (not public). You can name teams, add divisions, and set venue later
+                  in admin.
                 </p>
               </div>
             </div>
