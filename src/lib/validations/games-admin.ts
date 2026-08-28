@@ -70,9 +70,6 @@ export const updateBracketGameTeamsSchema = z
     homeTeamId: optionalTeamId,
     awayTeamId: optionalTeamId,
   })
-  .refine((d) => d.homeTeamId != null || d.awayTeamId != null, {
-    message: "Set at least one team (the other may stay TBD)",
-  })
   .refine(
     (d) =>
       d.homeTeamId == null || d.awayTeamId == null || d.homeTeamId !== d.awayTeamId,

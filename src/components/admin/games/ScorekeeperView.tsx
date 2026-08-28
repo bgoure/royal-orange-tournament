@@ -7,6 +7,7 @@ import { publicGameStatusLabel } from "@/components/schedule/GameList";
 import { updateGameScoring, type GameActionResult } from "@/app/admin/_actions/games";
 import { ActionMessage } from "@/components/admin/structure/ActionMessage";
 import { formatFieldWithLocation } from "@/lib/field-display";
+import { isOba13SitOutGameNumber } from "@/lib/services/oba-de-13";
 import {
   gameDivisionId,
   type AdminDivisionTab,
@@ -244,6 +245,8 @@ function ScorekeeperGameCard({
   const [savedFlash, setSavedFlash] = useState(false);
 
   const isPoolGame = game.gameKind === GameKind.POOL;
+  const sitOutSlot = isOba13SitOutGameNumber(game.gameNumber);
+  const sitOutTeam = sitOutSlot ? (game.homeTeam ?? game.awayTeam) : null;
   const awayLabel = game.awayTeam?.name ?? "TBD";
   const homeLabel = game.homeTeam?.name ?? "TBD";
   const iso = typeof game.scheduledAt === "string" ? game.scheduledAt : new Date(game.scheduledAt).toISOString();
@@ -270,7 +273,16 @@ function ScorekeeperGameCard({
       <div className="border-b border-zinc-100 bg-zinc-50 px-4 py-3">
         <p className="text-xs font-medium text-zinc-500">{fmtWhen(iso, tournamentTimezone)}</p>
         <p className="mt-0.5 text-base font-semibold leading-snug text-zinc-900">
-          {awayLabel} <span className="font-normal text-zinc-400">vs</span> {homeLabel}
+          {sitOutSlot ? (
+            <>
+              {sitOutTeam?.name ?? "Unassigned"}{" "}
+              <span className="font-normal text-zinc-500">sits out</span>
+            </>
+          ) : (
+            <>
+              {awayLabel} <span className="font-normal text-zinc-400">vs</span> {homeLabel}
+            </>
+          )}
         </p>
         <p className="mt-1 text-xs text-zinc-600">
           {formatFieldWithLocation(game.field.name, game.field.location.name)}
@@ -282,6 +294,9 @@ function ScorekeeperGameCard({
         </p>
       </div>
 
+      {sitOutSlot ? (
+        <p className="p-4 text-sm text-zinc-600">This is a sit-out, not a scored game. Assign the team under Games → Edit.</p>
+      ) : (
       <form action={scoreAction} className="flex flex-col gap-4 p-4">
         <input type="hidden" name="id" value={game.id} />
         <input type="hidden" name="gameKind" value={game.gameKind} />
@@ -446,6 +461,7 @@ function ScorekeeperGameCard({
           {scorePending ? "Saving…" : savedFlash ? "Saved" : "Save score"}
         </button>
       </form>
+      )}
     </article>
   );
 }

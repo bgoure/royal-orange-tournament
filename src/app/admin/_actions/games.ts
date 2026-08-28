@@ -29,6 +29,7 @@ import { parseDatetimeLocalInTimeZone } from "@/lib/datetime-tournament";
 import { getTournamentForRequest, type TournamentForRequest } from "@/lib/tournament-context";
 import { buildRoundRobinPairings, scheduleRoundRobinSlots } from "@/lib/services/round-robin-schedule";
 import { assertNoFieldScheduleConflict } from "@/lib/services/schedule-conflicts";
+import { isOba13SitOutGameNumber } from "@/lib/services/oba-de-13";
 import { GameKind } from "@prisma/client";
 import type { Session } from "next-auth";
 
@@ -458,15 +459,32 @@ export async function updateBracketGameTeams(
       return { ok: false, error: "Not a bracket or consolation game" };
     }
     const d = parsed.data;
-    await assertTeamsInBracketTournament(ctx.tournament.id, d.homeTeamId, d.awayTeamId);
-
-    await prisma.game.update({
+    const row = await prisma.game.findFirst({
       where: { id: d.id },
-      data: {
-        homeTeamId: d.homeTeamId,
-        awayTeamId: d.awayTeamId,
-      },
+      select: { gameNumber: true },
     });
+    if (isOba13SitOutGameNumber(row?.gameNumber)) {
+      const sitOutId = d.homeTeamId ?? d.awayTeamId;
+      if (sitOutId) {
+        await assertTeamsInBracketTournament(ctx.tournament.id, sitOutId, null);
+      }
+      await prisma.game.update({
+        where: { id: d.id },
+        data: { homeTeamId: sitOutId, awayTeamId: null },
+      });
+    } else {
+      if (d.homeTeamId == null && d.awayTeamId == null) {
+        return { ok: false, error: "Set at least one team (the other may stay TBD)" };
+      }
+      await assertTeamsInBracketTournament(ctx.tournament.id, d.homeTeamId, d.awayTeamId);
+      await prisma.game.update({
+        where: { id: d.id },
+        data: {
+          homeTeamId: d.homeTeamId,
+          awayTeamId: d.awayTeamId,
+        },
+      });
+    }
 
     await recomputePools([existing.poolId].filter((id): id is string => id != null));
     revalidatePath("/admin/games");

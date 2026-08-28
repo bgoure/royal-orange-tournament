@@ -8,6 +8,7 @@ import {
   oba13EndgameBranch,
   oba13GamesForUnusedBranch,
   isOba13AlternateEndgameSlot,
+  isOba13SitOutGameNumber,
   suggestOba13OddRoundPairing,
 } from "@/lib/services/oba-de-13";
 import type { ObaByeCandidate } from "@/lib/services/oba-bye-award";
@@ -88,6 +89,13 @@ describe("oba13EndgameBranch", () => {
     assert.equal(isOba13AlternateEndgameSlot("R6 Bye", "23B"), true);
     assert.equal(isOba13AlternateEndgameSlot("23A", "24A"), false);
     assert.equal(isOba13AlternateEndgameSlot("23A", "21"), false);
+  });
+
+  it("identifies R5/R6/R7 bye rows as sit-out slots, not matchups", () => {
+    assert.equal(isOba13SitOutGameNumber("R5 Bye"), true);
+    assert.equal(isOba13SitOutGameNumber("R6 Bye"), true);
+    assert.equal(isOba13SitOutGameNumber("R7 Bye"), true);
+    assert.equal(isOba13SitOutGameNumber("23A"), false);
   });
 });
 

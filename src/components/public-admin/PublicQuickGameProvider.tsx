@@ -27,6 +27,7 @@ import {
   formatJsDateAsDatetimeLocalInZone,
   parseDatetimeLocalInTimeZone,
 } from "@/lib/datetime-tournament";
+import { isOba13SitOutGameNumber } from "@/lib/services/oba-de-13";
 
 export type QuickEditFieldOption = { id: string; label: string };
 
@@ -46,6 +47,7 @@ export type QuickEditGamePayload = {
   awayTeamId: string | null;
   homeTeamName: string;
   awayTeamName: string;
+  gameNumber?: string | null;
 };
 
 type Ctx = {
@@ -417,8 +419,17 @@ function QuickGameModal({
           ) : null}
 
           <p className="text-center text-base font-bold text-zinc-900 dark:text-zinc-100">
-            {game.awayTeamName}{" "}
-            <span className="font-normal text-accent dark:text-accent-light">vs</span> {game.homeTeamName}
+            {isOba13SitOutGameNumber(game.gameNumber) ? (
+              <>
+                {game.homeTeamName !== "TBD" ? game.homeTeamName : game.awayTeamName !== "TBD" ? game.awayTeamName : "Unassigned"}{" "}
+                <span className="font-normal text-zinc-500">sits out</span>
+              </>
+            ) : (
+              <>
+                {game.awayTeamName}{" "}
+                <span className="font-normal text-accent dark:text-accent-light">vs</span> {game.homeTeamName}
+              </>
+            )}
           </p>
 
           <div className="flex items-start justify-between gap-3 text-xs text-sky-600 dark:text-sky-400">

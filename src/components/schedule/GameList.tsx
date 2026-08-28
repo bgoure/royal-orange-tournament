@@ -10,6 +10,7 @@ import {
   tournamentCalendarDayKey,
 } from "@/lib/datetime-tournament";
 import { playoffScheduleBracketCaption, poolFinishPlaceholderLabel } from "@/lib/brackets/bracket-display";
+import { isOba13SitOutGameNumber } from "@/lib/services/oba-de-13";
 import { brandCardGradientClass } from "@/lib/brand-card-gradient";
 import { publicGlassCardOverlay2xl } from "@/lib/public-glass-card";
 import { DIVISION_SWIPE_IGNORE } from "@/lib/division-swipe-ignore";
@@ -104,6 +105,7 @@ function gameWithTeamsToQuickPayload(g: GameWithTeams): QuickEditGamePayload {
     awayTeamId: g.awayTeamId,
     homeTeamName: home.text,
     awayTeamName: away.text,
+    gameNumber: g.gameNumber,
   };
 }
 
@@ -215,8 +217,10 @@ function groupIndexedGamesByCalendarDay(
 /** Uses admin `gameNumber` when set; otherwise falls back to list position. */
 function gameIdDisplayLabel(g: GameWithTeams, fallbackSeq: number): string {
   const n = g.gameNumber?.trim();
-  if (n) return `G${n}`;
-  return `G${fallbackSeq}`;
+  if (!n) return `G${fallbackSeq}`;
+  if (/bye/i.test(n)) return n;
+  if (/^G/i.test(n)) return n;
+  return `G${n}`;
 }
 
 function bracketCaptionForScheduleCard(g: GameWithTeams): string | null {
@@ -330,6 +334,17 @@ function GameCardInner({
 
   const homeSide = scheduleSideLabel(g, "home");
   const awaySide = scheduleSideLabel(g, "away");
+  const sitOutSlot = isOba13SitOutGameNumber(g.gameNumber);
+  const sitOutTeam = sitOutSlot ? (g.homeTeam ?? g.awayTeam) : null;
+  const sitOutText = sitOutSlot
+    ? sitOutTeam?.name
+      ? `${sitOutTeam.name} sits out`
+      : "Sit-out unassigned"
+    : null;
+  const sitOutNameCls = scheduleSideNameClass(
+    `${nameTone} ${nameSize}`,
+    !sitOutTeam?.name,
+  );
   const homeNameCls = scheduleSideNameClass(`${nameTone} ${nameSize}`, homeSide.isPlaceholder);
   const awayNameCls = scheduleSideNameClass(`${nameTone} ${nameSize}`, awaySide.isPlaceholder);
   const homeNameClsSm = scheduleSideNameClass(
@@ -382,7 +397,20 @@ function GameCardInner({
       ? formatGameScheduledAtShort(g.scheduledAt, displayTimeZone)
       : formatGameScheduledAt(g.scheduledAt, displayTimeZone);
 
-    const matchupBlock = compact ? (
+    const matchupBlock = sitOutSlot ? (
+      <div className="mt-1.5 flex min-w-0 items-center gap-2">
+        <TeamLogoMark team={sitOutTeam} sizeClass={compact ? logoSize : scheduleLogoSize} className={logoTone} />
+        <span className={`min-w-0 ${sitOutNameCls}`}>{sitOutText}</span>
+        {tournamentId && sitOutTeam?.id ? (
+          <FavoriteTeamButton
+            tournamentId={tournamentId}
+            teamId={sitOutTeam.id}
+            teamName={sitOutTeam.name}
+            divisionId={divisionIdForFavorite}
+          />
+        ) : null}
+      </div>
+    ) : compact ? (
       <div className="mt-1.5 min-w-0 space-y-0.5">
         <p className={`flex min-w-0 items-center gap-2 leading-snug ${awayNameCls}`}>
           <TeamLogoMark team={g.awayTeam} sizeClass={logoSize} className={logoTone} />
@@ -526,7 +554,7 @@ function GameCardInner({
         </span>
       </div>
 
-      {hasScore ? (
+      {hasScore && !sitOutSlot ? (
         <div className={`mt-1.5 space-y-1 ${liveProminent ? "text-lg" : ""}`}>
           <div className="flex min-w-0 items-center justify-between gap-2">
             <div className="flex min-w-0 items-center gap-2">
@@ -564,6 +592,19 @@ function GameCardInner({
             </div>
             <span className={`shrink-0 font-bold tabular-nums ${scoreTone} ${scoreNum}`}>{g.homeRuns}</span>
           </div>
+        </div>
+      ) : sitOutSlot ? (
+        <div className="mt-1.5 flex min-w-0 items-center gap-2">
+          <TeamLogoMark team={sitOutTeam} sizeClass={logoSize} className={logoTone} />
+          <span className={`min-w-0 truncate ${sitOutNameCls}`}>{sitOutText}</span>
+          {tournamentId && sitOutTeam?.id ? (
+            <FavoriteTeamButton
+              tournamentId={tournamentId}
+              teamId={sitOutTeam.id}
+              teamName={sitOutTeam.name}
+              divisionId={divisionIdForFavorite}
+            />
+          ) : null}
         </div>
       ) : (
         <div className="mt-1.5 min-w-0 space-y-0.5">

@@ -30,6 +30,7 @@ import { ActionMessage } from "@/components/admin/structure/ActionMessage";
 import { ConfirmForm } from "@/components/admin/structure/ConfirmForm";
 import { ScorekeeperView } from "@/components/admin/games/ScorekeeperView";
 import { formatJsDateAsDatetimeLocalInZone } from "@/lib/datetime-tournament";
+import { isOba13SitOutGameNumber } from "@/lib/services/oba-de-13";
 
 export type AdminGameRow = Game & {
   homeTeam: Team | null;
@@ -953,6 +954,18 @@ function GameCard({
 
   const awayLabel = game.awayTeam ? game.awayTeam.name : "TBD";
   const homeLabel = game.homeTeam ? game.homeTeam.name : "TBD";
+  const sitOutSlot = isOba13SitOutGameNumber(game.gameNumber);
+  const sitOutTeam = sitOutSlot ? (game.homeTeam ?? game.awayTeam) : null;
+  const sitOutLabel = sitOutTeam?.name ?? "Unassigned";
+  const matchupHeadline = sitOutSlot ? (
+    <>
+      {sitOutLabel} <span className="font-normal text-zinc-500">sits out</span>
+    </>
+  ) : (
+    <>
+      {awayLabel} <span className="font-normal text-zinc-400">vs</span> {homeLabel}
+    </>
+  );
   const iso = typeof game.scheduledAt === "string" ? game.scheduledAt : new Date(game.scheduledAt).toISOString();
   const isPoolGame = game.gameKind === GameKind.POOL;
   const hasScore = game.homeRuns != null && game.awayRuns != null;
@@ -991,7 +1004,7 @@ function GameCard({
                 </span>
               ) : null}
               <p className="text-sm font-semibold text-zinc-900">
-                {awayLabel} <span className="font-normal text-zinc-400">vs</span> {homeLabel}
+                {matchupHeadline}
               </p>
               {hasScore ? (
                 <span className="tabular-nums text-sm font-semibold text-zinc-700">{scoreLine}</span>
@@ -1035,24 +1048,30 @@ function GameCard({
             <LockedField label="When" value={whenLabel} />
             <LockedField label="Field" value={fieldLabel} />
             <LockedField label="Context" value={contextLine} />
-            <LockedField label="Away" value={awayLabel} />
-            <LockedField label="Home" value={homeLabel} />
-            <LockedField label={`Runs — ${awayLabel} (A)`} value={game.awayRuns ?? "—"} />
-            <LockedField label={`Runs — ${homeLabel} (H)`} value={game.homeRuns ?? "—"} />
-            {isPoolGame ? (
+            {sitOutSlot ? (
+              <LockedField label="Sitting out" value={sitOutLabel} />
+            ) : (
               <>
-                <LockedField
-                  label={`Def. IP — ${awayLabel} (A)`}
-                  value={game.awayDefensiveInnings ?? "—"}
-                />
-                <LockedField
-                  label={`Def. IP — ${homeLabel} (H)`}
-                  value={game.homeDefensiveInnings ?? "—"}
-                />
+                <LockedField label="Away" value={awayLabel} />
+                <LockedField label="Home" value={homeLabel} />
+                <LockedField label={`Runs — ${awayLabel} (A)`} value={game.awayRuns ?? "—"} />
+                <LockedField label={`Runs — ${homeLabel} (H)`} value={game.homeRuns ?? "—"} />
+                {isPoolGame ? (
+                  <>
+                    <LockedField
+                      label={`Def. IP — ${awayLabel} (A)`}
+                      value={game.awayDefensiveInnings ?? "—"}
+                    />
+                    <LockedField
+                      label={`Def. IP — ${homeLabel} (H)`}
+                      value={game.homeDefensiveInnings ?? "—"}
+                    />
+                  </>
+                ) : null}
+                <LockedField label={`Off. IP — ${awayLabel} (A)`} value={game.awayOffensiveInnings ?? "—"} />
+                <LockedField label={`Off. IP — ${homeLabel} (H)`} value={game.homeOffensiveInnings ?? "—"} />
               </>
-            ) : null}
-            <LockedField label={`Off. IP — ${awayLabel} (A)`} value={game.awayOffensiveInnings ?? "—"} />
-            <LockedField label={`Off. IP — ${homeLabel} (H)`} value={game.homeOffensiveInnings ?? "—"} />
+            )}
             <LockedField label="Status" value={publicGameStatusLabel(game.status)} />
             <LockedField label="Result" value={game.resultType.replace(/_/g, " ")} />
           </dl>
@@ -1069,15 +1088,22 @@ function GameCard({
         <GamesAdminModal
           size="lg"
           title={
-            game.gameNumber
-              ? `Edit ${game.gameNumber}`
-              : `Edit ${awayLabel} vs ${homeLabel}`
+            sitOutSlot
+              ? `Edit ${game.gameNumber ?? "sit-out"}`
+              : game.gameNumber
+                ? `Edit ${game.gameNumber}`
+                : `Edit ${awayLabel} vs ${homeLabel}`
           }
-          description="Update scoring, schedule, field, and teams for this game. Saves refresh the list."
+          description={
+            sitOutSlot
+              ? "This is a sit-out, not a game. Assign the one team that skips this round."
+              : "Update scoring, schedule, field, and teams for this game. Saves refresh the list."
+          }
           onClose={() => setEditing(false)}
         >
           <ActionMessage state={delState} />
           <div className="flex flex-col gap-6">
+            {!sitOutSlot ? (
             <div>
               <h3 className="text-xs font-semibold uppercase tracking-wide text-zinc-500">
                 Scoring &amp; innings
@@ -1248,6 +1274,7 @@ function GameCard({
                 </div>
               </form>
             </div>
+            ) : null}
 
             {game.poolId ? (
               <div className="border-t border-zinc-100 pt-4">
@@ -1429,15 +1456,41 @@ function GameCard({
                 </div>
                 <div className="border-t border-zinc-100 pt-4">
                   <h3 className="text-xs font-semibold uppercase tracking-wide text-zinc-500">
-                    Teams (override)
+                    {sitOutSlot ? "Team sitting out" : "Teams (override)"}
                   </h3>
                   <p className="mt-1 text-xs text-zinc-600">
-                    Adjust matchups after standings seeding, or fix one-off swaps. Either side may stay{" "}
-                    <strong>TBD</strong> (e.g. seed-1 bye on G3 home while the Round 1 winner is still open).
+                    {sitOutSlot
+                      ? "Pick the one team that skips this round. There is no opponent — this is not a matchup."
+                      : (
+                        <>
+                          Adjust matchups after standings seeding, or fix one-off swaps. Either side may stay{" "}
+                          <strong>TBD</strong> (e.g. seed-1 bye on G3 home while the Round 1 winner is still open).
+                        </>
+                      )}
                   </p>
                   <ActionMessage state={bracketTeamsState} />
                   <form action={bracketTeamsAction} className="mt-3 flex flex-col gap-3">
                     <input type="hidden" name="id" value={game.id} />
+                    {sitOutSlot ? (
+                      <>
+                        <input type="hidden" name="awayTeamId" value="" />
+                        <div>
+                          <label className={labelClass}>Sitting out</label>
+                          <select
+                            name="homeTeamId"
+                            defaultValue={sitOutTeam?.id ?? ""}
+                            className={`${formClass} mt-1 w-full`}
+                          >
+                            <option value="">Unassigned</option>
+                            {allTeamsFlat.map((t) => (
+                              <option key={t.id} value={t.id}>
+                                {t.label}
+                              </option>
+                            ))}
+                          </select>
+                        </div>
+                      </>
+                    ) : (
                     <div className="grid gap-3 sm:grid-cols-2">
                       <div>
                         <label className={labelClass}>Away</label>
@@ -1470,12 +1523,13 @@ function GameCard({
                         </select>
                       </div>
                     </div>
+                    )}
                     <button
                       type="submit"
                       disabled={bracketTeamsPending}
                       className={`${btnSecondary} w-fit px-3 py-2 text-sm`}
                     >
-                      {bracketTeamsPending ? "Saving…" : "Save teams"}
+                      {bracketTeamsPending ? "Saving…" : sitOutSlot ? "Save sit-out team" : "Save teams"}
                     </button>
                   </form>
                 </div>

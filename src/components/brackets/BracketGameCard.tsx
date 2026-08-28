@@ -9,6 +9,7 @@ import { TeamLogoMark } from "@/components/ui/TeamLogo";
 import { GAME_CARD_STATUS_STYLES, publicGameStatusLabel } from "@/components/schedule/GameList";
 import type { GameRow } from "@/components/brackets/bracket-types";
 import { getBracketSlotSources } from "@/lib/brackets/game-slot-sources";
+import { isOba13SitOutGameNumber } from "@/lib/services/oba-de-13";
 import { BRACKET_TEAM_NAME_CLASS } from "@/components/brackets/bracket-card-layout";
 import { slotLines, slotLineTextClass } from "@/components/brackets/bracket-slot-lines";
 import type { QuickEditGamePayload } from "@/components/public-admin/PublicQuickGameProvider";
@@ -31,6 +32,7 @@ function gameRowToQuickPayload(game: GameRow): QuickEditGamePayload {
     awayTeamId: game.awayTeamId,
     homeTeamName: game.homeTeam?.name ?? "TBD",
     awayTeamName: game.awayTeam?.name ?? "TBD",
+    gameNumber: game.gameNumber,
   };
 }
 
@@ -184,6 +186,13 @@ export function BracketGameCard({
   const timeOnly = formatBracketGameTimeOnly(game.scheduledAt, timeZone, game.schedulePlaceholder);
 
   const hasScore = game.status === "FINAL" && game.homeRuns != null && game.awayRuns != null;
+  const sitOutSlot = isOba13SitOutGameNumber(game.gameNumber);
+  const sitOutTeam = sitOutSlot ? (game.homeTeam ?? game.awayTeam) : null;
+  const sitOutText = sitOutSlot
+    ? sitOutTeam?.name
+      ? `${sitOutTeam.name} sits out`
+      : "Sit-out unassigned"
+    : null;
 
   return (
     <article
@@ -208,7 +217,19 @@ export function BracketGameCard({
 
       <div className="mt-1.5 flex flex-col items-center gap-0.5 text-center">{metaRow}</div>
 
-      {hasScore ? (
+      {sitOutSlot ? (
+        <div className="mt-1.5 flex flex-col items-center gap-1 text-center">
+          <TeamLogoMark team={sitOutTeam} sizeClass={scheduleLogoSize} />
+          <p
+            data-bracket-team-name
+            className={`text-sm leading-[1.15] ${BRACKET_TEAM_NAME_CLASS} ${
+              sitOutTeam ? "font-bold text-zinc-900" : "font-medium italic text-zinc-500"
+            }`}
+          >
+            {sitOutText}
+          </p>
+        </div>
+      ) : hasScore ? (
         <div className="mt-1.5 space-y-2">
           <div className="flex items-start justify-between gap-2">
             <div className="flex min-w-0 flex-1 flex-col items-start gap-1">

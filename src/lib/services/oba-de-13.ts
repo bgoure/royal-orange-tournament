@@ -96,6 +96,10 @@ export function isOba13AlternateEndgameSlot(
   return (aOnA && bOnB) || (aOnB && bOnA);
 }
 
+export function isOba13SitOutGameNumber(n: string | null | undefined): boolean {
+  return n === OBA13_GAME.BYE_R5 || n === OBA13_GAME.BYE_R6 || n === OBA13_GAME.BYE_R7;
+}
+
 /** RP5.2 n.i + n.ii pool (admin may still override). */
 export function rp52EligibleByeTeamIds(candidates: ObaByeCandidate[]): string[] {
   if (candidates.length === 0) return [];
