@@ -97,6 +97,38 @@ export function resolveBracketOutcome(bracket: BracketWith): ResolvedBracketOutc
   const divisionName = bracket.division.name;
   const seriesWinner = resolveChampionshipSeriesWinner(bracket);
 
+  if (bracket.presetKey === "oba_de_13" && !isQualifier && qualifyingTeamCount <= 1) {
+    const entrants = entrantIdsFromBracket(bracket);
+    const alive = aliveTeamIds({
+      format: bracket.format,
+      entrantTeamIds: entrants,
+      games: bracket.games,
+    });
+    if (entrants.length > 1 && alive.length === 1) {
+      const winnerTeam = teamFromGames(bracket, alive[0]!);
+      if (winnerTeam?.name) {
+        return {
+          divisionName,
+          winnerTeam,
+          qualifiedTeams: [winnerTeam],
+          isQualifier: false,
+          qualifyingTeamCount: 1,
+          concluded: true,
+        };
+      }
+    }
+    if (seriesWinner) {
+      return {
+        divisionName,
+        winnerTeam: seriesWinner,
+        qualifiedTeams: [seriesWinner],
+        isQualifier: false,
+        qualifyingTeamCount: 1,
+        concluded: true,
+      };
+    }
+  }
+
   if (isQualifier || qualifyingTeamCount > 1) {
     const entrants = entrantIdsFromBracket(bracket);
     const alive = aliveTeamIds({

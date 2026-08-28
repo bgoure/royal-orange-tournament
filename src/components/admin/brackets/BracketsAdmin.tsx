@@ -28,6 +28,8 @@ import { formatFieldWithLocation } from "@/lib/field-display";
 import { tournamentPathFromBase } from "@/lib/tournament-public-path";
 import { classicSingleElimOrder } from "@/lib/services/bracket-engine";
 import { isObaDePresetKey, type ObaDePresetKey } from "@/lib/brackets/oba-de-presets";
+import { Oba13PlacementPanel } from "@/components/admin/brackets/Oba13PlacementPanel";
+import type { Oba13PlacementBoard } from "@/lib/services/oba-de-13-placement";
 import type { GrandFinalMode, Pool } from "@prisma/client";
 
 function seededDePresetForTeamCount(n: number): ObaDePresetKey | null {
@@ -108,6 +110,7 @@ type Props = {
   brackets: BracketRow[];
   consolationGames: ConsolationAdminRow[];
   feederBrackets?: FeederBracketRow[];
+  oba13PlacementBoards?: Oba13PlacementBoard[];
   /** From `?division=` — sticky across refresh. */
   initialDivisionId?: string;
   tournamentName: string;
@@ -297,15 +300,20 @@ function SeedOrderRows({
       <input type="hidden" name="formatPreset" value={presetKey} />
       <input type="hidden" name="seedTeamIds" value={JSON.stringify(seedIds)} />
       <div>
-        <h3 className="text-xs font-semibold uppercase tracking-wide text-zinc-500">Seed order</h3>
+        <h3 className="text-xs font-semibold uppercase tracking-wide text-zinc-500">
+          {presetKey === "oba_de_13" || presetKey === "oba_de_4" ? "Draw order" : "Seed order"}
+        </h3>
         <p className="mt-1 text-xs text-zinc-500">
-          Seed 1 = strongest. For 5–6 teams, top seeds receive Round 1 byes (no BYE game cards). Public
-          view uses Round 1, Round 2, … columns with G# Winner / G# Loser placeholders.
+          {presetKey === "oba_de_13" || presetKey === "oba_de_4"
+            ? "Draw order: first team sits Round 1 (Team 1). Remaining teams pair in order into Round 1 games."
+            : "Seed 1 = strongest. For 5–7 teams, top seeds receive Round 1 byes (no BYE game cards). Public view uses Round 1, Round 2, … columns with G# Winner / G# Loser placeholders."}
         </p>
         <div className="mt-3 grid gap-2 sm:grid-cols-2">
           {Array.from({ length: n }, (_, i) => (
             <div key={i}>
-              <p className={labelClass}>Seed {i + 1}</p>
+              <p className={labelClass}>
+                {presetKey === "oba_de_13" || presetKey === "oba_de_4" ? `Draw ${i + 1}` : `Seed ${i + 1}`}
+              </p>
               <select
                 value={seedIds[i] ?? ""}
                 onChange={(e) => {
@@ -486,6 +494,7 @@ export function BracketsAdmin({
   brackets,
   consolationGames,
   feederBrackets = [],
+  oba13PlacementBoards = [],
   initialDivisionId,
   tournamentName,
   publicSitePath,
@@ -1046,9 +1055,9 @@ export function BracketsAdmin({
                     {createFormat === "SINGLE_ELIMINATION"
                       ? "One loss eliminates. Pad the field to a power of 2 with BYEs."
                       : createFormat === "DOUBLE_ELIMINATION" && seededDePreset
-                        ? `This division has ${divisionTeams.length} teams — creates a Round 1–N seeded double-elim workbook (implicit byes, G# Winner/Loser labels).`
+                        ? `This division has ${divisionTeams.length} teams — creates a Round 1–N double-elim workbook.`
                         : createFormat === "DOUBLE_ELIMINATION"
-                          ? "One-loss losers bracket + grand final. For 4–7 teams, use a division with that exact team count for the seeded Round N workbook."
+                          ? "One-loss losers bracket + grand final. For 4–7 or 13 teams, use a division with that exact team count for the OBA workbook."
                           : "Three lives: W → L1 (1 loss) → L2 (2 losses). L2 champ meets W champ in the grand final."}
                   </p>
                 </div>
@@ -1461,6 +1470,11 @@ export function BracketsAdmin({
                       action={celebrationAction}
                       pending={celebrationPending}
                     />
+                    {oba13PlacementBoards
+                      .filter((board) => board.bracketId === b.id)
+                      .map((board) => (
+                        <Oba13PlacementPanel key={`${board.bracketId}-${board.phase}`} board={board} />
+                      ))}
                   </div>
                   <div className="flex flex-wrap gap-2">
                     <form action={publishAction}>

@@ -54,6 +54,7 @@ const formatPresetSchema = z.enum([
   "oba_de_5",
   "oba_de_6",
   "oba_de_7",
+  "oba_de_13",
   "custom",
 ]);
 

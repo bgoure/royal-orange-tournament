@@ -121,6 +121,7 @@ export function chronologicalRoundColumns<
 
   for (const round of sorted) {
     const games = sortGames(gamesByRoundId.get(round.id) ?? []);
+    if (games.length === 0) continue;
     if (round.roundType === "FINAL" && games.length >= 2) {
       const priorRoundNames = columns.filter((c) => /^round\s+\d+/i.test(c.label)).length;
       const champLabel = priorRoundNames > 0 ? `Round ${priorRoundNames + 1}` : "Championship";

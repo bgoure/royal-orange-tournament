@@ -10,6 +10,7 @@ import {
   listFieldsForBrackets,
   listPoolsAdvancingConfig,
 } from "@/lib/services/admin-brackets";
+import { listOba13PlacementBoards } from "@/lib/services/oba-de-13-placement";
 import { can } from "@/lib/rbac/permissions";
 import { getTournamentForRequest } from "@/lib/tournament-context";
 import { tournamentPublicBasePath } from "@/lib/tournament-public-path";
@@ -28,7 +29,7 @@ export default async function AdminBracketsPage({
     return <AdminNoTournamentPlaceholder />;
   }
 
-  const [pools, fields, brackets, divisionsRaw, consolationGames, feederBrackets] =
+  const [pools, fields, brackets, divisionsRaw, consolationGames, feederBrackets, oba13PlacementBoards] =
     await Promise.all([
       listPoolsAdvancingConfig(tournament.id),
       listFieldsForBrackets(tournament.id),
@@ -36,6 +37,7 @@ export default async function AdminBracketsPage({
       listDivisionsForPlayoffWizard(tournament.id),
       listConsolationGamesForAdmin(tournament.id),
       listBracketFeederMatches(tournament.id),
+      listOba13PlacementBoards(tournament.id),
     ]);
 
   const divisions = divisionsRaw.map((d) => ({
@@ -70,6 +72,7 @@ export default async function AdminBracketsPage({
       brackets={brackets}
       consolationGames={consolationGames}
       feederBrackets={feederBrackets}
+      oba13PlacementBoards={oba13PlacementBoards}
       initialDivisionId={initialDivisionId}
       tournamentName={tournament.name}
       publicSitePath={tournamentPublicBasePath(tournament)}

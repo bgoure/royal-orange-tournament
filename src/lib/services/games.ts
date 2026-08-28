@@ -17,6 +17,20 @@ function publicConsolationVisibilityClause(): Prisma.GameWhereInput {
   };
 }
 
+/** Hide cancelled playoff slots that were never played (unused A/B branch, unused if-necessary). */
+function hideUnusedPlayoffSlotsClause(): Prisma.GameWhereInput {
+  return {
+    NOT: {
+      AND: [
+        { status: GameStatus.CANCELLED },
+        { gameKind: GameKind.PLAYOFF },
+        { homeTeamId: null },
+        { awayTeamId: null },
+      ],
+    },
+  };
+}
+
 const gameListInclude = {
   field: { include: { location: { select: { name: true } } } },
   homeTeam: teamWithPublicLogoInclude,
@@ -103,7 +117,11 @@ function sortGamesForScheduleList<T extends { gameNumber: string | null; schedul
 }
 
 export async function listGamesForTournament(tournamentId: string, filters: GameListFilters = {}) {
-  const conditions: Prisma.GameWhereInput[] = [{ tournamentId }, publicConsolationVisibilityClause()];
+  const conditions: Prisma.GameWhereInput[] = [
+    { tournamentId },
+    publicConsolationVisibilityClause(),
+    hideUnusedPlayoffSlotsClause(),
+  ];
 
   if (filters.teamId) {
     conditions.push({
@@ -141,6 +159,7 @@ export async function listFinalGamesForTournament(tournamentId: string, filters:
   const conditions: Prisma.GameWhereInput[] = [
     { tournamentId },
     publicConsolationVisibilityClause(),
+    hideUnusedPlayoffSlotsClause(),
     { status: { in: PUBLIC_RECENT_RESULT_STATUSES } },
   ];
 
@@ -188,6 +207,7 @@ async function listGameFilterFacets(
   const conditions: Prisma.GameWhereInput[] = [
     { tournamentId },
     publicConsolationVisibilityClause(),
+    hideUnusedPlayoffSlotsClause(),
   ];
   if (extraWhere) conditions.push(extraWhere);
   const divW = divisionTabGameWhere(divisionId);
@@ -325,6 +345,7 @@ export async function listRecentGamesForHome(
   const conditions: Prisma.GameWhereInput[] = [
     { tournamentId },
     publicConsolationVisibilityClause(),
+    hideUnusedPlayoffSlotsClause(),
     { status: { in: PUBLIC_RECENT_RESULT_STATUSES } },
   ];
   const divW = divisionTabGameWhere(divisionTabId);

@@ -34,6 +34,7 @@ import {
   updateBracketQualifierSchema,
   toggleBracketCelebrationSchema,
   updatePoolAdvancingSchema,
+  applyOba13PlacementSchema,
 } from "@/lib/validations/bracket-admin";
 import { saveBracketRoundZeroSeedingSchema } from "@/lib/validations/bracket-seed-board";
 import { advanceByeWinnersInRound0, resyncQualifierConclusion } from "@/lib/services/bracket-advance";
@@ -1038,6 +1039,62 @@ export async function updateBracketFeederAction(
     return { ok: true };
   } catch (e) {
     const msg = e instanceof Error ? e.message : "Failed to update feeder";
+    return { ok: false, error: msg };
+  }
+}
+
+export async function applyOba13PlacementAction(
+  _prev: BracketActionResult | undefined,
+  formData: FormData,
+): Promise<BracketActionResult> {
+  const ctx = await bracketContext();
+  if ("error" in ctx) return { ok: false, error: ctx.error };
+  if (!can(ctx.session.user.role, "bracket:configure") && !can(ctx.session.user.role, "game:update")) {
+    return deny();
+  }
+
+  let matchups: unknown;
+  try {
+    matchups = JSON.parse(String(formData.get("matchups") ?? "[]"));
+  } catch {
+    return { ok: false, error: "Invalid matchup payload." };
+  }
+
+  const parsed = applyOba13PlacementSchema.safeParse({
+    bracketId: formData.get("bracketId"),
+    phase: formData.get("phase"),
+    byeTeamId: formData.get("byeTeamId"),
+    matchups,
+  });
+  if (!parsed.success) {
+    return { ok: false, error: parsed.error.flatten().formErrors.join(", ") || "Invalid placement." };
+  }
+
+  const bracket = await prisma.bracket.findFirst({
+    where: { id: parsed.data.bracketId, tournamentId: ctx.tournament.id },
+    select: { id: true, divisionId: true, presetKey: true },
+  });
+  if (!bracket || bracket.presetKey !== "oba_de_13") {
+    return { ok: false, error: "13-team bracket not found." };
+  }
+  const scopeErr = await assertDivisionScope(
+    ctx.session.user.id,
+    ctx.session.user.role,
+    bracket.divisionId,
+  );
+  if (scopeErr) return { ok: false, error: scopeErr };
+
+  try {
+    const { applyOba13Placement } = await import("@/lib/services/oba-de-13-placement");
+    await applyOba13Placement(parsed.data);
+    const { maybeResolveObaPresetPairings } = await import("@/lib/services/oba-de-redraw");
+    await maybeResolveObaPresetPairings(parsed.data.bracketId);
+    revalidatePath("/admin/brackets");
+    revalidatePath("/admin/games");
+    await revalidatePublishedTournamentSites();
+    return { ok: true };
+  } catch (e) {
+    const msg = e instanceof Error ? e.message : "Failed to save placement";
     return { ok: false, error: msg };
   }
 }

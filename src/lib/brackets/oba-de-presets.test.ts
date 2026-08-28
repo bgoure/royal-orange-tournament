@@ -32,7 +32,14 @@ describe("OBA DE presets", () => {
         ),
       );
     }
-    assert.equal(Object.keys(OBA_DE_PRESETS).length, 4);
+    assert.equal(Object.keys(OBA_DE_PRESETS).length, 5);
+  });
+
+  it("defines 13-team draw preset", () => {
+    assert.equal(isObaDePresetKey("oba_de_13"), true);
+    const p = getObaDePreset("oba_de_13");
+    assert.equal(p.teamCount, 13);
+    assert.ok(p.explainer.some((s) => /bracket a/i.test(s.title) || /bracket a/i.test(s.body)));
   });
 
   it("maps implicit bye seeds to Round 2 game numbers", () => {
@@ -53,6 +60,9 @@ describe("OBA DE presets", () => {
     assert.ok(!five.includes("oba_de_4"));
     assert.ok(five.includes("double_elim_classic"));
     assert.ok(five.includes("custom"));
+    const thirteen = wizardFormatOptionsForTeamCount(13).map((o) => o.key);
+    assert.ok(thirteen.includes("oba_de_13"));
+    assert.ok(!thirteen.includes("oba_de_5"));
   });
 
   it("provides classic explainers", () => {

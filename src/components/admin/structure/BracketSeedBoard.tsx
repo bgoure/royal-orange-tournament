@@ -291,6 +291,13 @@ export function BracketSeedBoard({
         </p>
       ) : null}
 
+      {presetKey === "oba_de_13" && matches.length === 6 ? (
+        <p className="mt-3 rounded-md border border-emerald-200 bg-emerald-50/80 px-3 py-2 text-xs text-emerald-950">
+          13-team draw: Round 1 is six games. Drop <strong>Team 1</strong> (first drawn) into the bye
+          slot on the right — they fill G10 home (Round 2). Winner of Game 1 sits Round 2 into G16.
+        </p>
+      ) : null}
+
       {!canConfigure ? (
         <p className="mt-3 text-xs text-zinc-500">You don’t have permission to edit Round 1 seeds.</p>
       ) : null}

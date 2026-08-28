@@ -51,8 +51,10 @@ const scoredLogoSize = "h-8 w-8 min-h-[32px] min-w-[32px]";
 
 function bracketGameIdLabel(game: GameRow, listIndexZeroBased: number): string {
   const n = game.gameNumber?.trim();
-  if (n) return `G${n}`;
-  return `G${listIndexZeroBased + 1}`;
+  if (!n) return `G${listIndexZeroBased + 1}`;
+  if (/bye/i.test(n)) return n;
+  if (/^G/i.test(n)) return n;
+  return `G${n}`;
 }
 
 function isDirectEntryPoolName(name: string | null | undefined): boolean {

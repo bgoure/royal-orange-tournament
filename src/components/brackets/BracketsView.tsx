@@ -193,7 +193,13 @@ export function BracketDesktopTree({
   );
   const visibleRoundIds = useMemo(() => new Set(visibleRounds.map((r) => r.id)), [visibleRounds]);
   const gamesInScope = useMemo(
-    () => b.games.filter((g) => g.bracketRoundId && visibleRoundIds.has(g.bracketRoundId)),
+    () =>
+      b.games.filter(
+        (g) =>
+          g.bracketRoundId &&
+          visibleRoundIds.has(g.bracketRoundId) &&
+          g.status !== "CANCELLED",
+      ),
     [b.games, visibleRoundIds],
   );
   const byRound = useMemo(() => {
@@ -280,7 +286,13 @@ function BracketSection({
   const visibleRoundIds = useMemo(() => new Set(visibleRounds.map((r) => r.id)), [visibleRounds]);
 
   const gamesInScope = useMemo(
-    () => b.games.filter((g) => g.bracketRoundId && visibleRoundIds.has(g.bracketRoundId)),
+    () =>
+      b.games.filter(
+        (g) =>
+          g.bracketRoundId &&
+          visibleRoundIds.has(g.bracketRoundId) &&
+          g.status !== "CANCELLED",
+      ),
     [b.games, visibleRoundIds],
   );
 

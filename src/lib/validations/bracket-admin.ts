@@ -193,3 +193,22 @@ export const createConsolationGameSchema = z.object({
 export const deleteConsolationGameSchema = z.object({
   gameId: z.string().min(1),
 });
+
+export const applyOba13PlacementSchema = z.object({
+  bracketId: z.string().min(1),
+  phase: z.enum(["r5", "r6", "r7"]),
+  byeTeamId: z.preprocess(
+    (v) => (v == null || String(v).trim() === "" ? null : String(v).trim()),
+    z.string().min(1).nullable(),
+  ),
+  matchups: z
+    .array(
+      z.object({
+        gameNumber: z.string().min(1),
+        homeTeamId: z.string().min(1),
+        awayTeamId: z.string().min(1),
+      }),
+    )
+    .min(1)
+    .max(2),
+});

@@ -13,6 +13,7 @@ import {
 } from "./rematch-aware-pairing";
 import type { StandingsGameInput } from "@/lib/services/standings/standings-engine";
 import { maybeResolveObaPresetPairings } from "@/lib/services/oba-de-redraw";
+import { isObaFeederMapPreset } from "@/lib/brackets/oba-de-presets";
 
 async function placeIntoGrandFinalHome(bracketId: string, teamId: string): Promise<void> {
   const grandFinal = await prisma.bracketRound.findFirst({
@@ -77,7 +78,7 @@ async function placeViaExplicitFeeders(
   let placed = false;
   for (const t of targets) {
     if (!t.gameId || !t.game) continue;
-    if (t.game.status === "LIVE" || t.game.status === "FINAL") continue;
+    if (t.game.status === "LIVE" || t.game.status === "FINAL" || t.game.status === "CANCELLED") continue;
     if (t.homeFromMatchId === sourceMatchId && t.homeFromKind === kind && t.game.homeTeamId == null) {
       await prisma.game.update({ where: { id: t.gameId }, data: { homeTeamId: teamId } });
       placed = true;
@@ -96,7 +97,7 @@ async function placeIntoMatchSeat(matchId: string, teamId: string): Promise<bool
     include: { game: true },
   });
   if (!match?.gameId || !match.game) return false;
-  if (match.game.status === "LIVE" || match.game.status === "FINAL") return false;
+  if (match.game.status === "LIVE" || match.game.status === "FINAL" || match.game.status === "CANCELLED") return false;
   if (match.game.homeTeamId === teamId || match.game.awayTeamId === teamId) return true;
   if (match.game.homeTeamId == null) {
     await prisma.game.update({ where: { id: match.gameId }, data: { homeTeamId: teamId } });
@@ -230,7 +231,7 @@ async function loadBracketPriorMeetings(bracketId: string): Promise<Set<string>>
  * Build RP5.2 bye candidates + RP7.3 game inputs for an odd pairing cohort.
  * Bye history: structural R0 BYE advances + prior sit-out games (one team assigned, opponent null).
  */
-async function loadObaByeCandidatesForTeams(
+export async function loadObaByeCandidatesForTeams(
   bracketId: string,
   teamIds: string[],
   currentRoundIndex: number,
@@ -611,10 +612,7 @@ export async function advanceBracketWinnerFromGame(gameId: string): Promise<void
   });
   const avoid = bracket?.avoidRematchesUntilForced === true;
   const format = bracket?.format;
-  const isObaCustomMap =
-    bracket?.presetKey === "oba_de_5" ||
-    bracket?.presetKey === "oba_de_6" ||
-    bracket?.presetKey === "oba_de_7";
+  const isObaCustomMap = isObaFeederMapPreset(bracket?.presetKey);
 
   // Explicit feeder overrides (Phase D / OBA maps)
   const fedWinner = await placeViaExplicitFeeders(match.id, "WINNER", winner);

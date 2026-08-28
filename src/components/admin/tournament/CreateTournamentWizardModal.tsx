@@ -44,6 +44,7 @@ function defaultPresetForTeamCount(n: number): BracketFormatPresetKey {
   if (n === 5) return "oba_de_5";
   if (n === 6) return "oba_de_6";
   if (n === 7) return "oba_de_7";
+  if (n === 13) return "oba_de_13";
   return "double_elim_classic";
 }
 type Step =
@@ -869,8 +870,9 @@ export function CreateTournamentWizardModal({ onClose }: Props) {
           {step === "br_config" ? (
             <div className="flex flex-col gap-5">
               <p className="text-sm text-zinc-600">
-                Choose a bracket format per division. OBA double-elimination maps (4–7 teams) follow
-                Baseball Ontario schedules with mid-bracket redraws and A/B endgames.
+                Choose a bracket format per division. OBA double-elimination maps (4–7 and 13 teams)
+                follow Baseball Ontario schedules. The 13-team map uses mid-bracket redraws and an A/B
+                endgame.
               </p>
               {divisionNames.map((name, di) => {
                 const teams = teamsByDivision[di] ?? [];
@@ -923,14 +925,20 @@ export function CreateTournamentWizardModal({ onClose }: Props) {
                         </select>
                       </>
                     ) : null}
-                    {preset === "oba_de_5" || preset === "oba_de_4" ? (
+                    {preset === "oba_de_4" || preset === "oba_de_13" ? (
+                      <p className="mt-2 text-xs text-zinc-500">
+                        Team list order is the draw order (first drawn = Team 1 bye). Remaining
+                        teams pair in list order into Round 1.
+                      </p>
+                    ) : preset === "oba_de_5" ? (
                       <p className="mt-2 text-xs text-zinc-500">
                         Team list order is seed order (first = seed 1 / strongest). For 5 teams, seeds
                         1–3 get Round 1 byes; seed 4 plays seed 5.
                       </p>
                     ) : isObaDePresetKey(preset) ? (
                       <p className="mt-2 text-xs text-zinc-500">
-                        Team list order is the draw order (first drawn = bye when the map awards one).
+                        Team list order is seed order (first = seed 1 / strongest). Top seeds receive
+                        Round 1 byes.
                       </p>
                     ) : null}
                     <BracketFormatExplainer sections={explainerForFormatPreset(preset)} />

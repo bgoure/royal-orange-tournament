@@ -2,6 +2,7 @@
  * Build double-elimination brackets for 4–7 teams.
  * 4-team uses the classic power-of-2 DE tree.
  * 5–7 use fully feeder-wired seeded workbook maps (Round N columns, implicit byes).
+ * 13-team uses a feeder-wired draw map through Round 4, then open redraw slots (A/B endgame).
  */
 
 import {
@@ -13,6 +14,7 @@ import {
   GrandFinalMode,
 } from "@prisma/client";
 import { prisma } from "@/lib/db";
+import { OBA13_GAME } from "@/lib/services/oba-de-13";
 import {
   getObaDePreset,
   type ObaDePresetKey,
@@ -462,6 +464,323 @@ export function oba7SeededRoundColumns(): string[] {
   return ["Round 1", "Round 2", "Round 3", "Round 4", "Round 5", "Round 6", "Round 7"];
 }
 
+/** Round 1–8 column labels for the 13-team draw map. */
+export function oba13DrawRoundColumns(): string[] {
+  return [
+    "Round 1",
+    "Round 2",
+    "Round 3",
+    "Round 4",
+    "Round 5",
+    "Round 6",
+    "Round 7",
+    "Round 8",
+  ];
+}
+
+/**
+ * 13-team OBA double-elim draw map (written workbook, not the filled poster's R2 swap).
+ * teamIds[0] = Team 1 (Round 1 bye). Remaining 12 pair sequentially into Games 1–6.
+ * Rounds 1–4 are fully feeder-wired. Round 5+ seats are open for admin redraw.
+ * Bracket A (23A/24A/25A) and Bracket B (23B/24B/25B) are both created; unused branch is cancelled later.
+ */
+export function gamesForOba13Draw(draw: string[]): GameDef[] {
+  const [t1, t2, t3, t4, t5, t6, t7, t8, t9, t10, t11, t12, t13] = draw;
+  if (!t1 || !t2 || !t3 || !t4 || !t5 || !t6 || !t7 || !t8 || !t9 || !t10 || !t11 || !t12 || !t13) {
+    throw new Error("13-team DE requires exactly 13 teams.");
+  }
+  const g = OBA13_GAME;
+  return [
+    // Round 1 — Team 1 bye (implicit into G10)
+    {
+      key: "G1",
+      roundGroup: "R1",
+      roundName: "Round 1",
+      roundType: BracketRoundType.WINNERS,
+      home: { kind: "team", teamId: t2 },
+      away: { kind: "team", teamId: t3 },
+      gameNumber: g.G1,
+    },
+    {
+      key: "G2",
+      roundGroup: "R1",
+      roundName: "Round 1",
+      roundType: BracketRoundType.WINNERS,
+      home: { kind: "team", teamId: t4 },
+      away: { kind: "team", teamId: t5 },
+      gameNumber: g.G2,
+    },
+    {
+      key: "G3",
+      roundGroup: "R1",
+      roundName: "Round 1",
+      roundType: BracketRoundType.WINNERS,
+      home: { kind: "team", teamId: t6 },
+      away: { kind: "team", teamId: t7 },
+      gameNumber: g.G3,
+    },
+    {
+      key: "G4",
+      roundGroup: "R1",
+      roundName: "Round 1",
+      roundType: BracketRoundType.WINNERS,
+      home: { kind: "team", teamId: t8 },
+      away: { kind: "team", teamId: t9 },
+      gameNumber: g.G4,
+    },
+    {
+      key: "G5",
+      roundGroup: "R1",
+      roundName: "Round 1",
+      roundType: BracketRoundType.WINNERS,
+      home: { kind: "team", teamId: t10 },
+      away: { kind: "team", teamId: t11 },
+      gameNumber: g.G5,
+    },
+    {
+      key: "G6",
+      roundGroup: "R1",
+      roundName: "Round 1",
+      roundType: BracketRoundType.WINNERS,
+      home: { kind: "team", teamId: t12 },
+      away: { kind: "team", teamId: t13 },
+      gameNumber: g.G6,
+    },
+    // Round 2 — W1 bye (implicit into G16)
+    {
+      key: "G7",
+      roundGroup: "R2",
+      roundName: "Round 2",
+      roundType: BracketRoundType.LOSERS,
+      home: { kind: "loser", of: "G1" },
+      away: { kind: "loser", of: "G2" },
+      gameNumber: g.G7,
+    },
+    {
+      key: "G8",
+      roundGroup: "R2",
+      roundName: "Round 2",
+      roundType: BracketRoundType.LOSERS,
+      home: { kind: "loser", of: "G3" },
+      away: { kind: "loser", of: "G4" },
+      gameNumber: g.G8,
+    },
+    {
+      key: "G9",
+      roundGroup: "R2",
+      roundName: "Round 2",
+      roundType: BracketRoundType.LOSERS,
+      home: { kind: "loser", of: "G5" },
+      away: { kind: "loser", of: "G6" },
+      gameNumber: g.G9,
+    },
+    {
+      key: "G10",
+      roundGroup: "R2",
+      roundName: "Round 2",
+      roundType: BracketRoundType.WINNERS,
+      home: { kind: "team", teamId: t1 },
+      away: { kind: "winner", of: "G2" },
+      gameNumber: g.G10,
+    },
+    {
+      key: "G11",
+      roundGroup: "R2",
+      roundName: "Round 2",
+      roundType: BracketRoundType.WINNERS,
+      home: { kind: "winner", of: "G3" },
+      away: { kind: "winner", of: "G4" },
+      gameNumber: g.G11,
+    },
+    {
+      key: "G12",
+      roundGroup: "R2",
+      roundName: "Round 2",
+      roundType: BracketRoundType.WINNERS,
+      home: { kind: "winner", of: "G5" },
+      away: { kind: "winner", of: "G6" },
+      gameNumber: g.G12,
+    },
+    // Round 3 — L7/L8/L9 eliminated
+    {
+      key: "G13",
+      roundGroup: "R3",
+      roundName: "Round 3",
+      roundType: BracketRoundType.LOSERS,
+      home: { kind: "winner", of: "G7" },
+      away: { kind: "winner", of: "G8" },
+      gameNumber: g.G13,
+    },
+    {
+      key: "G14",
+      roundGroup: "R3",
+      roundName: "Round 3",
+      roundType: BracketRoundType.LOSERS,
+      home: { kind: "winner", of: "G9" },
+      away: { kind: "loser", of: "G10" },
+      gameNumber: g.G14,
+    },
+    {
+      key: "G15",
+      roundGroup: "R3",
+      roundName: "Round 3",
+      roundType: BracketRoundType.LOSERS,
+      home: { kind: "loser", of: "G11" },
+      away: { kind: "loser", of: "G12" },
+      gameNumber: g.G15,
+    },
+    {
+      key: "G16",
+      roundGroup: "R3",
+      roundName: "Round 3",
+      roundType: BracketRoundType.WINNERS,
+      home: { kind: "winner", of: "G1" },
+      away: { kind: "winner", of: "G10" },
+      gameNumber: g.G16,
+    },
+    {
+      key: "G17",
+      roundGroup: "R3",
+      roundName: "Round 3",
+      roundType: BracketRoundType.WINNERS,
+      home: { kind: "winner", of: "G11" },
+      away: { kind: "winner", of: "G12" },
+      gameNumber: g.G17,
+    },
+    // Round 4 — L13/L14/L15 out; W13 bye
+    {
+      key: "G18",
+      roundGroup: "R4",
+      roundName: "Round 4",
+      roundType: BracketRoundType.LOSERS,
+      home: { kind: "winner", of: "G14" },
+      away: { kind: "winner", of: "G15" },
+      gameNumber: g.G18,
+    },
+    {
+      key: "G19",
+      roundGroup: "R4",
+      roundName: "Round 4",
+      roundType: BracketRoundType.LOSERS,
+      home: { kind: "loser", of: "G16" },
+      away: { kind: "loser", of: "G17" },
+      gameNumber: g.G19,
+    },
+    {
+      key: "G20",
+      roundGroup: "R4",
+      roundName: "Round 4",
+      roundType: BracketRoundType.WINNERS,
+      home: { kind: "winner", of: "G16" },
+      away: { kind: "winner", of: "G17" },
+      gameNumber: g.G20,
+    },
+    // Round 5 — redraw (admin)
+    {
+      key: "BYE_R5",
+      roundGroup: "R5",
+      roundName: "Round 5",
+      roundType: BracketRoundType.WINNERS,
+      home: { kind: "open" },
+      away: { kind: "bye" },
+      gameNumber: g.BYE_R5,
+    },
+    {
+      key: "G21",
+      roundGroup: "R5",
+      roundName: "Round 5",
+      roundType: BracketRoundType.WINNERS,
+      home: { kind: "open" },
+      away: { kind: "open" },
+      gameNumber: g.G21,
+    },
+    {
+      key: "G22",
+      roundGroup: "R5",
+      roundName: "Round 5",
+      roundType: BracketRoundType.WINNERS,
+      home: { kind: "open" },
+      away: { kind: "open" },
+      gameNumber: g.G22,
+    },
+    // Round 6 — Bracket A and B both pre-created
+    {
+      key: "BYE_R6",
+      roundGroup: "R6",
+      roundName: "Round 6",
+      roundType: BracketRoundType.WINNERS,
+      home: { kind: "open" },
+      away: { kind: "bye" },
+      gameNumber: g.BYE_R6,
+    },
+    {
+      key: "G23A",
+      roundGroup: "R6",
+      roundName: "Round 6",
+      roundType: BracketRoundType.WINNERS,
+      home: { kind: "open" },
+      away: { kind: "open" },
+      gameNumber: g.G23A,
+    },
+    {
+      key: "G23B",
+      roundGroup: "R6",
+      roundName: "Round 6",
+      roundType: BracketRoundType.WINNERS,
+      home: { kind: "open" },
+      away: { kind: "open" },
+      gameNumber: g.G23B,
+    },
+    {
+      key: "G24B",
+      roundGroup: "R6",
+      roundName: "Round 6",
+      roundType: BracketRoundType.WINNERS,
+      home: { kind: "open" },
+      away: { kind: "open" },
+      gameNumber: g.G24B,
+    },
+    // Round 7
+    {
+      key: "BYE_R7",
+      roundGroup: "R7",
+      roundName: "Round 7",
+      roundType: BracketRoundType.WINNERS,
+      home: { kind: "open" },
+      away: { kind: "bye" },
+      gameNumber: g.BYE_R7,
+    },
+    {
+      key: "G24A",
+      roundGroup: "R7",
+      roundName: "Round 7",
+      roundType: BracketRoundType.WINNERS,
+      home: { kind: "winner", of: "G23A" },
+      away: { kind: "winner", of: "BYE_R6" },
+      gameNumber: g.G24A,
+    },
+    {
+      key: "G25B",
+      roundGroup: "R7",
+      roundName: "Round 7",
+      roundType: BracketRoundType.FINAL,
+      home: { kind: "winner", of: "G23B" },
+      away: { kind: "winner", of: "G24B" },
+      gameNumber: g.G25B,
+    },
+    // Round 8 — if-necessary (A, 2 remain) or final vs R7 bye (A, 3 remain)
+    {
+      key: "G25A",
+      roundGroup: "R8",
+      roundName: "Round 8",
+      roundType: BracketRoundType.FINAL,
+      home: { kind: "winner", of: "G24A" },
+      away: { kind: "winner", of: "BYE_R7" },
+      gameNumber: g.G25A,
+    },
+  ];
+}
+
 function gameDefsForPreset(key: ObaDePresetKey, drawOrder: string[]): GameDef[] {
   switch (key) {
     case "oba_de_5":
@@ -470,6 +789,8 @@ function gameDefsForPreset(key: ObaDePresetKey, drawOrder: string[]): GameDef[] 
       return gamesForOba6Seeded(drawOrder);
     case "oba_de_7":
       return gamesForOba7Seeded(drawOrder);
+    case "oba_de_13":
+      return gamesForOba13Draw(drawOrder);
     default:
       throw new Error(`Custom OBA graph not used for ${key}`);
   }
@@ -659,7 +980,8 @@ async function createFeederGraphBracket(
 
 /**
  * Create a named DE preset bracket.
- * For seeded maps (4–7): teamIds[0] = seed 1 (strongest).
+ * For seeded maps (5–7): teamIds[0] = seed 1 (strongest).
+ * For 4-team and 13-team: teamIds[0] = first drawn (Round 1 bye when the map awards one).
  */
 export async function createObaDeBracket(opts: CreateObaDeBracketOptions): Promise<string> {
   const preset = getObaDePreset(opts.presetKey);
@@ -696,6 +1018,7 @@ export async function createObaDeBracket(opts: CreateObaDeBracketOptions): Promi
 
   const games = gameDefsForPreset(opts.presetKey, opts.teamIds);
   // Seeded 5–7 maps are fully feeder-wired (no mid-bracket redraw).
+  // 13-team is feeder-wired through Round 4; R5+ open slots are resolved in oba-de-redraw.
   return createFeederGraphBracket(opts, games, false);
 }
 
