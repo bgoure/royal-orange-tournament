@@ -100,6 +100,36 @@ export function isOba13SitOutGameNumber(n: string | null | undefined): boolean {
   return n === OBA13_GAME.BYE_R5 || n === OBA13_GAME.BYE_R6 || n === OBA13_GAME.BYE_R7;
 }
 
+/** Bracket A (3 remain) vs B (4 remain) for R6–R8 game numbers. */
+export function oba13EndgameBranchForGameNumber(
+  n: string | null | undefined,
+): Oba13EndgameBranch | null {
+  const num = n?.trim() ?? "";
+  if (OBA13_BRANCH_A_SET.has(num)) return "A";
+  if (OBA13_BRANCH_B_SET.has(num)) return "B";
+  return null;
+}
+
+export const OBA13_ROUND_5_REDRAW_NOTE =
+  "Losers of games 18 and 19 have been eliminated. 5 teams remain, one of which is undefeated. If the undefeated team is 4-0, they get the bye. Otherwise bye is determined in accordance with RP5. The remaining 4 teams will be paired avoiding previous match ups where possible, otherwise a draw will be held to determine pairings.";
+
+export function oba13SitOutByeNote(
+  games: {
+    gameNumber?: string | null;
+    homeTeam?: { name: string } | null;
+    awayTeam?: { name: string } | null;
+  }[],
+): string | null {
+  const sit = games.filter((g) => isOba13SitOutGameNumber(g.gameNumber));
+  if (sit.length === 0) return null;
+  const names = sit
+    .map((g) => g.homeTeam?.name ?? g.awayTeam?.name)
+    .filter((n): n is string => !!n && n.trim().length > 0);
+  if (names.length === 0) return "Bye: unassigned (sit-out).";
+  if (names.length === 1) return `Bye: ${names[0]} sits out this round.`;
+  return `Bye: ${names.join(", ")} sit out this round.`;
+}
+
 /** RP5.2 n.i + n.ii pool (admin may still override). */
 export function rp52EligibleByeTeamIds(candidates: ObaByeCandidate[]): string[] {
   if (candidates.length === 0) return [];

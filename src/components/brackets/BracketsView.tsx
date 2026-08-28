@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo, useState, type ReactNode } from "react";
+import { useMemo, type ReactNode } from "react";
 import { DIVISION_SWIPE_IGNORE } from "@/lib/division-swipe-ignore";
 import type { BracketRound } from "@prisma/client";
 import { EmptyState } from "@/components/ui/EmptyState";
@@ -12,6 +12,8 @@ import { BRACKET_ROUND_COLUMN_CLASS } from "@/components/brackets/bracket-card-l
 import { BidirectionalDeBracket } from "@/components/brackets/BidirectionalDeBracket";
 import { ChronologicalRoundBracket } from "@/components/brackets/ChronologicalRoundBracket";
 import { ChampionCelebration } from "@/components/brackets/ChampionCelebration";
+import { CollapsedRoundStrip } from "@/components/brackets/CollapsedRoundStrip";
+import { useRoundFocus } from "@/components/brackets/use-round-focus";
 import type { BracketWith, GameRow } from "@/components/brackets/bracket-types";
 import { matchSortIndex } from "@/components/brackets/bracket-slot-lines";
 import { resolveChampionFromBracket, shouldShowChampionCelebration } from "@/lib/brackets/bracket-champion";
@@ -19,8 +21,8 @@ import { isObaDePresetKey } from "@/lib/brackets/oba-de-presets";
 import {
   filterRoundsForScope,
   roundTypeShortLabel,
-  type BracketScopeFilter,
 } from "@/lib/brackets/bracket-display";
+import { latestScoredColumnIndex } from "@/lib/brackets/bracket-round-window";
 import { withBracketRoundDay } from "@/lib/datetime-tournament";
 
 function BracketGrid({
@@ -29,6 +31,7 @@ function BracketGrid({
   timeZone,
   showHomeAway = true,
   fitContent = false,
+  expandAll = false,
 }: {
   byRound: Map<string, GameRow[]>;
   roundsOrdered: BracketRound[];
@@ -36,7 +39,13 @@ function BracketGrid({
   showHomeAway?: boolean;
   /** Size to the full tree (export) instead of scrolling. */
   fitContent?: boolean;
+  expandAll?: boolean;
 }) {
+  const activeIndex = latestScoredColumnIndex(
+    roundsOrdered.map((r) => ({ games: byRound.get(r.id) ?? [] })),
+  );
+  const focus = useRoundFocus(roundsOrdered.length, activeIndex, expandAll || fitContent);
+
   return (
     <div
       {...{ [DIVISION_SWIPE_IGNORE]: "" }}
@@ -47,6 +56,15 @@ function BracketGrid({
       aria-label="Bracket rounds"
     >
       {roundsOrdered.map((r, ri) => {
+        if (!focus.isOpen(ri)) {
+          return (
+            <CollapsedRoundStrip
+              key={r.id}
+              label={r.name}
+              onExpand={() => focus.toggle(ri)}
+            />
+          );
+        }
         const games = (byRound.get(r.id) ?? []).sort((x, y) => matchSortIndex(x) - matchSortIndex(y));
         const prevRoundName = ri > 0 ? roundsOrdered[ri - 1]!.name : null;
         return (
@@ -59,6 +77,15 @@ function BracketGrid({
                 {withBracketRoundDay(r.name, games, timeZone)}
               </h3>
               <p className="mt-1 text-[11px] font-medium text-zinc-600">{roundTypeShortLabel(r.roundType)}</p>
+              {!(expandAll || fitContent) ? (
+                <button
+                  type="button"
+                  className="mt-1 text-[10px] font-semibold uppercase tracking-wide text-zinc-500 hover:text-royal"
+                  onClick={() => focus.toggle(ri)}
+                >
+                  Hide
+                </button>
+              ) : null}
             </div>
             <div className="flex flex-1 flex-col justify-around gap-4">
               {games.length === 0 ? (
@@ -83,93 +110,6 @@ function BracketGrid({
     </div>
   );
 }
-
-function MobileBracketRoundNav({
-  visibleRounds,
-  byRound,
-  timeZone,
-  onRoundChange,
-  showHomeAway = true,
-}: {
-  visibleRounds: BracketRound[];
-  byRound: Map<string, GameRow[]>;
-  timeZone?: string | null;
-  onRoundChange?: (roundIndex: number) => void;
-  showHomeAway?: boolean;
-}) {
-  const [roundIdx, setRoundIdx] = useState(0);
-  const safeIdx =
-    visibleRounds.length === 0
-      ? 0
-      : Math.min(roundIdx, Math.max(0, visibleRounds.length - 1));
-
-  useEffect(() => {
-    onRoundChange?.(visibleRounds.length > 0 ? safeIdx : 0);
-  }, [safeIdx, onRoundChange, visibleRounds.length]);
-
-  if (visibleRounds.length === 0) {
-    return (
-      <p className="mt-4 text-sm text-zinc-500">
-        No rounds in this view. Consolation games appear here when the bracket includes a losers path.
-      </p>
-    );
-  }
-
-  const r = visibleRounds[safeIdx]!;
-  const games = (byRound.get(r.id) ?? []).sort((x, y) => matchSortIndex(x) - matchSortIndex(y));
-  const prevRoundName = safeIdx > 0 ? visibleRounds[safeIdx - 1]!.name : null;
-
-  return (
-    <div className="mt-4 flex flex-col gap-6">
-      <div className="flex items-center justify-between gap-3">
-        <button
-          type="button"
-          className="min-h-11 shrink-0 rounded-lg border-2 border-white/50 bg-white/70 px-3 py-2 text-sm font-semibold text-zinc-800 shadow-[0_4px_16px_rgba(0,0,0,0.06)] backdrop-blur-md transition-colors hover:border-royal/25 hover:bg-white/92 disabled:opacity-40 dark:border-zinc-600/50 dark:bg-zinc-900/65 dark:hover:bg-zinc-900/85"
-          disabled={safeIdx <= 0}
-          onClick={() => setRoundIdx((i) => Math.max(0, i - 1))}
-          aria-label="Previous round"
-        >
-          ← Prev
-        </button>
-        <div className="min-w-0 flex-1 text-center">
-          <p className="text-sm font-bold uppercase tracking-wide text-royal">
-            {withBracketRoundDay(r.name, games, timeZone)}
-          </p>
-          <p className="text-xs font-medium text-zinc-600">{roundTypeShortLabel(r.roundType)}</p>
-        </div>
-        <button
-          type="button"
-          className="min-h-11 shrink-0 rounded-lg border-2 border-white/50 bg-white/70 px-3 py-2 text-sm font-semibold text-zinc-800 shadow-[0_4px_16px_rgba(0,0,0,0.06)] backdrop-blur-md transition-colors hover:border-royal/25 hover:bg-white/92 disabled:opacity-40 dark:border-zinc-600/50 dark:bg-zinc-900/65 dark:hover:bg-zinc-900/85"
-          disabled={safeIdx >= visibleRounds.length - 1}
-          onClick={() => setRoundIdx((i) => Math.min(visibleRounds.length - 1, i + 1))}
-          aria-label="Next round"
-        >
-          Next →
-        </button>
-      </div>
-      <div className="flex flex-col gap-4">
-        {games.length === 0 ? (
-          <p className="text-sm text-zinc-500">Matchups TBA.</p>
-        ) : (
-          games.map((g, mi) => (
-            <BracketGameCard
-              key={g.id}
-              game={g}
-              roundIndexDb={r.roundIndex}
-              matchIndex={mi}
-              prevRoundName={prevRoundName}
-              timeZone={timeZone}
-              showHomeAway={showHomeAway}
-            />
-          ))
-        )}
-      </div>
-    </div>
-  );
-}
-
-const scopeBtn =
-  "min-h-10 rounded-lg border-2 px-[14px] py-2 text-sm font-semibold transition-colors duration-200 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-royal focus-visible:ring-offset-2 active:opacity-90 md:min-h-10";
 
 export function BracketDesktopTree({
   b,
@@ -226,6 +166,8 @@ export function BracketDesktopTree({
         timeZone={tournamentTimezone}
         format={b.format}
         showHomeAway={showHomeAway}
+        presetKey={b.presetKey}
+        expandAll={fitContent}
       />
     );
   }
@@ -236,6 +178,7 @@ export function BracketDesktopTree({
         byRound={byRound}
         timeZone={tournamentTimezone}
         showHomeAway={showHomeAway}
+        expandAll={fitContent}
         fitContent={fitContent}
       />
     );
@@ -247,6 +190,7 @@ export function BracketDesktopTree({
       timeZone={tournamentTimezone}
       showHomeAway={showHomeAway}
       fitContent={fitContent}
+      expandAll={fitContent}
     />
   );
 }
@@ -266,48 +210,7 @@ function BracketSection({
   showHomeAway?: boolean;
   exportToolbar?: () => ReactNode;
 }) {
-  const [scope, setScope] = useState<BracketScopeFilter>("all");
-  const [mobileRoundIdx, setMobileRoundIdx] = useState(0);
-
-  const roundsSorted = useMemo(
-    () => [...b.rounds].sort((a, c) => a.roundIndex - c.roundIndex),
-    [b.rounds],
-  );
   const champion = useMemo(() => resolveChampionFromBracket(b), [b]);
-  const isObaChronological = !!b.presetKey && isObaDePresetKey(b.presetKey);
-  /** Scope tabs removed — always show the full bracket for every format. */
-  const showScope = false;
-
-  const visibleRounds = useMemo(() => {
-    const effectiveScope = showScope ? scope : "all";
-    return filterRoundsForScope(roundsSorted, effectiveScope);
-  }, [roundsSorted, scope, showScope]);
-
-  const visibleRoundIds = useMemo(() => new Set(visibleRounds.map((r) => r.id)), [visibleRounds]);
-
-  const gamesInScope = useMemo(
-    () =>
-      b.games.filter(
-        (g) =>
-          g.bracketRoundId &&
-          visibleRoundIds.has(g.bracketRoundId) &&
-          g.status !== "CANCELLED",
-      ),
-    [b.games, visibleRoundIds],
-  );
-
-  const byRound = useMemo(() => {
-    const m = new Map<string, GameRow[]>();
-    for (const g of gamesInScope) {
-      const key = g.bracketRoundId ?? "unassigned";
-      const list = m.get(key) ?? [];
-      list.push(g);
-      m.set(key, list);
-    }
-    return m;
-  }, [gamesInScope]);
-
-  const visibleRoundsKey = useMemo(() => visibleRounds.map((r) => r.id).join("|"), [visibleRounds]);
 
   return (
     <section className="min-w-0" aria-labelledby={`bracket-heading-${b.id}`}>
@@ -337,54 +240,6 @@ function BracketSection({
         ) : null}
       </SectionTitle>
 
-      {showScope ? (
-        <div
-          className="mt-3 flex flex-wrap gap-2"
-          role="tablist"
-          aria-label="Winners and consolation bracket"
-        >
-          <button
-            type="button"
-            role="tab"
-            aria-selected={scope === "all"}
-            className={`${scopeBtn} ${
-              scope === "all"
-                ? "border-royal bg-royal text-white shadow-sm"
-                : "border-zinc-200/70 bg-white/55 text-zinc-800 backdrop-blur-md hover:border-royal/30 hover:bg-white/85 dark:border-zinc-600/50 dark:bg-zinc-900/55 dark:hover:bg-zinc-900/75"
-            }`}
-            onClick={() => setScope("all")}
-          >
-            Full bracket
-          </button>
-          <button
-            type="button"
-            role="tab"
-            aria-selected={scope === "main"}
-            className={`${scopeBtn} ${
-              scope === "main"
-                ? "border-royal bg-royal text-white shadow-sm"
-                : "border-zinc-200/70 bg-white/55 text-zinc-800 backdrop-blur-md hover:border-royal/30 hover:bg-white/85 dark:border-zinc-600/50 dark:bg-zinc-900/55 dark:hover:bg-zinc-900/75"
-            }`}
-            onClick={() => setScope("main")}
-          >
-            Winners only
-          </button>
-          <button
-            type="button"
-            role="tab"
-            aria-selected={scope === "consolation"}
-            className={`${scopeBtn} ${
-              scope === "consolation"
-                ? "border-royal bg-royal text-white shadow-sm"
-                : "border-zinc-200/70 bg-white/55 text-zinc-800 backdrop-blur-md hover:border-royal/30 hover:bg-white/85 dark:border-zinc-600/50 dark:bg-zinc-900/55 dark:hover:bg-zinc-900/75"
-            }`}
-            onClick={() => setScope("consolation")}
-          >
-            Losers only
-          </button>
-        </div>
-      ) : null}
-
       <div className="mt-4 hidden md:block">
         <BracketZoomShell toolbarStart={exportToolbar?.()}>
           <BracketDesktopTree
@@ -396,22 +251,11 @@ function BracketSection({
       </div>
       <div className="mt-4 md:hidden">
         <BracketZoomShell toolbarStart={exportToolbar?.()}>
-          {isObaChronological ? (
-            <BracketDesktopTree
-              b={b}
-              tournamentTimezone={tournamentTimezone}
-              showHomeAway={showHomeAway}
-            />
-          ) : (
-            <MobileBracketRoundNav
-              key={`${b.id}-${scope}-${visibleRoundsKey}`}
-              visibleRounds={visibleRounds}
-              byRound={byRound}
-              timeZone={tournamentTimezone}
-              onRoundChange={setMobileRoundIdx}
-              showHomeAway={showHomeAway}
-            />
-          )}
+          <BracketDesktopTree
+            b={b}
+            tournamentTimezone={tournamentTimezone}
+            showHomeAway={showHomeAway}
+          />
         </BracketZoomShell>
       </div>
       </div>
@@ -419,7 +263,7 @@ function BracketSection({
       <ConsolationGamesSection
         games={consolationGames}
         tournamentTimezone={tournamentTimezone}
-        mobileBracketShowsFirstRoundOnly={mobileRoundIdx === 0}
+        mobileBracketShowsFirstRoundOnly
         showHomeAway={showHomeAway}
       />
     </section>

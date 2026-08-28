@@ -9,6 +9,8 @@ import {
   oba13GamesForUnusedBranch,
   isOba13AlternateEndgameSlot,
   isOba13SitOutGameNumber,
+  oba13EndgameBranchForGameNumber,
+  oba13SitOutByeNote,
   suggestOba13OddRoundPairing,
 } from "@/lib/services/oba-de-13";
 import type { ObaByeCandidate } from "@/lib/services/oba-bye-award";
@@ -160,5 +162,19 @@ describe("inferOba13ImplicitByes", () => {
     assert.equal(t1.hadByeInPreviousRound, false);
     assert.equal(w13.byeCount, 1);
     assert.equal(w13.hadByeInPreviousRound, true);
+  });
+});
+
+describe("oba13 sit-out display helpers", () => {
+  it("names the sitting-out team and maps A/B endgame numbers", () => {
+    assert.equal(
+      oba13SitOutByeNote([
+        { gameNumber: OBA13_GAME.BYE_R5, homeTeam: { name: "Hamilton" }, awayTeam: null },
+      ]),
+      "Bye: Hamilton sits out this round.",
+    );
+    assert.equal(oba13EndgameBranchForGameNumber("23A"), "A");
+    assert.equal(oba13EndgameBranchForGameNumber("25B"), "B");
+    assert.equal(oba13EndgameBranchForGameNumber("14"), null);
   });
 });

@@ -3,12 +3,15 @@
 import type { BracketRound } from "@prisma/client";
 import { BracketGameCard } from "@/components/brackets/BracketGameCard";
 import { BRACKET_ROUND_COLUMN_CLASS } from "@/components/brackets/bracket-card-layout";
+import { CollapsedRoundStrip } from "@/components/brackets/CollapsedRoundStrip";
 import type { GameRow } from "@/components/brackets/bracket-types";
 import { matchSortIndex } from "@/components/brackets/bracket-slot-lines";
+import { useRoundFocus } from "@/components/brackets/use-round-focus";
 import {
   bidirectionalDeLayout,
   roundTypeShortLabel,
 } from "@/lib/brackets/bracket-display";
+import { latestScoredColumnIndex } from "@/lib/brackets/bracket-round-window";
 import { withBracketRoundDay } from "@/lib/datetime-tournament";
 import { DIVISION_SWIPE_IGNORE } from "@/lib/division-swipe-ignore";
 
@@ -18,12 +21,16 @@ function RoundColumn({
   timeZone,
   side,
   showHomeAway = true,
+  canCollapse,
+  onCollapse,
 }: {
   round: BracketRound;
   games: GameRow[];
   timeZone?: string | null;
   side: "left" | "center" | "right";
   showHomeAway?: boolean;
+  canCollapse?: boolean;
+  onCollapse?: () => void;
 }) {
   const sorted = [...games].sort((a, b) => matchSortIndex(a) - matchSortIndex(b));
   const border =
@@ -52,6 +59,15 @@ function RoundColumn({
           {" · "}
           {roundTypeShortLabel(round.roundType)}
         </p>
+        {canCollapse ? (
+          <button
+            type="button"
+            className="mt-1 text-[10px] font-semibold uppercase tracking-wide text-zinc-500 hover:text-royal"
+            onClick={onCollapse}
+          >
+            Hide
+          </button>
+        ) : null}
       </div>
       <div className="flex flex-1 flex-col justify-around gap-3">
         {sorted.length === 0 ? (
@@ -80,14 +96,52 @@ export function BidirectionalDeBracket({
   timeZone,
   showHomeAway = true,
   fitContent = false,
+  expandAll = false,
 }: {
   rounds: BracketRound[];
   byRound: Map<string, GameRow[]>;
   timeZone?: string | null;
   showHomeAway?: boolean;
   fitContent?: boolean;
+  expandAll?: boolean;
 }) {
   const layout = bidirectionalDeLayout(rounds);
+  const visualOrder = [
+    ...layout.left,
+    ...(layout.center ? [layout.center] : []),
+    ...layout.right,
+  ];
+  const activeIndex = latestScoredColumnIndex(
+    visualOrder.map((r) => ({ games: byRound.get(r.id) ?? [] })),
+  );
+  const focus = useRoundFocus(visualOrder.length, activeIndex, expandAll || fitContent);
+  const indexById = new Map(visualOrder.map((r, i) => [r.id, i]));
+  const canCollapse = !(expandAll || fitContent);
+
+  const renderRound = (r: BracketRound, side: "left" | "center" | "right") => {
+    const idx = indexById.get(r.id) ?? 0;
+    if (!focus.isOpen(idx)) {
+      return (
+        <CollapsedRoundStrip
+          key={r.id}
+          label={r.name}
+          onExpand={() => focus.toggle(idx)}
+        />
+      );
+    }
+    return (
+      <RoundColumn
+        key={r.id}
+        round={r}
+        games={byRound.get(r.id) ?? []}
+        timeZone={timeZone}
+        side={side}
+        showHomeAway={showHomeAway}
+        canCollapse={canCollapse}
+        onCollapse={() => focus.toggle(idx)}
+      />
+    );
+  };
 
   return (
     <div className="flex flex-col gap-3">
@@ -97,35 +151,9 @@ export function BidirectionalDeBracket({
         role="region"
         aria-label="Bidirectional double-elimination bracket"
       >
-        {layout.left.map((r) => (
-          <RoundColumn
-            key={r.id}
-            round={r}
-            games={byRound.get(r.id) ?? []}
-            timeZone={timeZone}
-            side="left"
-            showHomeAway={showHomeAway}
-          />
-        ))}
-        {layout.center ? (
-          <RoundColumn
-            round={layout.center}
-            games={byRound.get(layout.center.id) ?? []}
-            timeZone={timeZone}
-            side="center"
-            showHomeAway={showHomeAway}
-          />
-        ) : null}
-        {layout.right.map((r) => (
-          <RoundColumn
-            key={r.id}
-            round={r}
-            games={byRound.get(r.id) ?? []}
-            timeZone={timeZone}
-            side="right"
-            showHomeAway={showHomeAway}
-          />
-        ))}
+        {layout.left.map((r) => renderRound(r, "left"))}
+        {layout.center ? renderRound(layout.center, "center") : null}
+        {layout.right.map((r) => renderRound(r, "right"))}
       </div>
     </div>
   );
