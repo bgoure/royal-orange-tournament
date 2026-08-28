@@ -49,6 +49,7 @@ function defaultPresetForTeamCount(n: number): BracketFormatPresetKey {
 }
 type Step =
   | "basics"
+  | "tourney_format"
   | "rr_pools"
   | "rr_assign"
   | "br_config"
@@ -335,11 +336,25 @@ export function CreateTournamentWizardModal({ onClose }: Props) {
       setError(`At most ${WIZARD_MAX_TEAMS_TOURNAMENT} teams total.`);
       return;
     }
-    if (format === "round_robin") setStep("rr_pools");
-    else {
-      initBracketSeeds();
-      setStep("br_config");
+    setStep("tourney_format");
+  }
+
+  function goNextFromTourneyFormat() {
+    setError(null);
+    if (format === "round_robin") {
+      setStep("rr_pools");
+      return;
     }
+    setFormatPresetByDiv((prev) =>
+      teamsByDivision.map((teams, di) => {
+        const fallback = defaultPresetForTeamCount(teams.length);
+        const cur = prev[di] ?? fallback;
+        const options = wizardFormatOptionsForTeamCount(teams.length);
+        return options.some((o) => o.key === cur) ? cur : fallback;
+      }),
+    );
+    initBracketSeeds();
+    setStep("br_config");
   }
 
   function poolLabel(_di: number, pi: number) {
@@ -506,18 +521,20 @@ export function CreateTournamentWizardModal({ onClose }: Props) {
 
   const stepTitle =
     step === "basics"
-      ? "Step 1 — basics"
-      : step === "rr_pools"
-        ? "Step 2 — pools"
-        : step === "rr_assign"
-          ? "Step 3 — place teams"
-          : step === "br_config"
-            ? "Step 2 — bracket setup"
-            : step === "br_seed"
-              ? "Step 3 — seed Round 1"
-              : step === "done"
-                ? "Created"
-                : "Creating…";
+      ? "Step 1 — teams"
+      : step === "tourney_format"
+        ? "Step 2 — tournament format"
+        : step === "rr_pools"
+          ? "Step 3 — pools"
+          : step === "rr_assign"
+            ? "Step 4 — place teams"
+            : step === "br_config"
+              ? "Step 3 — bracket format"
+              : step === "br_seed"
+                ? "Step 4 — seed Round 1"
+                : step === "done"
+                  ? "Created"
+                  : "Creating…";
 
   const dismissDisabled = pending || step === "creating";
 
@@ -591,40 +608,6 @@ export function CreateTournamentWizardModal({ onClose }: Props) {
               </div>
 
               <div>
-                <p className={labelClass}>Tournament format</p>
-                <div className="mt-2 flex flex-col gap-2">
-                  <label className="flex items-start gap-2 text-sm text-zinc-800">
-                    <input
-                      type="radio"
-                      className="mt-1"
-                      checked={format === "round_robin"}
-                      onChange={() => setFormat("round_robin")}
-                    />
-                    <span>
-                      <span className="font-medium">Round robin</span>
-                      <span className="mt-0.5 block text-xs text-zinc-500">
-                        Pool play first. You’ll set pools and place teams next.
-                      </span>
-                    </span>
-                  </label>
-                  <label className="flex items-start gap-2 text-sm text-zinc-800">
-                    <input
-                      type="radio"
-                      className="mt-1"
-                      checked={format === "bracket_only"}
-                      onChange={() => setFormat("bracket_only")}
-                    />
-                    <span>
-                      <span className="font-medium">Bracket only</span>
-                      <span className="mt-0.5 block text-xs text-zinc-500">
-                        Skip pool play — build single or double elimination next.
-                      </span>
-                    </span>
-                  </label>
-                </div>
-              </div>
-
-              <div>
                 <label className={labelClass}>Number of divisions</label>
                 <input
                   type="number"
@@ -682,6 +665,7 @@ export function CreateTournamentWizardModal({ onClose }: Props) {
                   </label>
                 </div>
                 <p className="mt-1 text-xs text-zinc-500">
+                  Set the team count first — OBA maps (4–7 or 13 teams) only show after this step.
                   Each division can have a different count. Total:{" "}
                   <span className="font-medium text-zinc-700">{teamCount}</span>
                 </p>
@@ -737,6 +721,46 @@ export function CreateTournamentWizardModal({ onClose }: Props) {
                 <p className="mt-2 text-xs text-zinc-500">
                   Creates a draft (not public). Venue, dates, and schedule are set in tournament settings.
                 </p>
+              </div>
+            </div>
+          ) : null}
+
+          {step === "tourney_format" ? (
+            <div className="flex flex-col gap-4">
+              <p className="text-sm text-zinc-600">
+                {teamCount} team{teamCount === 1 ? "" : "s"} across {divisionCount} division
+                {divisionCount === 1 ? "" : "s"}. How should this tournament run?
+              </p>
+              <div className="flex flex-col gap-2">
+                <label className="flex items-start gap-2 rounded-lg border border-zinc-200 p-3 text-sm text-zinc-800 has-[:checked]:border-emerald-500 has-[:checked]:bg-emerald-50/50">
+                  <input
+                    type="radio"
+                    className="mt-1"
+                    checked={format === "round_robin"}
+                    onChange={() => setFormat("round_robin")}
+                  />
+                  <span>
+                    <span className="font-medium">Round robin, then bracket</span>
+                    <span className="mt-0.5 block text-xs text-zinc-500">
+                      Pool play first. You’ll set pools next; the playoff bracket is built later
+                      under Admin → Brackets.
+                    </span>
+                  </span>
+                </label>
+                <label className="flex items-start gap-2 rounded-lg border border-zinc-200 p-3 text-sm text-zinc-800 has-[:checked]:border-emerald-500 has-[:checked]:bg-emerald-50/50">
+                  <input
+                    type="radio"
+                    className="mt-1"
+                    checked={format === "bracket_only"}
+                    onChange={() => setFormat("bracket_only")}
+                  />
+                  <span>
+                    <span className="font-medium">Bracket only</span>
+                    <span className="mt-0.5 block text-xs text-zinc-500">
+                      Skip pool play — choose a single- or double-elimination map next.
+                    </span>
+                  </span>
+                </label>
               </div>
             </div>
           ) : null}
@@ -871,8 +895,7 @@ export function CreateTournamentWizardModal({ onClose }: Props) {
             <div className="flex flex-col gap-5">
               <p className="text-sm text-zinc-600">
                 Choose a bracket format per division. OBA double-elimination maps (4–7 and 13 teams)
-                follow Baseball Ontario schedules. The 13-team map uses mid-bracket redraws and an A/B
-                endgame.
+                appear when that division’s team count matches.
               </p>
               {divisionNames.map((name, di) => {
                 const teams = teamsByDivision[di] ?? [];
@@ -887,9 +910,9 @@ export function CreateTournamentWizardModal({ onClose }: Props) {
                       {name}{" "}
                       <span className="font-normal text-zinc-500">({teams.length} teams)</span>
                     </p>
-                    <label className={`${labelClass} mt-2 block`}>Tournament format</label>
+                    <label className={`${labelClass} mt-2 block`}>Bracket format</label>
                     <select
-                      value={preset}
+                      value={options.some((o) => o.key === preset) ? preset : (options[0]?.key ?? "custom")}
                       onChange={(e) => {
                         const next = [...formatPresetByDiv];
                         next[di] = e.target.value as BracketFormatPresetKey;
@@ -1079,7 +1102,8 @@ export function CreateTournamentWizardModal({ onClose }: Props) {
             onClick={() => {
               setError(null);
               if (step === "basics") onClose();
-              else if (step === "rr_pools" || step === "br_config") setStep("basics");
+              else if (step === "tourney_format") setStep("basics");
+              else if (step === "rr_pools" || step === "br_config") setStep("tourney_format");
               else if (step === "rr_assign") setStep("rr_pools");
               else if (step === "br_seed") setStep("br_config");
             }}
@@ -1088,6 +1112,11 @@ export function CreateTournamentWizardModal({ onClose }: Props) {
           </button>
           {step === "basics" ? (
             <button type="button" className={btnPrimary} onClick={goNextFromBasics}>
+              Next
+            </button>
+          ) : null}
+          {step === "tourney_format" ? (
+            <button type="button" className={btnPrimary} onClick={goNextFromTourneyFormat}>
               Next
             </button>
           ) : null}
