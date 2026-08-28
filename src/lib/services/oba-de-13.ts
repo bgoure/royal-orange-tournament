@@ -80,6 +80,22 @@ export function oba13GamesForUnusedBranch(branchUsed: Oba13EndgameBranch): reado
   return branchUsed === "A" ? OBA13_BRANCH_B_NUMBERS : OBA13_BRANCH_A_NUMBERS;
 }
 
+const OBA13_BRANCH_A_SET = new Set<string>(OBA13_BRANCH_A_NUMBERS);
+const OBA13_BRANCH_B_SET = new Set<string>(OBA13_BRANCH_B_NUMBERS);
+
+/** True when both numbers are 13-team endgame slots that cannot both be played. */
+export function isOba13AlternateEndgameSlot(
+  aNumber: string | null | undefined,
+  bNumber: string | null | undefined,
+): boolean {
+  if (!aNumber || !bNumber || aNumber === bNumber) return false;
+  const aOnA = OBA13_BRANCH_A_SET.has(aNumber);
+  const aOnB = OBA13_BRANCH_B_SET.has(aNumber);
+  const bOnA = OBA13_BRANCH_A_SET.has(bNumber);
+  const bOnB = OBA13_BRANCH_B_SET.has(bNumber);
+  return (aOnA && bOnB) || (aOnB && bOnA);
+}
+
 /** RP5.2 n.i + n.ii pool (admin may still override). */
 export function rp52EligibleByeTeamIds(candidates: ObaByeCandidate[]): string[] {
   if (candidates.length === 0) return [];

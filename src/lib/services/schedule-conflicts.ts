@@ -5,6 +5,7 @@
 
 import { prisma } from "@/lib/db";
 import { formatGameScheduledAt } from "@/lib/datetime-tournament";
+import { isOba13AlternateEndgameSlot } from "@/lib/services/oba-de-13";
 
 export const DEFAULT_FIELD_OCCUPANCY_MINUTES = 90;
 
@@ -14,6 +15,8 @@ export type ScheduledFieldSlot = {
   scheduledAt: Date;
   status?: string | null;
   gameNumber?: string | null;
+  /** Same-bracket A/B endgame games (13-team OBA) may share a field slot. */
+  bracketId?: string | null;
 };
 
 /** True when [aStart, aEnd) overlaps [bStart, bEnd). */
@@ -55,6 +58,13 @@ export function findOverlappingFieldPairs(
       for (let j = i + 1; j < sorted.length; j++) {
         const b = sorted[j]!;
         if (b.scheduledAt.getTime() >= aEnd.getTime()) break;
+        if (
+          a.bracketId &&
+          a.bracketId === b.bracketId &&
+          isOba13AlternateEndgameSlot(a.gameNumber, b.gameNumber)
+        ) {
+          continue;
+        }
         const bEnd = fieldOccupancyEnd(b.scheduledAt, durationMinutes);
         if (intervalsOverlap(a.scheduledAt, aEnd, b.scheduledAt, bEnd)) {
           pairs.push({ a, b });
@@ -102,19 +112,35 @@ export async function assertNoFieldScheduleConflict(opts: {
       id: true,
       scheduledAt: true,
       gameNumber: true,
+      bracketId: true,
       field: { select: { name: true } },
     },
-    take: 5,
+    take: 20,
   });
 
-  const conflicting = candidates.filter((c) =>
-    intervalsOverlap(
+  let self: { gameNumber: string | null; bracketId: string | null } | null = null;
+  if (opts.excludeGameId) {
+    self = await prisma.game.findFirst({
+      where: { id: opts.excludeGameId, tournamentId: opts.tournamentId },
+      select: { gameNumber: true, bracketId: true },
+    });
+  }
+
+  const conflicting = candidates.filter((c) => {
+    if (
+      self?.bracketId &&
+      c.bracketId === self.bracketId &&
+      isOba13AlternateEndgameSlot(self.gameNumber, c.gameNumber)
+    ) {
+      return false;
+    }
+    return intervalsOverlap(
       opts.scheduledAt,
       windowEnd,
       c.scheduledAt,
       fieldOccupancyEnd(c.scheduledAt, duration),
-    ),
-  );
+    );
+  });
 
   if (conflicting.length === 0) return null;
 
@@ -140,7 +166,7 @@ export async function repairClusteredBracketSeedPlaceholders(tournamentId: strin
       gameKind: "PLAYOFF",
       status: { not: "CANCELLED" },
     },
-    select: { id: true, fieldId: true, scheduledAt: true, schedulePlaceholder: true },
+    select: { id: true, fieldId: true, scheduledAt: true, schedulePlaceholder: true, gameNumber: true, bracketId: true },
   });
 
   const groups = new Map<string, typeof games>();
@@ -152,6 +178,17 @@ export async function repairClusteredBracketSeedPlaceholders(tournamentId: strin
   }
 
   const toFix = [...groups.values()]
+    .map((list) =>
+      list.filter((g, i) =>
+        list.every(
+          (other, j) =>
+            i === j ||
+            !other.bracketId ||
+            other.bracketId !== g.bracketId ||
+            !isOba13AlternateEndgameSlot(g.gameNumber, other.gameNumber),
+        ),
+      ),
+    )
     .filter((list) => list.length > 1 && list.every((g) => !g.schedulePlaceholder))
     .flatMap((list) => list.map((g) => g.id));
   if (toFix.length === 0) return 0;
@@ -180,6 +217,7 @@ export async function listFieldScheduleConflicts(
       scheduledAt: true,
       status: true,
       gameNumber: true,
+      bracketId: true,
       field: { select: { name: true } },
     },
   });

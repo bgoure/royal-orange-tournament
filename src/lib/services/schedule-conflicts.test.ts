@@ -54,4 +54,22 @@ describe("findOverlappingFieldPairs", () => {
     ]);
     assert.equal(pairs.length, 0);
   });
+
+  it("allows 13-team A/B endgame games in the same bracket to share a slot", () => {
+    const t = new Date("2026-09-06T12:00:00Z");
+    const pairs = findOverlappingFieldPairs([
+      { id: "a", fieldId: "f1", scheduledAt: t, gameNumber: "23A", bracketId: "br1" },
+      { id: "b", fieldId: "f1", scheduledAt: t, gameNumber: "23B", bracketId: "br1" },
+    ]);
+    assert.equal(pairs.length, 0);
+  });
+
+  it("still flags A/B games from different brackets", () => {
+    const t = new Date("2026-09-06T12:00:00Z");
+    const pairs = findOverlappingFieldPairs([
+      { id: "a", fieldId: "f1", scheduledAt: t, gameNumber: "23A", bracketId: "br1" },
+      { id: "b", fieldId: "f1", scheduledAt: t, gameNumber: "23B", bracketId: "br2" },
+    ]);
+    assert.equal(pairs.length, 1);
+  });
 });

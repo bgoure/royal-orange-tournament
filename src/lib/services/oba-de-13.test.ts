@@ -7,6 +7,7 @@ import {
   OBA13_GAME,
   oba13EndgameBranch,
   oba13GamesForUnusedBranch,
+  isOba13AlternateEndgameSlot,
   suggestOba13OddRoundPairing,
 } from "@/lib/services/oba-de-13";
 import type { ObaByeCandidate } from "@/lib/services/oba-bye-award";
@@ -78,6 +79,15 @@ describe("oba13EndgameBranch", () => {
     assert.equal(oba13EndgameBranch(5), null);
     assert.ok(oba13GamesForUnusedBranch("A").includes(OBA13_GAME.G23B));
     assert.ok(oba13GamesForUnusedBranch("B").includes(OBA13_GAME.G23A));
+  });
+
+  it("treats A-branch and B-branch game numbers as mutually exclusive", () => {
+    assert.equal(isOba13AlternateEndgameSlot("23A", "23B"), true);
+    assert.equal(isOba13AlternateEndgameSlot("24A", "24B"), true);
+    assert.equal(isOba13AlternateEndgameSlot("25A", "23B"), true);
+    assert.equal(isOba13AlternateEndgameSlot("R6 Bye", "23B"), true);
+    assert.equal(isOba13AlternateEndgameSlot("23A", "24A"), false);
+    assert.equal(isOba13AlternateEndgameSlot("23A", "21"), false);
   });
 });
 
