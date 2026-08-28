@@ -5,8 +5,9 @@ import { createTournamentFromWizard } from "@/app/admin/_actions/tournament-wiza
 import { BracketFormatExplainer } from "@/components/admin/tournament/BracketFormatExplainer";
 import {
   explainerForFormatPreset,
+  getObaDePreset,
   isObaDePresetKey,
-  wizardFormatOptionsForTeamCount,
+  obaDePresetsForTeamCount,
   type BracketFormatPresetKey,
 } from "@/lib/brackets/oba-de-presets";
 import {
@@ -29,33 +30,45 @@ const btnSecondary =
 
 type Format = "round_robin" | "bracket_only";
 type SeedMode = "auto" | "manual";
-
-function deriveBracketFormat(preset: BracketFormatPresetKey): "SINGLE_ELIMINATION" | "DOUBLE_ELIMINATION" {
-  if (preset === "single_elim_classic") return "SINGLE_ELIMINATION";
-  return "DOUBLE_ELIMINATION";
-}
+type BracketKind = "SINGLE_ELIMINATION" | "DOUBLE_ELIMINATION";
+type BracketStyle = "traditional" | "predefined";
 
 function deriveBuildMode(preset: BracketFormatPresetKey): "template" | "custom" {
   return preset === "custom" ? "custom" : "template";
 }
 
-function defaultPresetForTeamCount(n: number): BracketFormatPresetKey {
-  if (n === 4) return "oba_de_4";
-  if (n === 5) return "oba_de_5";
-  if (n === 6) return "oba_de_6";
-  if (n === 7) return "oba_de_7";
-  if (n === 13) return "oba_de_13";
-  return "double_elim_classic";
+function resolveFormatPreset(
+  kind: BracketKind,
+  style: BracketStyle,
+  teamCount: number,
+): BracketFormatPresetKey {
+  if (style === "predefined" && kind === "DOUBLE_ELIMINATION") {
+    const match = obaDePresetsForTeamCount(teamCount)[0];
+    if (match) return match.key;
+  }
+  return kind === "SINGLE_ELIMINATION" ? "single_elim_classic" : "double_elim_classic";
 }
+
+function plannedPlayoffLabel(preset: BracketFormatPresetKey): string {
+  if (isObaDePresetKey(preset)) return getObaDePreset(preset).label;
+  if (preset === "single_elim_classic") return "Traditional single elimination";
+  if (preset === "double_elim_classic") return "Traditional double elimination";
+  return "Custom bracket";
+}
+
 type Step =
   | "basics"
   | "tourney_format"
+  | "br_kind"
+  | "br_style"
   | "rr_pools"
   | "rr_assign"
-  | "br_config"
   | "br_seed"
   | "creating"
   | "done";
+
+const radioCardClass =
+  "flex items-start gap-2 rounded-lg border border-zinc-200 p-3 text-sm text-zinc-800 has-[:checked]:border-emerald-500 has-[:checked]:bg-emerald-50/50 has-[:disabled]:opacity-50";
 
 type Props = { onClose: () => void };
 
@@ -109,6 +122,8 @@ export function CreateTournamentWizardModal({ onClose }: Props) {
 
   const [tournamentName, setTournamentName] = useState("");
   const [format, setFormat] = useState<Format>("round_robin");
+  const [bracketKind, setBracketKind] = useState<BracketKind>("DOUBLE_ELIMINATION");
+  const [bracketStyle, setBracketStyle] = useState<BracketStyle>("traditional");
   const [divisionCount, setDivisionCount] = useState(1);
   const [skipDivisionNames, setSkipDivisionNames] = useState(false);
   const [divisionNameDrafts, setDivisionNameDrafts] = useState<string[]>([""]);
@@ -126,18 +141,9 @@ export function CreateTournamentWizardModal({ onClose }: Props) {
   >({});
   const [dragKey, setDragKey] = useState<string | null>(null);
 
-  const [formatPresetByDiv, setFormatPresetByDiv] = useState<BracketFormatPresetKey[]>([
-    "double_elim_classic",
-  ]);
   const [seedMode, setSeedMode] = useState<SeedMode>("auto");
   const [entrySizeByDiv, setEntrySizeByDiv] = useState<number[]>([8]);
   const [manualSeedsByDiv, setManualSeedsByDiv] = useState<Array<Array<string | null>>>([[]]);
-
-  const anyCustomPreset = formatPresetByDiv.some((p) => p === "custom");
-  const anyClassicTemplate = formatPresetByDiv.some(
-    (p) => p === "single_elim_classic" || p === "double_elim_classic",
-  );
-  const anyObaPreset = formatPresetByDiv.some((p) => isObaDePresetKey(p));
 
   const divisionNames = useMemo(
     () => fillNames(divisionCount, divisionNameDrafts, skipDivisionNames, "Division"),
@@ -161,6 +167,18 @@ export function CreateTournamentWizardModal({ onClose }: Props) {
     () => teamsByDivision.reduce((sum, row) => sum + row.length, 0),
     [teamsByDivision],
   );
+
+  const formatPresets = useMemo(
+    () => teamsByDivision.map((teams) => resolveFormatPreset(bracketKind, bracketStyle, teams.length)),
+    [teamsByDivision, bracketKind, bracketStyle],
+  );
+  const anyClassicTemplate = formatPresets.some(
+    (p) => p === "single_elim_classic" || p === "double_elim_classic",
+  );
+  const predefinedAvailable =
+    bracketKind === "DOUBLE_ELIMINATION" &&
+    teamsByDivision.length > 0 &&
+    teamsByDivision.every((teams) => obaDePresetsForTeamCount(teams.length).length > 0);
 
   useEffect(() => {
     const root = dialogRef.current;
@@ -209,11 +227,6 @@ export function CreateTournamentWizardModal({ onClose }: Props) {
       while (next.length < count) next.push(8);
       return next.slice(0, count);
     });
-    setFormatPresetByDiv((prev) => {
-      const next = [...prev];
-      while (next.length < count) next.push("double_elim_classic");
-      return next.slice(0, count);
-    });
     setTeamsPerDivision((prev) => {
       const next = [...prev];
       while (next.length < count) next.push(WIZARD_DEFAULT_TEAMS_EXTRA_DIVISION);
@@ -240,15 +253,6 @@ export function CreateTournamentWizardModal({ onClose }: Props) {
       const row = [...(next[di] ?? [])];
       while (row.length < count) row.push("");
       next[di] = row.slice(0, count);
-      return next;
-    });
-    setFormatPresetByDiv((prev) => {
-      const next = [...prev];
-      const cur = next[di] ?? "double_elim_classic";
-      if (isObaDePresetKey(cur)) {
-        const need = Number(cur.replace("oba_de_", ""));
-        if (need !== count) next[di] = defaultPresetForTeamCount(count);
-      }
       return next;
     });
     setEntrySizeByDiv((prev) => {
@@ -341,20 +345,44 @@ export function CreateTournamentWizardModal({ onClose }: Props) {
 
   function goNextFromTourneyFormat() {
     setError(null);
+    setStep("br_kind");
+  }
+
+  function goNextFromBrKind() {
+    setError(null);
+    if (bracketKind === "SINGLE_ELIMINATION" || !predefinedAvailable) {
+      setBracketStyle("traditional");
+    }
+    setStep("br_style");
+  }
+
+  function goNextFromBrStyle() {
+    setError(null);
+    if (bracketStyle === "predefined" && !predefinedAvailable) {
+      setError(
+        bracketKind === "SINGLE_ELIMINATION"
+          ? "Pre-defined maps are double elimination. Switch to double elimination, or use a traditional bracket."
+          : "Pre-defined maps exist for 4, 5, 6, 7, and 13 teams. Change the team count on step 1, or use a traditional bracket.",
+      );
+      return;
+    }
     if (format === "round_robin") {
       setStep("rr_pools");
       return;
     }
-    setFormatPresetByDiv((prev) =>
-      teamsByDivision.map((teams, di) => {
-        const fallback = defaultPresetForTeamCount(teams.length);
-        const cur = prev[di] ?? fallback;
-        const options = wizardFormatOptionsForTeamCount(teams.length);
-        return options.some((o) => o.key === cur) ? cur : fallback;
-      }),
-    );
-    initBracketSeeds();
-    setStep("br_config");
+    for (let di = 0; di < divisionCount; di++) {
+      if ((teamsByDivision[di] ?? []).length < 2) {
+        setError(`${divisionNames[di]} needs at least 2 teams for a bracket.`);
+        return;
+      }
+    }
+    if (anyClassicTemplate) {
+      initBracketSeeds();
+      setStep("br_seed");
+      return;
+    }
+    setSeedMode("auto");
+    void submit();
   }
 
   function poolLabel(_di: number, pi: number) {
@@ -428,13 +456,18 @@ export function CreateTournamentWizardModal({ onClose }: Props) {
           divisions: { count: divisionCount, names: divisionNames, skipNaming: skipDivisionNames },
           teams: { count: teamCount, names: flatNames, skipNaming: skipTeamNames },
           roundRobin: { divisions: rrDivisions },
+          plannedPlayoff: {
+            kind: bracketKind,
+            style: bracketStyle,
+            presets: formatPresets,
+          },
         };
       } else {
         for (let di = 0; di < divisionCount; di++) {
           if ((teamsByDivision[di] ?? []).length < 2) {
             setError(`${divisionNames[di]} needs at least 2 teams for a bracket.`);
             setPending(false);
-            setStep("br_config");
+            setStep("br_style");
             return;
           }
         }
@@ -449,9 +482,9 @@ export function CreateTournamentWizardModal({ onClose }: Props) {
         }
         const bracketDivisions = divisionNames.map((name, di) => {
           const teams = teamsByDivision[di] ?? [];
-          const formatPreset = formatPresetByDiv[di] ?? "double_elim_classic";
+          const formatPreset = formatPresets[di] ?? "double_elim_classic";
           const buildMode = deriveBuildMode(formatPreset);
-          const bracketFormat = deriveBracketFormat(formatPreset);
+          const bracketFormat = bracketKind;
           const entrySize = isObaDePresetKey(formatPreset)
             ? teams.length
             : (entrySizeByDiv[di] ?? nextPowerOfTwoAtLeast(teams.length));
@@ -477,6 +510,11 @@ export function CreateTournamentWizardModal({ onClose }: Props) {
           divisions: { count: divisionCount, names: divisionNames, skipNaming: skipDivisionNames },
           teams: { count: teamCount, names: teamsByDivision.flat(), skipNaming: skipTeamNames },
           bracket: { divisions: bracketDivisions },
+          plannedPlayoff: {
+            kind: bracketKind,
+            style: bracketStyle,
+            presets: formatPresets,
+          },
         };
       }
 
@@ -491,11 +529,7 @@ export function CreateTournamentWizardModal({ onClose }: Props) {
           setStep("done");
         } else {
           setStep(
-            format === "round_robin"
-              ? "rr_assign"
-              : anyCustomPreset || anyObaPreset
-                ? "br_config"
-                : "br_seed",
+            format === "round_robin" ? "rr_assign" : anyClassicTemplate ? "br_seed" : "br_style",
           );
         }
         return;
@@ -521,20 +555,22 @@ export function CreateTournamentWizardModal({ onClose }: Props) {
 
   const stepTitle =
     step === "basics"
-      ? "Step 1 — teams"
+      ? "Step 1 — name and teams"
       : step === "tourney_format"
         ? "Step 2 — tournament format"
-        : step === "rr_pools"
-          ? "Step 3 — pools"
-          : step === "rr_assign"
-            ? "Step 4 — place teams"
-            : step === "br_config"
-              ? "Step 3 — bracket format"
-              : step === "br_seed"
-                ? "Step 4 — seed Round 1"
-                : step === "done"
-                  ? "Created"
-                  : "Creating…";
+        : step === "br_kind"
+          ? "Step 3 — bracket format"
+          : step === "br_style"
+            ? "Step 4 — traditional or pre-defined"
+            : step === "rr_pools"
+              ? "Step 5 — pools"
+              : step === "rr_assign"
+                ? "Step 6 — place teams"
+                : step === "br_seed"
+                  ? "Step 5 — seed Round 1"
+                  : step === "done"
+                    ? "Created"
+                    : "Creating…";
 
   const dismissDisabled = pending || step === "creating";
 
@@ -596,6 +632,9 @@ export function CreateTournamentWizardModal({ onClose }: Props) {
 
           {step === "basics" ? (
             <div className="flex flex-col gap-5">
+              <p className="text-sm text-zinc-600">
+                Name the tournament and how many teams are involved. You’ll pick formats next.
+              </p>
               <div>
                 <label className={labelClass}>Tournament name</label>
                 <input
@@ -665,7 +704,6 @@ export function CreateTournamentWizardModal({ onClose }: Props) {
                   </label>
                 </div>
                 <p className="mt-1 text-xs text-zinc-500">
-                  Set the team count first — OBA maps (4–7 or 13 teams) only show after this step.
                   Each division can have a different count. Total:{" "}
                   <span className="font-medium text-zinc-700">{teamCount}</span>
                 </p>
@@ -727,12 +765,9 @@ export function CreateTournamentWizardModal({ onClose }: Props) {
 
           {step === "tourney_format" ? (
             <div className="flex flex-col gap-4">
-              <p className="text-sm text-zinc-600">
-                {teamCount} team{teamCount === 1 ? "" : "s"} across {divisionCount} division
-                {divisionCount === 1 ? "" : "s"}. How should this tournament run?
-              </p>
+              <p className="text-sm text-zinc-600">Does this tournament include round-robin pool play?</p>
               <div className="flex flex-col gap-2">
-                <label className="flex items-start gap-2 rounded-lg border border-zinc-200 p-3 text-sm text-zinc-800 has-[:checked]:border-emerald-500 has-[:checked]:bg-emerald-50/50">
+                <label className={radioCardClass}>
                   <input
                     type="radio"
                     className="mt-1"
@@ -740,14 +775,14 @@ export function CreateTournamentWizardModal({ onClose }: Props) {
                     onChange={() => setFormat("round_robin")}
                   />
                   <span>
-                    <span className="font-medium">Round robin, then bracket</span>
+                    <span className="font-medium">Yes — round robin, then a bracket</span>
                     <span className="mt-0.5 block text-xs text-zinc-500">
-                      Pool play first. You’ll set pools next; the playoff bracket is built later
-                      under Admin → Brackets.
+                      Pool play first. You’ll still choose the playoff bracket next; it is built after
+                      pools are done.
                     </span>
                   </span>
                 </label>
-                <label className="flex items-start gap-2 rounded-lg border border-zinc-200 p-3 text-sm text-zinc-800 has-[:checked]:border-emerald-500 has-[:checked]:bg-emerald-50/50">
+                <label className={radioCardClass}>
                   <input
                     type="radio"
                     className="mt-1"
@@ -755,13 +790,162 @@ export function CreateTournamentWizardModal({ onClose }: Props) {
                     onChange={() => setFormat("bracket_only")}
                   />
                   <span>
-                    <span className="font-medium">Bracket only</span>
+                    <span className="font-medium">No — brackets only</span>
                     <span className="mt-0.5 block text-xs text-zinc-500">
-                      Skip pool play — choose a single- or double-elimination map next.
+                      Skip pool play and go straight into single or double elimination.
                     </span>
                   </span>
                 </label>
               </div>
+            </div>
+          ) : null}
+
+          {step === "br_kind" ? (
+            <div className="flex flex-col gap-4">
+              <p className="text-sm text-zinc-600">
+                {format === "round_robin"
+                  ? "What format is the playoff bracket after pool play?"
+                  : "What bracket format should we use?"}
+              </p>
+              <div className="flex flex-col gap-2">
+                <label className={radioCardClass}>
+                  <input
+                    type="radio"
+                    className="mt-1"
+                    checked={bracketKind === "SINGLE_ELIMINATION"}
+                    onChange={() => {
+                      setBracketKind("SINGLE_ELIMINATION");
+                      setBracketStyle("traditional");
+                    }}
+                  />
+                  <span>
+                    <span className="font-medium">Single elimination</span>
+                    <span className="mt-0.5 block text-xs text-zinc-500">
+                      One loss and you’re out. Field is padded with BYEs on a traditional tree.
+                    </span>
+                  </span>
+                </label>
+                <label className={radioCardClass}>
+                  <input
+                    type="radio"
+                    className="mt-1"
+                    checked={bracketKind === "DOUBLE_ELIMINATION"}
+                    onChange={() => setBracketKind("DOUBLE_ELIMINATION")}
+                  />
+                  <span>
+                    <span className="font-medium">Double elimination</span>
+                    <span className="mt-0.5 block text-xs text-zinc-500">
+                      One loss sends a team to the losers side; a second loss eliminates them.
+                    </span>
+                  </span>
+                </label>
+              </div>
+            </div>
+          ) : null}
+
+          {step === "br_style" ? (
+            <div className="flex flex-col gap-4">
+              <p className="text-sm text-zinc-600">
+                Use a traditional power-of-2 tree, or a pre-defined Baseball Ontario map when the
+                team count matches?
+              </p>
+              <div className="flex flex-col gap-2">
+                <label className={radioCardClass}>
+                  <input
+                    type="radio"
+                    className="mt-1"
+                    checked={bracketStyle === "traditional"}
+                    onChange={() => setBracketStyle("traditional")}
+                  />
+                  <span>
+                    <span className="font-medium">Traditional bracket</span>
+                    <span className="mt-0.5 block text-xs text-zinc-500">
+                      Classic {bracketKind === "SINGLE_ELIMINATION" ? "single" : "double"}-elim tree
+                      padded with BYEs. You can change pairing later under Admin → Brackets.
+                    </span>
+                  </span>
+                </label>
+                <label className={radioCardClass}>
+                  <input
+                    type="radio"
+                    className="mt-1"
+                    checked={bracketStyle === "predefined"}
+                    disabled={!predefinedAvailable}
+                    onChange={() => {
+                      if (predefinedAvailable) setBracketStyle("predefined");
+                    }}
+                  />
+                  <span>
+                    <span className="font-medium">Pre-defined bracket</span>
+                    <span className="mt-0.5 block text-xs text-zinc-500">
+                      {predefinedAvailable
+                        ? teamsByDivision
+                            .map((teams, di) => {
+                              const map = obaDePresetsForTeamCount(teams.length)[0];
+                              return `${divisionNames[di]}: ${map?.label ?? "no map"}`;
+                            })
+                            .join(" · ")
+                        : bracketKind === "SINGLE_ELIMINATION"
+                          ? "Pre-defined maps are double elimination. Go back and pick double elimination, or use traditional."
+                          : "OBA maps exist for 4, 5, 6, 7, and 13 teams. This division doesn’t match — go back to step 1 or use traditional."}
+                    </span>
+                  </span>
+                </label>
+              </div>
+              {bracketStyle === "traditional"
+                ? divisionNames.map((name, di) => {
+                    const teams = teamsByDivision[di] ?? [];
+                    const suggested = nextPowerOfTwoAtLeast(Math.max(2, teams.length));
+                    return (
+                      <div key={di} className="rounded-lg border border-zinc-200 p-3">
+                        <p className="text-sm font-medium text-zinc-900">
+                          {name}{" "}
+                          <span className="font-normal text-zinc-500">({teams.length} teams)</span>
+                        </p>
+                        <label className={`${labelClass} mt-2 block`}>Bracket size (slots)</label>
+                        <select
+                          value={entrySizeByDiv[di] ?? suggested}
+                          onChange={(e) => {
+                            const next = [...entrySizeByDiv];
+                            next[di] = Number(e.target.value);
+                            setEntrySizeByDiv(next);
+                          }}
+                          className={`${formClass} mt-1`}
+                        >
+                          {[2, 4, 8, 16, 32, 64]
+                            .filter((n) => n >= teams.length || n === suggested)
+                            .map((n) => (
+                              <option key={n} value={n}>
+                                {n} slots
+                              </option>
+                            ))}
+                        </select>
+                      </div>
+                    );
+                  })
+                : null}
+              {formatPresets[0] ? (
+                <>
+                  <p className="text-xs text-zinc-500">{plannedPlayoffLabel(formatPresets[0]!)}</p>
+                  {formatPresets[0] === "oba_de_4" || formatPresets[0] === "oba_de_13" ? (
+                    <p className="text-xs text-zinc-500">
+                      Team list order is the draw order (first drawn = Team 1 bye). Remaining teams
+                      pair in list order into Round 1.
+                    </p>
+                  ) : formatPresets[0] === "oba_de_5" ? (
+                    <p className="text-xs text-zinc-500">
+                      Team list order is seed order (first = seed 1 / strongest). For 5 teams, seeds
+                      1–3 get Round 1 byes; seed 4 plays seed 5.
+                    </p>
+                  ) : isObaDePresetKey(formatPresets[0]) ? (
+                    <p className="text-xs text-zinc-500">
+                      Team list order is seed order (first = seed 1 / strongest). Top seeds receive
+                      Round 1 byes.
+                    </p>
+                  ) : null}
+                  <BracketFormatExplainer sections={explainerForFormatPreset(formatPresets[0])} />
+                </>
+              ) : null}
             </div>
           ) : null}
 
@@ -885,86 +1069,6 @@ export function CreateTournamentWizardModal({ onClose }: Props) {
                         </div>
                       ))}
                     </div>
-                  </div>
-                );
-              })}
-            </div>
-          ) : null}
-
-          {step === "br_config" ? (
-            <div className="flex flex-col gap-5">
-              <p className="text-sm text-zinc-600">
-                Choose a bracket format per division. OBA double-elimination maps (4–7 and 13 teams)
-                appear when that division’s team count matches.
-              </p>
-              {divisionNames.map((name, di) => {
-                const teams = teamsByDivision[di] ?? [];
-                const preset = formatPresetByDiv[di] ?? defaultPresetForTeamCount(teams.length);
-                const options = wizardFormatOptionsForTeamCount(teams.length);
-                const suggested = nextPowerOfTwoAtLeast(Math.max(2, teams.length));
-                const showClassicSize =
-                  preset === "single_elim_classic" || preset === "double_elim_classic";
-                return (
-                  <div key={di} className="rounded-lg border border-zinc-200 p-3">
-                    <p className="text-sm font-medium text-zinc-900">
-                      {name}{" "}
-                      <span className="font-normal text-zinc-500">({teams.length} teams)</span>
-                    </p>
-                    <label className={`${labelClass} mt-2 block`}>Bracket format</label>
-                    <select
-                      value={options.some((o) => o.key === preset) ? preset : (options[0]?.key ?? "custom")}
-                      onChange={(e) => {
-                        const next = [...formatPresetByDiv];
-                        next[di] = e.target.value as BracketFormatPresetKey;
-                        setFormatPresetByDiv(next);
-                      }}
-                      className={`${formClass} mt-1`}
-                    >
-                      {options.map((o) => (
-                        <option key={o.key} value={o.key}>
-                          {o.label}
-                        </option>
-                      ))}
-                    </select>
-                    {showClassicSize ? (
-                      <>
-                        <label className={`${labelClass} mt-3 block`}>Bracket size (slots)</label>
-                        <select
-                          value={entrySizeByDiv[di] ?? suggested}
-                          onChange={(e) => {
-                            const next = [...entrySizeByDiv];
-                            next[di] = Number(e.target.value);
-                            setEntrySizeByDiv(next);
-                          }}
-                          className={`${formClass} mt-1`}
-                        >
-                          {[2, 4, 8, 16, 32, 64]
-                            .filter((n) => n >= teams.length || n === suggested)
-                            .map((n) => (
-                              <option key={n} value={n}>
-                                {n} slots
-                              </option>
-                            ))}
-                        </select>
-                      </>
-                    ) : null}
-                    {preset === "oba_de_4" || preset === "oba_de_13" ? (
-                      <p className="mt-2 text-xs text-zinc-500">
-                        Team list order is the draw order (first drawn = Team 1 bye). Remaining
-                        teams pair in list order into Round 1.
-                      </p>
-                    ) : preset === "oba_de_5" ? (
-                      <p className="mt-2 text-xs text-zinc-500">
-                        Team list order is seed order (first = seed 1 / strongest). For 5 teams, seeds
-                        1–3 get Round 1 byes; seed 4 plays seed 5.
-                      </p>
-                    ) : isObaDePresetKey(preset) ? (
-                      <p className="mt-2 text-xs text-zinc-500">
-                        Team list order is seed order (first = seed 1 / strongest). Top seeds receive
-                        Round 1 byes.
-                      </p>
-                    ) : null}
-                    <BracketFormatExplainer sections={explainerForFormatPreset(preset)} />
                   </div>
                 );
               })}
@@ -1103,9 +1207,11 @@ export function CreateTournamentWizardModal({ onClose }: Props) {
               setError(null);
               if (step === "basics") onClose();
               else if (step === "tourney_format") setStep("basics");
-              else if (step === "rr_pools" || step === "br_config") setStep("tourney_format");
+              else if (step === "br_kind") setStep("tourney_format");
+              else if (step === "br_style") setStep("br_kind");
+              else if (step === "rr_pools") setStep("br_style");
               else if (step === "rr_assign") setStep("rr_pools");
-              else if (step === "br_seed") setStep("br_config");
+              else if (step === "br_seed") setStep("br_style");
             }}
           >
             {step === "basics" ? "Cancel" : "Back"}
@@ -1118,6 +1224,16 @@ export function CreateTournamentWizardModal({ onClose }: Props) {
           {step === "tourney_format" ? (
             <button type="button" className={btnPrimary} onClick={goNextFromTourneyFormat}>
               Next
+            </button>
+          ) : null}
+          {step === "br_kind" ? (
+            <button type="button" className={btnPrimary} onClick={goNextFromBrKind}>
+              Next
+            </button>
+          ) : null}
+          {step === "br_style" ? (
+            <button type="button" className={btnPrimary} disabled={pending} onClick={goNextFromBrStyle}>
+              {format === "bracket_only" && !anyClassicTemplate ? "Create tournament" : "Next"}
             </button>
           ) : null}
           {step === "rr_pools" ? (
@@ -1135,34 +1251,6 @@ export function CreateTournamentWizardModal({ onClose }: Props) {
           {step === "rr_assign" ? (
             <button type="button" className={btnPrimary} disabled={pending} onClick={() => void submit()}>
               Create tournament
-            </button>
-          ) : null}
-          {step === "br_config" ? (
-            <button
-              type="button"
-              className={btnPrimary}
-              disabled={pending}
-              onClick={() => {
-                if (anyCustomPreset && !anyClassicTemplate && !anyObaPreset) {
-                  setSeedMode("auto");
-                  void submit();
-                  return;
-                }
-                // OBA presets use list order as the draw — skip classic seed board.
-                if (!anyClassicTemplate) {
-                  setSeedMode("auto");
-                  void submit();
-                  return;
-                }
-                initBracketSeeds();
-                setStep("br_seed");
-              }}
-            >
-              {anyCustomPreset && !anyClassicTemplate && !anyObaPreset
-                ? "Create & open structure"
-                : !anyClassicTemplate
-                  ? "Create tournament"
-                  : "Next"}
             </button>
           ) : null}
           {step === "br_seed" ? (

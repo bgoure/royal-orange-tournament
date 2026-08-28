@@ -92,6 +92,14 @@ export const tournamentWizardSchema = z
         divisions: z.array(divisionBracketSchema).min(1).max(WIZARD_MAX_DIVISIONS),
       })
       .optional(),
+    /** Collected for every tournament; used to create brackets now (bracket-only) or as a playoff note (round robin). */
+    plannedPlayoff: z
+      .object({
+        kind: z.enum(["SINGLE_ELIMINATION", "DOUBLE_ELIMINATION"]),
+        style: z.enum(["traditional", "predefined"]),
+        presets: z.array(formatPresetSchema).min(1),
+      })
+      .optional(),
   })
   .superRefine((d, ctx) => {
     if (d.format === "round_robin") {

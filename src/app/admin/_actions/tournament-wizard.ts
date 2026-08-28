@@ -476,6 +476,14 @@ export async function createTournamentFromWizard(input: unknown): Promise<Tourna
       finishNotes.push(
         "Round-robin structure created (draft). Name teams, set venue, then generate the pool schedule when ready.",
       );
+      const plan = parsed.data.plannedPlayoff;
+      if (plan) {
+        const styleLabel = plan.style === "predefined" ? "pre-defined OBA map" : "traditional power-of-2";
+        const kindLabel = plan.kind === "DOUBLE_ELIMINATION" ? "double elimination" : "single elimination";
+        finishNotes.push(
+          `Playoff planned: ${kindLabel}, ${styleLabel}. Create it under Admin → Brackets after pool play.`,
+        );
+      }
     }
 
     finishNotes.push("Tournament is a draft (not on the public site) until you publish it in settings.");
