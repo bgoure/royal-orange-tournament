@@ -130,6 +130,25 @@ export function oba13SitOutByeNote(
   return `Bye: ${names.join(", ")} sit out this round.`;
 }
 
+/**
+ * Public tree: both A and B stay visible (placeholder) until the unused branch
+ * is cancelled after Round 5. Then only the live branch remains.
+ */
+export function oba13PublicEndgameMode(
+  games: { gameNumber?: string | null }[],
+): "placeholder" | Oba13EndgameBranch {
+  let hasA = false;
+  let hasB = false;
+  for (const g of games) {
+    const branch = oba13EndgameBranchForGameNumber(g.gameNumber);
+    if (branch === "A") hasA = true;
+    if (branch === "B") hasB = true;
+  }
+  if (hasA && !hasB) return "A";
+  if (hasB && !hasA) return "B";
+  return "placeholder";
+}
+
 /** RP5.2 n.i + n.ii pool (admin may still override). */
 export function rp52EligibleByeTeamIds(candidates: ObaByeCandidate[]): string[] {
   if (candidates.length === 0) return [];

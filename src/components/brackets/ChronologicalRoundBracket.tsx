@@ -31,6 +31,7 @@ import {
   isOba13SitOutGameNumber,
   oba13EndgameBranchForGameNumber,
   oba13SitOutByeNote,
+  oba13PublicEndgameMode,
   OBA13_ROUND_5_REDRAW_NOTE,
 } from "@/lib/services/oba-de-13";
 
@@ -170,25 +171,26 @@ function decorateColumns(
 
 function splitOba13Endgame(columns: DecoratedColumn[]): {
   early: DecoratedColumn[];
+  late: DecoratedColumn[];
   bracketA: DecoratedColumn[];
   bracketB: DecoratedColumn[];
   endgameStart: number;
 } {
   const start = columns.findIndex((c) => isRoundNumberColumn(c.label, 6));
-  if (start < 0) return { early: columns, bracketA: [], bracketB: [], endgameStart: columns.length };
+  if (start < 0) {
+    return { early: columns, late: [], bracketA: [], bracketB: [], endgameStart: columns.length };
+  }
   const late = columns.slice(start);
   const take = (branch: "A" | "B") =>
-    late
-      .map((c) => {
-        const games = c.games.filter((g) => oba13EndgameBranchForGameNumber(g.gameNumber) === branch);
-        const sitOutNote =
-          branch === "A" ? c.sitOutNote : undefined;
-        const noteOffset = sitOutNote ? SITOUT_NOTE_OFFSET : 0;
-        return { ...c, games, roundNote: undefined, sitOutNote, noteOffset };
-      })
-      .filter((c) => c.games.length > 0 || !!c.sitOutNote);
+    late.map((c) => {
+      const games = c.games.filter((g) => oba13EndgameBranchForGameNumber(g.gameNumber) === branch);
+      const sitOutNote = branch === "A" ? c.sitOutNote : undefined;
+      const noteOffset = sitOutNote ? SITOUT_NOTE_OFFSET : 0;
+      return { ...c, games, roundNote: undefined, sitOutNote, noteOffset };
+    });
   return {
     early: columns.slice(0, start),
+    late,
     bracketA: take("A"),
     bracketB: take("B"),
     endgameStart: start,
@@ -657,6 +659,9 @@ function ChronoBoard({
   expandAll,
   isOpen,
   onToggle,
+  hideHeaders = false,
+  blankEmpty = false,
+  fixedColWidth,
 }: {
   columns: DecoratedColumn[];
   byGameId: Map<string, GameRow>;
@@ -667,6 +672,9 @@ function ChronoBoard({
   expandAll: boolean;
   isOpen: (index: number) => boolean;
   onToggle: (index: number) => void;
+  hideHeaders?: boolean;
+  blankEmpty?: boolean;
+  fixedColWidth?: number;
 }) {
   const boardRef = useRef<HTMLDivElement>(null);
   const [paths, setPaths] = useState<DrawnPath[]>([]);
@@ -723,6 +731,7 @@ function ChronoBoard({
       raf = requestAnimationFrame(() => {
         const nextHeights = new Map<string, number>();
         const nextColWidths: number[] = columns.map((col, ci) => {
+          if (fixedColWidth != null) return fixedColWidth;
           if (!isOpen(ci)) return 44;
           let longestWord = 0;
           for (const g of col.games) {
@@ -805,14 +814,16 @@ function ChronoBoard({
     gf2,
     ifNecUi.shaded,
     isOpen,
+    hideHeaders,
+    fixedColWidth,
   ]);
 
-  const columnShellH = contentH + HEADER_H;
+  const columnShellH = contentH + (hideHeaders ? 0 : HEADER_H);
 
   return (
     <div
       ref={boardRef}
-      className="relative flex w-max min-w-full items-stretch gap-5"
+      className={`relative flex items-stretch gap-5 ${hideHeaders ? "w-max" : "w-max min-w-full"}`}
       style={{ minHeight: columnShellH }}
     >
       {columns.map((col, ci) => {
@@ -832,38 +843,40 @@ function ChronoBoard({
         return (
           <div
             key={`${col.label}-${ci}`}
-            className={`relative ${BRACKET_ROUND_COLUMN_CLASS} rounded-xl ${
-              shade ? "bg-zinc-100" : "bg-zinc-50"
-            }`}
+            className={`relative ${BRACKET_ROUND_COLUMN_CLASS} ${
+              hideHeaders ? "rounded-lg" : "rounded-xl"
+            } ${shade ? "bg-zinc-100" : hideHeaders ? "bg-transparent" : "bg-zinc-50"}`}
             style={{
               height: columnShellH,
               width: colWidths[ci] ?? BRACKET_COL_DEFAULT_PX,
             }}
           >
-            <div
-              className="relative z-20 flex shrink-0 flex-col items-center justify-center border-b border-zinc-200 bg-white px-3 py-2 text-center"
-              style={{ minHeight: HEADER_H }}
-            >
-              <h3 className="text-xs font-bold uppercase tracking-[0.08em] text-royal">
-                {withBracketRoundDay(col.label, games, timeZone)}
-              </h3>
-              {col.subtitle ? (
-                <p className="mt-0.5 text-[11px] font-medium text-zinc-600">{col.subtitle}</p>
-              ) : (
-                <p className="mt-0.5 text-[11px] font-medium text-transparent" aria-hidden>
-                  &nbsp;
-                </p>
-              )}
-              {!expandAll ? (
-                <button
-                  type="button"
-                  className="mt-1 text-[10px] font-semibold uppercase tracking-wide text-zinc-500 hover:text-royal"
-                  onClick={() => onToggle(ci)}
-                >
-                  Hide
-                </button>
-              ) : null}
-            </div>
+            {hideHeaders ? null : (
+              <div
+                className="relative z-20 flex shrink-0 flex-col items-center justify-center border-b border-zinc-200 bg-white px-3 py-2 text-center"
+                style={{ minHeight: HEADER_H }}
+              >
+                <h3 className="text-xs font-bold uppercase tracking-[0.08em] text-royal">
+                  {withBracketRoundDay(col.label, games, timeZone)}
+                </h3>
+                {col.subtitle ? (
+                  <p className="mt-0.5 text-[11px] font-medium text-zinc-600">{col.subtitle}</p>
+                ) : (
+                  <p className="mt-0.5 text-[11px] font-medium text-transparent" aria-hidden>
+                    &nbsp;
+                  </p>
+                )}
+                {!expandAll ? (
+                  <button
+                    type="button"
+                    className="mt-1 text-[10px] font-semibold uppercase tracking-wide text-zinc-500 hover:text-royal"
+                    onClick={() => onToggle(ci)}
+                  >
+                    Hide
+                  </button>
+                ) : null}
+              </div>
+            )}
             <div className="relative flex-1 px-3" style={{ height: contentH }}>
               {col.roundNote || col.sitOutNote ? (
                 <div
@@ -879,7 +892,9 @@ function ChronoBoard({
                 </div>
               ) : null}
               {games.length === 0 && !col.roundNote && !col.sitOutNote ? (
-                <p className="pt-4 text-sm text-zinc-500">Matchups TBA.</p>
+                blankEmpty ? null : (
+                  <p className="pt-4 text-sm text-zinc-500">Matchups TBA.</p>
+                )
               ) : (
                 games.map((g, mi) => (
                   <div
@@ -914,12 +929,14 @@ function ChronoBoard({
                 ))
               )}
             </div>
-            <div
-              className={`pointer-events-none absolute inset-0 z-[15] rounded-xl border ${
-                shade ? "border-zinc-300" : "border-zinc-200"
-              }`}
-              aria-hidden
-            />
+            {hideHeaders ? null : (
+              <div
+                className={`pointer-events-none absolute inset-0 z-[15] rounded-xl border ${
+                  shade ? "border-zinc-300" : "border-zinc-200"
+                }`}
+                aria-hidden
+              />
+            )}
           </div>
         );
       })}
@@ -944,6 +961,132 @@ function ChronoBoard({
           />
         ))}
       </svg>
+    </div>
+  );
+}
+
+function Oba13EndgamePanel({
+  late,
+  bracketA,
+  bracketB,
+  byGameId,
+  timeZone,
+  format,
+  showHomeAway,
+  expandAll,
+  onHide,
+  mode,
+}: {
+  late: DecoratedColumn[];
+  bracketA: DecoratedColumn[];
+  bracketB: DecoratedColumn[];
+  byGameId: Map<string, GameRow>;
+  timeZone?: string | null;
+  format: BracketFormat | string;
+  showHomeAway: boolean;
+  expandAll: boolean;
+  onHide: () => void;
+  mode: "placeholder" | "A" | "B";
+}) {
+  const showA = mode === "placeholder" || mode === "A";
+  const showB = mode === "placeholder" || mode === "B";
+  const placeholder = mode === "placeholder";
+  const colWidth = BRACKET_COL_DEFAULT_PX;
+
+  return (
+    <div className="flex shrink-0 flex-col rounded-2xl border-2 border-zinc-200 bg-white p-3">
+      <div className="mb-2 flex items-start justify-between gap-3">
+        <p className="text-xs font-bold uppercase tracking-[0.1em] text-zinc-500">Endgame</p>
+        {!expandAll ? (
+          <button
+            type="button"
+            className="text-[10px] font-semibold uppercase tracking-wide text-zinc-500 hover:text-royal"
+            onClick={onHide}
+          >
+            Hide
+          </button>
+        ) : null}
+      </div>
+      <div className="flex gap-5">
+        {late.map((col) => (
+          <div
+            key={`endgame-h-${col.label}`}
+            className="flex shrink-0 flex-col items-center justify-center px-2 pb-2 text-center"
+            style={{ width: colWidth }}
+          >
+            <h3 className="text-xs font-bold uppercase tracking-[0.08em] text-royal">
+              {withBracketRoundDay(col.label, col.games, timeZone)}
+            </h3>
+            {col.subtitle ? (
+              <p className="mt-0.5 text-[11px] font-medium text-zinc-600">{col.subtitle}</p>
+            ) : null}
+          </div>
+        ))}
+      </div>
+      {showA ? (
+        <div
+          className={`rounded-xl py-2 ${
+            placeholder
+              ? "border-2 border-royal bg-royal-50/80"
+              : "border border-zinc-200 bg-zinc-50/60"
+          }`}
+        >
+          <p className={`px-3 text-xs font-bold uppercase tracking-[0.08em] ${placeholder ? "text-royal" : "text-zinc-700"}`}>
+            Bracket A
+          </p>
+          <p className="mb-2 mt-0.5 px-3 text-[11px] leading-snug text-zinc-600">
+            {placeholder
+              ? "Bracket A to be used if 3 teams remaining"
+              : "3 teams remaining"}
+          </p>
+          <ChronoBoard
+            columns={bracketA}
+            byGameId={byGameId}
+            timeZone={timeZone}
+            format={format}
+            showHomeAway={showHomeAway}
+            isOba13
+            expandAll
+            isOpen={alwaysOpenColumn}
+            onToggle={noopToggle}
+            hideHeaders
+            blankEmpty
+            fixedColWidth={colWidth}
+          />
+        </div>
+      ) : null}
+      {showB ? (
+        <div
+          className={`mt-2 rounded-xl py-2 ${
+            placeholder
+              ? "border-2 border-accent bg-accent-50/80"
+              : "border border-zinc-200 bg-zinc-50/60"
+          }`}
+        >
+          <p className={`px-3 text-xs font-bold uppercase tracking-[0.08em] ${placeholder ? "text-accent-800" : "text-zinc-700"}`}>
+            Bracket B
+          </p>
+          <p className="mb-2 mt-0.5 px-3 text-[11px] leading-snug text-zinc-600">
+            {placeholder
+              ? "Bracket B to be used if 4 teams remaining"
+              : "4 teams remaining"}
+          </p>
+          <ChronoBoard
+            columns={bracketB}
+            byGameId={byGameId}
+            timeZone={timeZone}
+            format={format}
+            showHomeAway={showHomeAway}
+            isOba13
+            expandAll
+            isOpen={alwaysOpenColumn}
+            onToggle={noopToggle}
+            hideHeaders
+            blankEmpty
+            fixedColWidth={colWidth}
+          />
+        </div>
+      ) : null}
     </div>
   );
 }
@@ -988,13 +1131,24 @@ export function ChronologicalRoundBracket({
     () => (isOba13 ? splitOba13Endgame(columns) : null),
     [columns, isOba13],
   );
+  const endgameMode = useMemo(
+    () => (isOba13 ? oba13PublicEndgameMode(allGamesFlat) : "placeholder"),
+    [allGamesFlat, isOba13],
+  );
 
   const endgameOpen = split
     ? expandAll || focus.rangeOverlaps(split.endgameStart, columns.length - 1)
     : false;
 
+  const hasEndgame =
+    !!split && (split.late.length > 0 || split.bracketA.length > 0 || split.bracketB.length > 0);
+
   return (
-    <div className="flex w-max min-w-full flex-col gap-4" role="region" aria-label="Chronological double-elimination rounds">
+    <div
+      className="flex w-max min-w-full items-stretch gap-5"
+      role="region"
+      aria-label="Chronological double-elimination rounds"
+    >
       <ChronoBoard
         columns={split ? split.early : columns}
         byGameId={byGameId}
@@ -1006,66 +1160,24 @@ export function ChronologicalRoundBracket({
         isOpen={focus.isOpen}
         onToggle={focus.toggle}
       />
-      {split && (split.bracketA.length > 0 || split.bracketB.length > 0) ? (
+      {hasEndgame && split ? (
         endgameOpen ? (
-          <div className="rounded-2xl border-2 border-royal/35 bg-white p-3 shadow-sm">
-            <div className="mb-3 flex items-start justify-between gap-3">
-              <p className="text-xs font-bold uppercase tracking-[0.1em] text-royal">Endgame</p>
-              {!expandAll ? (
-                <button
-                  type="button"
-                  className="text-[10px] font-semibold uppercase tracking-wide text-zinc-500 hover:text-royal"
-                  onClick={() => {
-                    for (let i = split.endgameStart; i < columns.length; i++) {
-                      if (focus.isOpen(i)) focus.toggle(i);
-                    }
-                  }}
-                >
-                  Hide
-                </button>
-              ) : null}
-            </div>
-            <div className="flex flex-wrap items-stretch gap-4">
-              {split.bracketA.length > 0 ? (
-                <div className="min-w-0 flex-1 rounded-xl border border-zinc-300 bg-zinc-50/80 p-3">
-                  <p className="text-xs font-bold uppercase tracking-[0.08em] text-royal">Bracket A</p>
-                  <p className="mb-3 mt-1 text-[11px] leading-snug text-zinc-600">
-                    Bracket A to be used if 3 teams remaining
-                  </p>
-                  <ChronoBoard
-                    columns={split.bracketA}
-                    byGameId={byGameId}
-                    timeZone={timeZone}
-                    format={format}
-                    showHomeAway={showHomeAway}
-                    isOba13={isOba13}
-                    expandAll
-                    isOpen={alwaysOpenColumn}
-                    onToggle={noopToggle}
-                  />
-                </div>
-              ) : null}
-              {split.bracketB.length > 0 ? (
-                <div className="min-w-0 flex-1 rounded-xl border border-zinc-300 bg-zinc-50/80 p-3">
-                  <p className="text-xs font-bold uppercase tracking-[0.08em] text-royal">Bracket B</p>
-                  <p className="mb-3 mt-1 text-[11px] leading-snug text-zinc-600">
-                    Bracket B to be used if 4 teams remaining
-                  </p>
-                  <ChronoBoard
-                    columns={split.bracketB}
-                    byGameId={byGameId}
-                    timeZone={timeZone}
-                    format={format}
-                    showHomeAway={showHomeAway}
-                    isOba13={isOba13}
-                    expandAll
-                    isOpen={alwaysOpenColumn}
-                    onToggle={noopToggle}
-                  />
-                </div>
-              ) : null}
-            </div>
-          </div>
+          <Oba13EndgamePanel
+            late={split.late}
+            bracketA={split.bracketA}
+            bracketB={split.bracketB}
+            byGameId={byGameId}
+            timeZone={timeZone}
+            format={format}
+            showHomeAway={showHomeAway}
+            expandAll={expandAll}
+            mode={endgameMode}
+            onHide={() => {
+              for (let i = split.endgameStart; i < columns.length; i++) {
+                if (focus.isOpen(i)) focus.toggle(i);
+              }
+            }}
+          />
         ) : (
           <CollapsedRoundStrip
             label="Rounds 6–8 · Endgame"

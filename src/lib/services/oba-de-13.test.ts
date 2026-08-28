@@ -10,6 +10,7 @@ import {
   isOba13AlternateEndgameSlot,
   isOba13SitOutGameNumber,
   oba13EndgameBranchForGameNumber,
+  oba13PublicEndgameMode,
   oba13SitOutByeNote,
   suggestOba13OddRoundPairing,
 } from "@/lib/services/oba-de-13";
@@ -176,5 +177,11 @@ describe("oba13 sit-out display helpers", () => {
     assert.equal(oba13EndgameBranchForGameNumber("23A"), "A");
     assert.equal(oba13EndgameBranchForGameNumber("25B"), "B");
     assert.equal(oba13EndgameBranchForGameNumber("14"), null);
+    assert.equal(
+      oba13PublicEndgameMode([{ gameNumber: "23A" }, { gameNumber: "23B" }]),
+      "placeholder",
+    );
+    assert.equal(oba13PublicEndgameMode([{ gameNumber: "23A" }, { gameNumber: "R6 Bye" }]), "A");
+    assert.equal(oba13PublicEndgameMode([{ gameNumber: "25B" }]), "B");
   });
 });
