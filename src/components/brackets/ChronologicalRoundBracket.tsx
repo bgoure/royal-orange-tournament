@@ -846,7 +846,7 @@ function ChronoBoard({
   return (
     <div
       ref={boardRef}
-      className={`relative flex items-stretch gap-5 ${hideHeaders ? "w-max" : "w-max min-w-full"}`}
+      className="relative flex w-max items-stretch gap-5"
       style={{ minHeight: columnShellH }}
     >
       {columns.map((col, ci) => {
