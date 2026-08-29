@@ -56,8 +56,6 @@ const LOSERS_FIRST_CARD_LIFT = 40;
 const IF_NEC_FOOTER_H = 88;
 const R5_NOTE_OFFSET = 128;
 const SITOUT_NOTE_OFFSET = 42;
-/** Drop R2 losers (G7/G8/G9) so G13 can sit between G7 and G8 below the winners band. */
-const OBA13_R2_LOSERS_DROP = 80;
 
 /**
  * Lane from feeders (not BracketRound.roundType): OBA packs mixed W/L games into one
@@ -93,25 +91,17 @@ function collectWinnerEdges(games: GameRow[], byGameId: Map<string, GameRow>): W
   for (const g of games) {
     const bm = g.bracketMatch;
     if (!bm) continue;
-    const destIsPureWinnersJoin =
-      bm.homeFromKind === "WINNER" && bm.awayFromKind === "WINNER";
-    const pushIfWinnersPath = (
+    const pushWinner = (
       fromId: string | undefined,
       slot: "home" | "away",
       kind: string | null | undefined,
     ) => {
       if (!fromId || kind !== "WINNER") return;
-      const from = byGameId.get(fromId);
-      if (!from) return;
-      const fromLosers = isLosersLaneGame(from, byGameId);
-      const toLosers = isLosersLaneGame(g, byGameId);
-      // Skip mixed drop-ins (e.g. W9 into G14 which also takes L10). Keep joins of two
-      // winners-of-losers (G7/G8 → G13, G14/G15 → G18) and the main winners path.
-      if ((fromLosers || toLosers) && !destIsPureWinnersJoin) return;
+      if (!byGameId.has(fromId)) return;
       edges.push({ fromGameId: fromId, toGameId: g.id, slot });
     };
-    pushIfWinnersPath(bm.awayFromMatch?.game?.id, "away", bm.awayFromKind);
-    pushIfWinnersPath(bm.homeFromMatch?.game?.id, "home", bm.homeFromKind);
+    pushWinner(bm.awayFromMatch?.game?.id, "away", bm.awayFromKind);
+    pushWinner(bm.homeFromMatch?.game?.id, "home", bm.homeFromKind);
   }
   return edges;
 }
@@ -231,7 +221,22 @@ function centerBetweenGameNumbers(
   tops.set(mid.id, midCenter - hOf(mid.id) / 2);
 }
 
-/** Place `upperNum` a step above `baseNum` (losers-lane progression). */
+/** Place `belowNum` just under `aboveNum`. */
+function placeBelowGameNumber(
+  games: GameRow[],
+  tops: Map<string, number>,
+  hOf: (id: string) => number,
+  belowNum: string,
+  aboveNum: string,
+  gap = MIN_GAP,
+): void {
+  const below = gameByNumber(games, belowNum);
+  const above = gameByNumber(games, aboveNum);
+  if (!below || !above) return;
+  const ay = tops.get(above.id);
+  if (ay == null) return;
+  tops.set(below.id, ay + hOf(above.id) + gap);
+}
 function stepAboveGameNumber(
   games: GameRow[],
   tops: Map<string, number>,
@@ -481,23 +486,14 @@ function layoutGameTops(
       if ((tops.get(g12.id) ?? 0) < minY) tops.set(g12.id, minY);
     }
 
-    for (const num of ["7", "8", "9"] as const) {
-      const g = gameByNumber(allFlat, num);
-      if (!g) continue;
-      const y = tops.get(g.id);
-      if (y != null) tops.set(g.id, y + OBA13_R2_LOSERS_DROP);
-    }
+    // G15 previously sat on G6 — park G7 there, then stack G8 / G13 / G14 / G15 / G18.
+    alignCentersToGameNumber(allFlat, tops, hOf, "7", "6");
+    placeBelowGameNumber(allFlat, tops, hOf, "8", "7");
     centerBetweenGameNumbers(allFlat, tops, hOf, "13", "7", "8");
-    alignCentersToGameNumber(allFlat, tops, hOf, "14", "12");
-    alignCentersToGameNumber(allFlat, tops, hOf, "15", "6");
-    const g14 = gameByNumber(allFlat, "14");
-    const g15 = gameByNumber(allFlat, "15");
-    if (g14 && g15) {
-      const minY = (tops.get(g14.id) ?? 0) + hOf(g14.id) + MIN_GAP;
-      if ((tops.get(g15.id) ?? 0) < minY) tops.set(g15.id, minY);
-    }
-    alignCentersToGameNumber(allFlat, tops, hOf, "19", "5");
+    placeBelowGameNumber(allFlat, tops, hOf, "14", "13");
+    placeBelowGameNumber(allFlat, tops, hOf, "15", "14");
     centerBetweenGameNumbers(allFlat, tops, hOf, "18", "14", "15");
+    alignCentersToGameNumber(allFlat, tops, hOf, "19", "5");
   }
 
   return tops;
@@ -1168,9 +1164,8 @@ export function ChronologicalRoundBracket({
     [allGamesFlat, isOba13],
   );
 
-  const endgameOpen = split
-    ? expandAll || focus.rangeOverlaps(split.endgameStart, columns.length - 1)
-    : false;
+  const [endgameHidden, setEndgameHidden] = useState(false);
+  const endgameOpen = !!split && (expandAll || !endgameHidden);
 
   const hasEndgame =
     !!split && (split.late.length > 0 || split.bracketA.length > 0 || split.bracketB.length > 0);
@@ -1204,20 +1199,12 @@ export function ChronologicalRoundBracket({
             showHomeAway={showHomeAway}
             expandAll={expandAll}
             mode={endgameMode}
-            onHide={() => {
-              for (let i = split.endgameStart; i < columns.length; i++) {
-                if (focus.isOpen(i)) focus.toggle(i);
-              }
-            }}
+            onHide={() => setEndgameHidden(true)}
           />
         ) : (
           <CollapsedRoundStrip
             label="Rounds 6–8 · Endgame"
-            onExpand={() => {
-              for (let i = split.endgameStart; i < columns.length; i++) {
-                if (!focus.isOpen(i)) focus.toggle(i);
-              }
-            }}
+            onExpand={() => setEndgameHidden(false)}
           />
         )
       ) : null}
