@@ -318,6 +318,8 @@ export function CreateTournamentWizardModal({ onClose }: Props) {
     setError(null);
     if (bracketKind === "SINGLE_ELIMINATION" || !predefinedAvailable) {
       setBracketStyle("traditional");
+    } else {
+      setBracketStyle("predefined");
     }
     setStep("br_style");
   }

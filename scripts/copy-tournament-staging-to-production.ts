@@ -109,6 +109,18 @@ async function main() {
     const faqItems = await source.faqItem.findMany({
       where: { tournamentId: tournament.id },
     });
+    const headerLogo = await source.gameSheetHeaderLogo.findUnique({
+      where: { tournamentId: tournament.id },
+    });
+    const sponsors = await source.tournamentSponsor.findMany({
+      where: { tournamentId: tournament.id },
+      orderBy: { sortOrder: "asc" },
+    });
+    const sponsorDivisions = sponsors.length
+      ? await source.tournamentSponsorDivision.findMany({
+          where: { sponsorId: { in: sponsors.map((s) => s.id) } },
+        })
+      : [];
 
     let organization: Awaited<ReturnType<typeof source.organization.findUnique>> = null;
     if (tournament.organizationId) {
@@ -126,6 +138,7 @@ async function main() {
         `  brackets=${brackets.length} rounds=${rounds.length}`,
         `  games=${games.length} matches=${matches.length}`,
         `  announcements=${announcements.length} faq=${faqItems.length}`,
+        `  headerLogo=${headerLogo ? 1 : 0} sponsors=${sponsors.length}`,
         dryRun ? "  DRY RUN — no writes" : "  writing to production…",
       ].join("\n"),
     );
@@ -181,6 +194,26 @@ async function main() {
       },
       { timeout: 180_000, maxWait: 30_000 },
     );
+
+    if (headerLogo) {
+      await target.gameSheetHeaderLogo.create({
+        data: {
+          ...headerLogo,
+          data: Buffer.from(headerLogo.data),
+        },
+      });
+    }
+    for (const row of sponsors) {
+      await target.tournamentSponsor.create({
+        data: {
+          ...row,
+          data: Buffer.from(row.data),
+        },
+      });
+    }
+    if (sponsorDivisions.length) {
+      await target.tournamentSponsorDivision.createMany({ data: sponsorDivisions });
+    }
 
     // Logos (bytea) outside the main transaction — large payloads.
     for (const row of logos) {
