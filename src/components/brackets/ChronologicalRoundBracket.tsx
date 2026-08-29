@@ -989,7 +989,7 @@ function ChronoBoard({
   );
 }
 
-function Oba13EndgamePanel({
+function Oba13EndgameOpenSlice({
   late,
   bracketA,
   bracketB,
@@ -998,7 +998,7 @@ function Oba13EndgamePanel({
   format,
   showHomeAway,
   expandAll,
-  onHide,
+  onToggleLocal,
   mode,
 }: {
   late: DecoratedColumn[];
@@ -1009,7 +1009,7 @@ function Oba13EndgamePanel({
   format: BracketFormat | string;
   showHomeAway: boolean;
   expandAll: boolean;
-  onHide: () => void;
+  onToggleLocal: (localIndex: number) => void;
   mode: "placeholder" | "A" | "B";
 }) {
   const showA = mode === "placeholder" || mode === "A";
@@ -1036,11 +1036,11 @@ function Oba13EndgamePanel({
                 &nbsp;
               </p>
             )}
-            {!expandAll && i === 0 ? (
+            {!expandAll ? (
               <button
                 type="button"
                 className="mt-1 text-[10px] font-semibold uppercase tracking-wide text-zinc-500 hover:text-royal"
-                onClick={onHide}
+                onClick={() => onToggleLocal(i)}
               >
                 Hide
               </button>
@@ -1120,6 +1120,76 @@ function Oba13EndgamePanel({
   );
 }
 
+function Oba13EndgamePanel({
+  late,
+  bracketA,
+  bracketB,
+  byGameId,
+  timeZone,
+  format,
+  showHomeAway,
+  expandAll,
+  isOpen,
+  onToggle,
+  mode,
+}: {
+  late: DecoratedColumn[];
+  bracketA: DecoratedColumn[];
+  bracketB: DecoratedColumn[];
+  byGameId: Map<string, GameRow>;
+  timeZone?: string | null;
+  format: BracketFormat | string;
+  showHomeAway: boolean;
+  expandAll: boolean;
+  isOpen: (index: number) => boolean;
+  onToggle: (index: number) => void;
+  mode: "placeholder" | "A" | "B";
+}) {
+  const segments: { kind: "collapsed" | "open"; start: number; end: number }[] = [];
+  for (let i = 0; i < late.length; i++) {
+    const open = isOpen(i);
+    const last = segments[segments.length - 1];
+    if (open) {
+      if (last?.kind === "open") last.end = i;
+      else segments.push({ kind: "open", start: i, end: i });
+    } else {
+      segments.push({ kind: "collapsed", start: i, end: i });
+    }
+  }
+
+  return (
+    <div className="flex items-stretch gap-5">
+      {segments.map((seg) => {
+        if (seg.kind === "collapsed") {
+          const col = late[seg.start]!;
+          return (
+            <CollapsedRoundStrip
+              key={`${col.label}-collapsed`}
+              label={col.label}
+              onExpand={() => onToggle(seg.start)}
+            />
+          );
+        }
+        return (
+          <Oba13EndgameOpenSlice
+            key={`open-${seg.start}-${seg.end}`}
+            late={late.slice(seg.start, seg.end + 1)}
+            bracketA={bracketA.slice(seg.start, seg.end + 1)}
+            bracketB={bracketB.slice(seg.start, seg.end + 1)}
+            byGameId={byGameId}
+            timeZone={timeZone}
+            format={format}
+            showHomeAway={showHomeAway}
+            expandAll={expandAll}
+            onToggleLocal={(local) => onToggle(seg.start + local)}
+            mode={mode}
+          />
+        );
+      })}
+    </div>
+  );
+}
+
 export function ChronologicalRoundBracket({
   rounds,
   byRound,
@@ -1165,12 +1235,6 @@ export function ChronologicalRoundBracket({
     [allGamesFlat, isOba13],
   );
 
-  const endgameInWindow =
-    !!split &&
-    (expandAll || focus.rangeOverlaps(split.endgameStart, columns.length - 1));
-  const [endgameOverride, setEndgameOverride] = useState<boolean | null>(null);
-  const endgameOpen = !!split && (endgameOverride ?? endgameInWindow);
-
   const hasEndgame =
     !!split && (split.late.length > 0 || split.bracketA.length > 0 || split.bracketB.length > 0);
 
@@ -1192,25 +1256,19 @@ export function ChronologicalRoundBracket({
         onToggle={focus.toggle}
       />
       {hasEndgame && split ? (
-        endgameOpen ? (
-          <Oba13EndgamePanel
-            late={split.late}
-            bracketA={split.bracketA}
-            bracketB={split.bracketB}
-            byGameId={byGameId}
-            timeZone={timeZone}
-            format={format}
-            showHomeAway={showHomeAway}
-            expandAll={expandAll}
-            mode={endgameMode}
-            onHide={() => setEndgameOverride(false)}
-          />
-        ) : (
-          <CollapsedRoundStrip
-            label="Rounds 6–8"
-            onExpand={() => setEndgameOverride(true)}
-          />
-        )
+        <Oba13EndgamePanel
+          late={split.late}
+          bracketA={split.bracketA}
+          bracketB={split.bracketB}
+          byGameId={byGameId}
+          timeZone={timeZone}
+          format={format}
+          showHomeAway={showHomeAway}
+          expandAll={expandAll}
+          mode={endgameMode}
+          isOpen={(i) => focus.isOpen(split.endgameStart + i)}
+          onToggle={(i) => focus.toggle(split.endgameStart + i)}
+        />
       ) : null}
     </div>
   );
