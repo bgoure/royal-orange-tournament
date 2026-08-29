@@ -56,7 +56,8 @@ const LOSERS_FIRST_CARD_LIFT = 40;
 const IF_NEC_FOOTER_H = 88;
 const R5_NOTE_OFFSET = 128;
 const SITOUT_NOTE_OFFSET = 42;
-const G15_NEAR_G13_GAP = 28;
+/** Drop R2 losers (G7/G8/G9) so G13 can sit between G7 and G8 below the winners band. */
+const OBA13_R2_LOSERS_DROP = 80;
 
 /**
  * Lane from feeders (not BracketRound.roundType): OBA packs mixed W/L games into one
@@ -92,7 +93,9 @@ function collectWinnerEdges(games: GameRow[], byGameId: Map<string, GameRow>): W
   for (const g of games) {
     const bm = g.bracketMatch;
     if (!bm) continue;
-    const pushIfWinnersLane = (
+    const destIsPureWinnersJoin =
+      bm.homeFromKind === "WINNER" && bm.awayFromKind === "WINNER";
+    const pushIfWinnersPath = (
       fromId: string | undefined,
       slot: "home" | "away",
       kind: string | null | undefined,
@@ -100,13 +103,15 @@ function collectWinnerEdges(games: GameRow[], byGameId: Map<string, GameRow>): W
       if (!fromId || kind !== "WINNER") return;
       const from = byGameId.get(fromId);
       if (!from) return;
-      // Lines are for the winners path only — skip consolation / losers-lane feeders
-      // (e.g. G9 → G14 is a winner-of-losers hop, not a winners-bracket join).
-      if (isLosersLaneGame(from, byGameId) || isLosersLaneGame(g, byGameId)) return;
+      const fromLosers = isLosersLaneGame(from, byGameId);
+      const toLosers = isLosersLaneGame(g, byGameId);
+      // Skip mixed drop-ins (e.g. W9 into G14 which also takes L10). Keep joins of two
+      // winners-of-losers (G7/G8 → G13, G14/G15 → G18) and the main winners path.
+      if ((fromLosers || toLosers) && !destIsPureWinnersJoin) return;
       edges.push({ fromGameId: fromId, toGameId: g.id, slot });
     };
-    pushIfWinnersLane(bm.awayFromMatch?.game?.id, "away", bm.awayFromKind);
-    pushIfWinnersLane(bm.homeFromMatch?.game?.id, "home", bm.homeFromKind);
+    pushIfWinnersPath(bm.awayFromMatch?.game?.id, "away", bm.awayFromKind);
+    pushIfWinnersPath(bm.homeFromMatch?.game?.id, "home", bm.homeFromKind);
   }
   return edges;
 }
@@ -455,22 +460,44 @@ function layoutGameTops(
     }
   }
   // 6-team only: G9 is losers-lane — park halfway between championship G10 and G5.
-  // (7-team G9 is winners final; do not move it.)
+  // (7-team G9 is winners final; 13-team G9 must not cover G11 in the same column.)
   const g9 = gameByNumber(allFlat, "9");
-  if (g9 && losersIds.has(g9.id)) {
+  if (g9 && losersIds.has(g9.id) && !isOba13) {
     centerBetweenGameNumbers(allFlat, tops, hOf, "9", "10", "5");
   }
 
   if (isOba13) {
-    alignCentersToGameNumber(allFlat, tops, hOf, "14", "6");
-    centerBetweenGameNumbers(allFlat, tops, hOf, "13", "7", "8");
-    const g13 = gameByNumber(allFlat, "13");
-    const g15 = gameByNumber(allFlat, "15");
-    if (g13 && g15) {
-      const y13 = tops.get(g13.id);
-      if (y13 != null) tops.set(g15.id, y13 + hOf(g13.id) + G15_NEAR_G13_GAP);
+    centerBetweenGameNumbers(allFlat, tops, hOf, "11", "3", "4");
+    centerBetweenGameNumbers(allFlat, tops, hOf, "12", "5", "6");
+    const g10 = gameByNumber(allFlat, "10");
+    const g11 = gameByNumber(allFlat, "11");
+    const g12 = gameByNumber(allFlat, "12");
+    if (g10 && g11) {
+      const minY = (tops.get(g10.id) ?? 0) + hOf(g10.id) + MIN_GAP;
+      if ((tops.get(g11.id) ?? 0) < minY) tops.set(g11.id, minY);
     }
-    alignCentersToGameNumber(allFlat, tops, hOf, "19", "6");
+    if (g11 && g12) {
+      const minY = (tops.get(g11.id) ?? 0) + hOf(g11.id) + MIN_GAP;
+      if ((tops.get(g12.id) ?? 0) < minY) tops.set(g12.id, minY);
+    }
+
+    for (const num of ["7", "8", "9"] as const) {
+      const g = gameByNumber(allFlat, num);
+      if (!g) continue;
+      const y = tops.get(g.id);
+      if (y != null) tops.set(g.id, y + OBA13_R2_LOSERS_DROP);
+    }
+    centerBetweenGameNumbers(allFlat, tops, hOf, "13", "7", "8");
+    alignCentersToGameNumber(allFlat, tops, hOf, "14", "12");
+    alignCentersToGameNumber(allFlat, tops, hOf, "15", "6");
+    const g14 = gameByNumber(allFlat, "14");
+    const g15 = gameByNumber(allFlat, "15");
+    if (g14 && g15) {
+      const minY = (tops.get(g14.id) ?? 0) + hOf(g14.id) + MIN_GAP;
+      if ((tops.get(g15.id) ?? 0) < minY) tops.set(g15.id, minY);
+    }
+    alignCentersToGameNumber(allFlat, tops, hOf, "19", "5");
+    centerBetweenGameNumbers(allFlat, tops, hOf, "18", "14", "15");
   }
 
   return tops;
@@ -994,51 +1021,54 @@ function Oba13EndgamePanel({
   const colWidth = BRACKET_COL_DEFAULT_PX;
 
   return (
-    <div className="flex shrink-0 flex-col rounded-2xl border-2 border-zinc-200 bg-white p-3">
-      <div className="mb-2 flex items-start justify-between gap-3">
-        <p className="text-xs font-bold uppercase tracking-[0.1em] text-zinc-500">Endgame</p>
-        {!expandAll ? (
-          <button
-            type="button"
-            className="text-[10px] font-semibold uppercase tracking-wide text-zinc-500 hover:text-royal"
-            onClick={onHide}
-          >
-            Hide
-          </button>
-        ) : null}
-      </div>
-      <div className="flex gap-5">
-        {late.map((col) => (
+    <div className="flex shrink-0 flex-col">
+      <div className="mb-0 flex gap-5">
+        {late.map((col, i) => (
           <div
             key={`endgame-h-${col.label}`}
-            className="flex shrink-0 flex-col items-center justify-center px-2 pb-2 text-center"
-            style={{ width: colWidth }}
+            className="flex shrink-0 flex-col items-center justify-center border-b border-zinc-200 bg-white px-3 py-2 text-center"
+            style={{ width: colWidth, minHeight: HEADER_H }}
           >
             <h3 className="text-xs font-bold uppercase tracking-[0.08em] text-royal">
               {withBracketRoundDay(col.label, col.games, timeZone)}
             </h3>
             {col.subtitle ? (
               <p className="mt-0.5 text-[11px] font-medium text-zinc-600">{col.subtitle}</p>
+            ) : (
+              <p className="mt-0.5 text-[11px] font-medium text-transparent" aria-hidden>
+                &nbsp;
+              </p>
+            )}
+            {!expandAll && i === 0 ? (
+              <button
+                type="button"
+                className="mt-1 text-[10px] font-semibold uppercase tracking-wide text-zinc-500 hover:text-royal"
+                onClick={onHide}
+              >
+                Hide
+              </button>
             ) : null}
           </div>
         ))}
       </div>
       {showA ? (
         <div
-          className={`rounded-xl py-2 ${
+          className={`mt-2 rounded-xl py-2 ${
             placeholder
-              ? "border-2 border-royal bg-royal-50/80"
-              : "border border-zinc-200 bg-zinc-50/60"
+              ? "border-2 border-royal bg-royal-50/60"
+              : "border border-zinc-200 bg-white"
           }`}
         >
           <p className={`px-3 text-xs font-bold uppercase tracking-[0.08em] ${placeholder ? "text-royal" : "text-zinc-700"}`}>
             Bracket A
           </p>
-          <p className="mb-2 mt-0.5 px-3 text-[11px] leading-snug text-zinc-600">
-            {placeholder
-              ? "Bracket A to be used if 3 teams remaining"
-              : "3 teams remaining"}
-          </p>
+          {placeholder ? (
+            <p className="mb-2 mt-0.5 px-3 text-[11px] leading-snug text-zinc-600">
+              Bracket A to be used if 3 teams remaining
+            </p>
+          ) : (
+            <p className="mb-2 mt-0.5 px-3 text-[11px] leading-snug text-zinc-500">3 teams remaining</p>
+          )}
           <ChronoBoard
             columns={bracketA}
             byGameId={byGameId}
@@ -1059,18 +1089,20 @@ function Oba13EndgamePanel({
         <div
           className={`mt-2 rounded-xl py-2 ${
             placeholder
-              ? "border-2 border-accent bg-accent-50/80"
-              : "border border-zinc-200 bg-zinc-50/60"
+              ? "border-2 border-accent bg-accent-50/70"
+              : "border border-zinc-200 bg-white"
           }`}
         >
           <p className={`px-3 text-xs font-bold uppercase tracking-[0.08em] ${placeholder ? "text-accent-800" : "text-zinc-700"}`}>
             Bracket B
           </p>
-          <p className="mb-2 mt-0.5 px-3 text-[11px] leading-snug text-zinc-600">
-            {placeholder
-              ? "Bracket B to be used if 4 teams remaining"
-              : "4 teams remaining"}
-          </p>
+          {placeholder ? (
+            <p className="mb-2 mt-0.5 px-3 text-[11px] leading-snug text-zinc-600">
+              Bracket B to be used if 4 teams remaining
+            </p>
+          ) : (
+            <p className="mb-2 mt-0.5 px-3 text-[11px] leading-snug text-zinc-500">4 teams remaining</p>
+          )}
           <ChronoBoard
             columns={bracketB}
             byGameId={byGameId}
