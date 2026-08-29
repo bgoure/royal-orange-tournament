@@ -125,9 +125,8 @@ export function oba13SitOutByeNote(
   const names = sit
     .map((g) => g.homeTeam?.name ?? g.awayTeam?.name)
     .filter((n): n is string => !!n && n.trim().length > 0);
-  if (names.length === 0) return "Bye: unassigned (sit-out).";
-  if (names.length === 1) return `Bye: ${names[0]} sits out this round.`;
-  return `Bye: ${names.join(", ")} sit out this round.`;
+  if (names.length === 0) return "Bye: unassigned";
+  return `Bye: ${names.join(", ")}`;
 }
 
 /**

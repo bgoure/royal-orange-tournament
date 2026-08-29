@@ -172,7 +172,7 @@ describe("oba13 sit-out display helpers", () => {
       oba13SitOutByeNote([
         { gameNumber: OBA13_GAME.BYE_R5, homeTeam: { name: "Hamilton" }, awayTeam: null },
       ]),
-      "Bye: Hamilton sits out this round.",
+      "Bye: Hamilton",
     );
     assert.equal(oba13EndgameBranchForGameNumber("23A"), "A");
     assert.equal(oba13EndgameBranchForGameNumber("25B"), "B");
