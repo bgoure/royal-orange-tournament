@@ -73,6 +73,7 @@ export function BracketGameCard({
   /** When many rounds are flattened into one list, use this for the orange G# chip fallback (otherwise `matchIndex` is used). */
   gLabelFallbackIndexZeroBased,
   showHomeAway = true,
+  minHeight,
 }: {
   game: GameRow;
   /** BracketRound.roundIndex from DB (not index in UI column list). */
@@ -85,6 +86,8 @@ export function BracketGameCard({
   gLabelFallbackIndexZeroBased?: number;
   /** Pool/RR tournaments show (A)/(H); bracket-only events hide them. */
   showHomeAway?: boolean;
+  /** Stretch shorter cards so a left-to-right chain shares one midline. */
+  minHeight?: number;
 }) {
   const bm = game.bracketMatch;
   const bracketMatchIndex = bm?.matchIndex ?? matchIndex;
@@ -197,6 +200,7 @@ export function BracketGameCard({
   return (
     <article
       className={`w-full rounded-2xl border border-white/45 shadow-[0_8px_30px_rgb(0,0,0,0.06)] backdrop-blur-md dark:border-zinc-600/55 dark:shadow-[0_8px_30px_rgb(0,0,0,0.25)] ${surfaceGradient} ${leftBorder} ${cardPadding}${quickShell}`}
+      style={minHeight != null ? { minHeight } : undefined}
       aria-label={`Bracket match ${gChipIndex + 1}`}
       {...quickInteract}
     >

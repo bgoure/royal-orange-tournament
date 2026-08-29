@@ -555,7 +555,16 @@ function layoutRect(el: HTMLElement, board: HTMLElement) {
   return { left, top, width, height, right: left + width, bottom: top + height };
 }
 
-function buildJoinPaths(edges: WinnerEdge[], board: HTMLElement): DrawnPath[] {
+function cardLayoutRect(wrap: HTMLElement, board: HTMLElement) {
+  const card = wrap.querySelector("article") ?? wrap;
+  return layoutRect(card, board);
+}
+
+function buildJoinPaths(
+  edges: WinnerEdge[],
+  board: HTMLElement,
+  opts?: { forceStraightSingles?: boolean },
+): DrawnPath[] {
   const byTarget = new Map<string, WinnerEdge[]>();
   for (const edge of edges) {
     const list = byTarget.get(edge.toGameId) ?? [];
@@ -564,11 +573,12 @@ function buildJoinPaths(edges: WinnerEdge[], board: HTMLElement): DrawnPath[] {
   }
 
   const paths: DrawnPath[] = [];
+  const forceStraight = opts?.forceStraightSingles === true;
 
   for (const [toGameId, group] of byTarget) {
     const toEl = board.querySelector<HTMLElement>(`[data-bracket-game-id="${toGameId}"]`);
     if (!toEl) continue;
-    const t = layoutRect(toEl, board);
+    const t = cardLayoutRect(toEl, board);
     if (t.width < 2) continue;
 
     const x2 = t.left;
@@ -580,7 +590,7 @@ function buildJoinPaths(edges: WinnerEdge[], board: HTMLElement): DrawnPath[] {
         `[data-bracket-game-id="${edge.fromGameId}"]`,
       );
       if (!fromEl) continue;
-      const f = layoutRect(fromEl, board);
+      const f = cardLayoutRect(fromEl, board);
       if (f.width < 2) continue;
       sources.push({
         x1: f.right,
@@ -594,9 +604,9 @@ function buildJoinPaths(edges: WinnerEdge[], board: HTMLElement): DrawnPath[] {
 
     if (sources.length === 1) {
       const s = sources[0]!;
-      // Prefer a true horizontal when centers already match (1-line vs 2-line cards).
-      if (Math.abs(s.y1 - meetY) < 4) {
-        paths.push({ d: `M ${s.x1} ${s.y1} H ${x2}` });
+      if (forceStraight || Math.abs(s.y1 - meetY) < 4) {
+        const y = forceStraight ? (s.y1 + meetY) / 2 : s.y1;
+        paths.push({ d: `M ${s.x1} ${y} H ${x2}` });
       } else {
         paths.push({ d: `M ${s.x1} ${s.y1} H ${joinX} V ${meetY} H ${x2}` });
       }
@@ -739,6 +749,20 @@ function ChronoBoard({
     () => collectWinnerEdges(allGames, visibleById),
     [allGames, visibleById],
   );
+  const lockSingleGameRow = useMemo(() => {
+    let any = false;
+    for (const col of layoutColumns) {
+      if (col.games.length > 1) return false;
+      if (col.games.length === 1) any = true;
+    }
+    return any;
+  }, [layoutColumns]);
+  const rowCardHeight = useMemo(() => {
+    if (!lockSingleGameRow) return undefined;
+    let max = 0;
+    for (const g of allGames) max = Math.max(max, heights.get(g.id) ?? 0);
+    return max > 0 ? max : undefined;
+  }, [lockSingleGameRow, allGames, heights]);
 
   const champColIdx = layoutColumns.findIndex((c) => isChampionshipColumn(c) && c.games.length > 0);
   const ifNecColIdx = layoutColumns.findIndex((c) => isIfNecessaryColumn(c) && c.games.length > 0);
@@ -752,10 +776,13 @@ function ChronoBoard({
     [gf1, allGames, format],
   );
 
-  const tops = useMemo(
-    () => layoutGameTops(layoutColumns, winnerEdges, heights, isOba13),
-    [layoutColumns, winnerEdges, heights, isOba13],
-  );
+  const tops = useMemo(() => {
+    const base = layoutGameTops(layoutColumns, winnerEdges, heights, isOba13);
+    if (!lockSingleGameRow) return base;
+    const locked = new Map(base);
+    for (const g of allGames) locked.set(g.id, COL_PAD_Y);
+    return locked;
+  }, [layoutColumns, winnerEdges, heights, isOba13, lockSingleGameRow, allGames]);
 
   const maxNote = Math.max(0, ...layoutColumns.map((c) => (c.games.length ? c.noteOffset : 0)));
   const contentH = useMemo(
@@ -819,7 +846,9 @@ function ChronoBoard({
         }
 
         setBoardSize({ w: board.scrollWidth, h: board.scrollHeight });
-        const next = buildJoinPaths(winnerEdges, board);
+        const next = buildJoinPaths(winnerEdges, board, {
+          forceStraightSingles: lockSingleGameRow,
+        });
         if (gf1 && gf2 && !ifNecUi.shaded) {
           const dashed = buildIfNecessaryDashedPath(gf1.id, gf2.id, board);
           if (dashed) next.push(dashed);
@@ -864,6 +893,7 @@ function ChronoBoard({
     isOpen,
     hideHeaders,
     fixedColWidth,
+    lockSingleGameRow,
   ]);
 
   const columnShellH = contentH + (hideHeaders ? 0 : HEADER_H);
@@ -958,6 +988,7 @@ function ChronoBoard({
                       prevRoundName={null}
                       timeZone={timeZone}
                       showHomeAway={showHomeAway}
+                      minHeight={lockSingleGameRow ? rowCardHeight : undefined}
                       gLabelFallbackIndexZeroBased={
                         Number.isFinite(Number.parseInt(String(g.gameNumber ?? ""), 10))
                           ? Number.parseInt(String(g.gameNumber ?? ""), 10) - 1
