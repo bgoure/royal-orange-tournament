@@ -120,6 +120,7 @@ export function BracketZoomShell({
 
   useEffect(() => {
     if (!immersive) return;
+    setScalePct(100);
     const prevOverflow = document.body.style.overflow;
     document.body.style.overflow = "hidden";
     const id = requestAnimationFrame(() => {
@@ -221,7 +222,9 @@ export function BracketZoomShell({
       <div className="flex items-center gap-1">
         <button
           type="button"
-          className="inline-flex min-h-9 items-center rounded-lg border border-zinc-300 bg-white px-2.5 py-1.5 text-xs font-semibold text-zinc-800 shadow-sm md:hidden"
+          className="inline-flex min-h-9 items-center rounded-lg border border-zinc-300 bg-white px-2.5 py-1.5 text-xs font-semibold text-zinc-800 shadow-sm"
+          title="Full bracket with every round open"
+          aria-label={immersive ? "Close photo view" : "View full bracket as photo"}
           onClick={() => (immersive ? setImmersive(false) : setImmersive(true))}
         >
           {immersive ? "Close" : "View as photo"}
@@ -273,7 +276,8 @@ export function BracketZoomShell({
           >
             {toolbar}
             <p className="px-3 pb-1 text-[11px] text-zinc-500">
-              Pinch to zoom. Tap empty space to hide or show the address bar.
+              Full bracket — every round is open. Pinch or use zoom. Tap empty space to hide or show
+              the address bar.
             </p>
             <div className="min-h-0 flex-1 px-2">{scroller}</div>
           </div>,

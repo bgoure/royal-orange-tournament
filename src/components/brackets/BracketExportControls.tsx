@@ -91,7 +91,7 @@ export function BracketExportControls({
           type="button"
           disabled={busy}
           aria-label={busy && job.format === "png" ? "Preparing PNG" : "Download PNG"}
-          title="Download PNG"
+          title="Download PNG of the full expanded bracket"
           onClick={() => {
             setError(null);
             setJob({ format: "png", nonce: Date.now() });
