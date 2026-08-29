@@ -486,13 +486,14 @@ function layoutGameTops(
       if ((tops.get(g12.id) ?? 0) < minY) tops.set(g12.id, minY);
     }
 
-    // G15 previously sat on G6 — park G7 there, then stack G8 / G13 / G14 / G15 / G18.
-    alignCentersToGameNumber(allFlat, tops, hOf, "7", "6");
+    // G7 below G12 so they do not overlap; G8/G13 follow. G15/G14 swapped; G9 level with G14.
+    placeBelowGameNumber(allFlat, tops, hOf, "7", "12");
     placeBelowGameNumber(allFlat, tops, hOf, "8", "7");
     centerBetweenGameNumbers(allFlat, tops, hOf, "13", "7", "8");
-    placeBelowGameNumber(allFlat, tops, hOf, "14", "13");
-    placeBelowGameNumber(allFlat, tops, hOf, "15", "14");
+    placeBelowGameNumber(allFlat, tops, hOf, "15", "13");
+    placeBelowGameNumber(allFlat, tops, hOf, "14", "15");
     centerBetweenGameNumbers(allFlat, tops, hOf, "18", "14", "15");
+    alignCentersToGameNumber(allFlat, tops, hOf, "9", "14");
     alignCentersToGameNumber(allFlat, tops, hOf, "19", "5");
   }
 
@@ -1164,8 +1165,11 @@ export function ChronologicalRoundBracket({
     [allGamesFlat, isOba13],
   );
 
-  const [endgameHidden, setEndgameHidden] = useState(false);
-  const endgameOpen = !!split && (expandAll || !endgameHidden);
+  const endgameInWindow =
+    !!split &&
+    (expandAll || focus.rangeOverlaps(split.endgameStart, columns.length - 1));
+  const [endgameOverride, setEndgameOverride] = useState<boolean | null>(null);
+  const endgameOpen = !!split && (endgameOverride ?? endgameInWindow);
 
   const hasEndgame =
     !!split && (split.late.length > 0 || split.bracketA.length > 0 || split.bracketB.length > 0);
@@ -1199,12 +1203,12 @@ export function ChronologicalRoundBracket({
             showHomeAway={showHomeAway}
             expandAll={expandAll}
             mode={endgameMode}
-            onHide={() => setEndgameHidden(true)}
+            onHide={() => setEndgameOverride(false)}
           />
         ) : (
           <CollapsedRoundStrip
-            label="Rounds 6–8 · Endgame"
-            onExpand={() => setEndgameHidden(false)}
+            label="Rounds 6–8"
+            onExpand={() => setEndgameOverride(true)}
           />
         )
       ) : null}
