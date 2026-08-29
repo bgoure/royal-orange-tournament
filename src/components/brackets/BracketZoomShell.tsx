@@ -44,6 +44,17 @@ function isInteractiveTarget(target: EventTarget | null): boolean {
   return target instanceof Element && !!target.closest("button, a, input, select, textarea, label");
 }
 
+function isStandaloneApp(): boolean {
+  if (typeof window === "undefined") return false;
+  const nav = window.navigator as Navigator & { standalone?: boolean };
+  return (
+    nav.standalone === true ||
+    window.matchMedia("(display-mode: standalone)").matches ||
+    window.matchMedia("(display-mode: fullscreen)").matches ||
+    window.matchMedia("(display-mode: minimal-ui)").matches
+  );
+}
+
 /**
  * Zoom + pan shell for bracket trees.
  * - Mobile: pinch to zoom (no buttons); optional photo-style fullscreen
@@ -88,7 +99,7 @@ export function BracketZoomShell({
   }, [scalePct]);
 
   const enterFullscreen = useCallback(async (el: HTMLElement | null) => {
-    if (!el) return;
+    if (!el || isStandaloneApp()) return;
     const req =
       el.requestFullscreen?.bind(el) ??
       (
@@ -109,14 +120,22 @@ export function BracketZoomShell({
   }, []);
 
   const exitFullscreen = useCallback(async () => {
-    const doc = document as Document & { webkitExitFullscreen?: () => Promise<void> };
-    if (!document.fullscreenElement && !doc.webkitExitFullscreen) return;
+    const doc = document as Document & {
+      webkitExitFullscreen?: () => Promise<void>;
+      webkitFullscreenElement?: Element | null;
+    };
+    if (!document.fullscreenElement && !doc.webkitFullscreenElement) return;
     try {
       await (document.exitFullscreen?.() ?? doc.webkitExitFullscreen?.());
     } catch {
       /* ignore */
     }
   }, []);
+
+  const closePhoto = useCallback(() => {
+    void exitFullscreen();
+    setImmersive(false);
+  }, [exitFullscreen]);
 
   useEffect(() => {
     if (!immersive) return;
@@ -127,12 +146,27 @@ export function BracketZoomShell({
       void enterFullscreen(overlayRef.current);
       notifyZoomChange();
     });
+    history.pushState({ bracketPhoto: true }, "");
+    const onPop = () => {
+      void exitFullscreen();
+      setImmersive(false);
+    };
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key === "Escape") closePhoto();
+    };
+    window.addEventListener("popstate", onPop);
+    window.addEventListener("keydown", onKey);
     return () => {
       cancelAnimationFrame(id);
+      window.removeEventListener("popstate", onPop);
+      window.removeEventListener("keydown", onKey);
       document.body.style.overflow = prevOverflow;
       void exitFullscreen();
+      if (history.state && typeof history.state === "object" && "bracketPhoto" in history.state) {
+        history.back();
+      }
     };
-  }, [immersive, enterFullscreen, exitFullscreen]);
+  }, [immersive, enterFullscreen, exitFullscreen, closePhoto]);
 
   const onTouchStart = (e: ReactTouchEvent) => {
     if (e.touches.length === 2) {
@@ -216,18 +250,27 @@ export function BracketZoomShell({
     <div
       className={`mb-2 items-center gap-2 ${
         toolbarStart ? "flex justify-between" : "flex justify-end md:flex"
-      } ${immersive ? "px-3 pt-3" : ""}`}
+      } ${immersive ? "px-3" : ""}`}
+      style={
+        immersive
+          ? { paddingTop: "max(0.75rem, env(safe-area-inset-top, 0px))" }
+          : undefined
+      }
     >
       <div className="min-w-0">{toolbarStart}</div>
       <div className="flex items-center gap-1">
         <button
           type="button"
-          className="inline-flex min-h-9 items-center rounded-lg border border-zinc-300 bg-white px-2.5 py-1.5 text-xs font-semibold text-zinc-800 shadow-sm"
-          title="Full bracket with every round open"
-          aria-label={immersive ? "Close photo view" : "View full bracket as photo"}
-          onClick={() => (immersive ? setImmersive(false) : setImmersive(true))}
+          className={
+            immersive
+              ? "inline-flex min-h-11 items-center rounded-lg bg-royal px-3.5 py-2 text-sm font-semibold text-white shadow-sm"
+              : "inline-flex min-h-9 items-center rounded-lg border border-zinc-300 bg-white px-2.5 py-1.5 text-xs font-semibold text-zinc-800 shadow-sm"
+          }
+          title={immersive ? "Return to brackets" : "Full bracket with every round open"}
+          aria-label={immersive ? "Close photo view and return to brackets" : "View full bracket as photo"}
+          onClick={() => (immersive ? closePhoto() : setImmersive(true))}
         >
-          {immersive ? "Close" : "View as photo"}
+          {immersive ? "Close photo" : "View as photo"}
         </button>
         <div className={`items-center gap-1 ${immersive ? "flex" : "hidden md:flex"}`}>
           <span className="mr-1 text-[11px] font-medium uppercase tracking-wide text-zinc-500">
@@ -276,10 +319,23 @@ export function BracketZoomShell({
           >
             {toolbar}
             <p className="px-3 pb-1 text-[11px] text-zinc-500">
-              Full bracket — every round is open. Pinch or use zoom. Tap empty space to hide or show
-              the address bar.
+              Full bracket — every round is open. Pinch or use zoom. Use Close photo to return to
+              the site.
             </p>
             <div className="min-h-0 flex-1 px-2">{scroller}</div>
+            <div
+              className="border-t border-zinc-200 bg-white px-3 pt-2"
+              style={{ paddingBottom: "max(0.75rem, env(safe-area-inset-bottom, 0px))" }}
+            >
+              <button
+                type="button"
+                className="inline-flex min-h-11 w-full items-center justify-center rounded-lg bg-royal px-3 py-2 text-sm font-semibold text-white shadow-sm"
+                aria-label="Close photo view and return to brackets"
+                onClick={closePhoto}
+              >
+                Close photo
+              </button>
+            </div>
           </div>,
           document.body,
         )
