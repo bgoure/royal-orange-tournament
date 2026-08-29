@@ -11,6 +11,11 @@ import {
   pairTeamsAvoidingRematches,
   type RematchPairingResult,
 } from "@/lib/services/rematch-aware-pairing";
+import {
+  bracketLoserTeamId,
+  bracketLossCountsFromGames,
+  bracketWinnerTeamId,
+} from "@/lib/services/bracket-engine";
 import type { StandingsGameInput } from "@/lib/services/standings/standings-engine";
 
 export const OBA13_GAME = {
@@ -127,6 +132,121 @@ export function oba13SitOutByeNote(
     .filter((n): n is string => !!n && n.trim().length > 0);
   if (names.length === 0) return "Bye: unassigned";
   return `Bye: ${names.join(", ")}`;
+}
+
+export type Oba13RedrawPoolTeam = {
+  teamId: string;
+  name: string;
+  losses: number;
+  how: string;
+};
+
+export type Oba13Round5RedrawPool = {
+  teams: Oba13RedrawPoolTeam[];
+  waitingOn: string[];
+};
+
+type RedrawPoolGame = {
+  gameNumber?: string | null;
+  status: string;
+  resultType: string;
+  homeTeamId: string | null;
+  awayTeamId: string | null;
+  homeRuns: number | null;
+  awayRuns: number | null;
+  homeTeam?: { name: string } | null;
+  awayTeam?: { name: string } | null;
+};
+
+function byGameNumber<T extends { gameNumber?: string | null }>(
+  games: T[],
+  num: string,
+): T | undefined {
+  return games.find((g) => (g.gameNumber?.trim() ?? "") === num);
+}
+
+function isFinalGame(g: { status: string } | undefined): boolean {
+  return g?.status === "FINAL";
+}
+
+function nameForTeam(games: RedrawPoolGame[], teamId: string): string {
+  for (const g of games) {
+    if (g.homeTeamId === teamId && g.homeTeam?.name?.trim()) return g.homeTeam.name.trim();
+    if (g.awayTeamId === teamId && g.awayTeam?.name?.trim()) return g.awayTeam.name.trim();
+  }
+  return "TBD";
+}
+
+function r5RedrawSeatsFilled(games: RedrawPoolGame[]): boolean {
+  const bye = byGameNumber(games, OBA13_GAME.BYE_R5);
+  const g21 = byGameNumber(games, OBA13_GAME.G21);
+  const g22 = byGameNumber(games, OBA13_GAME.G22);
+  if (!bye && !g21 && !g22) return false;
+  return Boolean(
+    bye?.homeTeamId &&
+      g21?.homeTeamId &&
+      g21?.awayTeamId &&
+      g22?.homeTeamId &&
+      g22?.awayTeamId,
+  );
+}
+
+function placedOnRound5(games: RedrawPoolGame[]): Set<string> {
+  const ids = new Set<string>();
+  for (const num of [OBA13_GAME.BYE_R5, OBA13_GAME.G21, OBA13_GAME.G22]) {
+    const g = byGameNumber(games, num);
+    if (g?.homeTeamId) ids.add(g.homeTeamId);
+    if (g?.awayTeamId) ids.add(g.awayTeamId);
+  }
+  return ids;
+}
+
+/**
+ * Teams still alive after Round 4 who are not yet seated in Round 5.
+ * Shown under the Round 5 cards until G21/G22/the bye are assigned.
+ */
+export function oba13Round5RedrawPool(games: RedrawPoolGame[]): Oba13Round5RedrawPool | null {
+  const g18 = byGameNumber(games, OBA13_GAME.G18);
+  const g19 = byGameNumber(games, OBA13_GAME.G19);
+  const g20 = byGameNumber(games, OBA13_GAME.G20);
+  if (!g18 && !g19 && !g20) return null;
+  if (r5RedrawSeatsFilled(games)) return null;
+
+  const r4Final = [g18, g19, g20].some((g) => isFinalGame(g));
+  if (!r4Final) return null;
+
+  const waitingOn: string[] = [];
+  const teams: Oba13RedrawPoolTeam[] = [];
+  const losses = bracketLossCountsFromGames(games.filter((g) => g.status === "FINAL"));
+  const placed = placedOnRound5(games);
+
+  const push = (teamId: string | null, how: string) => {
+    if (!teamId || placed.has(teamId) || teams.some((t) => t.teamId === teamId)) return;
+    teams.push({
+      teamId,
+      name: nameForTeam(games, teamId),
+      losses: losses.get(teamId) ?? 0,
+      how,
+    });
+  };
+
+  const g13 = byGameNumber(games, OBA13_GAME.G13);
+  if (isFinalGame(g13)) push(bracketWinnerTeamId(g13!), "Sat out Round 4");
+
+  if (isFinalGame(g18)) push(bracketWinnerTeamId(g18!), "Winner of Game 18");
+  else if (g18) waitingOn.push("18");
+
+  if (isFinalGame(g19)) push(bracketWinnerTeamId(g19!), "Winner of Game 19");
+  else if (g19) waitingOn.push("19");
+
+  if (isFinalGame(g20)) {
+    push(bracketWinnerTeamId(g20!), "Winner of Game 20");
+    push(bracketLoserTeamId(g20!), "Loser of Game 20");
+  } else if (g20) waitingOn.push("20");
+
+  if (teams.length === 0 && waitingOn.length === 0) return null;
+  teams.sort((a, b) => a.losses - b.losses || a.name.localeCompare(b.name));
+  return { teams, waitingOn };
 }
 
 /**

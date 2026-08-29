@@ -32,7 +32,9 @@ import {
   oba13EndgameBranchForGameNumber,
   oba13SitOutByeNote,
   oba13PublicEndgameMode,
+  oba13Round5RedrawPool,
   OBA13_ROUND_5_REDRAW_NOTE,
+  type Oba13Round5RedrawPool,
 } from "@/lib/services/oba-de-13";
 
 type WinnerEdge = {
@@ -141,6 +143,7 @@ type DecoratedColumn = ChronologicalRoundColumn<GameRow> & {
   roundNote?: string;
   sitOutNote?: string;
   noteOffset: number;
+  redrawPool?: Oba13Round5RedrawPool;
 };
 
 function decorateColumns(
@@ -523,6 +526,26 @@ function layoutGameTops(
   return tops;
 }
 
+function redrawPoolFooterH(pool: Oba13Round5RedrawPool | undefined): number {
+  if (!pool) return 0;
+  return 44 + pool.teams.length * 36 + (pool.waitingOn.length > 0 ? 18 : 0);
+}
+
+function redrawPoolTop(
+  games: GameRow[],
+  tops: Map<string, number>,
+  heights: Map<string, number>,
+  noteOffset: number,
+): number {
+  let max = COL_PAD_Y + noteOffset;
+  for (const g of games) {
+    const y = (tops.get(g.id) ?? COL_PAD_Y) + noteOffset;
+    const h = heights.get(g.id) ?? EST_CARD_H;
+    max = Math.max(max, y + h);
+  }
+  return max + 10;
+}
+
 function boardContentHeight(
   allGames: GameRow[],
   tops: Map<string, number>,
@@ -785,15 +808,16 @@ function ChronoBoard({
   }, [layoutColumns, winnerEdges, heights, isOba13, lockSingleGameRow, allGames]);
 
   const maxNote = Math.max(0, ...layoutColumns.map((c) => (c.games.length ? c.noteOffset : 0)));
+  const poolFooter = Math.max(0, ...layoutColumns.map((c) => redrawPoolFooterH(c.redrawPool)));
   const contentH = useMemo(
     () =>
       boardContentHeight(
         allGames,
         tops,
         heights,
-        (ifNecColIdx >= 0 ? IF_NEC_FOOTER_H : 0) + maxNote,
+        (ifNecColIdx >= 0 ? IF_NEC_FOOTER_H : 0) + maxNote + poolFooter,
       ),
-    [allGames, tops, heights, ifNecColIdx, maxNote],
+    [allGames, tops, heights, ifNecColIdx, maxNote, poolFooter],
   );
 
   useLayoutEffect(() => {
@@ -1007,6 +1031,37 @@ function ChronoBoard({
                   </div>
                 ))
               )}
+              {col.redrawPool &&
+              (col.redrawPool.teams.length > 0 || col.redrawPool.waitingOn.length > 0) ? (
+                <div
+                  className="absolute left-3 right-3 z-20 rounded-lg border border-royal/25 bg-white px-2 py-2 shadow-sm"
+                  style={{ top: redrawPoolTop(games, tops, heights, col.noteOffset) }}
+                >
+                  <p className="text-[10px] font-bold uppercase tracking-wide text-royal">
+                    Available for Round 5
+                  </p>
+                  <ul className="mt-1 space-y-1.5">
+                    {col.redrawPool.teams.map((t) => (
+                      <li key={t.teamId} className="text-[11px] leading-snug text-zinc-800">
+                        <span className="font-semibold">{t.name}</span>
+                        <span className="text-zinc-500">
+                          {t.losses === 0
+                            ? " · undefeated"
+                            : t.losses === 1
+                              ? " · 1 loss"
+                              : ` · ${t.losses} losses`}
+                        </span>
+                        <span className="block text-[10px] text-zinc-500">{t.how}</span>
+                      </li>
+                    ))}
+                  </ul>
+                  {col.redrawPool.waitingOn.length > 0 ? (
+                    <p className="mt-1.5 text-[10px] leading-snug text-zinc-500">
+                      Waiting on Game {col.redrawPool.waitingOn.join(", ")}
+                    </p>
+                  ) : null}
+                </div>
+              ) : null}
             </div>
             {hideHeaders ? null : (
               <div
@@ -1281,7 +1336,17 @@ export function ChronologicalRoundBracket({
     () => chronologicalRoundColumns(rounds, gamesByRound),
     [rounds, gamesByRound],
   );
-  const columns = useMemo(() => decorateColumns(rawColumns, isOba13), [rawColumns, isOba13]);
+  const redrawPool = useMemo(
+    () => (isOba13 ? oba13Round5RedrawPool(allGamesFlat) : null),
+    [allGamesFlat, isOba13],
+  );
+  const columns = useMemo(() => {
+    const base = decorateColumns(rawColumns, isOba13);
+    if (!redrawPool) return base;
+    return base.map((c) =>
+      isRoundNumberColumn(c.label, 5) ? { ...c, redrawPool } : c,
+    );
+  }, [rawColumns, isOba13, redrawPool]);
   const activeIndex = useMemo(() => latestScoredColumnIndex(columns), [columns]);
   const focus = useRoundFocus(columns.length, activeIndex, expandAll);
   const split = useMemo(

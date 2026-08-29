@@ -12,6 +12,7 @@ import {
   oba13EndgameBranchForGameNumber,
   oba13PublicEndgameMode,
   oba13SitOutByeNote,
+  oba13Round5RedrawPool,
   suggestOba13OddRoundPairing,
 } from "@/lib/services/oba-de-13";
 import type { ObaByeCandidate } from "@/lib/services/oba-bye-award";
@@ -183,5 +184,161 @@ describe("oba13 sit-out display helpers", () => {
     );
     assert.equal(oba13PublicEndgameMode([{ gameNumber: "23A" }, { gameNumber: "R6 Bye" }]), "A");
     assert.equal(oba13PublicEndgameMode([{ gameNumber: "25B" }]), "B");
+  });
+});
+
+describe("oba13Round5RedrawPool", () => {
+  function finalGame(opts: {
+    gameNumber: string;
+    homeId: string;
+    awayId: string;
+    homeName: string;
+    awayName: string;
+    homeRuns: number;
+    awayRuns: number;
+  }) {
+    return {
+      gameNumber: opts.gameNumber,
+      status: "FINAL",
+      resultType: "REGULAR",
+      homeTeamId: opts.homeId,
+      awayTeamId: opts.awayId,
+      homeRuns: opts.homeRuns,
+      awayRuns: opts.awayRuns,
+      homeTeam: { name: opts.homeName },
+      awayTeam: { name: opts.awayName },
+    };
+  }
+
+  it("lists Round 4 survivors under Round 5 until seats are filled", () => {
+    const games = [
+      finalGame({
+        gameNumber: "13",
+        homeId: "a",
+        awayId: "z",
+        homeName: "Alpha",
+        awayName: "Zulu",
+        homeRuns: 5,
+        awayRuns: 1,
+      }),
+      finalGame({
+        gameNumber: "18",
+        homeId: "b",
+        awayId: "c",
+        homeName: "Bravo",
+        awayName: "Charlie",
+        homeRuns: 3,
+        awayRuns: 2,
+      }),
+      finalGame({
+        gameNumber: "19",
+        homeId: "d",
+        awayId: "e",
+        homeName: "Delta",
+        awayName: "Echo",
+        homeRuns: 1,
+        awayRuns: 4,
+      }),
+      finalGame({
+        gameNumber: "20",
+        homeId: "f",
+        awayId: "g",
+        homeName: "Foxtrot",
+        awayName: "Golf",
+        homeRuns: 6,
+        awayRuns: 0,
+      }),
+      {
+        gameNumber: "R5 Bye",
+        status: "SCHEDULED",
+        resultType: "REGULAR",
+        homeTeamId: null,
+        awayTeamId: null,
+        homeRuns: null,
+        awayRuns: null,
+        homeTeam: null,
+        awayTeam: null,
+      },
+      {
+        gameNumber: "21",
+        status: "SCHEDULED",
+        resultType: "REGULAR",
+        homeTeamId: null,
+        awayTeamId: null,
+        homeRuns: null,
+        awayRuns: null,
+        homeTeam: null,
+        awayTeam: null,
+      },
+      {
+        gameNumber: "22",
+        status: "SCHEDULED",
+        resultType: "REGULAR",
+        homeTeamId: null,
+        awayTeamId: null,
+        homeRuns: null,
+        awayRuns: null,
+        homeTeam: null,
+        awayTeam: null,
+      },
+    ];
+    const pool = oba13Round5RedrawPool(games);
+    assert.ok(pool);
+    assert.deepEqual(
+      pool!.teams.map((t) => t.teamId).sort(),
+      ["a", "b", "e", "f", "g"].sort(),
+    );
+    assert.equal(pool!.waitingOn.length, 0);
+    assert.equal(pool!.teams.find((t) => t.teamId === "a")?.how, "Sat out Round 4");
+    assert.equal(pool!.teams.find((t) => t.teamId === "f")?.how, "Winner of Game 20");
+    assert.equal(pool!.teams.find((t) => t.teamId === "g")?.how, "Loser of Game 20");
+  });
+
+  it("hides the pool once Round 5 bye and both games have teams", () => {
+    const games = [
+      finalGame({
+        gameNumber: "18",
+        homeId: "b",
+        awayId: "c",
+        homeName: "Bravo",
+        awayName: "Charlie",
+        homeRuns: 3,
+        awayRuns: 2,
+      }),
+      {
+        gameNumber: "R5 Bye",
+        status: "SCHEDULED",
+        resultType: "REGULAR",
+        homeTeamId: "a",
+        awayTeamId: null,
+        homeRuns: null,
+        awayRuns: null,
+        homeTeam: { name: "Alpha" },
+        awayTeam: null,
+      },
+      {
+        gameNumber: "21",
+        status: "SCHEDULED",
+        resultType: "REGULAR",
+        homeTeamId: "b",
+        awayTeamId: "e",
+        homeRuns: null,
+        awayRuns: null,
+        homeTeam: { name: "Bravo" },
+        awayTeam: { name: "Echo" },
+      },
+      {
+        gameNumber: "22",
+        status: "SCHEDULED",
+        resultType: "REGULAR",
+        homeTeamId: "f",
+        awayTeamId: "g",
+        homeRuns: null,
+        awayRuns: null,
+        homeTeam: { name: "Foxtrot" },
+        awayTeam: { name: "Golf" },
+      },
+    ];
+    assert.equal(oba13Round5RedrawPool(games), null);
   });
 });
