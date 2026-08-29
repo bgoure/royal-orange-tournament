@@ -179,9 +179,9 @@ function splitOba13Endgame(columns: DecoratedColumn[]): {
   const take = (branch: "A" | "B") =>
     late.map((c) => {
       const games = c.games.filter((g) => oba13EndgameBranchForGameNumber(g.gameNumber) === branch);
-      const sitOutNote = branch === "A" ? c.sitOutNote : undefined;
-      const noteOffset = sitOutNote ? SITOUT_NOTE_OFFSET : 0;
-      return { ...c, games, roundNote: undefined, sitOutNote, noteOffset };
+      // Sit-out copy lives on the shared round header, not inside A/B — so cards
+      // in R6–R8 share one vertical origin and winner lines stay straight.
+      return { ...c, games, roundNote: undefined, sitOutNote: undefined, noteOffset: 0 };
     });
   return {
     early: columns.slice(0, start),
@@ -252,6 +252,24 @@ function stepAboveGameNumber(
   tops.set(upper.id, Math.max(COL_PAD_Y, baseY - lift));
 }
 
+/** Put a left-to-right chain on one horizontal center line (13-team 23A→24A→25A). */
+function alignGameNumberChain(
+  games: GameRow[],
+  tops: Map<string, number>,
+  hOf: (id: string) => number,
+  nums: string[],
+): void {
+  const rows = nums
+    .map((n) => gameByNumber(games, n))
+    .filter((g): g is GameRow => g != null && tops.has(g.id));
+  if (rows.length < 2) return;
+  const first = rows[0]!;
+  const center = (tops.get(first.id) ?? 0) + hOf(first.id) / 2;
+  for (const g of rows) {
+    tops.set(g.id, center - hOf(g.id) / 2);
+  }
+}
+
 /** Match vertical centers of two games (e.g. 7-team G11 with G6). */
 function alignCentersToGameNumber(
   games: GameRow[],
@@ -320,6 +338,8 @@ function layoutGameTops(
   const tops = new Map<string, number>();
   const hOf = (id: string) => heights.get(id) ?? EST_CARD_H;
   const byGameId = gameIdMap(columns.flatMap((c) => c.games));
+  const onBoard = new Set(byGameId.keys());
+  const boardEdges = edges.filter((e) => onBoard.has(e.fromGameId) && onBoard.has(e.toGameId));
 
   const winnersByCol = columns.map((col) =>
     sortColumnGames(col.games, byGameId).filter((g) => !isLosersLaneGame(g, byGameId)),
@@ -338,7 +358,7 @@ function layoutGameTops(
 
       const tentative: { id: string; y: number }[] = [];
       for (const g of games) {
-        const feeders = edges.filter((e) => e.toGameId === g.id);
+        const feeders = boardEdges.filter((e) => e.toGameId === g.id);
         const feederCenters = feeders
           .map((e) => {
             const fromLosers = losersIds.has(e.fromGameId);
@@ -374,7 +394,7 @@ function layoutGameTops(
         const cur = tentative[i]!;
         if (i === 0) {
           // Do not clamp single-feeder snaps upward into a lower band offset.
-          const sole = edges.filter((e) => {
+          const sole = boardEdges.filter((e) => {
             if (e.toGameId !== cur.id) return false;
             const fromLosers = losersIds.has(e.fromGameId);
             const toLosers = losersIds.has(cur.id);
@@ -402,7 +422,7 @@ function layoutGameTops(
   layoutBand(winnersByCol, 0);
   // Reinforce single-feeder winners chains after band layout — center-aligned
   // (6-team G1→G3 / G2→G4; 7-team G1→G5; etc.).
-  snapSingleWinnerFeederRows(winnersByCol, edges, tops, hOf, winnersIds);
+  snapSingleWinnerFeederRows(winnersByCol, boardEdges, tops, hOf, winnersIds);
 
   // Recompute losers start from actual winners bottoms after snap
   let winnersMax = 0;
@@ -423,6 +443,7 @@ function layoutGameTops(
         ? LOSERS_FIRST_CARD_LIFT
         : LOSERS_FIRST_CARD_LIFT + losersColOrdinal * LOSERS_PROGRESSION_LIFT;
     for (const g of games) {
+      if (oba13EndgameBranchForGameNumber(g.gameNumber) === "A") continue;
       const y = tops.get(g.id);
       if (y != null) tops.set(g.id, Math.max(COL_PAD_Y, y - lift));
     }
@@ -431,7 +452,7 @@ function layoutGameTops(
 
   // Re-snap after lifts for single-feeder losers chains (e.g. 5-team G5→G7).
   // Note: snap aligns G7 with G5; 5-team then steps G7 up again below.
-  snapSingleWinnerFeederRows(losersByCol, edges, tops, hOf, losersIds, 1);
+  snapSingleWinnerFeederRows(losersByCol, boardEdges, tops, hOf, losersIds, 1);
   const losersFlat = losersByCol.flat();
   // 6-team: G7 between G5 and G6.
   centerBetweenGameNumbers(losersFlat, tops, hOf, "7", "5", "6", losersIds);
@@ -495,6 +516,8 @@ function layoutGameTops(
     centerBetweenGameNumbers(allFlat, tops, hOf, "18", "14", "15");
     alignCentersToGameNumber(allFlat, tops, hOf, "9", "14");
     alignCentersToGameNumber(allFlat, tops, hOf, "19", "5");
+    // Bracket A is a single file (23A → 24A → 25A) — keep one horizon so joins are straight.
+    alignGameNumberChain(allFlat, tops, hOf, ["23A", "24A", "25A"]);
   }
 
   return tops;
@@ -572,7 +595,7 @@ function buildJoinPaths(edges: WinnerEdge[], board: HTMLElement): DrawnPath[] {
     if (sources.length === 1) {
       const s = sources[0]!;
       // Prefer a true horizontal when centers already match (1-line vs 2-line cards).
-      if (Math.abs(s.y1 - meetY) < 1.5) {
+      if (Math.abs(s.y1 - meetY) < 4) {
         paths.push({ d: `M ${s.x1} ${s.y1} H ${x2}` });
       } else {
         paths.push({ d: `M ${s.x1} ${s.y1} H ${joinX} V ${meetY} H ${x2}` });
@@ -711,9 +734,10 @@ function ChronoBoard({
     [columns, isOpen],
   );
   const allGames = useMemo(() => layoutColumns.flatMap((col) => col.games), [layoutColumns]);
+  const visibleById = useMemo(() => gameIdMap(allGames), [allGames]);
   const winnerEdges = useMemo(
-    () => collectWinnerEdges(allGames, byGameId),
-    [allGames, byGameId],
+    () => collectWinnerEdges(allGames, visibleById),
+    [allGames, visibleById],
   );
 
   const champColIdx = layoutColumns.findIndex((c) => isChampionshipColumn(c) && c.games.length > 0);
@@ -1036,6 +1060,9 @@ function Oba13EndgameOpenSlice({
                 &nbsp;
               </p>
             )}
+            {col.sitOutNote ? (
+              <p className="mt-1 text-[11px] font-semibold leading-snug text-royal">{col.sitOutNote}</p>
+            ) : null}
             {!expandAll ? (
               <button
                 type="button"
