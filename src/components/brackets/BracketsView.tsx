@@ -6,7 +6,7 @@ import type { BracketRound } from "@prisma/client";
 import { EmptyState } from "@/components/ui/EmptyState";
 import { SectionTitle } from "@/components/ui/PublicHeading";
 import { BracketExportControls } from "@/components/brackets/BracketExportControls";
-import { BracketZoomShell, BRACKET_DESKTOP_WIDE_CLASS } from "@/components/brackets/BracketZoomShell";
+import { BracketZoomShell, BRACKET_DESKTOP_WIDE_CLASS, useBracketPhotoExpandAll } from "@/components/brackets/BracketZoomShell";
 import { BracketGameCard } from "@/components/brackets/BracketGameCard";
 import { BRACKET_ROUND_COLUMN_CLASS } from "@/components/brackets/bracket-card-layout";
 import { BidirectionalDeBracket } from "@/components/brackets/BidirectionalDeBracket";
@@ -122,6 +122,8 @@ export function BracketDesktopTree({
   showHomeAway?: boolean;
   fitContent?: boolean;
 }) {
+  const photoExpandAll = useBracketPhotoExpandAll();
+  const showAllRounds = fitContent || photoExpandAll;
   const roundsSorted = useMemo(
     () => [...b.rounds].sort((a, c) => a.roundIndex - c.roundIndex),
     [b.rounds],
@@ -167,7 +169,7 @@ export function BracketDesktopTree({
         format={b.format}
         showHomeAway={showHomeAway}
         presetKey={b.presetKey}
-        expandAll={fitContent}
+        expandAll={showAllRounds}
       />
     );
   }
@@ -178,8 +180,8 @@ export function BracketDesktopTree({
         byRound={byRound}
         timeZone={tournamentTimezone}
         showHomeAway={showHomeAway}
-        expandAll={fitContent}
-        fitContent={fitContent}
+        expandAll={showAllRounds}
+        fitContent={showAllRounds}
       />
     );
   }
@@ -189,8 +191,8 @@ export function BracketDesktopTree({
       roundsOrdered={visibleRounds}
       timeZone={tournamentTimezone}
       showHomeAway={showHomeAway}
-      fitContent={fitContent}
-      expandAll={fitContent}
+      fitContent={showAllRounds}
+      expandAll={showAllRounds}
     />
   );
 }

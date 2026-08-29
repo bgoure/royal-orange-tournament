@@ -1,7 +1,9 @@
 "use client";
 
 import {
+  createContext,
   useCallback,
+  useContext,
   useEffect,
   useRef,
   useState,
@@ -15,6 +17,13 @@ const MIN_PCT = 50;
 const MAX_PCT = 200;
 const STEP_PCT = 15;
 const TAP_MOVE_PX = 14;
+
+const BracketPhotoExpandContext = createContext(false);
+
+/** True in the fullscreen “View as photo” overlay — show every round. */
+export function useBracketPhotoExpandAll(): boolean {
+  return useContext(BracketPhotoExpandContext);
+}
 
 /** Desktop: 50% wider than the site column, capped to the viewport. */
 export const BRACKET_DESKTOP_WIDE_CLASS =
@@ -273,6 +282,7 @@ export function BracketZoomShell({
       : null;
 
   return (
+    <BracketPhotoExpandContext.Provider value={immersive}>
     <div className="relative" {...{ [DIVISION_SWIPE_IGNORE]: "" }}>
       {!immersive ? (
         <>
@@ -282,5 +292,6 @@ export function BracketZoomShell({
       ) : null}
       {overlay}
     </div>
+    </BracketPhotoExpandContext.Provider>
   );
 }
