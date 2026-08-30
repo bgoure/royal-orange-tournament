@@ -565,13 +565,13 @@ function layoutGameTops(
       if ((tops.get(g12.id) ?? 0) < minY) tops.set(g12.id, minY);
     }
     centerBetweenGameNumbers(allFlat, tops, hOf, "16", "11", "12");
-    placeBelowGameNumber(allFlat, tops, hOf, "7", "10");
+    placeBelowGameNumber(allFlat, tops, hOf, "7", "6");
     placeBelowGameNumber(allFlat, tops, hOf, "8", "7");
     centerBetweenGameNumbers(allFlat, tops, hOf, "13", "7", "8");
+    placeBelowGameNumber(allFlat, tops, hOf, "9", "8");
     placeBelowGameNumber(allFlat, tops, hOf, "15", "13");
     placeBelowGameNumber(allFlat, tops, hOf, "14", "15");
     centerBetweenGameNumbers(allFlat, tops, hOf, "17", "13", "14");
-    alignCentersToGameNumber(allFlat, tops, hOf, "9", "14");
     alignCentersToGameNumber(allFlat, tops, hOf, "18", "15");
     alignCentersToGameNumber(allFlat, tops, hOf, "19", "16");
     alignGameNumberChain(allFlat, tops, hOf, ["22A", "23A"]);

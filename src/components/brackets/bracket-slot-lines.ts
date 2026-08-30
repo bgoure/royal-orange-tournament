@@ -37,7 +37,19 @@ export function explicitFeederPrimary(
 }
 
 function isDirectEntryPool(pool: Pool | null | undefined): boolean {
-  return (pool?.name ?? "").trim().toLowerCase() === "direct entry";
+  return /direct\s*entry/i.test((pool?.name ?? "").trim());
+}
+
+/** Hide pool/division under the team name when it adds nothing (same name, or Direct entry). */
+function teamSecondaryLabel(team: TeamWithPool): string | null {
+  const pool = team.pool;
+  if (!pool) return null;
+  if (isDirectEntryPool(pool)) return null;
+  const divisionName = pool.division.name.trim();
+  const poolName = pool.name.trim();
+  if (!divisionName || !poolName) return null;
+  if (divisionName.toLowerCase() === poolName.toLowerCase()) return null;
+  return `${divisionName} · ${poolName}`;
 }
 
 export function slotLines(
@@ -55,12 +67,7 @@ export function slotLines(
     return { primary: "BYE", secondary: null, team: null, isPlaceholder: true };
   }
   if (team) {
-    // Bracket-only "Direct entry" pools are not useful under the team name.
-    const secondary =
-      team.pool && !isDirectEntryPool(team.pool)
-        ? `${team.pool.division.name} · ${team.pool.name}`
-        : null;
-    return { primary: team.name, secondary, team, isPlaceholder: false };
+    return { primary: team.name, secondary: teamSecondaryLabel(team), team, isPlaceholder: false };
   }
   if (sourcePool && rank != null) {
     return {
