@@ -12,6 +12,7 @@ import {
 } from "react";
 import { createPortal } from "react-dom";
 import { DIVISION_SWIPE_IGNORE } from "@/lib/division-swipe-ignore";
+import { BracketDisplayFilters } from "@/components/brackets/BracketViewerPrefs";
 
 const MIN_PCT = 50;
 const MAX_PCT = 200;
@@ -246,63 +247,68 @@ export function BracketZoomShell({
     </div>
   );
 
+  const photoButton = (
+    <button
+      type="button"
+      className={
+        immersive
+          ? "inline-flex min-h-11 items-center rounded-lg bg-royal px-3.5 py-2 text-sm font-semibold text-white shadow-sm"
+          : "inline-flex min-h-9 items-center rounded-lg border border-zinc-300 bg-white px-2.5 py-1.5 text-xs font-semibold text-zinc-800 shadow-sm"
+      }
+      title={immersive ? "Return to brackets" : "Full bracket with every round open"}
+      aria-label={immersive ? "Close photo view and return to brackets" : "View full bracket as photo"}
+      onClick={() => (immersive ? closePhoto() : setImmersive(true))}
+    >
+      {immersive ? "Close photo" : "View as photo"}
+    </button>
+  );
+
   const toolbar = (
     <div
-      className={`mb-2 items-center gap-2 ${
-        toolbarStart ? "flex justify-between" : "flex justify-end md:flex"
-      } ${immersive ? "px-3" : ""}`}
+      className={`mb-2 grid grid-cols-[minmax(0,1fr)_auto_minmax(0,1fr)] items-center gap-2 ${
+        immersive ? "px-3" : ""
+      }`}
       style={
         immersive
           ? { paddingTop: "max(0.75rem, env(safe-area-inset-top, 0px))" }
           : undefined
       }
     >
-      <div className="min-w-0">{toolbarStart}</div>
-      <div className="flex items-center gap-1">
+      <div className="flex min-w-0 flex-wrap items-center gap-1.5 justify-self-start">
+        {toolbarStart}
+        <BracketDisplayFilters />
+      </div>
+      <div className="justify-self-center">{photoButton}</div>
+      <div className={`items-center gap-1 justify-self-end ${immersive ? "flex" : "hidden md:flex"}`}>
+        <span className="mr-1 text-[11px] font-medium uppercase tracking-wide text-zinc-500">
+          Zoom
+        </span>
         <button
           type="button"
-          className={
-            immersive
-              ? "inline-flex min-h-11 items-center rounded-lg bg-royal px-3.5 py-2 text-sm font-semibold text-white shadow-sm"
-              : "inline-flex min-h-9 items-center rounded-lg border border-zinc-300 bg-white px-2.5 py-1.5 text-xs font-semibold text-zinc-800 shadow-sm"
-          }
-          title={immersive ? "Return to brackets" : "Full bracket with every round open"}
-          aria-label={immersive ? "Close photo view and return to brackets" : "View full bracket as photo"}
-          onClick={() => (immersive ? closePhoto() : setImmersive(true))}
+          className="inline-flex size-9 items-center justify-center rounded-lg border border-zinc-300 bg-white text-lg font-semibold text-zinc-800 shadow-sm disabled:opacity-40"
+          aria-label="Zoom out"
+          disabled={scalePct <= MIN_PCT}
+          onClick={() => setScale((p) => p - STEP_PCT)}
         >
-          {immersive ? "Close photo" : "View as photo"}
+          −
         </button>
-        <div className={`items-center gap-1 ${immersive ? "flex" : "hidden md:flex"}`}>
-          <span className="mr-1 text-[11px] font-medium uppercase tracking-wide text-zinc-500">
-            Zoom
-          </span>
-          <button
-            type="button"
-            className="inline-flex size-9 items-center justify-center rounded-lg border border-zinc-300 bg-white text-lg font-semibold text-zinc-800 shadow-sm disabled:opacity-40"
-            aria-label="Zoom out"
-            disabled={scalePct <= MIN_PCT}
-            onClick={() => setScale((p) => p - STEP_PCT)}
-          >
-            −
-          </button>
-          <button
-            type="button"
-            className="min-w-14 rounded-lg border border-zinc-300 bg-white px-2 py-1.5 text-xs font-semibold tabular-nums text-zinc-800 shadow-sm"
-            aria-label="Reset zoom"
-            onClick={() => setScale(100)}
-          >
-            {scalePct}%
-          </button>
-          <button
-            type="button"
-            className="inline-flex size-9 items-center justify-center rounded-lg border border-zinc-300 bg-white text-lg font-semibold text-zinc-800 shadow-sm disabled:opacity-40"
-            aria-label="Zoom in"
-            disabled={scalePct >= MAX_PCT}
-            onClick={() => setScale((p) => p + STEP_PCT)}
-          >
-            +
-          </button>
-        </div>
+        <button
+          type="button"
+          className="min-w-14 rounded-lg border border-zinc-300 bg-white px-2 py-1.5 text-xs font-semibold tabular-nums text-zinc-800 shadow-sm"
+          aria-label="Reset zoom"
+          onClick={() => setScale(100)}
+        >
+          {scalePct}%
+        </button>
+        <button
+          type="button"
+          className="inline-flex size-9 items-center justify-center rounded-lg border border-zinc-300 bg-white text-lg font-semibold text-zinc-800 shadow-sm disabled:opacity-40"
+          aria-label="Zoom in"
+          disabled={scalePct >= MAX_PCT}
+          onClick={() => setScale((p) => p + STEP_PCT)}
+        >
+          +
+        </button>
       </div>
     </div>
   );

@@ -30,6 +30,7 @@ import {
   deleteConsolationGameSchema,
   resolveBracketSchema,
   toggleBracketPublishedSchema,
+  updateBracketNameSchema,
   updateBracketFeederSchema,
   updateBracketQualifierSchema,
   toggleBracketCelebrationSchema,
@@ -361,6 +362,49 @@ export async function toggleBracketPublished(
     return { ok: true };
   } catch (e) {
     const msg = e instanceof Error ? e.message : "Failed to update visibility";
+    return { ok: false, error: msg };
+  }
+}
+
+export async function updateBracketName(
+  _prev: BracketActionResult | undefined,
+  formData: FormData,
+): Promise<BracketActionResult> {
+  const ctx = await bracketContext();
+  if ("error" in ctx) return { ok: false, error: ctx.error };
+  if (!can(ctx.session.user.role, "bracket:configure")) return deny();
+
+  const parsed = updateBracketNameSchema.safeParse({
+    bracketId: formData.get("bracketId"),
+    name: formData.get("name"),
+  });
+  if (!parsed.success) {
+    return { ok: false, error: parsed.error.flatten().formErrors.join(", ") || "Invalid input" };
+  }
+
+  try {
+    const existing = await prisma.bracket.findFirst({
+      where: { id: parsed.data.bracketId, tournamentId: ctx.tournament.id },
+      select: { id: true, divisionId: true },
+    });
+    if (!existing) return { ok: false, error: "Bracket not found" };
+    const scopeErr = await assertDivisionScope(
+      ctx.session.user.id,
+      ctx.session.user.role,
+      existing.divisionId,
+    );
+    if (scopeErr) return { ok: false, error: scopeErr };
+
+    const ok = await prisma.bracket.updateMany({
+      where: { id: parsed.data.bracketId, tournamentId: ctx.tournament.id },
+      data: { name: parsed.data.name },
+    });
+    if (ok.count === 0) return { ok: false, error: "Bracket not found" };
+    revalidatePath("/admin/brackets");
+    await revalidatePublishedTournamentSites();
+    return { ok: true };
+  } catch (e) {
+    const msg = e instanceof Error ? e.message : "Failed to rename bracket";
     return { ok: false, error: msg };
   }
 }

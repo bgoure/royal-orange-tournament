@@ -27,6 +27,7 @@ import {
   teamUpdateSchema,
 } from "@/lib/validations/structure";
 import { getTournamentForRequest, type TournamentForRequest } from "@/lib/tournament-context";
+import { isGenericWizardDivisionTitle } from "@/lib/brackets/bracket-public-title";
 import type { Session } from "next-auth";
 
 export type ActionResult = { ok: true } | { ok: false; error: string };
@@ -101,12 +102,37 @@ export async function updateDivision(_prev: ActionResult | undefined, formData: 
   await assertDivisionInTournament(parsed.data.id, ctx.tournament.id);
   const scopeErr = await assertDivisionScope(ctx.session.user.id, ctx.session.user.role, parsed.data.id);
   if (scopeErr) return { ok: false, error: scopeErr };
+
+  const existing = await prisma.division.findFirst({
+    where: { id: parsed.data.id },
+    select: { name: true },
+  });
   await prisma.division.update({
     where: { id: parsed.data.id },
     data: { name: parsed.data.name, sortOrder: parsed.data.sortOrder },
   });
+  if (existing && existing.name !== parsed.data.name) {
+    const oldName = existing.name;
+    const nextName = parsed.data.name;
+    const playoffsOld = `${oldName} Playoffs`;
+    const brackets = await prisma.bracket.findMany({
+      where: { divisionId: parsed.data.id, tournamentId: ctx.tournament.id },
+      select: { id: true, name: true },
+    });
+    for (const b of brackets) {
+      if (b.name === oldName) {
+        await prisma.bracket.update({ where: { id: b.id }, data: { name: nextName } });
+      } else if (b.name === playoffsOld) {
+        await prisma.bracket.update({ where: { id: b.id }, data: { name: `${nextName} Playoffs` } });
+      } else if (isGenericWizardDivisionTitle(b.name)) {
+        await prisma.bracket.update({ where: { id: b.id }, data: { name: nextName } });
+      }
+    }
+  }
   revalidatePath("/admin/divisions");
   revalidatePath("/admin/teams");
+  revalidatePath("/admin/brackets");
+  await revalidatePublishedTournamentSites();
   return { ok: true };
 }
 

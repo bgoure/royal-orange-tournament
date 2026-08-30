@@ -1,15 +1,43 @@
 "use client";
 
-import { useCallback, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import { focusWindowRange, isIndexInFocusWindow } from "@/lib/brackets/bracket-round-window";
+import { readRoundFocusPrefs, writeRoundFocusPrefs } from "@/lib/brackets/bracket-viewer-prefs";
 
-export function useRoundFocus(columnCount: number, activeIndex: number, expandAll: boolean) {
+export function useRoundFocus(
+  columnCount: number,
+  activeIndex: number,
+  expandAll: boolean,
+  persistKey?: string,
+) {
   const { lo, hi } = useMemo(
     () => focusWindowRange(activeIndex, columnCount),
     [activeIndex, columnCount],
   );
   const [forcedCollapsed, setForcedCollapsed] = useState<Set<number>>(() => new Set());
   const [extraOpen, setExtraOpen] = useState<Set<number>>(() => new Set());
+  const [ready, setReady] = useState(!persistKey);
+
+  useEffect(() => {
+    if (!persistKey || expandAll) {
+      setReady(true);
+      return;
+    }
+    const saved = readRoundFocusPrefs(persistKey);
+    if (saved) {
+      setForcedCollapsed(new Set(saved.forcedCollapsed));
+      setExtraOpen(new Set(saved.extraOpen));
+    }
+    setReady(true);
+  }, [persistKey, expandAll]);
+
+  useEffect(() => {
+    if (!ready || !persistKey || expandAll) return;
+    writeRoundFocusPrefs(persistKey, {
+      extraOpen: [...extraOpen],
+      forcedCollapsed: [...forcedCollapsed],
+    });
+  }, [ready, persistKey, expandAll, extraOpen, forcedCollapsed]);
 
   const isOpen = useCallback(
     (index: number) => {

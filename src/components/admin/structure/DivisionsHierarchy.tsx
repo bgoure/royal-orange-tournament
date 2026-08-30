@@ -202,6 +202,10 @@ function DivisionCard({
           <div className="min-w-[200px] flex-1">
             <label className={labelClass}>Edit name</label>
             <input name="name" required defaultValue={division.name} className={formClass} />
+            <p className="mt-1 text-[11px] text-zinc-500">
+              This is the public division tab and usually the brackets-page heading. Wizard default is
+              Division1 if you skipped naming.
+            </p>
           </div>
           <div className="w-28">
             <label className={labelClass}>Sort</label>

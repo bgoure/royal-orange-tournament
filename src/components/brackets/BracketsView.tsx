@@ -6,7 +6,9 @@ import type { BracketRound } from "@prisma/client";
 import { EmptyState } from "@/components/ui/EmptyState";
 import { SectionTitle } from "@/components/ui/PublicHeading";
 import { BracketExportControls } from "@/components/brackets/BracketExportControls";
+import { BracketViewerPrefsProvider } from "@/components/brackets/BracketViewerPrefs";
 import { BracketZoomShell, BRACKET_DESKTOP_WIDE_CLASS, useBracketPhotoExpandAll } from "@/components/brackets/BracketZoomShell";
+import { publicBracketHeading } from "@/lib/brackets/bracket-public-title";
 import { BracketGameCard } from "@/components/brackets/BracketGameCard";
 import { BRACKET_ROUND_COLUMN_CLASS } from "@/components/brackets/bracket-card-layout";
 import { BidirectionalDeBracket } from "@/components/brackets/BidirectionalDeBracket";
@@ -32,6 +34,7 @@ function BracketGrid({
   showHomeAway = true,
   fitContent = false,
   expandAll = false,
+  persistKey,
 }: {
   byRound: Map<string, GameRow[]>;
   roundsOrdered: BracketRound[];
@@ -40,11 +43,17 @@ function BracketGrid({
   /** Size to the full tree (export) instead of scrolling. */
   fitContent?: boolean;
   expandAll?: boolean;
+  persistKey?: string;
 }) {
   const activeIndex = latestScoredColumnIndex(
     roundsOrdered.map((r) => ({ games: byRound.get(r.id) ?? [] })),
   );
-  const focus = useRoundFocus(roundsOrdered.length, activeIndex, expandAll || fitContent);
+  const focus = useRoundFocus(
+    roundsOrdered.length,
+    activeIndex,
+    expandAll || fitContent,
+    expandAll || fitContent ? undefined : persistKey,
+  );
 
   return (
     <div
@@ -170,6 +179,7 @@ export function BracketDesktopTree({
         showHomeAway={showHomeAway}
         presetKey={b.presetKey}
         expandAll={showAllRounds}
+        persistKey={showAllRounds ? undefined : b.id}
       />
     );
   }
@@ -182,6 +192,7 @@ export function BracketDesktopTree({
         showHomeAway={showHomeAway}
         expandAll={showAllRounds}
         fitContent={showAllRounds}
+        persistKey={showAllRounds ? undefined : b.id}
       />
     );
   }
@@ -193,6 +204,7 @@ export function BracketDesktopTree({
       showHomeAway={showHomeAway}
       fitContent={showAllRounds}
       expandAll={showAllRounds}
+      persistKey={showAllRounds ? undefined : b.id}
     />
   );
 }
@@ -234,7 +246,7 @@ function BracketSection({
       ) : null}
       <div className={BRACKET_DESKTOP_WIDE_CLASS}>
       <SectionTitle id={`bracket-heading-${b.id}`} className="normal-case tracking-normal">
-        {b.name}
+        {publicBracketHeading(b.name, b.division.name)}
         {b.isQualifier ? (
           <span className="ml-2 text-sm font-normal text-zinc-600">
             (qualifier · top {b.qualifyingTeamCount})
@@ -374,18 +386,20 @@ export function BracketsView({
   );
 
   return (
-    <div className="flex flex-col gap-6">
-      {brackets.map((b, i) => (
-        <BracketSection
-          key={b.id}
-          b={b}
-          tournamentName={tournamentName}
-          tournamentTimezone={tournamentTimezone}
-          consolationGames={consolationByDivision.get(b.divisionId) ?? []}
-          showHomeAway={showHomeAway}
-          exportToolbar={i === 0 ? renderExportToolbar : undefined}
-        />
-      ))}
-    </div>
+    <BracketViewerPrefsProvider>
+      <div className="flex flex-col gap-6">
+        {brackets.map((b, i) => (
+          <BracketSection
+            key={b.id}
+            b={b}
+            tournamentName={tournamentName}
+            tournamentTimezone={tournamentTimezone}
+            consolationGames={consolationByDivision.get(b.divisionId) ?? []}
+            showHomeAway={showHomeAway}
+            exportToolbar={i === 0 ? renderExportToolbar : undefined}
+          />
+        ))}
+      </div>
+    </BracketViewerPrefsProvider>
   );
 }

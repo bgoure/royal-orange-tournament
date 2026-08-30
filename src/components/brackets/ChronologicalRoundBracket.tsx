@@ -150,6 +150,7 @@ function isRoundNumberColumn(label: string, n: number): boolean {
 type DecoratedColumn = ChronologicalRoundColumn<GameRow> & {
   roundNote?: string;
   sitOutNote?: string;
+  sitOutGames: GameRow[];
   noteOffset: number;
   redrawPool?: Oba13Round5RedrawPool | Oba12Round5RedrawPool;
 };
@@ -164,6 +165,7 @@ function decorateColumns(
 ): DecoratedColumn[] {
   const isObaDraw = mode === "13" || mode === "12";
   return columns.map((col) => {
+    const sitOutGames = isObaDraw ? col.games.filter((g) => isObaSitOutGameNumber(g.gameNumber)) : [];
     const sitOutNote = isObaDraw ? oba13SitOutByeNote(col.games) : null;
     const roundNote =
       mode === "13" && isRoundNumberColumn(col.label, 5)
@@ -177,6 +179,7 @@ function decorateColumns(
     return {
       ...col,
       games: isObaDraw ? col.games.filter((g) => !isObaSitOutGameNumber(g.gameNumber)) : col.games,
+      sitOutGames,
       roundNote,
       sitOutNote: sitOutNote ?? undefined,
       noteOffset,
@@ -193,18 +196,30 @@ function splitObaEndgame(
   bracketA: DecoratedColumn[];
   bracketB: DecoratedColumn[];
   endgameStart: number;
+  sitOutNoteA: string | null;
+  sitOutNoteB: string | null;
 } {
   const start = columns.findIndex((c) => isRoundNumberColumn(c.label, 6));
   if (start < 0) {
-    return { early: columns, late: [], bracketA: [], bracketB: [], endgameStart: columns.length };
+    return {
+      early: columns,
+      late: [],
+      bracketA: [],
+      bracketB: [],
+      endgameStart: columns.length,
+      sitOutNoteA: null,
+      sitOutNoteB: null,
+    };
   }
   const late = columns.slice(start);
+  const sitOutFor = (branch: "A" | "B") =>
+    late.flatMap((c) => c.sitOutGames).filter((g) => branchFor(g.gameNumber) === branch);
   const take = (branch: "A" | "B") =>
     late.map((c) => {
       const games = c.games.filter((g) => branchFor(g.gameNumber) === branch);
-      // Sit-out copy lives on the shared round header, not inside A/B — so cards
-      // in R6–R8 share one vertical origin and winner lines stay straight.
-      return { ...c, games, roundNote: undefined, sitOutNote: undefined, noteOffset: 0 };
+      // Sit-out copy lives under the A/B box that owns the bye — cards in R6–R8
+      // still share one vertical origin so winner lines stay straight.
+      return { ...c, games, roundNote: undefined, sitOutNote: undefined, sitOutGames: [], noteOffset: 0 };
     });
   return {
     early: columns.slice(0, start),
@@ -212,6 +227,8 @@ function splitObaEndgame(
     bracketA: take("A"),
     bracketB: take("B"),
     endgameStart: start,
+    sitOutNoteA: oba13SitOutByeNote(sitOutFor("A")),
+    sitOutNoteB: oba13SitOutByeNote(sitOutFor("B")),
   };
 }
 
@@ -573,7 +590,7 @@ function layoutGameTops(
     alignCentersToGameNumber(allFlat, tops, hOf, "14", "9");
     centerBetweenGameNumbers(allFlat, tops, hOf, "17", "13", "14");
     alignCentersToGameNumber(allFlat, tops, hOf, "18", "15");
-    alignCentersToGameNumber(allFlat, tops, hOf, "19", "16");
+    centerBetweenGameNumbers(allFlat, tops, hOf, "19", "2", "3");
     alignGameNumberChain(allFlat, tops, hOf, ["22A", "23A"]);
   }
 
@@ -1169,6 +1186,8 @@ function Oba13EndgameOpenSlice({
   aRemain = 3,
   bRemain = 4,
   isOba12 = false,
+  sitOutNoteA = null,
+  sitOutNoteB = null,
 }: {
   late: DecoratedColumn[];
   bracketA: DecoratedColumn[];
@@ -1183,6 +1202,8 @@ function Oba13EndgameOpenSlice({
   aRemain?: number;
   bRemain?: number;
   isOba12?: boolean;
+  sitOutNoteA?: string | null;
+  sitOutNoteB?: string | null;
 }) {
   const showA = mode === "placeholder" || mode === "A";
   const showB = mode === "placeholder" || mode === "B";
@@ -1208,9 +1229,6 @@ function Oba13EndgameOpenSlice({
                 &nbsp;
               </p>
             )}
-            {col.sitOutNote ? (
-              <p className="mt-1 text-[11px] font-semibold leading-snug text-royal">{col.sitOutNote}</p>
-            ) : null}
             {!expandAll ? (
               <button
                 type="button"
@@ -1256,6 +1274,9 @@ function Oba13EndgameOpenSlice({
             blankEmpty
             fixedColWidth={colWidth}
           />
+          {sitOutNoteA ? (
+            <p className="mt-2 px-3 text-[11px] font-semibold leading-snug text-royal">{sitOutNoteA}</p>
+          ) : null}
         </div>
       ) : null}
       {showB ? (
@@ -1291,6 +1312,9 @@ function Oba13EndgameOpenSlice({
             blankEmpty
             fixedColWidth={colWidth}
           />
+          {sitOutNoteB ? (
+            <p className="mt-2 px-3 text-[11px] font-semibold leading-snug text-royal">{sitOutNoteB}</p>
+          ) : null}
         </div>
       ) : null}
     </div>
@@ -1312,6 +1336,8 @@ function Oba13EndgamePanel({
   aRemain = 3,
   bRemain = 4,
   isOba12 = false,
+  sitOutNoteA = null,
+  sitOutNoteB = null,
 }: {
   late: DecoratedColumn[];
   bracketA: DecoratedColumn[];
@@ -1327,6 +1353,8 @@ function Oba13EndgamePanel({
   aRemain?: number;
   bRemain?: number;
   isOba12?: boolean;
+  sitOutNoteA?: string | null;
+  sitOutNoteB?: string | null;
 }) {
   const segments: { kind: "collapsed" | "open"; start: number; end: number }[] = [];
   for (let i = 0; i < late.length; i++) {
@@ -1369,6 +1397,8 @@ function Oba13EndgamePanel({
             aRemain={aRemain}
             bRemain={bRemain}
             isOba12={isOba12}
+            sitOutNoteA={sitOutNoteA}
+            sitOutNoteB={sitOutNoteB}
           />
         );
       })}
@@ -1384,6 +1414,7 @@ export function ChronologicalRoundBracket({
   showHomeAway = true,
   presetKey,
   expandAll = false,
+  persistKey,
 }: {
   rounds: BracketRound[];
   byRound: Map<string, GameRow[]>;
@@ -1392,6 +1423,7 @@ export function ChronologicalRoundBracket({
   showHomeAway?: boolean;
   presetKey?: string | null;
   expandAll?: boolean;
+  persistKey?: string;
 }) {
   const isOba13 = presetKey === "oba_de_13";
   const isOba12 = presetKey === "oba_de_12";
@@ -1428,7 +1460,7 @@ export function ChronologicalRoundBracket({
     );
   }, [rawColumns, drawMode, redrawPool]);
   const activeIndex = useMemo(() => latestScoredColumnIndex(columns), [columns]);
-  const focus = useRoundFocus(columns.length, activeIndex, expandAll);
+  const focus = useRoundFocus(columns.length, activeIndex, expandAll, expandAll ? undefined : persistKey);
   const split = useMemo(
     () =>
       isOba13
@@ -1483,6 +1515,8 @@ export function ChronologicalRoundBracket({
           aRemain={isOba12 ? 2 : 3}
           bRemain={isOba12 ? 3 : 4}
           isOba12={isOba12}
+          sitOutNoteA={split.sitOutNoteA}
+          sitOutNoteB={split.sitOutNoteB}
           isOpen={(i) => focus.isOpen(split.endgameStart + i)}
           onToggle={(i) => focus.toggle(split.endgameStart + i)}
         />

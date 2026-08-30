@@ -147,6 +147,11 @@ export const toggleBracketPublishedSchema = z.object({
   published: z.enum(["0", "1"]).transform((v) => v === "1"),
 });
 
+export const updateBracketNameSchema = z.object({
+  bracketId: z.string().min(1),
+  name: z.string().trim().min(1).max(120),
+});
+
 export const updateBracketQualifierSchema = z
   .object({
     bracketId: z.string().min(1),

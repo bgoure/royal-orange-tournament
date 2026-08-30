@@ -12,6 +12,7 @@ import {
   deletePlayoffBracket,
   resetPlayoffBracket,
   toggleBracketPublished,
+  updateBracketName,
   updateBracketQualifierSettings,
   toggleBracketCelebrationPosted,
   updatePoolTeamsAdvancing,
@@ -584,6 +585,10 @@ export function BracketsAdmin({
     resetPlayoffBracket,
     undefined as BracketActionResult | undefined,
   );
+  const [renameState, renameAction, renamePending] = useActionState(
+    updateBracketName,
+    undefined as BracketActionResult | undefined,
+  );
   const [qualifierState, qualifierAction, qualifierPending] = useActionState(
     updateBracketQualifierSettings,
     undefined as BracketActionResult | undefined,
@@ -771,6 +776,7 @@ export function BracketsAdmin({
       <ActionMessage state={advState} />
       <ActionMessage state={createState} />
       <ActionMessage state={publishState} />
+      <ActionMessage state={renameState} />
       <ActionMessage state={resolveState} />
       <ActionMessage state={deleteState} />
       <ActionMessage state={resetState} />
@@ -1358,6 +1364,32 @@ export function BracketsAdmin({
                   <div className="min-w-0 flex-1">
                     <p className="text-sm font-medium text-zinc-900">
                       {b.name} · {b.division.name}
+                    </p>
+                    <form action={renameAction} className="mt-2 flex flex-wrap items-end gap-2">
+                      <input type="hidden" name="bracketId" value={b.id} />
+                      <div className="min-w-[200px] flex-1">
+                        <label className="block text-[11px] font-medium uppercase tracking-wide text-zinc-500">
+                          Public title
+                        </label>
+                        <input
+                          name="name"
+                          required
+                          defaultValue={b.name}
+                          className={formClass}
+                          aria-label={`Public title for ${b.name}`}
+                        />
+                      </div>
+                      <button type="submit" disabled={renamePending} className={btnSecondary}>
+                        {renamePending ? "Saving…" : "Save title"}
+                      </button>
+                    </form>
+                    <p className="mt-1 text-[11px] text-zinc-500">
+                      Shown as the heading on the public brackets page. To change the division tab
+                      (e.g. Division1), rename it under{" "}
+                      <Link href="/admin/structure" className="underline hover:text-zinc-800">
+                        Structure
+                      </Link>
+                      .
                     </p>
                     <p className="mt-1 text-xs text-zinc-600">
                       {b.format === "DOUBLE_ELIMINATION"

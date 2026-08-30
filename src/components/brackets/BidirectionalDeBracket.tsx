@@ -97,6 +97,7 @@ export function BidirectionalDeBracket({
   showHomeAway = true,
   fitContent = false,
   expandAll = false,
+  persistKey,
 }: {
   rounds: BracketRound[];
   byRound: Map<string, GameRow[]>;
@@ -104,6 +105,7 @@ export function BidirectionalDeBracket({
   showHomeAway?: boolean;
   fitContent?: boolean;
   expandAll?: boolean;
+  persistKey?: string;
 }) {
   const layout = bidirectionalDeLayout(rounds);
   const visualOrder = [
@@ -114,7 +116,12 @@ export function BidirectionalDeBracket({
   const activeIndex = latestScoredColumnIndex(
     visualOrder.map((r) => ({ games: byRound.get(r.id) ?? [] })),
   );
-  const focus = useRoundFocus(visualOrder.length, activeIndex, expandAll || fitContent);
+  const focus = useRoundFocus(
+    visualOrder.length,
+    activeIndex,
+    expandAll || fitContent,
+    expandAll || fitContent ? undefined : persistKey,
+  );
   const indexById = new Map(visualOrder.map((r, i) => [r.id, i]));
   const canCollapse = !(expandAll || fitContent);
 
