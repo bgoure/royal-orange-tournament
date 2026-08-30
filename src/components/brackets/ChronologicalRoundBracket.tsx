@@ -569,8 +569,8 @@ function layoutGameTops(
     placeBelowGameNumber(allFlat, tops, hOf, "8", "7");
     centerBetweenGameNumbers(allFlat, tops, hOf, "13", "7", "8");
     placeBelowGameNumber(allFlat, tops, hOf, "9", "8");
-    placeBelowGameNumber(allFlat, tops, hOf, "15", "13");
-    placeBelowGameNumber(allFlat, tops, hOf, "14", "15");
+    alignCentersToGameNumber(allFlat, tops, hOf, "15", "6");
+    alignCentersToGameNumber(allFlat, tops, hOf, "14", "9");
     centerBetweenGameNumbers(allFlat, tops, hOf, "17", "13", "14");
     alignCentersToGameNumber(allFlat, tops, hOf, "18", "15");
     alignCentersToGameNumber(allFlat, tops, hOf, "19", "16");
