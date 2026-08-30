@@ -5,7 +5,15 @@
 
 import { prisma } from "@/lib/db";
 import { formatGameScheduledAt } from "@/lib/datetime-tournament";
+import { isOba12AlternateEndgameSlot } from "@/lib/services/oba-de-12";
 import { isOba13AlternateEndgameSlot } from "@/lib/services/oba-de-13";
+
+function isObaAlternateEndgameSlot(
+  aNumber: string | null | undefined,
+  bNumber: string | null | undefined,
+): boolean {
+  return isOba13AlternateEndgameSlot(aNumber, bNumber) || isOba12AlternateEndgameSlot(aNumber, bNumber);
+}
 
 export const DEFAULT_FIELD_OCCUPANCY_MINUTES = 90;
 
@@ -61,7 +69,7 @@ export function findOverlappingFieldPairs(
         if (
           a.bracketId &&
           a.bracketId === b.bracketId &&
-          isOba13AlternateEndgameSlot(a.gameNumber, b.gameNumber)
+          isObaAlternateEndgameSlot(a.gameNumber, b.gameNumber)
         ) {
           continue;
         }
@@ -130,7 +138,7 @@ export async function assertNoFieldScheduleConflict(opts: {
     if (
       self?.bracketId &&
       c.bracketId === self.bracketId &&
-      isOba13AlternateEndgameSlot(self.gameNumber, c.gameNumber)
+      isObaAlternateEndgameSlot(self.gameNumber, c.gameNumber)
     ) {
       return false;
     }
@@ -185,7 +193,7 @@ export async function repairClusteredBracketSeedPlaceholders(tournamentId: strin
             i === j ||
             !other.bracketId ||
             other.bracketId !== g.bracketId ||
-            !isOba13AlternateEndgameSlot(g.gameNumber, other.gameNumber),
+            !isObaAlternateEndgameSlot(g.gameNumber, other.gameNumber),
         ),
       ),
     )

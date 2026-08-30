@@ -330,7 +330,7 @@ export function CreateTournamentWizardModal({ onClose }: Props) {
       setError(
         bracketKind === "SINGLE_ELIMINATION"
           ? "Pre-defined maps are double elimination. Switch to double elimination, or use a traditional bracket."
-          : "Pre-defined maps exist for 4, 5, 6, 7, and 13 teams. Change the team count on step 1, or use a traditional bracket.",
+          : "Pre-defined maps exist for 4, 5, 6, 7, 12, and 13 teams. Change the team count on step 1, or use a traditional bracket.",
       );
       return;
     }
@@ -755,7 +755,7 @@ export function CreateTournamentWizardModal({ onClose }: Props) {
                             .join(" · ")
                         : bracketKind === "SINGLE_ELIMINATION"
                           ? "Pre-defined maps are double elimination. Go back and pick double elimination, or use traditional."
-                          : "OBA maps exist for 4, 5, 6, 7, and 13 teams. This division doesn’t match — go back to step 1 or use traditional."}
+                          : "OBA maps exist for 4, 5, 6, 7, 12, and 13 teams. This division doesn’t match — go back to step 1 or use traditional."}
                     </span>
                   </span>
                 </label>
@@ -795,7 +795,12 @@ export function CreateTournamentWizardModal({ onClose }: Props) {
               {formatPresets[0] ? (
                 <>
                   <p className="text-xs text-zinc-500">{plannedPlayoffLabel(formatPresets[0]!)}</p>
-                  {formatPresets[0] === "oba_de_4" || formatPresets[0] === "oba_de_13" ? (
+                  {formatPresets[0] === "oba_de_12" ? (
+                    <p className="text-xs text-zinc-500">
+                      Team list order is the draw order. First drawn plays Game 1 (no Round 1 bye).
+                      Remaining teams pair in list order into Games 1–6.
+                    </p>
+                  ) : formatPresets[0] === "oba_de_4" || formatPresets[0] === "oba_de_13" ? (
                     <p className="text-xs text-zinc-500">
                       Team list order is the draw order (first drawn = Team 1 bye). Remaining teams
                       pair in list order into Round 1.

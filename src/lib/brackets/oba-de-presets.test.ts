@@ -32,10 +32,12 @@ describe("OBA DE presets", () => {
         ),
       );
     }
-    assert.equal(Object.keys(OBA_DE_PRESETS).length, 5);
+    assert.equal(Object.keys(OBA_DE_PRESETS).length, 6);
   });
 
-  it("defines 13-team draw preset", () => {
+  it("defines 12-team and 13-team draw presets", () => {
+    assert.equal(isObaDePresetKey("oba_de_12"), true);
+    assert.equal(getObaDePreset("oba_de_12").teamCount, 12);
     assert.equal(isObaDePresetKey("oba_de_13"), true);
     const p = getObaDePreset("oba_de_13");
     assert.equal(p.teamCount, 13);
@@ -60,6 +62,9 @@ describe("OBA DE presets", () => {
     assert.ok(!five.includes("oba_de_4"));
     assert.ok(five.includes("double_elim_classic"));
     assert.ok(five.includes("custom"));
+    const twelve = wizardFormatOptionsForTeamCount(12).map((o) => o.key);
+    assert.ok(twelve.includes("oba_de_12"));
+    assert.ok(!twelve.includes("oba_de_13"));
     const thirteen = wizardFormatOptionsForTeamCount(13).map((o) => o.key);
     assert.ok(thirteen.includes("oba_de_13"));
     assert.ok(!thirteen.includes("oba_de_5"));

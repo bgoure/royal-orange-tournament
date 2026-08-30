@@ -1074,8 +1074,8 @@ export async function applyOba13PlacementAction(
     where: { id: parsed.data.bracketId, tournamentId: ctx.tournament.id },
     select: { id: true, divisionId: true, presetKey: true },
   });
-  if (!bracket || bracket.presetKey !== "oba_de_13") {
-    return { ok: false, error: "13-team bracket not found." };
+  if (!bracket || (bracket.presetKey !== "oba_de_13" && bracket.presetKey !== "oba_de_12")) {
+    return { ok: false, error: "OBA redraw bracket not found." };
   }
   const scopeErr = await assertDivisionScope(
     ctx.session.user.id,
@@ -1085,8 +1085,21 @@ export async function applyOba13PlacementAction(
   if (scopeErr) return { ok: false, error: scopeErr };
 
   try {
-    const { applyOba13Placement } = await import("@/lib/services/oba-de-13-placement");
-    await applyOba13Placement(parsed.data);
+    if (bracket.presetKey === "oba_de_12") {
+      const { applyOba12Placement } = await import("@/lib/services/oba-de-12-placement");
+      if (parsed.data.phase === "r7") {
+        return { ok: false, error: "12-team placement has no Round 7 step." };
+      }
+      await applyOba12Placement({
+        bracketId: parsed.data.bracketId,
+        phase: parsed.data.phase,
+        byeTeamId: parsed.data.byeTeamId,
+        matchups: parsed.data.matchups,
+      });
+    } else {
+      const { applyOba13Placement } = await import("@/lib/services/oba-de-13-placement");
+      await applyOba13Placement(parsed.data);
+    }
     const { maybeResolveObaPresetPairings } = await import("@/lib/services/oba-de-redraw");
     await maybeResolveObaPresetPairings(parsed.data.bracketId);
     revalidatePath("/admin/brackets");

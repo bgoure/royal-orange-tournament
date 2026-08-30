@@ -6,7 +6,7 @@
  * Bye constitution details: Baseball Ontario Constitution §P5 / RP5.2 n.
  */
 
-export type ObaDePresetKey = "oba_de_4" | "oba_de_5" | "oba_de_6" | "oba_de_7" | "oba_de_13";
+export type ObaDePresetKey = "oba_de_4" | "oba_de_5" | "oba_de_6" | "oba_de_7" | "oba_de_12" | "oba_de_13";
 
 /**
  * Documented OBA bye-seed game numbers (home seat). Runtime placement discovers seats from
@@ -34,6 +34,8 @@ export function obaImplicitByeSeedTargets(
       ];
     case "oba_de_7":
       return [{ seedRank: 1, gameNumber: "5", label: "Seed 1 → G5 (Round 2)" }];
+    case "oba_de_12":
+      return [];
     case "oba_de_13":
       return [{ seedRank: 1, gameNumber: "10", label: "Team 1 (draw) → G10 (Round 2)" }];
     default:
@@ -195,6 +197,36 @@ export const OBA_DE_PRESETS: Record<ObaDePresetKey, ObaDePreset> = {
       },
     ],
   },
+  oba_de_12: {
+    key: "oba_de_12",
+    teamCount: 12,
+    label: "Double elimination — 12 teams (OBA draw)",
+    shortLabel: "DE · 12",
+    summary:
+      "Draw Round 1 (no bye). Fixed map through Round 4 including G19, then admin rematch-avoid redraw. Bracket A (2 remain) or B (3 remain).",
+    explainer: [
+      {
+        title: "Overview",
+        body: "Twelve-team double elimination from the OBA workbook. Round 1 is a draw: all 12 teams play Games 1–6 (first drawn plays, not a sit). A second loss eliminates a team. Rounds 1–4 use fixed winner/loser feeders. From Round 5, pairings are redrawn.",
+      },
+      {
+        title: "Rounds 1–4 (fixed map)",
+        body: "Round 1: Games 1–6 (no bye). Round 2: losers L1–L2, L3–L4, L5–L6; winners W1 vs W2, W3 vs W4, W5 vs W6. Round 3: W7 vs W8, W9 vs L10, L11 vs L12, W11 vs W12. Winner of Game 10 sits Round 3 and plays Game 19. Round 4: W13 vs W14, W15 vs L16, W10 vs W16.",
+      },
+      {
+        title: "Round 5 (redraw)",
+        body: "Four teams remain (W17, W18, W19, L19). Pair to avoid rematches where possible; otherwise a draw determines pairings. Admin confirms or overrides. Round 5 has no bye.",
+      },
+      {
+        title: "Bracket A or B",
+        body: "After Round 5, two teams remaining (undefeated survived) uses Bracket A. Three remaining (undefeated lost in Round 5; all have one loss) uses Bracket B. Unused games are hidden.",
+      },
+      {
+        title: "Endgame",
+        body: "Bracket A: Game 22A is W20 vs W21. Game 23A is if-necessary if the undefeated team loses 22A. Bracket B: RP5.2 bye + Game 22B, then Game 23B (W22B vs the bye) is always required — no if-necessary, all have one loss.",
+      },
+    ],
+  },
   oba_de_13: {
     key: "oba_de_13",
     teamCount: 13,
@@ -230,7 +262,11 @@ export const OBA_DE_PRESETS: Record<ObaDePresetKey, ObaDePreset> = {
 /** Feeder-wired OBA maps that skip classic W/L index math. */
 export function isObaFeederMapPreset(key: string | null | undefined): boolean {
   return (
-    key === "oba_de_5" || key === "oba_de_6" || key === "oba_de_7" || key === "oba_de_13"
+    key === "oba_de_5" ||
+    key === "oba_de_6" ||
+    key === "oba_de_7" ||
+    key === "oba_de_12" ||
+    key === "oba_de_13"
   );
 }
 
@@ -240,6 +276,7 @@ export function isObaDePresetKey(key: string): key is ObaDePresetKey {
     key === "oba_de_5" ||
     key === "oba_de_6" ||
     key === "oba_de_7" ||
+    key === "oba_de_12" ||
     key === "oba_de_13"
   );
 }
@@ -294,6 +331,12 @@ export const WIZARD_FORMAT_OPTIONS: WizardFormatOption[] = [
     key: "oba_de_7",
     label: "Double elimination — 7 teams (seeded)",
     requiresTeamCount: 7,
+    group: "oba",
+  },
+  {
+    key: "oba_de_12",
+    label: "Double elimination — 12 teams (OBA draw)",
+    requiresTeamCount: 12,
     group: "oba",
   },
   {

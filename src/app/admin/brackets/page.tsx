@@ -10,6 +10,7 @@ import {
   listFieldsForBrackets,
   listPoolsAdvancingConfig,
 } from "@/lib/services/admin-brackets";
+import { listOba12PlacementBoards } from "@/lib/services/oba-de-12-placement";
 import { listOba13PlacementBoards } from "@/lib/services/oba-de-13-placement";
 import { can } from "@/lib/rbac/permissions";
 import { getTournamentForRequest } from "@/lib/tournament-context";
@@ -29,7 +30,7 @@ export default async function AdminBracketsPage({
     return <AdminNoTournamentPlaceholder />;
   }
 
-  const [pools, fields, brackets, divisionsRaw, consolationGames, feederBrackets, oba13PlacementBoards] =
+  const [pools, fields, brackets, divisionsRaw, consolationGames, feederBrackets, oba13PlacementBoards, oba12PlacementBoards] =
     await Promise.all([
       listPoolsAdvancingConfig(tournament.id),
       listFieldsForBrackets(tournament.id),
@@ -38,6 +39,7 @@ export default async function AdminBracketsPage({
       listConsolationGamesForAdmin(tournament.id),
       listBracketFeederMatches(tournament.id),
       listOba13PlacementBoards(tournament.id),
+      listOba12PlacementBoards(tournament.id),
     ]);
 
   const divisions = divisionsRaw.map((d) => ({
@@ -72,7 +74,7 @@ export default async function AdminBracketsPage({
       brackets={brackets}
       consolationGames={consolationGames}
       feederBrackets={feederBrackets}
-      oba13PlacementBoards={oba13PlacementBoards}
+      oba13PlacementBoards={[...oba13PlacementBoards, ...oba12PlacementBoards]}
       initialDivisionId={initialDivisionId}
       tournamentName={tournament.name}
       publicSitePath={tournamentPublicBasePath(tournament)}

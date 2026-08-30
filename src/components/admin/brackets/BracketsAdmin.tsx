@@ -29,6 +29,7 @@ import { tournamentPathFromBase } from "@/lib/tournament-public-path";
 import { classicSingleElimOrder } from "@/lib/services/bracket-engine";
 import { isObaDePresetKey, type ObaDePresetKey } from "@/lib/brackets/oba-de-presets";
 import { Oba13PlacementPanel } from "@/components/admin/brackets/Oba13PlacementPanel";
+import type { Oba12PlacementBoard } from "@/lib/services/oba-de-12-placement";
 import type { Oba13PlacementBoard } from "@/lib/services/oba-de-13-placement";
 import type { GrandFinalMode, Pool } from "@prisma/client";
 
@@ -110,7 +111,7 @@ type Props = {
   brackets: BracketRow[];
   consolationGames: ConsolationAdminRow[];
   feederBrackets?: FeederBracketRow[];
-  oba13PlacementBoards?: Oba13PlacementBoard[];
+  oba13PlacementBoards?: Array<Oba13PlacementBoard | Oba12PlacementBoard>;
   /** From `?division=` — sticky across refresh. */
   initialDivisionId?: string;
   tournamentName: string;
@@ -301,10 +302,14 @@ function SeedOrderRows({
       <input type="hidden" name="seedTeamIds" value={JSON.stringify(seedIds)} />
       <div>
         <h3 className="text-xs font-semibold uppercase tracking-wide text-zinc-500">
-          {presetKey === "oba_de_13" || presetKey === "oba_de_4" ? "Draw order" : "Seed order"}
+          {presetKey === "oba_de_13" || presetKey === "oba_de_12" || presetKey === "oba_de_4"
+            ? "Draw order"
+            : "Seed order"}
         </h3>
         <p className="mt-1 text-xs text-zinc-500">
-          {presetKey === "oba_de_13" || presetKey === "oba_de_4"
+          {presetKey === "oba_de_12"
+            ? "Draw order: first team plays Game 1 (no Round 1 bye). Remaining teams pair in order into Games 1–6."
+            : presetKey === "oba_de_13" || presetKey === "oba_de_4"
             ? "Draw order: first team sits Round 1 (Team 1). Remaining teams pair in order into Round 1 games."
             : "Seed 1 = strongest. For 5–7 teams, top seeds receive Round 1 byes (no BYE game cards). Public view uses Round 1, Round 2, … columns with G# Winner / G# Loser placeholders."}
         </p>
@@ -312,7 +317,9 @@ function SeedOrderRows({
           {Array.from({ length: n }, (_, i) => (
             <div key={i}>
               <p className={labelClass}>
-                {presetKey === "oba_de_13" || presetKey === "oba_de_4" ? `Draw ${i + 1}` : `Seed ${i + 1}`}
+                {presetKey === "oba_de_13" || presetKey === "oba_de_12" || presetKey === "oba_de_4"
+                  ? `Draw ${i + 1}`
+                  : `Seed ${i + 1}`}
               </p>
               <select
                 value={seedIds[i] ?? ""}

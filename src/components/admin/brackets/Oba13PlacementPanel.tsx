@@ -6,8 +6,10 @@ import {
   type BracketActionResult,
 } from "@/app/admin/_actions/brackets";
 import { ActionMessage } from "@/components/admin/structure/ActionMessage";
+import type { Oba12PlacementBoard } from "@/lib/services/oba-de-12-placement";
 import type { Oba13PlacementBoard } from "@/lib/services/oba-de-13-placement";
-import { OBA13_GAME } from "@/lib/services/oba-de-13";
+
+type PlacementBoard = Oba13PlacementBoard | Oba12PlacementBoard;
 
 const btnPrimary =
   "rounded-lg bg-royal px-3 py-2 text-sm font-medium text-white hover:bg-royal-800 disabled:opacity-50";
@@ -18,35 +20,16 @@ const formClass =
 
 type MatchupState = { gameNumber: string; homeTeamId: string; awayTeamId: string };
 
-function defaultMatchups(board: Oba13PlacementBoard): MatchupState[] {
-  const suggested = board.suggestion.matchups.map(([home, away], i) => ({
-    gameNumber: board.targetGameNumbers.filter((n) => !/bye/i.test(n))[i] ?? "",
-    homeTeamId: home,
-    awayTeamId: away,
+function defaultMatchups(board: PlacementBoard): MatchupState[] {
+  const gameNums = board.targetGameNumbers.filter((n) => !/bye/i.test(n));
+  return gameNums.map((gameNumber, i) => ({
+    gameNumber,
+    homeTeamId: board.suggestion.matchups[i]?.[0] ?? "",
+    awayTeamId: board.suggestion.matchups[i]?.[1] ?? "",
   }));
-  if (board.phase === "r5") {
-    return [
-      { gameNumber: OBA13_GAME.G21, homeTeamId: suggested[0]?.homeTeamId ?? "", awayTeamId: suggested[0]?.awayTeamId ?? "" },
-      { gameNumber: OBA13_GAME.G22, homeTeamId: suggested[1]?.homeTeamId ?? "", awayTeamId: suggested[1]?.awayTeamId ?? "" },
-    ];
-  }
-  if (board.phase === "r6" && board.branch === "B") {
-    return [
-      { gameNumber: OBA13_GAME.G23B, homeTeamId: suggested[0]?.homeTeamId ?? "", awayTeamId: suggested[0]?.awayTeamId ?? "" },
-      { gameNumber: OBA13_GAME.G24B, homeTeamId: suggested[1]?.homeTeamId ?? "", awayTeamId: suggested[1]?.awayTeamId ?? "" },
-    ];
-  }
-  if (board.phase === "r6") {
-    return [
-      { gameNumber: OBA13_GAME.G23A, homeTeamId: suggested[0]?.homeTeamId ?? "", awayTeamId: suggested[0]?.awayTeamId ?? "" },
-    ];
-  }
-  return [
-    { gameNumber: OBA13_GAME.G24A, homeTeamId: suggested[0]?.homeTeamId ?? "", awayTeamId: suggested[0]?.awayTeamId ?? "" },
-  ];
 }
 
-export function Oba13PlacementPanel({ board }: { board: Oba13PlacementBoard }) {
+export function Oba13PlacementPanel({ board }: { board: PlacementBoard }) {
   const [state, action, pending] = useActionState(
     applyOba13PlacementAction,
     undefined as BracketActionResult | undefined,
@@ -54,7 +37,7 @@ export function Oba13PlacementPanel({ board }: { board: Oba13PlacementBoard }) {
   const [byeTeamId, setByeTeamId] = useState(board.suggestion.byeTeamId ?? "");
   const [matchups, setMatchups] = useState<MatchupState[]>(() => defaultMatchups(board));
 
-  const needsBye = board.phase !== "r6" || board.branch !== "B";
+  const needsBye = board.targetGameNumbers.some((n) => /bye/i.test(n));
   const eligible = useMemo(() => new Set(board.eligibleByeTeamIds), [board.eligibleByeTeamIds]);
 
   function applySuggestion() {

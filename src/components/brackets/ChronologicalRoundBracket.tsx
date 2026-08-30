@@ -28,6 +28,14 @@ import {
   eliminationLossLimit,
 } from "@/lib/services/bracket-engine";
 import {
+  isOba12SitOutGameNumber,
+  oba12EndgameBranchForGameNumber,
+  oba12PublicEndgameMode,
+  oba12Round5RedrawPool,
+  OBA12_ROUND_5_REDRAW_NOTE,
+  type Oba12Round5RedrawPool,
+} from "@/lib/services/oba-de-12";
+import {
   isOba13SitOutGameNumber,
   oba13EndgameBranchForGameNumber,
   oba13SitOutByeNote,
@@ -143,23 +151,32 @@ type DecoratedColumn = ChronologicalRoundColumn<GameRow> & {
   roundNote?: string;
   sitOutNote?: string;
   noteOffset: number;
-  redrawPool?: Oba13Round5RedrawPool;
+  redrawPool?: Oba13Round5RedrawPool | Oba12Round5RedrawPool;
 };
+
+function isObaSitOutGameNumber(n: string | null | undefined): boolean {
+  return isOba13SitOutGameNumber(n) || isOba12SitOutGameNumber(n);
+}
 
 function decorateColumns(
   columns: ChronologicalRoundColumn<GameRow>[],
-  isOba13: boolean,
+  mode: "13" | "12" | null,
 ): DecoratedColumn[] {
+  const isObaDraw = mode === "13" || mode === "12";
   return columns.map((col) => {
-    const sitOutNote = isOba13 ? oba13SitOutByeNote(col.games) : null;
+    const sitOutNote = isObaDraw ? oba13SitOutByeNote(col.games) : null;
     const roundNote =
-      isOba13 && isRoundNumberColumn(col.label, 5) ? OBA13_ROUND_5_REDRAW_NOTE : undefined;
+      mode === "13" && isRoundNumberColumn(col.label, 5)
+        ? OBA13_ROUND_5_REDRAW_NOTE
+        : mode === "12" && isRoundNumberColumn(col.label, 5)
+          ? OBA12_ROUND_5_REDRAW_NOTE
+          : undefined;
     let noteOffset = 0;
     if (roundNote) noteOffset += R5_NOTE_OFFSET;
     if (sitOutNote) noteOffset += SITOUT_NOTE_OFFSET;
     return {
       ...col,
-      games: isOba13 ? col.games.filter((g) => !isOba13SitOutGameNumber(g.gameNumber)) : col.games,
+      games: isObaDraw ? col.games.filter((g) => !isObaSitOutGameNumber(g.gameNumber)) : col.games,
       roundNote,
       sitOutNote: sitOutNote ?? undefined,
       noteOffset,
@@ -167,7 +184,10 @@ function decorateColumns(
   });
 }
 
-function splitOba13Endgame(columns: DecoratedColumn[]): {
+function splitObaEndgame(
+  columns: DecoratedColumn[],
+  branchFor: (n: string | null | undefined) => "A" | "B" | null,
+): {
   early: DecoratedColumn[];
   late: DecoratedColumn[];
   bracketA: DecoratedColumn[];
@@ -181,7 +201,7 @@ function splitOba13Endgame(columns: DecoratedColumn[]): {
   const late = columns.slice(start);
   const take = (branch: "A" | "B") =>
     late.map((c) => {
-      const games = c.games.filter((g) => oba13EndgameBranchForGameNumber(g.gameNumber) === branch);
+      const games = c.games.filter((g) => branchFor(g.gameNumber) === branch);
       // Sit-out copy lives on the shared round header, not inside A/B — so cards
       // in R6–R8 share one vertical origin and winner lines stay straight.
       return { ...c, games, roundNote: undefined, sitOutNote: undefined, noteOffset: 0 };
@@ -337,6 +357,7 @@ function layoutGameTops(
   edges: WinnerEdge[],
   heights: Map<string, number>,
   isOba13 = false,
+  isOba12 = false,
 ): Map<string, number> {
   const tops = new Map<string, number>();
   const hOf = (id: string) => heights.get(id) ?? EST_CARD_H;
@@ -446,7 +467,12 @@ function layoutGameTops(
         ? LOSERS_FIRST_CARD_LIFT
         : LOSERS_FIRST_CARD_LIFT + losersColOrdinal * LOSERS_PROGRESSION_LIFT;
     for (const g of games) {
-      if (oba13EndgameBranchForGameNumber(g.gameNumber) === "A") continue;
+      if (
+        oba13EndgameBranchForGameNumber(g.gameNumber) === "A" ||
+        oba12EndgameBranchForGameNumber(g.gameNumber) === "A"
+      ) {
+        continue;
+      }
       const y = tops.get(g.id);
       if (y != null) tops.set(g.id, Math.max(COL_PAD_Y, y - lift));
     }
@@ -491,7 +517,7 @@ function layoutGameTops(
   // 6-team only: G9 is losers-lane — park halfway between championship G10 and G5.
   // (7-team G9 is winners final; 13-team G9 must not cover G11 in the same column.)
   const g9 = gameByNumber(allFlat, "9");
-  if (g9 && losersIds.has(g9.id) && !isOba13) {
+  if (g9 && losersIds.has(g9.id) && !isOba13 && !isOba12) {
     centerBetweenGameNumbers(allFlat, tops, hOf, "9", "10", "5");
   }
 
@@ -521,6 +547,34 @@ function layoutGameTops(
     alignCentersToGameNumber(allFlat, tops, hOf, "19", "5");
     // Bracket A is a single file (23A → 24A → 25A) — keep one horizon so joins are straight.
     alignGameNumberChain(allFlat, tops, hOf, ["23A", "24A", "25A"]);
+  }
+
+  if (isOba12) {
+    centerBetweenGameNumbers(allFlat, tops, hOf, "10", "1", "2");
+    centerBetweenGameNumbers(allFlat, tops, hOf, "11", "3", "4");
+    centerBetweenGameNumbers(allFlat, tops, hOf, "12", "5", "6");
+    const g10 = gameByNumber(allFlat, "10");
+    const g11 = gameByNumber(allFlat, "11");
+    const g12 = gameByNumber(allFlat, "12");
+    if (g10 && g11) {
+      const minY = (tops.get(g10.id) ?? 0) + hOf(g10.id) + MIN_GAP;
+      if ((tops.get(g11.id) ?? 0) < minY) tops.set(g11.id, minY);
+    }
+    if (g11 && g12) {
+      const minY = (tops.get(g11.id) ?? 0) + hOf(g11.id) + MIN_GAP;
+      if ((tops.get(g12.id) ?? 0) < minY) tops.set(g12.id, minY);
+    }
+    centerBetweenGameNumbers(allFlat, tops, hOf, "16", "11", "12");
+    placeBelowGameNumber(allFlat, tops, hOf, "7", "10");
+    placeBelowGameNumber(allFlat, tops, hOf, "8", "7");
+    centerBetweenGameNumbers(allFlat, tops, hOf, "13", "7", "8");
+    placeBelowGameNumber(allFlat, tops, hOf, "15", "13");
+    placeBelowGameNumber(allFlat, tops, hOf, "14", "15");
+    centerBetweenGameNumbers(allFlat, tops, hOf, "17", "13", "14");
+    alignCentersToGameNumber(allFlat, tops, hOf, "9", "14");
+    alignCentersToGameNumber(allFlat, tops, hOf, "18", "15");
+    alignCentersToGameNumber(allFlat, tops, hOf, "19", "16");
+    alignGameNumberChain(allFlat, tops, hOf, ["22A", "23A"]);
   }
 
   return tops;
@@ -736,6 +790,7 @@ function ChronoBoard({
   format,
   showHomeAway,
   isOba13,
+  isOba12 = false,
   expandAll,
   isOpen,
   onToggle,
@@ -749,6 +804,7 @@ function ChronoBoard({
   format: BracketFormat | string;
   showHomeAway: boolean;
   isOba13: boolean;
+  isOba12?: boolean;
   expandAll: boolean;
   isOpen: (index: number) => boolean;
   onToggle: (index: number) => void;
@@ -800,12 +856,12 @@ function ChronoBoard({
   );
 
   const tops = useMemo(() => {
-    const base = layoutGameTops(layoutColumns, winnerEdges, heights, isOba13);
+    const base = layoutGameTops(layoutColumns, winnerEdges, heights, isOba13, isOba12);
     if (!lockSingleGameRow) return base;
     const locked = new Map(base);
     for (const g of allGames) locked.set(g.id, COL_PAD_Y);
     return locked;
-  }, [layoutColumns, winnerEdges, heights, isOba13, lockSingleGameRow, allGames]);
+  }, [layoutColumns, winnerEdges, heights, isOba13, isOba12, lockSingleGameRow, allGames]);
 
   const maxNote = Math.max(0, ...layoutColumns.map((c) => (c.games.length ? c.noteOffset : 0)));
   const poolFooter = Math.max(0, ...layoutColumns.map((c) => redrawPoolFooterH(c.redrawPool)));
@@ -1110,6 +1166,9 @@ function Oba13EndgameOpenSlice({
   expandAll,
   onToggleLocal,
   mode,
+  aRemain = 3,
+  bRemain = 4,
+  isOba12 = false,
 }: {
   late: DecoratedColumn[];
   bracketA: DecoratedColumn[];
@@ -1121,6 +1180,9 @@ function Oba13EndgameOpenSlice({
   expandAll: boolean;
   onToggleLocal: (localIndex: number) => void;
   mode: "placeholder" | "A" | "B";
+  aRemain?: number;
+  bRemain?: number;
+  isOba12?: boolean;
 }) {
   const showA = mode === "placeholder" || mode === "A";
   const showB = mode === "placeholder" || mode === "B";
@@ -1174,10 +1236,10 @@ function Oba13EndgameOpenSlice({
           </p>
           {placeholder ? (
             <p className="mb-2 mt-0.5 px-3 text-[11px] leading-snug text-zinc-600">
-              Bracket A to be used if 3 teams remaining
+              Bracket A to be used if {aRemain} teams remaining
             </p>
           ) : (
-            <p className="mb-2 mt-0.5 px-3 text-[11px] leading-snug text-zinc-500">3 teams remaining</p>
+            <p className="mb-2 mt-0.5 px-3 text-[11px] leading-snug text-zinc-500">{aRemain} teams remaining</p>
           )}
           <ChronoBoard
             columns={bracketA}
@@ -1185,7 +1247,8 @@ function Oba13EndgameOpenSlice({
             timeZone={timeZone}
             format={format}
             showHomeAway={showHomeAway}
-            isOba13
+            isOba13={!isOba12}
+            isOba12={isOba12}
             expandAll
             isOpen={alwaysOpenColumn}
             onToggle={noopToggle}
@@ -1208,10 +1271,10 @@ function Oba13EndgameOpenSlice({
           </p>
           {placeholder ? (
             <p className="mb-2 mt-0.5 px-3 text-[11px] leading-snug text-zinc-600">
-              Bracket B to be used if 4 teams remaining
+              Bracket B to be used if {bRemain} teams remaining
             </p>
           ) : (
-            <p className="mb-2 mt-0.5 px-3 text-[11px] leading-snug text-zinc-500">4 teams remaining</p>
+            <p className="mb-2 mt-0.5 px-3 text-[11px] leading-snug text-zinc-500">{bRemain} teams remaining</p>
           )}
           <ChronoBoard
             columns={bracketB}
@@ -1219,7 +1282,8 @@ function Oba13EndgameOpenSlice({
             timeZone={timeZone}
             format={format}
             showHomeAway={showHomeAway}
-            isOba13
+            isOba13={!isOba12}
+            isOba12={isOba12}
             expandAll
             isOpen={alwaysOpenColumn}
             onToggle={noopToggle}
@@ -1245,6 +1309,9 @@ function Oba13EndgamePanel({
   isOpen,
   onToggle,
   mode,
+  aRemain = 3,
+  bRemain = 4,
+  isOba12 = false,
 }: {
   late: DecoratedColumn[];
   bracketA: DecoratedColumn[];
@@ -1257,6 +1324,9 @@ function Oba13EndgamePanel({
   isOpen: (index: number) => boolean;
   onToggle: (index: number) => void;
   mode: "placeholder" | "A" | "B";
+  aRemain?: number;
+  bRemain?: number;
+  isOba12?: boolean;
 }) {
   const segments: { kind: "collapsed" | "open"; start: number; end: number }[] = [];
   for (let i = 0; i < late.length; i++) {
@@ -1296,6 +1366,9 @@ function Oba13EndgamePanel({
             expandAll={expandAll}
             onToggleLocal={(local) => onToggle(seg.start + local)}
             mode={mode}
+            aRemain={aRemain}
+            bRemain={bRemain}
+            isOba12={isOba12}
           />
         );
       })}
@@ -1321,6 +1394,8 @@ export function ChronologicalRoundBracket({
   expandAll?: boolean;
 }) {
   const isOba13 = presetKey === "oba_de_13";
+  const isOba12 = presetKey === "oba_de_12";
+  const drawMode = isOba13 ? "13" : isOba12 ? "12" : null;
   const allGamesFlat = useMemo(() => [...byRound.values()].flat(), [byRound]);
   const byGameId = useMemo(() => gameIdMap(allGamesFlat), [allGamesFlat]);
 
@@ -1337,25 +1412,40 @@ export function ChronologicalRoundBracket({
     [rounds, gamesByRound],
   );
   const redrawPool = useMemo(
-    () => (isOba13 ? oba13Round5RedrawPool(allGamesFlat) : null),
-    [allGamesFlat, isOba13],
+    () =>
+      isOba13
+        ? oba13Round5RedrawPool(allGamesFlat)
+        : isOba12
+          ? oba12Round5RedrawPool(allGamesFlat)
+          : null,
+    [allGamesFlat, isOba13, isOba12],
   );
   const columns = useMemo(() => {
-    const base = decorateColumns(rawColumns, isOba13);
+    const base = decorateColumns(rawColumns, drawMode);
     if (!redrawPool) return base;
     return base.map((c) =>
       isRoundNumberColumn(c.label, 5) ? { ...c, redrawPool } : c,
     );
-  }, [rawColumns, isOba13, redrawPool]);
+  }, [rawColumns, drawMode, redrawPool]);
   const activeIndex = useMemo(() => latestScoredColumnIndex(columns), [columns]);
   const focus = useRoundFocus(columns.length, activeIndex, expandAll);
   const split = useMemo(
-    () => (isOba13 ? splitOba13Endgame(columns) : null),
-    [columns, isOba13],
+    () =>
+      isOba13
+        ? splitObaEndgame(columns, oba13EndgameBranchForGameNumber)
+        : isOba12
+          ? splitObaEndgame(columns, oba12EndgameBranchForGameNumber)
+          : null,
+    [columns, isOba13, isOba12],
   );
   const endgameMode = useMemo(
-    () => (isOba13 ? oba13PublicEndgameMode(allGamesFlat) : "placeholder"),
-    [allGamesFlat, isOba13],
+    () =>
+      isOba13
+        ? oba13PublicEndgameMode(allGamesFlat)
+        : isOba12
+          ? oba12PublicEndgameMode(allGamesFlat)
+          : "placeholder",
+    [allGamesFlat, isOba13, isOba12],
   );
 
   const hasEndgame =
@@ -1374,6 +1464,7 @@ export function ChronologicalRoundBracket({
         format={format}
         showHomeAway={showHomeAway}
         isOba13={isOba13}
+        isOba12={isOba12}
         expandAll={expandAll}
         isOpen={focus.isOpen}
         onToggle={focus.toggle}
@@ -1389,6 +1480,9 @@ export function ChronologicalRoundBracket({
           showHomeAway={showHomeAway}
           expandAll={expandAll}
           mode={endgameMode}
+          aRemain={isOba12 ? 2 : 3}
+          bRemain={isOba12 ? 3 : 4}
+          isOba12={isOba12}
           isOpen={(i) => focus.isOpen(split.endgameStart + i)}
           onToggle={(i) => focus.toggle(split.endgameStart + i)}
         />

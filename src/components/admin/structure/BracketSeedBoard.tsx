@@ -298,6 +298,13 @@ export function BracketSeedBoard({
         </p>
       ) : null}
 
+      {presetKey === "oba_de_12" && matches.length === 6 ? (
+        <p className="mt-3 rounded-md border border-emerald-200 bg-emerald-50/80 px-3 py-2 text-xs text-emerald-950">
+          12-team draw: Round 1 is six games and every team plays. First drawn is Game 1 home. Winner
+          of Game 10 sits Round 3 and plays Game 19 in Round 4.
+        </p>
+      ) : null}
+
       {!canConfigure ? (
         <p className="mt-3 text-xs text-zinc-500">You don’t have permission to edit Round 1 seeds.</p>
       ) : null}

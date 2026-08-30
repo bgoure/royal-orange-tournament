@@ -54,6 +54,7 @@ const formatPresetSchema = z.enum([
   "oba_de_5",
   "oba_de_6",
   "oba_de_7",
+  "oba_de_12",
   "oba_de_13",
   "custom",
 ]);
@@ -64,7 +65,7 @@ const divisionBracketSchema = z.object({
     .array(z.string().trim().min(1).max(120))
     .min(2)
     .max(WIZARD_MAX_TEAMS_PER_DIVISION),
-  /** Named wizard format (classic SE/DE, OBA DE 4–7, or custom). */
+  /** Named wizard format (classic SE/DE, OBA DE 4–7 / 12 / 13, or custom). */
   formatPreset: formatPresetSchema.default("single_elim_classic"),
   bracketFormat: z.enum(["SINGLE_ELIMINATION", "DOUBLE_ELIMINATION"]),
   /** template = create bracket now; custom = teams only, build bracket later */

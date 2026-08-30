@@ -97,7 +97,11 @@ export function resolveBracketOutcome(bracket: BracketWith): ResolvedBracketOutc
   const divisionName = bracket.division.name;
   const seriesWinner = resolveChampionshipSeriesWinner(bracket);
 
-  if (bracket.presetKey === "oba_de_13" && !isQualifier && qualifyingTeamCount <= 1) {
+  if (
+    (bracket.presetKey === "oba_de_13" || bracket.presetKey === "oba_de_12") &&
+    !isQualifier &&
+    qualifyingTeamCount <= 1
+  ) {
     const entrants = entrantIdsFromBracket(bracket);
     const alive = aliveTeamIds({
       format: bracket.format,
