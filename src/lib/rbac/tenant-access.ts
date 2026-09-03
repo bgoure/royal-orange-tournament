@@ -124,6 +124,35 @@ export async function denyUnlessTournamentAccess(
 }
 
 /**
+ * Cookie-selected tournament for admin UI, or null when the actor may not access it.
+ * Use this for page renders — never treat the cookie alone as proof of access.
+ */
+export async function getAuthorizedTournamentForAdmin(
+  actor: Actor | null | undefined,
+): Promise<TournamentForRequest | null> {
+  if (!actor?.userId) return null;
+  const tournament = await getTournamentForRequest();
+  if (!tournament) return null;
+  const access = await assertUserCanAccessTournament(actor, { id: tournament.id });
+  if (!access.ok) return null;
+  return tournament;
+}
+
+/** Session + authorized tournament for admin page Server Components. */
+export async function loadAdminPageTournament(): Promise<{
+  session: Session | null;
+  tournament: TournamentForRequest | null;
+}> {
+  const session = await auth();
+  if (!session?.user?.id) return { session: null, tournament: null };
+  const tournament = await getAuthorizedTournamentForAdmin({
+    userId: session.user.id,
+    role: session.user.role,
+  });
+  return { session, tournament };
+}
+
+/**
  * Cookie-selected tournament + org authorization for admin server actions.
  */
 export async function requireAuthorizedTournamentContext(): Promise<
@@ -131,17 +160,15 @@ export async function requireAuthorizedTournamentContext(): Promise<
 > {
   const session = await auth();
   if (!session?.user?.id) return { error: "Unauthorized" };
-  const tournament = await getTournamentForRequest();
+  const tournament = await getAuthorizedTournamentForAdmin({
+    userId: session.user.id,
+    role: session.user.role,
+  });
   if (!tournament) {
     return {
       error: "Open All tournaments in the admin sidebar, pick an event, or use the public site switcher.",
     };
   }
-  const access = await assertUserCanAccessTournament(
-    { userId: session.user.id, role: session.user.role },
-    { id: tournament.id },
-  );
-  if (!access.ok) return { error: access.error };
   return { session, tournament };
 }
 

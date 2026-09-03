@@ -1,4 +1,3 @@
-import { auth } from "@/auth";
 import { AdminNoTournamentPlaceholder } from "@/components/admin/AdminNoTournamentPlaceholder";
 import { BracketsAdmin } from "@/components/admin/brackets/BracketsAdmin";
 import { formatFieldWithLocation } from "@/lib/field-display";
@@ -13,7 +12,7 @@ import {
 import { listOba12PlacementBoards } from "@/lib/services/oba-de-12-placement";
 import { listOba13PlacementBoards } from "@/lib/services/oba-de-13-placement";
 import { can } from "@/lib/rbac/permissions";
-import { getTournamentForRequest } from "@/lib/tournament-context";
+import { loadAdminPageTournament } from "@/lib/rbac/tenant-access";
 import { tournamentPublicBasePath } from "@/lib/tournament-public-path";
 
 export default async function AdminBracketsPage({
@@ -21,8 +20,7 @@ export default async function AdminBracketsPage({
 }: {
   searchParams: Promise<{ division?: string }>;
 }) {
-  const session = await auth();
-  const tournament = await getTournamentForRequest();
+  const { session, tournament } = await loadAdminPageTournament();
   const sp = await searchParams;
   const divisionParam = typeof sp.division === "string" ? sp.division : undefined;
 

@@ -1,14 +1,12 @@
-import { auth } from "@/auth";
 import { AdminNoTournamentPlaceholder } from "@/components/admin/AdminNoTournamentPlaceholder";
 import { FaqAdmin } from "@/components/admin/faq/FaqAdmin";
 import { can } from "@/lib/rbac/permissions";
 import { listFaqItemsForAdmin } from "@/lib/services/content";
-import { getTournamentForRequest } from "@/lib/tournament-context";
+import { loadAdminPageTournament } from "@/lib/rbac/tenant-access";
 import { tournamentPublicBasePath } from "@/lib/tournament-public-path";
 
 export default async function AdminFaqPage() {
-  const session = await auth();
-  const tournament = await getTournamentForRequest();
+  const { session, tournament } = await loadAdminPageTournament();
 
   if (!tournament) {
     return <AdminNoTournamentPlaceholder />;

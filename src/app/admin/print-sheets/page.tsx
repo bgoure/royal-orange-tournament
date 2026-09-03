@@ -9,7 +9,7 @@ import { listGamesAdmin } from "@/lib/services/admin-games";
 import { resolveGameSheetHeaderLogoUrl } from "@/lib/game-sheet-header-logo";
 import { teamLogoUrl } from "@/lib/team-logo";
 import { gameSheetOpponentPlaceholder } from "@/lib/game-sheet-opponent-placeholder";
-import { getTournamentForRequest } from "@/lib/tournament-context";
+import { loadAdminPageTournament } from "@/lib/rbac/tenant-access";
 import "./print-sheets.css";
 
 export const metadata: Metadata = {
@@ -157,7 +157,7 @@ function gameToSheetFields(
 }
 
 export default async function AdminPrintSheetsPage() {
-  const tournament = await getTournamentForRequest();
+  const { session, tournament } = await loadAdminPageTournament();
 
   if (!tournament) {
     return <AdminNoTournamentPlaceholder />;

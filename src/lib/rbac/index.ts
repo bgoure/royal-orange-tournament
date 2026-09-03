@@ -4,6 +4,7 @@ export {
   assertUserCanAccessTournament,
   isPlatformAdmin,
   requireAuthorizedTournamentContext,
+  getAuthorizedTournamentForAdmin,
   ensureOrganizationMembership,
 } from "./tenant-access";
 

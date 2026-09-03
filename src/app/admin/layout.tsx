@@ -4,8 +4,9 @@ import { CreateTournamentWizardRoot } from "@/components/admin/CreateTournamentW
 import { can } from "@/lib/rbac/permissions";
 import { getRequestPublicOrigin } from "@/lib/request-public-origin";
 import { getTournamentSetupProgress } from "@/lib/services/admin-setup-progress";
-import { getTournamentForRequest, listTournamentsForAdminHub } from "@/lib/tournament-context";
+import { getAuthorizedTournamentForAdmin } from "@/lib/rbac/tenant-access";
 import { tournamentPublicBasePath } from "@/lib/tournament-public-path";
+import { listTournamentsForAdminHub } from "@/lib/tournament-context";
 
 /** Admin always depends on tournament cookies; never serve a stale selected-event shell. */
 export const dynamic = "force-dynamic";
@@ -20,8 +21,12 @@ export default async function AdminLayout({ children }: { children: React.ReactN
   const role = session?.user?.role;
   const showTournamentStrip = role === "ADMIN" || role === "POWER_USER";
   const canCreateTournament = role != null && can(role, "content:manage");
+  const actor =
+    session?.user?.id && role
+      ? { userId: session.user.id, role }
+      : null;
   const [tournament, hubRows, requestOrigin] = await Promise.all([
-    getTournamentForRequest(),
+    getAuthorizedTournamentForAdmin(actor),
     listTournamentsForAdminHub({
       userId: session?.user?.id,
       role: session?.user?.role,

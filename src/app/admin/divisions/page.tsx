@@ -1,12 +1,10 @@
-import { auth } from "@/auth";
 import { AdminNoTournamentPlaceholder } from "@/components/admin/AdminNoTournamentPlaceholder";
 import { DivisionsHierarchy } from "@/components/admin/structure/DivisionsHierarchy";
 import { getTournamentStructure } from "@/lib/services/admin-structure";
-import { getTournamentForRequest } from "@/lib/tournament-context";
+import { loadAdminPageTournament } from "@/lib/rbac/tenant-access";
 
 export default async function AdminDivisionsPage() {
-  const session = await auth();
-  const tournament = await getTournamentForRequest();
+  const { session, tournament } = await loadAdminPageTournament();
 
   if (!tournament) {
     return <AdminNoTournamentPlaceholder />;

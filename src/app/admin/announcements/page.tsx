@@ -1,13 +1,11 @@
-import { auth } from "@/auth";
 import { AdminNoTournamentPlaceholder } from "@/components/admin/AdminNoTournamentPlaceholder";
 import { AnnouncementsAdmin } from "@/components/admin/announcements/AnnouncementsAdmin";
 import { can } from "@/lib/rbac/permissions";
 import { listAnnouncementsForAdmin } from "@/lib/services/announcements";
-import { getTournamentForRequest } from "@/lib/tournament-context";
+import { loadAdminPageTournament } from "@/lib/rbac/tenant-access";
 
 export default async function AdminAnnouncementsPage() {
-  const session = await auth();
-  const tournament = await getTournamentForRequest();
+  const { session, tournament } = await loadAdminPageTournament();
 
   if (!tournament) {
     return <AdminNoTournamentPlaceholder />;

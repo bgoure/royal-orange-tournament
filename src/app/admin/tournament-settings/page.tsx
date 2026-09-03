@@ -1,4 +1,3 @@
-import { auth } from "@/auth";
 import { AdminNoTournamentPlaceholder } from "@/components/admin/AdminNoTournamentPlaceholder";
 import {
   TournamentHeadquartersForm,
@@ -20,7 +19,7 @@ import { Role } from "@prisma/client";
 import { formatLocationAddress } from "@/lib/location-utils";
 import { getHeadquartersLocation, listLocations } from "@/lib/services/content";
 import { getTournamentSetupProgress } from "@/lib/services/admin-setup-progress";
-import { getTournamentForRequest } from "@/lib/tournament-context";
+import { loadAdminPageTournament } from "@/lib/rbac/tenant-access";
 import { tournamentPublicBasePath } from "@/lib/tournament-public-path";
 
 /** Shown until a location exists to promote to headquarters. */
@@ -33,8 +32,7 @@ const EMPTY_HEADQUARTERS: TournamentHeadquartersState = {
 };
 
 export default async function AdminTournamentSettingsPage() {
-  const session = await auth();
-  const tournament = await getTournamentForRequest();
+  const { session, tournament } = await loadAdminPageTournament();
 
   if (!tournament) {
     return <AdminNoTournamentPlaceholder />;

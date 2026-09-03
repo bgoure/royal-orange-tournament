@@ -10,7 +10,7 @@ import assert from "node:assert/strict";
 import { after, before, describe, it } from "node:test";
 import { OrganizationMemberRole, Role } from "@prisma/client";
 import { prisma } from "@/lib/db";
-import { assertUserCanAccessTournament } from "@/lib/rbac/tenant-access";
+import { assertUserCanAccessTournament, getAuthorizedTournamentForAdmin } from "@/lib/rbac/tenant-access";
 import { assertDivisionScope } from "@/lib/rbac/division-scope";
 import { listTournamentsForAdminHub } from "@/lib/tournament-context";
 
@@ -153,6 +153,10 @@ describe("tenant isolation", () => {
     await prisma.organization.deleteMany({ where: { id: { in: [fx.orgAId, fx.orgBId] } } });
   });
 
+  it("admin page helper returns null without an actor", async () => {
+    assert.equal(await getAuthorizedTournamentForAdmin(null), null);
+  });
+
   it("platform ADMIN can access either organization tournament", async (t) => {
     if (!run || !fx) {
       t.skip("TEST_DATABASE_URL (or allowed disposable DATABASE_URL) not set");
@@ -202,6 +206,18 @@ describe("tenant isolation", () => {
     const ids = new Set(rows.map((r) => r.id));
     assert.equal(ids.has(fx.tournAId), true);
     assert.equal(ids.has(fx.tournBId), false);
+  });
+
+  it("org member cannot access other-org tournament for admin page context", async (t) => {
+    if (!run || !fx) {
+      t.skip("TEST_DATABASE_URL (or allowed disposable DATABASE_URL) not set");
+      return;
+    }
+    const denied = await assertUserCanAccessTournament(
+      { userId: fx.powerUserId, role: Role.POWER_USER },
+      { id: fx.tournBId },
+    );
+    assert.equal(denied.ok, false);
   });
 
   it("POWER_USER division scope allows assigned and denies unassigned", async (t) => {

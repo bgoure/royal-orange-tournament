@@ -1,4 +1,3 @@
-import { auth } from "@/auth";
 import Link from "next/link";
 import { AdminNoTournamentPlaceholder } from "@/components/admin/AdminNoTournamentPlaceholder";
 import {
@@ -8,7 +7,7 @@ import {
 import { prisma } from "@/lib/db";
 import { can } from "@/lib/rbac/permissions";
 import { listBracketImplicitSeedSeats } from "@/lib/services/bracket-seed-seats";
-import { getTournamentForRequest } from "@/lib/tournament-context";
+import { loadAdminPageTournament } from "@/lib/rbac/tenant-access";
 import type { SeedBoardSide } from "@/components/admin/structure/BracketSeedBoard";
 
 export const dynamic = "force-dynamic";
@@ -27,8 +26,7 @@ export default async function AdminStructurePage({
 }: {
   searchParams: Promise<{ builder?: string }>;
 }) {
-  const session = await auth();
-  const tournament = await getTournamentForRequest();
+  const { session, tournament } = await loadAdminPageTournament();
   const sp = await searchParams;
 
   if (!tournament) {

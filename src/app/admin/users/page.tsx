@@ -1,12 +1,11 @@
-import { auth } from "@/auth";
 import { UsersAdmin } from "@/components/admin/users/UsersAdmin";
 import { can } from "@/lib/rbac/permissions";
 import { listUsersForAdmin } from "@/lib/services/users-admin";
-import { getTournamentForRequest } from "@/lib/tournament-context";
+import { loadAdminPageTournament } from "@/lib/rbac/tenant-access";
 import { prisma } from "@/lib/db";
 
 export default async function AdminUsersPage() {
-  const session = await auth();
+  const { session, tournament } = await loadAdminPageTournament();
   const role = session?.user?.role;
 
   const canView = role != null && can(role, "user:read");
@@ -19,7 +18,6 @@ export default async function AdminUsersPage() {
     );
   }
 
-  const tournament = await getTournamentForRequest();
   const [users, divisions] = await Promise.all([
     listUsersForAdmin(),
     tournament

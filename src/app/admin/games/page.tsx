@@ -1,19 +1,18 @@
-import { auth } from "@/auth";
 import { AdminNoTournamentPlaceholder } from "@/components/admin/AdminNoTournamentPlaceholder";
 import { GamesAdmin, type AdminGameRow, type PoolWithTeams } from "@/components/admin/games/GamesAdmin";
 import { formatFieldWithLocation } from "@/lib/field-display";
 import { listGamesAdmin } from "@/lib/services/admin-games";
 import { getTournamentStructure } from "@/lib/services/admin-structure";
 import { listFieldScheduleConflicts } from "@/lib/services/schedule-conflicts";
-import { getRequestNowMs, getTournamentForRequest } from "@/lib/tournament-context";
+import { getRequestNowMs } from "@/lib/tournament-context";
+import { loadAdminPageTournament } from "@/lib/rbac/tenant-access";
 
 export default async function AdminGamesPage({
   searchParams,
 }: {
   searchParams: Promise<{ mode?: string; division?: string }>;
 }) {
-  const session = await auth();
-  const tournament = await getTournamentForRequest();
+  const { session, tournament } = await loadAdminPageTournament();
   const sp = await searchParams;
   const mode = sp.mode === "scorekeeper" ? "scorekeeper" : "admin";
   const divisionParam = typeof sp.division === "string" ? sp.division : undefined;
