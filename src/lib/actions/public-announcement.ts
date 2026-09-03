@@ -5,6 +5,7 @@ import { AnnouncementEmailStatus, type Role } from "@prisma/client";
 import { auth } from "@/auth";
 import { prisma } from "@/lib/db";
 import { can } from "@/lib/rbac/permissions";
+import { assertUserCanAccessTournament } from "@/lib/rbac/tenant-access";
 import { deliverAnnouncementEmail } from "@/lib/services/announcement-email";
 import { revalidatePublishedTournamentSites } from "@/lib/revalidate-public-tournament-site";
 import { getPublishedTournamentBySlugForActions } from "@/lib/tournament-context";
@@ -37,6 +38,12 @@ async function assertStaffAnnouncementContext(
 
   const tournament = await getPublishedTournamentBySlugForActions(slug);
   if (!tournament) return deny("Tournament not found.");
+
+  const access = await assertUserCanAccessTournament(
+    { userId: session.user.id, role: session.user.role },
+    { id: tournament.id },
+  );
+  if (!access.ok) return deny(access.error);
 
   return { tournamentId: tournament.id, slug: tournament.slug, role: session.user.role };
 }

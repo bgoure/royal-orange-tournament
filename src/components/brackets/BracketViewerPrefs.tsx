@@ -1,12 +1,46 @@
 "use client";
 
-import { createContext, useCallback, useContext, useEffect, useId, useState, type ReactNode } from "react";
+import {
+  createContext,
+  useCallback,
+  useContext,
+  useId,
+  useSyncExternalStore,
+  type ReactNode,
+} from "react";
 import {
   DEFAULT_BRACKET_DISPLAY_PREFS,
   readBracketDisplayPrefs,
   writeBracketDisplayPrefs,
   type BracketDisplayPrefs,
 } from "@/lib/brackets/bracket-viewer-prefs";
+
+// The prefs cookie is an external store: keeping it outside React lets the first
+// client render already use the saved value, while SSR/hydration uses the defaults.
+const prefsListeners = new Set<() => void>();
+let prefsSnapshot: BracketDisplayPrefs | null = null;
+
+function subscribeToPrefs(listener: () => void) {
+  prefsListeners.add(listener);
+  return () => {
+    prefsListeners.delete(listener);
+  };
+}
+
+function getPrefsSnapshot(): BracketDisplayPrefs {
+  prefsSnapshot ??= readBracketDisplayPrefs();
+  return prefsSnapshot;
+}
+
+function getPrefsServerSnapshot(): BracketDisplayPrefs {
+  return DEFAULT_BRACKET_DISPLAY_PREFS;
+}
+
+function publishPrefs(next: BracketDisplayPrefs) {
+  prefsSnapshot = next;
+  writeBracketDisplayPrefs(next);
+  for (const listener of [...prefsListeners]) listener();
+}
 
 const BracketViewerPrefsContext = createContext<{
   prefs: BracketDisplayPrefs;
@@ -21,15 +55,14 @@ export function useBracketDisplayPrefs(): BracketDisplayPrefs {
 }
 
 export function BracketViewerPrefsProvider({ children }: { children: ReactNode }) {
-  const [prefs, setPrefsState] = useState<BracketDisplayPrefs>(DEFAULT_BRACKET_DISPLAY_PREFS);
-
-  useEffect(() => {
-    setPrefsState(readBracketDisplayPrefs());
-  }, []);
+  const prefs = useSyncExternalStore(
+    subscribeToPrefs,
+    getPrefsSnapshot,
+    getPrefsServerSnapshot,
+  );
 
   const setPrefs = useCallback((next: BracketDisplayPrefs) => {
-    setPrefsState(next);
-    writeBracketDisplayPrefs(next);
+    publishPrefs(next);
   }, []);
 
   return (
@@ -39,25 +72,35 @@ export function BracketViewerPrefsProvider({ children }: { children: ReactNode }
   );
 }
 
-function FilterToggle({
+function FilterChip({
   id,
   label,
+  hint,
   checked,
   onChange,
 }: {
   id: string;
   label: string;
+  hint?: string;
   checked: boolean;
   onChange: (next: boolean) => void;
 }) {
   return (
-    <label htmlFor={id} className="flex cursor-pointer items-center gap-2 text-sm text-zinc-800">
+    <label
+      htmlFor={id}
+      title={hint}
+      className={`inline-flex min-h-9 cursor-pointer items-center gap-1.5 rounded-lg border px-2.5 py-1.5 text-xs font-semibold shadow-sm ${
+        checked
+          ? "border-royal/40 bg-royal-50 text-royal"
+          : "border-zinc-300 bg-white text-zinc-500"
+      }`}
+    >
       <input
         id={id}
         type="checkbox"
         checked={checked}
         onChange={(e) => onChange(e.target.checked)}
-        className="size-4 rounded border-zinc-300 text-royal focus:ring-royal"
+        className="size-3.5 rounded border-zinc-300 text-royal focus:ring-royal"
       />
       {label}
     </label>
@@ -70,42 +113,37 @@ export function BracketDisplayFilters() {
   const patch = (partial: Partial<BracketDisplayPrefs>) => setPrefs({ ...prefs, ...partial });
 
   return (
-    <details className="relative">
-      <summary className="inline-flex min-h-9 cursor-pointer list-none items-center rounded-lg border border-zinc-300 bg-white px-2.5 py-1.5 text-xs font-semibold text-zinc-800 shadow-sm hover:bg-zinc-50 [&::-webkit-details-marker]:hidden">
-        Display
-      </summary>
-      <div className="absolute left-0 z-40 mt-1 w-56 rounded-xl border border-zinc-200 bg-white p-3 shadow-lg">
-        <p className="mb-2 text-[11px] font-medium uppercase tracking-wide text-zinc-500">
-          Show on cards
-        </p>
-        <div className="flex flex-col gap-2">
-          <FilterToggle
-            id={`${uid}-datetime`}
-            label="Date / time"
-            checked={prefs.showDateTime}
-            onChange={(showDateTime) => patch({ showDateTime })}
-          />
-          <FilterToggle
-            id={`${uid}-names`}
-            label="Team names"
-            checked={prefs.showTeamNames}
-            onChange={(showTeamNames) => patch({ showTeamNames })}
-          />
-          <p className="-mt-1 pl-6 text-[11px] text-zinc-500">Off = logos only</p>
-          <FilterToggle
-            id={`${uid}-location`}
-            label="Location"
-            checked={prefs.showLocation}
-            onChange={(showLocation) => patch({ showLocation })}
-          />
-          <FilterToggle
-            id={`${uid}-gnum`}
-            label="Game number"
-            checked={prefs.showGameNumber}
-            onChange={(showGameNumber) => patch({ showGameNumber })}
-          />
-        </div>
-      </div>
-    </details>
+    <div
+      className="flex min-w-0 flex-wrap items-center gap-1.5"
+      role="group"
+      aria-label="Bracket card display options"
+    >
+      <span className="text-[11px] font-medium uppercase tracking-wide text-zinc-500">Show</span>
+      <FilterChip
+        id={`${uid}-datetime`}
+        label="Date / time"
+        checked={prefs.showDateTime}
+        onChange={(showDateTime) => patch({ showDateTime })}
+      />
+      <FilterChip
+        id={`${uid}-names`}
+        label="Team names"
+        hint="Off = logos only"
+        checked={prefs.showTeamNames}
+        onChange={(showTeamNames) => patch({ showTeamNames })}
+      />
+      <FilterChip
+        id={`${uid}-location`}
+        label="Location"
+        checked={prefs.showLocation}
+        onChange={(showLocation) => patch({ showLocation })}
+      />
+      <FilterChip
+        id={`${uid}-gnum`}
+        label="Game number"
+        checked={prefs.showGameNumber}
+        onChange={(showGameNumber) => patch({ showGameNumber })}
+      />
+    </div>
   );
 }

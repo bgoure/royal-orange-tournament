@@ -1570,3 +1570,13 @@ export async function repairOba6RoundGroupingsForTournament(tournamentId: string
     await repairOba6RoundGrouping(b.id);
   }
 }
+
+/**
+ * Both OBA round-grouping repairs for one tournament. Idempotent: each repair no-ops
+ * when the bracket already uses the target layout. This writes, so only authenticated
+ * admin actions and `scripts/repair-oba-round-groupings.ts` may call it — never a render path.
+ */
+export async function repairObaRoundGroupingsForTournament(tournamentId: string): Promise<void> {
+  await repairOba5RoundGroupingsForTournament(tournamentId);
+  await repairOba6RoundGroupingsForTournament(tournamentId);
+}

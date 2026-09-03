@@ -13,6 +13,8 @@ import { TournamentPublicSwitcherOrderForm } from "@/components/admin/tournament
 import { TournamentBrandingForm } from "@/components/admin/tournament/TournamentBrandingForm";
 import { TournamentPublicAnnouncementsForm } from "@/components/admin/tournament/TournamentPublicAnnouncementsForm";
 import { AdminSetupChecklistStrip } from "@/components/admin/tournament/AdminSetupChecklistStrip";
+import { AdminPageHeader } from "@/components/admin/ui/AdminPageHeader";
+import { StatusBadge } from "@/components/admin/ui/StatusBadge";
 import { can } from "@/lib/rbac/permissions";
 import { Role } from "@prisma/client";
 import { formatLocationAddress } from "@/lib/location-utils";
@@ -20,6 +22,15 @@ import { getHeadquartersLocation, listLocations } from "@/lib/services/content";
 import { getTournamentSetupProgress } from "@/lib/services/admin-setup-progress";
 import { getTournamentForRequest } from "@/lib/tournament-context";
 import { tournamentPublicBasePath } from "@/lib/tournament-public-path";
+
+/** Shown until a location exists to promote to headquarters. */
+const EMPTY_HEADQUARTERS: TournamentHeadquartersState = {
+  headquartersLocationId: "",
+  name: "",
+  address: "",
+  latitude: null,
+  longitude: null,
+};
 
 export default async function AdminTournamentSettingsPage() {
   const session = await auth();
@@ -87,24 +98,35 @@ export default async function AdminTournamentSettingsPage() {
     socialEmailSubtext: tournament.socialEmailSubtext,
   };
 
-  if (!headquarters) {
-    return (
-      <div key={tournament.id} className="flex flex-col gap-8">
-        <header className="border-b border-zinc-200 pb-6">
-          <h1 className="text-2xl font-semibold tracking-tight text-zinc-900">Tournament Admin</h1>
-          <p className="mt-1 text-sm text-zinc-600">
-            Branding, headquarters, announcements, and archive tools for <strong>{tournament.name}</strong>.
-          </p>
-        </header>
+  return (
+    <div key={tournament.id} className="flex flex-col gap-8">
+      <AdminPageHeader
+        eyebrow="Tournament"
+        title="Tournament Admin"
+        description={
+          <>
+            Branding, headquarters, announcements, and archive tools for{" "}
+            <strong>{tournament.name}</strong>.
+          </>
+        }
+        actions={
+          <StatusBadge tone={isArchived ? "warning" : tournament.isPublished ? "success" : "neutral"}>
+            {isArchived ? "Archived" : tournament.isPublished ? "Live" : "Draft"}
+          </StatusBadge>
+        }
+      />
+      <div id="setup-progress">
         <AdminSetupChecklistStrip slug={tournament.slug} progress={setupProgress} variant="card" />
-        <div id="publish-tournament">
-          <TournamentPublishForm
-            isPublished={tournament.isPublished}
-            tournamentName={tournament.name}
-            publicSitePath={publicSitePath}
-            canManage={canManage}
-          />
-        </div>
+      </div>
+      <div id="publish-tournament">
+        <TournamentPublishForm
+          isPublished={tournament.isPublished}
+          tournamentName={tournament.name}
+          publicSitePath={publicSitePath}
+          canManage={canManage}
+        />
+      </div>
+      <div id="tournament-info" className="flex flex-col gap-8">
         <TournamentRenameForm
           tournamentName={tournament.name}
           shortLabel={tournament.shortLabel}
@@ -116,24 +138,20 @@ export default async function AdminTournamentSettingsPage() {
           tournamentSlug={tournament.slug}
           canManage={canManage}
         />
-        <TournamentPublicAnnouncementsForm
-          showPublicAnnouncements={tournament.showPublicAnnouncements}
-          tournamentName={tournament.name}
-          canManage={canManage}
-        />
-        <TournamentBrandingForm branding={branding} canManage={canManage} />
-        <TournamentHeadquartersForm
-          headquarters={{
-            headquartersLocationId: "",
-            name: "",
-            address: "",
-            latitude: null,
-            longitude: null,
-          }}
-          locations={options}
-          tournamentName={tournament.name}
-          canManage={canManage}
-        />
+      </div>
+      <TournamentPublicAnnouncementsForm
+        showPublicAnnouncements={tournament.showPublicAnnouncements}
+        tournamentName={tournament.name}
+        canManage={canManage}
+      />
+      <TournamentBrandingForm branding={branding} canManage={canManage} />
+      <TournamentHeadquartersForm
+        headquarters={headquarters ?? EMPTY_HEADQUARTERS}
+        locations={options}
+        tournamentName={tournament.name}
+        canManage={canManage}
+      />
+      <div id="danger-zone">
         <TournamentDangerZoneForm
           tournamentSlug={tournament.slug}
           tournamentName={tournament.name}
@@ -143,57 +161,6 @@ export default async function AdminTournamentSettingsPage() {
           isAdmin={isAdmin}
         />
       </div>
-    );
-  }
-
-  return (
-    <div key={tournament.id} className="flex flex-col gap-8">
-      <header className="border-b border-zinc-200 pb-6">
-        <h1 className="text-2xl font-semibold tracking-tight text-zinc-900">Tournament Admin</h1>
-        <p className="mt-1 text-sm text-zinc-600">
-          Branding, headquarters, announcements, and archive tools for <strong>{tournament.name}</strong>.
-        </p>
-      </header>
-      <AdminSetupChecklistStrip slug={tournament.slug} progress={setupProgress} variant="card" />
-      <div id="publish-tournament">
-        <TournamentPublishForm
-          isPublished={tournament.isPublished}
-          tournamentName={tournament.name}
-          publicSitePath={publicSitePath}
-          canManage={canManage}
-        />
-      </div>
-      <TournamentRenameForm
-        tournamentName={tournament.name}
-        shortLabel={tournament.shortLabel}
-        canManage={canManage}
-      />
-      <TournamentSlugForm tournamentSlug={tournament.slug} canManage={canManage} />
-      <TournamentPublicSwitcherOrderForm
-        publicSwitcherOrder={tournament.publicSwitcherOrder}
-        tournamentSlug={tournament.slug}
-        canManage={canManage}
-      />
-      <TournamentPublicAnnouncementsForm
-        showPublicAnnouncements={tournament.showPublicAnnouncements}
-        tournamentName={tournament.name}
-        canManage={canManage}
-      />
-      <TournamentBrandingForm branding={branding} canManage={canManage} />
-      <TournamentHeadquartersForm
-        headquarters={headquarters}
-        locations={options}
-        tournamentName={tournament.name}
-        canManage={canManage}
-      />
-      <TournamentDangerZoneForm
-        tournamentSlug={tournament.slug}
-        tournamentName={tournament.name}
-        publicSitePath={publicSitePath}
-        isArchived={isArchived}
-        canManage={canManage}
-        isAdmin={isAdmin}
-      />
     </div>
   );
 }

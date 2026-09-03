@@ -85,16 +85,13 @@ export function ScorekeeperView({
   const [fieldFilter, setFieldFilter] = useState<string>("all");
   const [hideFinal, setHideFinal] = useState(true);
 
-  useEffect(() => {
-    if (initialDivisionId && divisions.some((d) => d.id === initialDivisionId)) {
-      setDivisionIdState(initialDivisionId);
-    }
-  }, [initialDivisionId, divisions]);
-
   const activeDivisionId = useMemo(() => {
+    if (initialDivisionId && divisions.some((d) => d.id === initialDivisionId)) {
+      return initialDivisionId;
+    }
     if (divisionId && divisions.some((d) => d.id === divisionId)) return divisionId;
     return divisions[0]?.id ?? "";
-  }, [divisionId, divisions]);
+  }, [initialDivisionId, divisionId, divisions]);
 
   function setDivisionId(nextId: string) {
     setDivisionIdState(nextId);
@@ -212,7 +209,7 @@ export function ScorekeeperView({
       ) : (
         <ul className="flex flex-col gap-4">
           {filtered.map((game) => (
-            <li key={game.id}>
+            <li key={`${game.id}-${typeof game.updatedAt === "string" ? game.updatedAt : game.updatedAt.toISOString()}`}>
               <ScorekeeperGameCard game={game} tournamentTimezone={tournamentTimezone} />
             </li>
           ))}
@@ -252,14 +249,7 @@ function ScorekeeperGameCard({
   const iso = typeof game.scheduledAt === "string" ? game.scheduledAt : new Date(game.scheduledAt).toISOString();
   const moreStatuses = SCOREKEEPER_STATUSES.filter((s) => !PRIMARY_STATUSES.includes(s));
 
-  useEffect(() => {
-    setStatus(game.status);
-    setAwayRuns(game.awayRuns != null ? String(game.awayRuns) : "");
-    setHomeRuns(game.homeRuns != null ? String(game.homeRuns) : "");
-    setAwayDefIp(game.awayDefensiveInnings != null ? String(game.awayDefensiveInnings) : "");
-    setHomeDefIp(game.homeDefensiveInnings != null ? String(game.homeDefensiveInnings) : "");
-  }, [game]);
-
+  /* eslint-disable react-hooks/set-state-in-effect -- flash from useActionState ok */
   useEffect(() => {
     if (scoreState?.ok) {
       setSavedFlash(true);
@@ -267,6 +257,7 @@ function ScorekeeperGameCard({
       return () => window.clearTimeout(t);
     }
   }, [scoreState]);
+  /* eslint-enable react-hooks/set-state-in-effect */
 
   return (
     <article className="overflow-hidden rounded-2xl border border-zinc-200 bg-white shadow-sm">

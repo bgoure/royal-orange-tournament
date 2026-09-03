@@ -20,8 +20,14 @@ function formatEventDates(start: Date, end: Date): string {
   return a === b ? a : `${a} – ${b}`;
 }
 
-export function MarketingHome({ tournaments }: { tournaments: DirectoryTournament[] }) {
-  const now = Date.now();
+export function MarketingHome({
+  tournaments,
+  now,
+}: {
+  tournaments: DirectoryTournament[];
+  /** Request time, supplied by the server page so rendering stays pure. */
+  now: number;
+}) {
   const upcoming = tournaments.filter((t) => t.endDate.getTime() >= now - 24 * 60 * 60 * 1000);
   const recentPast = tournaments.filter((t) => t.endDate.getTime() < now - 24 * 60 * 60 * 1000);
 

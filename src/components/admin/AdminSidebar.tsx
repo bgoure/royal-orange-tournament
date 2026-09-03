@@ -4,7 +4,7 @@ import Link from "next/link";
 import { usePathname, useSearchParams } from "next/navigation";
 import { useEffect, useId, useRef, useState } from "react";
 import { signOut } from "next-auth/react";
-import { adminNavGroups, navItemIsActive } from "@/components/admin/admin-nav";
+import { PermissionAwareNav } from "@/components/admin/ui/PermissionAwareNav";
 import { useCreateTournamentWizard } from "@/components/admin/tournament/CreateTournamentWizardContext";
 import { adminTournamentSelectHref } from "@/lib/admin-tournament-href";
 import type { Role } from "@prisma/client";
@@ -186,46 +186,17 @@ function SidebarPanel({
         </div>
       </div>
 
-      <nav className="flex flex-1 flex-col gap-4 overflow-y-auto p-3" aria-label="Admin">
-        {(staffRole === "SCOREKEEPER"
-          ? adminNavGroups
-              .filter((g) => g.id === "ops")
-              .map((g) => ({
-                ...g,
-                items: g.items.filter((i) => i.segment === "games-scorekeeper"),
-              }))
-          : adminNavGroups
-        ).map((group) => (
-          <div key={group.id}>
-            <p className="mb-1 px-3 text-[10px] font-semibold uppercase tracking-wider text-zinc-500">
-              {group.label}
-            </p>
-            <div className="flex flex-col gap-0.5">
-              {group.items.map((item) => {
-                const active = navItemIsActive(pathname, item.href, item.segment, search);
-                const href =
-                  currentTournamentSlug && item.href.startsWith("/admin")
-                    ? selectHref(currentTournamentSlug, item.href)
-                    : item.href;
-                return (
-                  <Link
-                    key={item.href}
-                    href={href}
-                    onClick={() => onNavigate?.()}
-                    className={`rounded-lg px-3 py-2 text-sm font-medium transition-colors ${
-                      active
-                        ? "bg-zinc-800 text-white shadow-sm"
-                        : "text-zinc-300 hover:bg-zinc-800/60 hover:text-white"
-                    }`}
-                  >
-                    {item.label}
-                  </Link>
-                );
-              })}
-            </div>
-          </div>
-        ))}
-      </nav>
+      <PermissionAwareNav
+        role={staffRole}
+        pathname={pathname}
+        search={search}
+        buildHref={(href) =>
+          currentTournamentSlug && href.startsWith("/admin")
+            ? selectHref(currentTournamentSlug, href)
+            : href
+        }
+        onNavigate={onNavigate}
+      />
 
       <div className="flex flex-col gap-0.5 border-t border-zinc-700/80 p-3">
         <Link

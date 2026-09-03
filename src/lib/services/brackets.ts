@@ -1,9 +1,5 @@
 import { GameKind } from "@prisma/client";
 import { prisma } from "@/lib/db";
-import {
-  repairOba5RoundGroupingsForTournament,
-  repairOba6RoundGroupingsForTournament,
-} from "@/lib/services/oba-de-bracket-build";
 
 /** Shared shape for public bracket-style games (playoff + consolation). */
 export const publicBracketStyleGameInclude = {
@@ -47,14 +43,24 @@ export const publicBracketStyleGameInclude = {
   consolationAwayPool: { include: { division: true } },
 } as const;
 
+/**
+ * Read surface this module is allowed to touch. Typed as read-only so a stray write
+ * (repair/backfill) inside a public render path fails to compile instead of at runtime.
+ */
+export type BracketReadClient = { bracket: Pick<typeof prisma.bracket, "findMany"> };
+
+export type ListBracketsOptions = { publishedOnly?: boolean };
+
+/**
+ * Read-only. Public pages render from this, so it must never write — round-grouping
+ * repairs live in `repairObaRoundGroupingsForTournament` (admin action + script).
+ */
 export async function listBracketsForTournament(
   tournamentId: string,
-  opts?: { publishedOnly?: boolean },
+  opts?: ListBracketsOptions,
+  client: BracketReadClient = prisma,
 ) {
-  await repairOba5RoundGroupingsForTournament(tournamentId);
-  await repairOba6RoundGroupingsForTournament(tournamentId);
-
-  return prisma.bracket.findMany({
+  return client.bracket.findMany({
     where: {
       tournamentId,
       ...(opts?.publishedOnly ? { published: true } : {}),

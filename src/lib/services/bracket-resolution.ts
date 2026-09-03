@@ -28,8 +28,11 @@ export async function clearConsolationGameTeamSlots(tournamentId: string): Promi
 }
 
 /** After pool standings change, flag the division playoff bracket so admins re-apply seeds intentionally. */
-export async function markBracketsStaleForDivision(divisionId: string): Promise<void> {
-  await prisma.bracket.updateMany({
+export async function markBracketsStaleForDivision(
+  divisionId: string,
+  client: Prisma.TransactionClient = prisma,
+): Promise<void> {
+  await client.bracket.updateMany({
     where: { divisionId },
     data: { needsResolutionRefresh: true },
   });

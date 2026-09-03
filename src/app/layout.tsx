@@ -18,6 +18,7 @@ export const viewport: Viewport = {
   width: "device-width",
   initialScale: 1,
   viewportFit: "cover",
+  themeColor: "#1a1a2e",
 };
 
 const metadataBaseUrl = (() => {
@@ -39,7 +40,6 @@ export const metadata: Metadata = {
   title: "R&O 2026",
   description: "Royal & Orange 2026 — schedules, scores, standings, and brackets.",
   manifest: "/manifest.webmanifest",
-  themeColor: "#1a1a2e",
   icons: {
     icon: [
       { url: "/ro_favicon_16.ico", sizes: "16x16", type: "image/x-icon" },

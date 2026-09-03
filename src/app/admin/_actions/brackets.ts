@@ -11,7 +11,10 @@ import { assertFieldInTournament } from "@/lib/services/admin-games";
 import { assertPoolInTournament } from "@/lib/services/admin-structure";
 import { assertConsolationSlotsAvailable } from "@/lib/services/consolation-slots";
 import { createDivisionPlayoffBracket } from "@/lib/services/bracket-division-build";
-import { createObaDeBracket } from "@/lib/services/oba-de-bracket-build";
+import {
+  createObaDeBracket,
+  repairObaRoundGroupingsForTournament,
+} from "@/lib/services/oba-de-bracket-build";
 import { isObaDePresetKey, type ObaDePresetKey } from "@/lib/brackets/oba-de-presets";
 import {
   listBracketImplicitSeedSeats,
@@ -23,6 +26,7 @@ import { resolveBracketTeamsFromStandings } from "@/lib/services/bracket-resolut
 import { assertDivisionRoundRobinCompleteForSeeding } from "@/lib/services/round-robin-division";
 import { parseDatetimeLocalInTimeZone } from "@/lib/datetime-tournament";
 import { getTournamentForRequest, tournamentForRequestInclude, type TournamentForRequest } from "@/lib/tournament-context";
+import { assertUserCanAccessTournament, requireAuthorizedTournamentContext } from "@/lib/rbac/tenant-access";
 import {
   createConsolationGameSchema,
   createDivisionBracketSchema,
@@ -52,16 +56,7 @@ export type BracketActionResult = { ok: true } | { ok: false; error: string };
 async function bracketContext(): Promise<
   { session: Session; tournament: TournamentForRequest } | { error: string }
 > {
-  const session = await auth();
-  if (!session?.user?.id) return { error: "Unauthorized" };
-  const tournament = await getTournamentForRequest();
-  if (!tournament) {
-    return {
-      error:
-        "Select a tournament on the public site (tournament switcher), then return here.",
-    };
-  }
-  return { session, tournament };
+  return requireAuthorizedTournamentContext();
 }
 
 async function bracketActionContext(
@@ -77,17 +72,15 @@ async function bracketActionContext(
       include: tournamentForRequestInclude,
     });
     if (!tournament) return { error: "Tournament not found." };
+    const access = await assertUserCanAccessTournament(
+      { userId: session.user.id, role: session.user.role },
+      { id: tournament.id },
+    );
+    if (!access.ok) return { error: access.error };
     return { session, tournament };
   }
 
-  const tournament = await getTournamentForRequest();
-  if (!tournament) {
-    return {
-      error:
-        "Select a tournament on the public site (tournament switcher), then return here.",
-    };
-  }
-  return { session, tournament };
+  return requireAuthorizedTournamentContext();
 }
 
 function canPushOrResetBracketRole(role: Role): boolean {
@@ -1152,6 +1145,30 @@ export async function applyOba13PlacementAction(
     return { ok: true };
   } catch (e) {
     const msg = e instanceof Error ? e.message : "Failed to save placement";
+    return { ok: false, error: msg };
+  }
+}
+
+/**
+ * Explicit, authenticated replacement for the repair that used to run on every bracket read.
+ * Idempotent — brackets already on the workbook layout are skipped.
+ */
+export async function repairObaRoundGroupingsAction(
+  _prev: BracketActionResult | undefined,
+  _formData: FormData,
+): Promise<BracketActionResult> {
+  const ctx = await bracketContext();
+  if ("error" in ctx) return { ok: false, error: ctx.error };
+  if (!can(ctx.session.user.role, "bracket:configure")) return deny();
+
+  try {
+    await repairObaRoundGroupingsForTournament(ctx.tournament.id);
+    revalidatePath("/admin/brackets");
+    revalidatePath("/admin/games");
+    await revalidatePublishedTournamentSites();
+    return { ok: true };
+  } catch (e) {
+    const msg = e instanceof Error ? e.message : "Failed to repair OBA round groupings";
     return { ok: false, error: msg };
   }
 }

@@ -1,6 +1,11 @@
 import { AnnouncementEmailStatus } from "@prisma/client";
 import { prisma } from "@/lib/db";
 import { getResendFromAddress, sendAnnouncementBulk } from "@/lib/email/resend";
+import { consumeRateLimit } from "@/lib/rate-limit";
+
+/** Subscriber blasts per tournament per hour — a misclick shouldn't mail everyone ten times. */
+const BLAST_LIMIT = 10;
+const BLAST_WINDOW_MS = 60 * 60 * 1000;
 
 /**
  * Tournament subscribers who receive announcement emails.
@@ -75,6 +80,25 @@ export async function deliverAnnouncementEmail(
     include: { tournament: { select: { id: true, name: true } } },
   });
   if (!announcement) return;
+
+  const budget = await consumeRateLimit({
+    scope: "email:announcement",
+    subject: announcement.tournamentId,
+    limit: BLAST_LIMIT,
+    windowMs: BLAST_WINDOW_MS,
+  });
+  if (!budget.ok) {
+    await prisma.announcement.update({
+      where: { id: announcementId },
+      data: {
+        emailDeliveryStatus: AnnouncementEmailStatus.FAILED,
+        emailError: `Too many announcement emails sent for this tournament. Try again in about ${Math.ceil(
+          budget.retryAfterSeconds / 60,
+        )} minutes.`,
+      },
+    });
+    return;
+  }
 
   const claimed = await prisma.announcement.updateMany({
     where: {

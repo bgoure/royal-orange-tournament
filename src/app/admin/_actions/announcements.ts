@@ -3,11 +3,11 @@
 import { revalidatePath } from "next/cache";
 import { revalidatePublishedTournamentSites } from "@/lib/revalidate-public-tournament-site";
 import { AnnouncementEmailStatus } from "@prisma/client";
-import { auth } from "@/auth";
 import { prisma } from "@/lib/db";
 import { can } from "@/lib/rbac/permissions";
 import { deliverAnnouncementEmail } from "@/lib/services/announcement-email";
-import { getTournamentForRequest, type TournamentForRequest } from "@/lib/tournament-context";
+import { type TournamentForRequest } from "@/lib/tournament-context";
+import { requireAuthorizedTournamentContext } from "@/lib/rbac/tenant-access";
 import { announcementCreateSchema, announcementUpdateSchema } from "@/lib/validations/announcements-admin";
 import type { Session } from "next-auth";
 
@@ -16,16 +16,7 @@ export type AnnouncementActionResult =
   | { ok: false; error: string };
 
 async function ctx(): Promise<{ session: Session; tournament: TournamentForRequest } | { error: string }> {
-  const session = await auth();
-  if (!session?.user?.id) return { error: "Unauthorized" };
-  const tournament = await getTournamentForRequest();
-  if (!tournament) {
-    return {
-      error:
-        "Select a tournament on the public site (tournament switcher), then return here.",
-    };
-  }
-  return { session, tournament };
+  return requireAuthorizedTournamentContext();
 }
 
 function deny(): AnnouncementActionResult {

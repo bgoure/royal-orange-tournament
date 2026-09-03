@@ -7,6 +7,10 @@ import { EmptyState } from "@/components/ui/EmptyState";
 import { SectionTitle } from "@/components/ui/PublicHeading";
 import { BracketExportControls } from "@/components/brackets/BracketExportControls";
 import { BracketViewerPrefsProvider } from "@/components/brackets/BracketViewerPrefs";
+import {
+  assertSingleInteractiveTree,
+  bracketTreeMounts,
+} from "@/components/brackets/bracket-mount";
 import { BracketZoomShell, BRACKET_DESKTOP_WIDE_CLASS, useBracketPhotoExpandAll } from "@/components/brackets/BracketZoomShell";
 import { publicBracketHeading } from "@/lib/brackets/bracket-public-title";
 import { BracketGameCard } from "@/components/brackets/BracketGameCard";
@@ -58,9 +62,7 @@ function BracketGrid({
   return (
     <div
       {...{ [DIVISION_SWIPE_IGNORE]: "" }}
-      className={`flex gap-3 pb-2 ${
-        fitContent ? "w-max overflow-visible" : "mt-4 overflow-x-auto md:overflow-visible"
-      }`}
+      className={`flex w-max gap-3 overflow-visible pb-2 ${fitContent ? "" : "mt-4"}`}
       role="region"
       aria-label="Bracket rounds"
     >
@@ -225,6 +227,8 @@ function BracketSection({
   exportToolbar?: () => ReactNode;
 }) {
   const champion = useMemo(() => resolveChampionFromBracket(b), [b]);
+  // One tree for every breakpoint — mobile differences are CSS inside this mount.
+  const treeMount = useMemo(() => assertSingleInteractiveTree(bracketTreeMounts(b.id)), [b.id]);
 
   return (
     <section className="min-w-0" aria-labelledby={`bracket-heading-${b.id}`}>
@@ -254,16 +258,7 @@ function BracketSection({
         ) : null}
       </SectionTitle>
 
-      <div className="mt-4 hidden md:block">
-        <BracketZoomShell toolbarStart={exportToolbar?.()}>
-          <BracketDesktopTree
-            b={b}
-            tournamentTimezone={tournamentTimezone}
-            showHomeAway={showHomeAway}
-          />
-        </BracketZoomShell>
-      </div>
-      <div className="mt-4 md:hidden">
+      <div className={treeMount.className}>
         <BracketZoomShell toolbarStart={exportToolbar?.()}>
           <BracketDesktopTree
             b={b}

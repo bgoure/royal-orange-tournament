@@ -261,3 +261,8 @@ export async function listLiveTournamentsForDirectory() {
     },
   });
 }
+
+/** Request clock for pure RSC rendering of marketing directory. */
+export async function getRequestNowMs(): Promise<number> {
+  return Date.now();
+}

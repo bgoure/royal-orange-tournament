@@ -29,6 +29,17 @@ import {
 import { ActionMessage } from "@/components/admin/structure/ActionMessage";
 import { ConfirmForm } from "@/components/admin/structure/ConfirmForm";
 import { ScorekeeperView } from "@/components/admin/games/ScorekeeperView";
+import {
+  FieldScheduleConflictsBanner,
+  type FieldScheduleConflict,
+} from "@/components/admin/games/FieldScheduleConflictsBanner";
+import {
+  GameListFilters,
+  type GameListFilter,
+} from "@/components/admin/games/GameListFilters";
+import { AdminPageHeader } from "@/components/admin/ui/AdminPageHeader";
+import { ActionBar } from "@/components/admin/ui/ActionBar";
+import { DivisionTabs } from "@/components/admin/ui/DivisionTabs";
 import { formatJsDateAsDatetimeLocalInZone } from "@/lib/datetime-tournament";
 import { isOba13SitOutGameNumber } from "@/lib/services/oba-de-13";
 
@@ -100,14 +111,12 @@ type Props = {
   /** IANA zone for interpreting `datetime-local` values (matches tournament settings). */
   tournamentTimezone: string;
   isAdmin: boolean;
+  /** Request time, supplied by the server page so the time-based filters stay pure. */
+  now: number;
   /** Day-of mobile scoring UI when `scorekeeper`. */
   mode?: "admin" | "scorekeeper";
   /** Existing field double-books (non-placeholder games). */
-  fieldConflicts?: Array<{
-    fieldName: string;
-    gameA: { id: string; gameNumber: string | null; scheduledAt: Date };
-    gameB: { id: string; gameNumber: string | null; scheduledAt: Date };
-  }>;
+  fieldConflicts?: FieldScheduleConflict[];
 };
 
 function gamesAdminHref(opts: { mode?: "admin" | "scorekeeper"; divisionId?: string }) {
@@ -127,6 +136,7 @@ export function GamesAdmin({
   tournamentName,
   tournamentTimezone,
   isAdmin,
+  now,
   mode = "admin",
   fieldConflicts = [],
 }: Props) {
@@ -137,23 +147,29 @@ export function GamesAdmin({
     generatePoolRoundRobin,
     undefined as GameActionResult | undefined,
   );
+  const [createModal, setCreateModal] = useState<"roundRobin" | "newGame" | null>(null);
+  /* eslint-disable react-hooks/set-state-in-effect -- sync dialog visibility to useActionState */
+  useEffect(() => {
+    if (rrState?.ok) setCreateModal(null);
+  }, [rrState]);
+  useEffect(() => {
+    if (createState?.ok) setCreateModal(null);
+  }, [createState]);
+  /* eslint-enable react-hooks/set-state-in-effect */
   const [divisionId, setDivisionIdState] = useState(() => {
     if (initialDivisionId && divisions.some((d) => d.id === initialDivisionId)) {
       return initialDivisionId;
     }
     return divisions[0]?.id ?? "";
   });
+  // Prefer the URL-driven division when it is still valid; avoid syncing via effect.
   const activeDivisionId = useMemo(() => {
+    if (initialDivisionId && divisions.some((d) => d.id === initialDivisionId)) {
+      return initialDivisionId;
+    }
     if (divisionId && divisions.some((d) => d.id === divisionId)) return divisionId;
     return divisions[0]?.id ?? "";
-  }, [divisionId, divisions]);
-
-  // Stay in sync when the server passes a new `?division=` after navigation/refresh.
-  useEffect(() => {
-    if (initialDivisionId && divisions.some((d) => d.id === initialDivisionId)) {
-      setDivisionIdState(initialDivisionId);
-    }
-  }, [initialDivisionId, divisions]);
+  }, [initialDivisionId, divisionId, divisions]);
 
   function setDivisionId(nextId: string) {
     setDivisionIdState(nextId);
@@ -177,27 +193,17 @@ export function GamesAdmin({
     return games.filter((g) => gameDivisionId(g) === activeDivisionId);
   }, [games, activeDivisionId]);
 
-  const [poolId, setPoolId] = useState(divisionPools[0]?.poolId ?? "");
-  const [rrPoolId, setRrPoolId] = useState(divisionPools[0]?.poolId ?? "");
-  const [listFilter, setListFilter] = useState<"all" | "needs_score" | "unscheduled" | "live" | "final">(
-    "all",
-  );
+  const defaultPoolId = divisionPools[0]?.poolId ?? "";
+  const [poolIdState, setPoolIdState] = useState(defaultPoolId);
+  const [rrPoolIdState, setRrPoolIdState] = useState(defaultPoolId);
+  const poolId = divisionPools.some((p) => p.poolId === poolIdState) ? poolIdState : defaultPoolId;
+  const rrPoolId = divisionPools.some((p) => p.poolId === rrPoolIdState)
+    ? rrPoolIdState
+    : defaultPoolId;
+  const setPoolId = setPoolIdState;
+  const setRrPoolId = setRrPoolIdState;
+  const [listFilter, setListFilter] = useState<GameListFilter>("all");
   const [fieldFilter, setFieldFilter] = useState<string>("all");
-
-  // Keep pool pickers on a pool in the active division when the tab changes.
-  useEffect(() => {
-    if (divisionPools.length === 0) {
-      setPoolId("");
-      setRrPoolId("");
-      return;
-    }
-    if (!divisionPools.some((p) => p.poolId === poolId)) {
-      setPoolId(divisionPools[0]!.poolId);
-    }
-    if (!divisionPools.some((p) => p.poolId === rrPoolId)) {
-      setRrPoolId(divisionPools[0]!.poolId);
-    }
-  }, [divisionPools, poolId, rrPoolId]);
 
   const teamOptions = useMemo(() => {
     const p = divisionPools.find((x) => x.poolId === poolId);
@@ -209,7 +215,6 @@ export function GamesAdmin({
   }, [divisionPools, rrPoolId]);
 
   const filterCounts = useMemo(() => {
-    const now = Date.now();
     let needs_score = 0;
     let unscheduled = 0;
     let live = 0;
@@ -221,20 +226,9 @@ export function GamesAdmin({
       if (g.status === GameStatus.FINAL) final += 1;
     }
     return { all: divisionGames.length, needs_score, unscheduled, live, final };
-  }, [divisionGames]);
-
-  const [createModal, setCreateModal] = useState<"roundRobin" | "newGame" | null>(null);
-
-  useEffect(() => {
-    if (rrState?.ok) setCreateModal(null);
-  }, [rrState]);
-
-  useEffect(() => {
-    if (createState?.ok) setCreateModal(null);
-  }, [createState]);
+  }, [divisionGames, now]);
 
   const filteredGames = useMemo(() => {
-    const now = Date.now();
     const list = divisionGames.filter((g) => {
       if (fieldFilter !== "all" && g.fieldId !== fieldFilter) return false;
       switch (listFilter) {
@@ -251,7 +245,7 @@ export function GamesAdmin({
       }
     });
     return sortGamesByGameNumber(list);
-  }, [divisionGames, listFilter, fieldFilter]);
+  }, [divisionGames, listFilter, fieldFilter, now]);
 
   if (mode === "scorekeeper") {
     return (
@@ -269,90 +263,50 @@ export function GamesAdmin({
 
   return (
     <div className="flex flex-col gap-6 sm:gap-10">
-      <header className="flex flex-wrap items-end justify-between gap-3 border-b border-zinc-200 pb-4 sm:gap-4 sm:pb-6">
-        <div>
-          <p className="text-xs font-medium uppercase tracking-wide text-zinc-500">Tournament</p>
-          <h1 className="text-2xl font-semibold tracking-tight text-zinc-900">Games</h1>
-        <p className="mt-1 text-sm text-zinc-600">{tournamentName}</p>
-        <p className="mt-1 text-xs text-zinc-500">
-          Game start times use the tournament timezone: <span className="font-mono">{tournamentTimezone}</span>
-        </p>
-      </div>
-        <div className="flex flex-wrap gap-2">
-          <Link
-            href={gamesAdminHref({ mode: "scorekeeper", divisionId: activeDivisionId || undefined })}
-            className="rounded-md bg-emerald-600 px-3 py-2 text-sm font-semibold text-white hover:bg-emerald-700"
-          >
-            Scorekeeper mode
-          </Link>
-          <Link href="/admin/divisions" className={`${btnSecondary} px-3 py-2 text-sm`}>
-            Divisions &amp; pools
-          </Link>
-          <Link href="/admin/fields" className={`${btnSecondary} px-3 py-2 text-sm`}>
-            Fields
-          </Link>
-          <Link href="/admin/teams" className={`${btnSecondary} px-3 py-2 text-sm`}>
-            Teams
-          </Link>
-        </div>
-      </header>
+      <AdminPageHeader
+        eyebrow="Tournament"
+        title="Games"
+        description={tournamentName}
+        meta={
+          <>
+            Game start times use the tournament timezone:{" "}
+            <span className="font-mono">{tournamentTimezone}</span>
+          </>
+        }
+        actions={
+          <>
+            <Link
+              href={gamesAdminHref({ mode: "scorekeeper", divisionId: activeDivisionId || undefined })}
+              className="rounded-md bg-emerald-600 px-3 py-2 text-sm font-semibold text-white hover:bg-emerald-700"
+            >
+              Scorekeeper mode
+            </Link>
+            <Link href="/admin/divisions" className={`${btnSecondary} px-3 py-2 text-sm`}>
+              Divisions &amp; pools
+            </Link>
+            <Link href="/admin/fields" className={`${btnSecondary} px-3 py-2 text-sm`}>
+              Fields
+            </Link>
+            <Link href="/admin/teams" className={`${btnSecondary} px-3 py-2 text-sm`}>
+              Teams
+            </Link>
+          </>
+        }
+      />
 
-      {divisions.length > 1 ? (
-        <div className="flex flex-wrap gap-2 border-b border-zinc-200 pb-2" role="tablist" aria-label="Division">
-          {divisions.map((d) => {
-            const selected = activeDivisionId === d.id;
-            const count = games.filter((g) => gameDivisionId(g) === d.id).length;
-            return (
-              <button
-                key={d.id}
-                type="button"
-                role="tab"
-                aria-selected={selected}
-                onClick={() => {
-                  setDivisionId(d.id);
-                  setListFilter("all");
-                }}
-                className={
-                  selected
-                    ? "rounded-full bg-zinc-900 px-3 py-1.5 text-sm font-medium text-white"
-                    : "rounded-full bg-zinc-100 px-3 py-1.5 text-sm font-medium text-zinc-700 hover:bg-zinc-200"
-                }
-              >
-                {d.name}
-                <span className={`ml-1.5 tabular-nums ${selected ? "opacity-80" : "text-zinc-500"}`}>
-                  {count}
-                </span>
-              </button>
-            );
-          })}
-        </div>
-      ) : null}
+      <DivisionTabs
+        divisions={divisions}
+        activeDivisionId={activeDivisionId}
+        countFor={(id) => games.filter((g) => gameDivisionId(g) === id).length}
+        onSelect={(id) => {
+          setDivisionId(id);
+          setListFilter("all");
+        }}
+      />
 
-      {fieldConflicts.length > 0 ? (
-        <div
-          role="alert"
-          className="rounded-lg border border-amber-300 bg-amber-50 px-4 py-3 text-sm text-amber-950"
-        >
-          <p className="font-semibold">
-            {fieldConflicts.length} field schedule conflict{fieldConflicts.length === 1 ? "" : "s"}
-          </p>
-          <p className="mt-1 text-xs text-amber-900/90">
-            Two games occupy the same field within ~90 minutes. Fix field or start time below — new saves that
-            collide are blocked.
-          </p>
-          <ul className="mt-2 list-inside list-disc text-xs">
-            {fieldConflicts.slice(0, 8).map((c, i) => (
-              <li key={`${c.gameA.id}-${c.gameB.id}-${i}`}>
-                {c.fieldName}:{" "}
-                {c.gameA.gameNumber ? `Game #${c.gameA.gameNumber}` : c.gameA.id.slice(0, 8)} vs{" "}
-                {c.gameB.gameNumber ? `Game #${c.gameB.gameNumber}` : c.gameB.id.slice(0, 8)}
-              </li>
-            ))}
-          </ul>
-        </div>
-      ) : null}
+      <FieldScheduleConflictsBanner conflicts={fieldConflicts} />
 
-      <div className="flex flex-wrap gap-2">
+      <ActionBar>
         <button
           type="button"
           onClick={() => setCreateModal("roundRobin")}
@@ -367,7 +321,7 @@ export function GamesAdmin({
         >
           New pool game
         </button>
-      </div>
+      </ActionBar>
 
       {createModal === "roundRobin" ? (
         <GamesAdminModal
@@ -636,72 +590,16 @@ export function GamesAdmin({
         </p>
       ) : (
         <section className="flex flex-col gap-4">
-          <div className="flex flex-col gap-3 border-b border-zinc-200 pb-4">
-            <div className="flex flex-wrap items-end justify-between gap-3">
-              <div>
-                <h2 className="text-sm font-semibold text-zinc-900">Game list</h2>
-                <p className="mt-0.5 text-xs text-zinc-500">
-                  Showing {filteredGames.length} of {divisionGames.length}
-                  {listFilter !== "all" || fieldFilter !== "all" ? " (filtered)" : ""}, ordered by Game
-                  ID. Expand a game for locked details; Edit opens a modal.
-                </p>
-              </div>
-              <label className="flex min-w-[12rem] flex-col gap-1">
-                <span className={labelClass}>Field</span>
-                <select
-                  value={fieldFilter}
-                  onChange={(e) => setFieldFilter(e.target.value)}
-                  className={`${formClass} w-full`}
-                >
-                  <option value="all">All fields</option>
-                  {fields.map((f) => (
-                    <option key={f.id} value={f.id}>
-                      {f.label}
-                    </option>
-                  ))}
-                </select>
-              </label>
-            </div>
-            <div className="flex flex-wrap gap-2" role="group" aria-label="Filter games">
-              {(
-                [
-                  ["all", "All"],
-                  ["needs_score", "Needs score"],
-                  ["unscheduled", "Unscheduled"],
-                  ["live", "Live"],
-                  ["final", "Final"],
-                ] as const
-              ).map(([id, label]) => {
-                const count = filterCounts[id];
-                const active = listFilter === id;
-                return (
-                  <button
-                    key={id}
-                    type="button"
-                    onClick={() => setListFilter(id)}
-                    className={`inline-flex items-center gap-1.5 rounded-full border px-3 py-1.5 text-xs font-semibold transition-colors ${
-                      active
-                        ? id === "live"
-                          ? "border-red-600 bg-red-600 text-white"
-                          : id === "final"
-                            ? "border-emerald-600 bg-emerald-600 text-white"
-                            : id === "needs_score" || id === "unscheduled"
-                              ? "border-amber-600 bg-amber-600 text-white"
-                              : "border-zinc-800 bg-zinc-800 text-white"
-                        : "border-zinc-300 bg-white text-zinc-700 hover:bg-zinc-50"
-                    }`}
-                  >
-                    {label}
-                    <span
-                      className={`tabular-nums ${active ? "opacity-90" : "text-zinc-500"}`}
-                    >
-                      {count}
-                    </span>
-                  </button>
-                );
-              })}
-            </div>
-          </div>
+          <GameListFilters
+            shownCount={filteredGames.length}
+            totalCount={divisionGames.length}
+            fields={fields}
+            fieldFilter={fieldFilter}
+            onFieldFilterChange={setFieldFilter}
+            listFilter={listFilter}
+            onListFilterChange={setListFilter}
+            counts={filterCounts}
+          />
 
           {filteredGames.length === 0 ? (
             <p className="rounded-xl border border-dashed border-zinc-300 bg-zinc-50 px-4 py-8 text-center text-sm text-zinc-600">
@@ -924,6 +822,20 @@ function GameCard({
   );
   const [delState, delAction, delPending] = useActionState(deleteGame, undefined as GameActionResult | undefined);
 
+  /* eslint-disable react-hooks/set-state-in-effect -- sync editor visibility to useActionState */
+  useEffect(() => {
+    if (
+      scoreState?.ok ||
+      metaState?.ok ||
+      bracketScheduleState?.ok ||
+      bracketTeamsState?.ok ||
+      delState?.ok
+    ) {
+      setEditing(false);
+    }
+  }, [scoreState, metaState, bracketScheduleState, bracketTeamsState, delState]);
+  /* eslint-enable react-hooks/set-state-in-effect */
+
   const [metaPoolId, setMetaPoolId] = useState(game.poolId ?? poolsWithTeams[0]?.poolId ?? "");
   const metaTeams = useMemo(() => {
     const p = poolsWithTeams.find((x) => x.poolId === metaPoolId);
@@ -939,18 +851,6 @@ function GameCard({
     }
     return out.sort((a, b) => a.label.localeCompare(b.label));
   }, [poolsWithTeams]);
-
-  useEffect(() => {
-    if (
-      scoreState?.ok ||
-      metaState?.ok ||
-      bracketScheduleState?.ok ||
-      bracketTeamsState?.ok ||
-      delState?.ok
-    ) {
-      setEditing(false);
-    }
-  }, [scoreState, metaState, bracketScheduleState, bracketTeamsState, delState]);
 
   const awayLabel = game.awayTeam ? game.awayTeam.name : "TBD";
   const homeLabel = game.homeTeam ? game.homeTeam.name : "TBD";

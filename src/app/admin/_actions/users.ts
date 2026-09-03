@@ -5,9 +5,15 @@ import type { Role } from "@prisma/client";
 import { auth } from "@/auth";
 import { prisma } from "@/lib/db";
 import { can } from "@/lib/rbac/permissions";
+import {
+  ensureOrganizationMembership,
+  resolveInviteOrganizationId,
+} from "@/lib/rbac/tenant-access";
 import { countAdmins, setUserDivisionAssignments } from "@/lib/services/users-admin";
+import { getTournamentForRequest } from "@/lib/tournament-context";
 import { sendStaffInviteEmail } from "@/lib/email/user-invite-email";
 import { inviteUserSchema, removeUserSchema, updateUserRoleSchema } from "@/lib/validations/users-admin";
+import { OrganizationMemberRole } from "@prisma/client";
 
 export type UserAdminActionResult =
   | { ok: true; notice?: string; noticeTone?: "success" | "warning" }
@@ -158,6 +164,25 @@ export async function inviteUser(
     parsed.data.divisionIds.length > 0
   ) {
     await setUserDivisionAssignments(userId, parsed.data.divisionIds);
+  }
+
+  // Keep org membership consistent with staff invite (non-PUBLIC roles).
+  if (parsed.data.role !== "PUBLIC") {
+    const currentTournament = await getTournamentForRequest();
+    const organizationId = await resolveInviteOrganizationId({
+      inviterUserId: session.user.id,
+      tournamentOrganizationId: currentTournament?.organizationId,
+    });
+    if (organizationId) {
+      await ensureOrganizationMembership({
+        organizationId,
+        userId,
+        role:
+          parsed.data.role === "ADMIN"
+            ? OrganizationMemberRole.ADMIN
+            : OrganizationMemberRole.MEMBER,
+      });
+    }
   }
 
   const base =

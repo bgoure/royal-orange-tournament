@@ -388,10 +388,13 @@ model Game {
   consolationAwayPool   Pool?          @relation("ConsolationAwayPool", fields: [consolationAwayPoolId], references: [id], onDelete: SetNull)
   fieldId               String
   field                 Field          @relation(fields: [fieldId], references: [id], onDelete: Cascade)
+  /// SetNull (not Cascade): removing a team must never silently delete scored games.
+  /// `deleteTeam` blocks removal while any game still references the team; SetNull keeps
+  /// pool/division/tournament cascade deletes working without RESTRICT aborting them.
   homeTeamId            String?
-  homeTeam              Team?          @relation("HomeTeam", fields: [homeTeamId], references: [id], onDelete: Cascade)
+  homeTeam              Team?          @relation("HomeTeam", fields: [homeTeamId], references: [id], onDelete: SetNull)
   awayTeamId            String?
-  awayTeam              Team?          @relation("AwayTeam", fields: [awayTeamId], references: [id], onDelete: Cascade)
+  awayTeam              Team?          @relation("AwayTeam", fields: [awayTeamId], references: [id], onDelete: SetNull)
   scheduledAt           DateTime
   /// When true, public schedules show the time as TBD until the director sets a real slot.
   schedulePlaceholder   Boolean        @default(false)
@@ -629,6 +632,23 @@ model WeatherCache {
   payload   Json
   fetchedAt DateTime @default(now())
   expiresAt DateTime
+}
+
+// --- Abuse control ---
+
+/// Durable fixed-window counter for public endpoints (feedback, weather, outbound email).
+/// Serverless instances don't share memory, so limits have to live in the database.
+/// Rows are disposable: `expiresAt` drives both the window and retention cleanup.
+model RateLimitBucket {
+  id          String   @id @default(cuid())
+  /// Scope + subject, e.g. `feedback:ip:<hash>` or `email:feedback:<tournamentId>`.
+  key         String   @unique
+  count       Int      @default(0)
+  windowStart DateTime @default(now())
+  expiresAt   DateTime
+  updatedAt   DateTime @updatedAt
+
+  @@index([expiresAt])
 }
 
 // --- Future media ---

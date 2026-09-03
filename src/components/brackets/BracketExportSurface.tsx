@@ -1,6 +1,6 @@
 "use client";
 
-import { useLayoutEffect, useRef, useState } from "react";
+import { useEffect, useLayoutEffect, useRef, useState } from "react";
 import { BracketDesktopTree } from "@/components/brackets/BracketsView";
 import { BracketGameCard } from "@/components/brackets/BracketGameCard";
 import type { BracketWith, GameRow } from "@/components/brackets/bracket-types";
@@ -46,7 +46,9 @@ export function BracketExportSurface({
   const treeRef = useRef<HTMLDivElement>(null);
   const [box, setBox] = useState({ scale: 1, w: 0, h: 0 });
   const onReadyRef = useRef(onReady);
-  onReadyRef.current = onReady;
+  useEffect(() => {
+    onReadyRef.current = onReady;
+  }, [onReady]);
 
   useLayoutEffect(() => {
     const page = pageRef.current;

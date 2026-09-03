@@ -10,6 +10,7 @@ import {
   createDivisionPlayoffBracketAction,
   deleteConsolationGameAction,
   deletePlayoffBracket,
+  repairObaRoundGroupingsAction,
   resetPlayoffBracket,
   toggleBracketPublished,
   updateBracketName,
@@ -30,6 +31,9 @@ import { tournamentPathFromBase } from "@/lib/tournament-public-path";
 import { classicSingleElimOrder } from "@/lib/services/bracket-engine";
 import { isObaDePresetKey, type ObaDePresetKey } from "@/lib/brackets/oba-de-presets";
 import { Oba13PlacementPanel } from "@/components/admin/brackets/Oba13PlacementPanel";
+import { BracketMaintenancePanel } from "@/components/admin/brackets/BracketMaintenancePanel";
+import { AdminPageHeader } from "@/components/admin/ui/AdminPageHeader";
+import { DivisionTabs } from "@/components/admin/ui/DivisionTabs";
 import type { Oba12PlacementBoard } from "@/lib/services/oba-de-12-placement";
 import type { Oba13PlacementBoard } from "@/lib/services/oba-de-13-placement";
 import type { GrandFinalMode, Pool } from "@prisma/client";
@@ -150,13 +154,9 @@ function BracketQualifierForm({
   action: (formData: FormData) => void;
   pending: boolean;
 }) {
+  // Re-syncing with saved server values comes from the `key` at the call site.
   const [isQualifier, setIsQualifier] = useState(initialQualifier);
   const [count, setCount] = useState(Math.max(1, initialCount));
-
-  useEffect(() => {
-    setIsQualifier(initialQualifier);
-    setCount(Math.max(1, initialCount));
-  }, [initialQualifier, initialCount]);
 
   return (
     <form
@@ -291,11 +291,8 @@ function SeedOrderRows({
   presetKey: ObaDePresetKey;
 }) {
   const n = Number(presetKey.replace("oba_de_", ""));
+  // Reset on a new division/preset/roster comes from the `key` at the call site.
   const [seedIds, setSeedIds] = useState(() => teams.slice(0, n).map((t) => t.id));
-
-  useEffect(() => {
-    setSeedIds(teams.slice(0, n).map((t) => t.id));
-  }, [teams, n]);
 
   return (
     <>
@@ -597,6 +594,10 @@ export function BracketsAdmin({
     toggleBracketCelebrationPosted,
     undefined as BracketActionResult | undefined,
   );
+  const [repairState, repairAction, repairPending] = useActionState(
+    repairObaRoundGroupingsAction,
+    undefined as BracketActionResult | undefined,
+  );
   const [consolationCreateState, consolationCreateAction, consolationCreatePending] = useActionState(
     createConsolationGameAction,
     undefined as BracketActionResult | undefined,
@@ -707,56 +708,35 @@ export function BracketsAdmin({
 
   return (
     <div className="flex flex-col gap-10">
-      <header className="flex flex-wrap items-end justify-between gap-4 border-b border-zinc-200 pb-6">
-        <div>
-          <p className="text-xs font-medium uppercase tracking-wide text-zinc-500">Tournament</p>
-          <h1 className="text-2xl font-semibold tracking-tight text-zinc-900">Brackets</h1>
-          <p className="mt-1 text-sm text-zinc-600">{tournamentName}</p>
-        </div>
-        <div className="flex gap-2">
-          <Link href={tournamentPathFromBase(publicSitePath, "brackets")} className={`${btnSecondary}`}>
-            Public brackets ↗
-          </Link>
-          <Link
-            href={
-              activeDivisionId
-                ? `/admin/games?division=${encodeURIComponent(activeDivisionId)}`
-                : "/admin/games"
-            }
-            className={`${btnSecondary}`}
-          >
-            Games
-          </Link>
-        </div>
-      </header>
+      <AdminPageHeader
+        eyebrow="Tournament"
+        title="Brackets"
+        description={tournamentName}
+        actions={
+          <>
+            <Link href={tournamentPathFromBase(publicSitePath, "brackets")} className={btnSecondary}>
+              Public brackets ↗
+            </Link>
+            <Link
+              href={
+                activeDivisionId
+                  ? `/admin/games?division=${encodeURIComponent(activeDivisionId)}`
+                  : "/admin/games"
+              }
+              className={btnSecondary}
+            >
+              Games
+            </Link>
+          </>
+        }
+      />
 
-      {divisions.length > 1 ? (
-        <div className="flex flex-wrap gap-2 border-b border-zinc-200 pb-2" role="tablist" aria-label="Division">
-          {divisions.map((d) => {
-            const selected = activeDivisionId === d.id;
-            const count = brackets.filter((b) => b.division.id === d.id).length;
-            return (
-              <button
-                key={d.id}
-                type="button"
-                role="tab"
-                aria-selected={selected}
-                onClick={() => setDivisionId(d.id)}
-                className={
-                  selected
-                    ? "rounded-full bg-zinc-900 px-3 py-1.5 text-sm font-medium text-white"
-                    : "rounded-full bg-zinc-100 px-3 py-1.5 text-sm font-medium text-zinc-700 hover:bg-zinc-200"
-                }
-              >
-                {d.name}
-                <span className={`ml-1.5 tabular-nums ${selected ? "opacity-80" : "text-zinc-500"}`}>
-                  {count}
-                </span>
-              </button>
-            );
-          })}
-        </div>
-      ) : null}
+      <DivisionTabs
+        divisions={divisions}
+        activeDivisionId={activeDivisionId}
+        countFor={(id) => brackets.filter((b) => b.division.id === id).length}
+        onSelect={setDivisionId}
+      />
 
       {!canConfigure ? (
         <p className="text-sm text-zinc-600">
@@ -782,8 +762,13 @@ export function BracketsAdmin({
       <ActionMessage state={resetState} />
       <ActionMessage state={qualifierState} />
       <ActionMessage state={celebrationState} />
+      <ActionMessage state={repairState} />
       <ActionMessage state={consolationCreateState} />
       <ActionMessage state={consolationDeleteState} />
+
+      {canConfigure ? (
+        <BracketMaintenancePanel action={repairAction} pending={repairPending} />
+      ) : null}
 
       {canConfigure && divisionsWithPools.length > 0 && fields.length > 0 ? (
         <section className="rounded-xl border border-zinc-200 bg-white p-6 shadow-sm">
@@ -1295,7 +1280,7 @@ export function BracketsAdmin({
 
               {seededDePreset ? (
                 <SeedOrderRows
-                  key={`${effectiveDivisionId}-${seededDePreset}`}
+                  key={`${effectiveDivisionId}-${seededDePreset}-${divisionTeams.map((t) => t.id).join(",")}`}
                   teams={divisionTeams}
                   presetKey={seededDePreset}
                 />
@@ -1497,6 +1482,7 @@ export function BracketsAdmin({
                       )}
                     </div>
                     <BracketQualifierForm
+                      key={`${b.id}-${b.isQualifier}-${b.qualifyingTeamCount}`}
                       bracketId={b.id}
                       isQualifier={b.isQualifier}
                       qualifyingTeamCount={b.qualifyingTeamCount}

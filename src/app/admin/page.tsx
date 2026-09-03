@@ -15,7 +15,11 @@ function formatDateRange(start: Date, end: Date): string {
 }
 
 export default async function AdminTournamentsHubPage() {
-  const [session, rows] = await Promise.all([auth(), listTournamentsForAdminHub()]);
+  const session = await auth();
+  const rows = await listTournamentsForAdminHub({
+    userId: session?.user?.id,
+    role: session?.user?.role,
+  });
   const canManageContent = session?.user?.role != null && can(session.user.role, "content:manage");
 
   return (

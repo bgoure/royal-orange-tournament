@@ -2,7 +2,6 @@
 
 import { revalidatePath } from "next/cache";
 import { revalidatePublishedTournamentSites } from "@/lib/revalidate-public-tournament-site";
-import { auth } from "@/auth";
 import { prisma } from "@/lib/db";
 import { can } from "@/lib/rbac/permissions";
 import { assertGameDivisionScope, assertPoolDivisionScope } from "@/lib/rbac/division-scope";
@@ -26,7 +25,8 @@ import {
   updateGameScoringSchema,
 } from "@/lib/validations/games-admin";
 import { parseDatetimeLocalInTimeZone } from "@/lib/datetime-tournament";
-import { getTournamentForRequest, type TournamentForRequest } from "@/lib/tournament-context";
+import { type TournamentForRequest } from "@/lib/tournament-context";
+import { requireAuthorizedTournamentContext } from "@/lib/rbac/tenant-access";
 import { buildRoundRobinPairings, scheduleRoundRobinSlots } from "@/lib/services/round-robin-schedule";
 import { assertNoFieldScheduleConflict } from "@/lib/services/schedule-conflicts";
 import { isOba13SitOutGameNumber } from "@/lib/services/oba-de-13";
@@ -38,15 +38,7 @@ export type GameActionResult = { ok: true } | { ok: false; error: string };
 async function tournamentContext(): Promise<
   { session: Session; tournament: TournamentForRequest } | { error: string }
 > {
-  const session = await auth();
-  if (!session?.user?.id) return { error: "Unauthorized" };
-  const tournament = await getTournamentForRequest();
-  if (!tournament) {
-    return {
-      error: "Select a tournament on the public site (tournament switcher), then return here.",
-    };
-  }
-  return { session, tournament };
+  return requireAuthorizedTournamentContext();
 }
 
 function deny(): GameActionResult {

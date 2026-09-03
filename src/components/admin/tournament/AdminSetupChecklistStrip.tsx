@@ -1,12 +1,51 @@
 "use client";
 
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useSyncExternalStore } from "react";
 import { SetupChecklistPanel } from "@/components/admin/tournament/SetupChecklistPanel";
 import {
   countIncompleteSetupSteps,
   setupChecklistDismissKey,
   type SetupProgress,
 } from "@/lib/admin-setup-checklist";
+
+// `localStorage` is an external store: subscribing to it keeps the dismissed flag out of
+// React state, so the first client render already knows whether the strip is hidden.
+const dismissListeners = new Set<() => void>();
+/** Fallback when `localStorage` is unavailable (private mode) so dismissing still sticks. */
+const dismissedThisSession = new Set<string>();
+
+function subscribeToDismissed(listener: () => void) {
+  dismissListeners.add(listener);
+  window.addEventListener("storage", listener);
+  return () => {
+    dismissListeners.delete(listener);
+    window.removeEventListener("storage", listener);
+  };
+}
+
+function readDismissed(slug: string): boolean {
+  if (dismissedThisSession.has(slug)) return true;
+  try {
+    return localStorage.getItem(setupChecklistDismissKey(slug)) === "1";
+  } catch {
+    return false;
+  }
+}
+
+function publishDismissed(slug: string) {
+  dismissedThisSession.add(slug);
+  try {
+    localStorage.setItem(setupChecklistDismissKey(slug), "1");
+  } catch {
+    /* private mode / quota — the session fallback still hides the strip */
+  }
+  for (const listener of [...dismissListeners]) listener();
+}
+
+/** Hidden during SSR/hydration; the real flag lands on the first post-hydration render. */
+function getDismissedServerSnapshot(): boolean {
+  return true;
+}
 
 type Props = {
   slug: string;
@@ -16,23 +55,14 @@ type Props = {
 };
 
 export function AdminSetupChecklistStrip({ slug, progress, variant = "strip" }: Props) {
-  const [dismissed, setDismissed] = useState(true);
-
-  useEffect(() => {
-    try {
-      setDismissed(localStorage.getItem(setupChecklistDismissKey(slug)) === "1");
-    } catch {
-      setDismissed(false);
-    }
-  }, [slug]);
+  const dismissed = useSyncExternalStore(
+    subscribeToDismissed,
+    useCallback(() => readDismissed(slug), [slug]),
+    getDismissedServerSnapshot,
+  );
 
   const onDismiss = useCallback(() => {
-    try {
-      localStorage.setItem(setupChecklistDismissKey(slug), "1");
-    } catch {
-      /* ignore */
-    }
-    setDismissed(true);
+    publishDismissed(slug);
   }, [slug]);
 
   // Keep guiding through optional steps (schedule / playoffs) until dismissed.

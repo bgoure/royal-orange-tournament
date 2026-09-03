@@ -3,14 +3,15 @@ import { prisma } from "@/lib/db";
 import { jsonError, jsonOk, resolveApiUser } from "@/lib/api/v1/auth";
 import { can } from "@/lib/rbac/permissions";
 import { assertGameDivisionScope } from "@/lib/rbac/division-scope";
-import { advanceBracketWinnerFromGame } from "@/lib/services/bracket-advance";
-import { recomputePoolStandings } from "@/lib/services/standings";
+import { assertUserCanAccessTournament } from "@/lib/rbac/tenant-access";
+import { applyGameScore, serializeScoredGame } from "@/lib/services/game-score-write";
 import { revalidatePublishedTournamentSites } from "@/lib/revalidate-public-tournament-site";
 
 /**
  * Staff score submission. Same RBAC as admin updateGameScoring.
  * Optional `expectedUpdatedAt` (ISO) enables optimistic concurrency for Expo offline queues:
- * if the server's Game.updatedAt is newer, respond 409 with the current game snapshot.
+ * the guard is applied inside the write, so if another device already moved the game on we
+ * respond 409 with the current server snapshot instead of overwriting it.
  */
 export async function POST(
   req: Request,
@@ -26,6 +27,9 @@ export async function POST(
     select: { id: true },
   });
   if (!t) return jsonError("Tournament not found", 404);
+
+  const access = await assertUserCanAccessTournament({ userId: user.id, role: user.role }, { id: t.id });
+  if (!access.ok) return jsonError(access.error, access.status);
 
   const scopeErr = await assertGameDivisionScope(user.id, user.role, gameId);
   if (scopeErr) return jsonError(scopeErr, 403);
@@ -53,75 +57,39 @@ export async function POST(
   }
   const markFinal = body?.status === GameStatus.FINAL;
 
-  let expectedMs: number | null = null;
+  let expectedUpdatedAt: Date | null = null;
   if (body?.expectedUpdatedAt !== undefined && body.expectedUpdatedAt !== null) {
     if (typeof body.expectedUpdatedAt !== "string") {
       return jsonError("expectedUpdatedAt must be an ISO timestamp string", 400);
     }
-    expectedMs = Date.parse(body.expectedUpdatedAt);
+    const expectedMs = Date.parse(body.expectedUpdatedAt);
     if (Number.isNaN(expectedMs)) {
       return jsonError("expectedUpdatedAt must be a valid ISO timestamp", 400);
     }
+    expectedUpdatedAt = new Date(expectedMs);
   }
 
-  const game = await prisma.game.findFirst({
-    where: { id: gameId, tournamentId: t.id },
-    select: {
-      id: true,
-      poolId: true,
-      bracketId: true,
-      updatedAt: true,
-      status: true,
-      homeRuns: true,
-      awayRuns: true,
-    },
+  const result = await applyGameScore({
+    gameId,
+    tournamentId: t.id,
+    homeRuns,
+    awayRuns,
+    markFinal,
+    expectedUpdatedAt,
   });
-  if (!game) return jsonError("Game not found", 404);
 
-  if (expectedMs != null && game.updatedAt.getTime() > expectedMs) {
+  if (!result.ok) {
+    if (result.reason === "not-found") return jsonError("Game not found", 404);
     return Response.json(
       {
         error: "Game was updated elsewhere. Refresh and retry.",
-        game: {
-          id: game.id,
-          updatedAt: game.updatedAt.toISOString(),
-          status: game.status,
-          homeRuns: game.homeRuns,
-          awayRuns: game.awayRuns,
-        },
+        game: serializeScoredGame(result.game),
       },
       { status: 409 },
     );
   }
 
-  await prisma.game.update({
-    where: { id: game.id },
-    data: { homeRuns, awayRuns, ...(markFinal ? { status: GameStatus.FINAL } : {}) },
-  });
-
-  if (game.poolId) await recomputePoolStandings(game.poolId);
-  if (markFinal && game.bracketId) await advanceBracketWinnerFromGame(game.id);
   await revalidatePublishedTournamentSites();
 
-  const updated = await prisma.game.findUnique({
-    where: { id: game.id },
-    select: {
-      id: true,
-      status: true,
-      homeRuns: true,
-      awayRuns: true,
-      updatedAt: true,
-      homeTeam: { select: { id: true, name: true } },
-      awayTeam: { select: { id: true, name: true } },
-    },
-  });
-
-  return jsonOk({
-    game: updated
-      ? {
-          ...updated,
-          updatedAt: updated.updatedAt.toISOString(),
-        }
-      : null,
-  });
+  return jsonOk({ game: serializeScoredGame(result.game) });
 }

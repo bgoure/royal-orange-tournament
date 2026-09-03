@@ -2,7 +2,6 @@
 
 import { revalidatePath } from "next/cache";
 import { revalidatePublishedTournamentSites } from "@/lib/revalidate-public-tournament-site";
-import { auth } from "@/auth";
 import { prisma } from "@/lib/db";
 import { can } from "@/lib/rbac/permissions";
 import {
@@ -16,6 +15,7 @@ import {
   assertTeamInTournament,
 } from "@/lib/services/admin-structure";
 import { recomputePoolStandings } from "@/lib/services/standings";
+import { teamDeletionBlockReason } from "@/lib/services/team-deletion";
 import {
   divisionCreateSchema,
   divisionUpdateSchema,
@@ -26,7 +26,8 @@ import {
   teamCreateSchema,
   teamUpdateSchema,
 } from "@/lib/validations/structure";
-import { getTournamentForRequest, type TournamentForRequest } from "@/lib/tournament-context";
+import { type TournamentForRequest } from "@/lib/tournament-context";
+import { requireAuthorizedTournamentContext } from "@/lib/rbac/tenant-access";
 import { isGenericWizardDivisionTitle } from "@/lib/brackets/bracket-public-title";
 import type { Session } from "next-auth";
 
@@ -35,18 +36,7 @@ export type ActionResult = { ok: true } | { ok: false; error: string };
 async function tournamentContext(): Promise<
   { session: Session; tournament: TournamentForRequest } | { error: string }
 > {
-  const session = await auth();
-  if (!session?.user?.id) {
-    return { error: "Unauthorized" };
-  }
-  const tournament = await getTournamentForRequest();
-  if (!tournament) {
-    return {
-      error:
-        "Select a tournament on the public site (tournament switcher), then return here.",
-    };
-  }
-  return { session, tournament };
+  return requireAuthorizedTournamentContext();
 }
 
 function denyPermission(): ActionResult {
@@ -144,7 +134,19 @@ export async function deleteDivision(_prev: ActionResult | undefined, formData: 
   const id = formData.get("id")?.toString();
   if (!id) return { ok: false, error: "Missing id" };
   await assertDivisionInTournament(id, ctx.tournament.id);
-  await prisma.division.delete({ where: { id } });
+  const scopeErr = await assertDivisionScope(ctx.session.user.id, ctx.session.user.role, id);
+  if (scopeErr) return { ok: false, error: scopeErr };
+  // Team deletes no longer cascade into games, so drop the division's games explicitly —
+  // otherwise the pool games would survive the cascade with every seat emptied.
+  await prisma.$transaction(async (tx) => {
+    await tx.game.deleteMany({
+      where: {
+        tournamentId: ctx.tournament.id,
+        OR: [{ divisionId: id }, { pool: { divisionId: id } }, { bracket: { divisionId: id } }],
+      },
+    });
+    await tx.division.delete({ where: { id } });
+  });
   revalidatePath("/admin/divisions");
   revalidatePath("/admin/teams");
   await revalidatePublishedTournamentSites();
@@ -425,20 +427,8 @@ export async function deleteTeam(_prev: ActionResult | undefined, formData: Form
   await assertTeamInTournament(id, ctx.tournament.id);
   const deleteTeamScopeErr = await assertTeamDivisionScope(ctx.session.user.id, ctx.session.user.role, id);
   if (deleteTeamScopeErr) return { ok: false, error: deleteTeamScopeErr };
-  const inPlayoffGame = await prisma.game.findFirst({
-    where: {
-      tournamentId: ctx.tournament.id,
-      bracketId: { not: null },
-      OR: [{ homeTeamId: id }, { awayTeamId: id }],
-    },
-    select: { id: true },
-  });
-  if (inPlayoffGame) {
-    return {
-      ok: false,
-      error: "This team is listed in a playoff game. Remove or reassign it before deleting the team.",
-    };
-  }
+  const blocked = await teamDeletionBlockReason(id, ctx.tournament.id);
+  if (blocked) return { ok: false, error: blocked };
   const doomed = await prisma.team.findFirst({
     where: { id, pool: { division: { tournamentId: ctx.tournament.id } } },
     select: { poolId: true },

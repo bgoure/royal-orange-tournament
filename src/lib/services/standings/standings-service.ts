@@ -1,5 +1,5 @@
 import { prisma } from "@/lib/db";
-import type { Game } from "@prisma/client";
+import type { Game, Prisma } from "@prisma/client";
 import { markBracketsStaleForDivision } from "@/lib/services/bracket-resolution";
 import {
   buildAggregates,
@@ -23,8 +23,17 @@ function gameToInput(g: Game): StandingsGameInput {
   };
 }
 
-export async function recomputePoolStandings(poolId: string): Promise<void> {
-  const pool = await prisma.pool.findUnique({
+/**
+ * Recompute a pool's standings rows.
+ *
+ * Pass `client` to run inside an interactive transaction so a score write and the
+ * standings it implies commit (or roll back) together.
+ */
+export async function recomputePoolStandings(
+  poolId: string,
+  client: Prisma.TransactionClient = prisma,
+): Promise<void> {
+  const pool = await client.pool.findUnique({
     where: { id: poolId },
     include: {
       teams: true,
@@ -69,7 +78,7 @@ export async function recomputePoolStandings(poolId: string): Promise<void> {
   for (let i = 0; i < order.length; i++) {
     const teamId = order[i]!;
     const a = aggs.get(teamId)!;
-    await prisma.poolStanding.upsert({
+    await client.poolStanding.upsert({
       where: { poolId_teamId: { poolId, teamId } },
       create: {
         poolId,
@@ -102,7 +111,7 @@ export async function recomputePoolStandings(poolId: string): Promise<void> {
     });
   }
 
-  await markBracketsStaleForDivision(pool.divisionId);
+  await markBracketsStaleForDivision(pool.divisionId, client);
 }
 
 export async function recomputeAllPoolsForTournament(tournamentId: string): Promise<void> {

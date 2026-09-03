@@ -1,6 +1,6 @@
 "use client";
 
-import { useLayoutEffect, useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
 import type { BracketFormat, BracketRound, BracketRoundType } from "@prisma/client";
 import { BracketGameCard } from "@/components/brackets/BracketGameCard";
 import type { GameRow } from "@/components/brackets/bracket-types";
@@ -634,6 +634,24 @@ function boardContentHeight(
 
 type SourcePt = { x1: number; y1: number };
 
+function samePathList(a: DrawnPath[], b: DrawnPath[]): boolean {
+  if (a.length !== b.length) return false;
+  for (let i = 0; i < a.length; i++) {
+    const prev = a[i]!;
+    const next = b[i]!;
+    if (prev.d !== next.d || !!prev.dashed !== !!next.dashed) return false;
+  }
+  return true;
+}
+
+function sameHeightMap(a: Map<string, number>, b: Map<string, number>): boolean {
+  if (a.size !== b.size) return false;
+  for (const [id, h] of b) {
+    if (a.get(id) !== h) return false;
+  }
+  return true;
+}
+
 /** Layout-space rect (undo CSS zoom/scale so SVG paths stay aligned). */
 function layoutRect(el: HTMLElement, board: HTMLElement) {
   const er = el.getBoundingClientRect();
@@ -893,105 +911,124 @@ function ChronoBoard({
     [allGames, tops, heights, ifNecColIdx, maxNote, poolFooter],
   );
 
-  useLayoutEffect(() => {
+  const measureAndDraw = useCallback(() => {
     const board = boardRef.current;
     if (!board) return;
 
-    let raf = 0;
-    const measureAndDraw = () => {
-      cancelAnimationFrame(raf);
-      raf = requestAnimationFrame(() => {
-        const nextHeights = new Map<string, number>();
-        const nextColWidths: number[] = columns.map((col, ci) => {
-          if (fixedColWidth != null) return fixedColWidth;
-          if (!isOpen(ci)) return 44;
-          let longestWord = 0;
-          for (const g of col.games) {
-            const wrap = board.querySelector<HTMLElement>(`[data-bracket-game-id="${g.id}"]`);
-            if (!wrap) continue;
-            nextHeights.set(g.id, wrap.offsetHeight);
-            for (const nameEl of wrap.querySelectorAll<HTMLElement>("[data-bracket-team-name]")) {
-              const style = getComputedStyle(nameEl);
-              const font = `${style.fontStyle} ${style.fontWeight} ${style.fontSize} ${style.fontFamily}`;
-              const label = nameEl.childNodes[0]?.textContent ?? nameEl.textContent ?? "";
-              longestWord = Math.max(longestWord, longestWordWidthPx(label, font));
-            }
-          }
-          return bracketColumnWidthForLongestWord(longestWord);
-        });
-
-        let heightsChanged = nextHeights.size !== heights.size;
-        if (!heightsChanged) {
-          for (const [id, h] of nextHeights) {
-            if (heights.get(id) !== h) {
-              heightsChanged = true;
-              break;
-            }
-          }
+    const nextHeights = new Map<string, number>();
+    const nextColWidths: number[] = columns.map((col, ci) => {
+      if (fixedColWidth != null) return fixedColWidth;
+      if (!isOpen(ci)) return 44;
+      let longestWord = 0;
+      for (const g of col.games) {
+        const wrap = board.querySelector<HTMLElement>(`[data-bracket-game-id="${g.id}"]`);
+        if (!wrap) continue;
+        nextHeights.set(g.id, wrap.offsetHeight);
+        for (const nameEl of wrap.querySelectorAll<HTMLElement>("[data-bracket-team-name]")) {
+          const style = getComputedStyle(nameEl);
+          const font = `${style.fontStyle} ${style.fontWeight} ${style.fontSize} ${style.fontFamily}`;
+          const label = nameEl.childNodes[0]?.textContent ?? nameEl.textContent ?? "";
+          longestWord = Math.max(longestWord, longestWordWidthPx(label, font));
         }
-        const widthsChanged =
-          nextColWidths.length !== colWidths.length ||
-          nextColWidths.some((w, i) => w !== colWidths[i]);
+      }
+      return bracketColumnWidthForLongestWord(longestWord);
+    });
 
-        if (heightsChanged) {
-          setHeights(nextHeights);
-          return;
-        }
-        if (widthsChanged) {
-          setColWidths(nextColWidths);
-          return;
-        }
+    // Card heights feed the layout pass, so land them first and let the resulting
+    // render schedule the next measurement.
+    if (!sameHeightMap(heights, nextHeights)) {
+      setHeights(nextHeights);
+      return;
+    }
+    if (
+      nextColWidths.length !== colWidths.length ||
+      nextColWidths.some((w, i) => w !== colWidths[i])
+    ) {
+      setColWidths(nextColWidths);
+      return;
+    }
 
-        setBoardSize({ w: board.scrollWidth, h: board.scrollHeight });
-        const next = buildJoinPaths(winnerEdges, board, {
-          forceStraightSingles: lockSingleGameRow,
-        });
-        if (gf1 && gf2 && !ifNecUi.shaded) {
-          const dashed = buildIfNecessaryDashedPath(gf1.id, gf2.id, board);
-          if (dashed) next.push(dashed);
-        }
-        setPaths(next);
-      });
-    };
+    const w = board.scrollWidth;
+    const h = board.scrollHeight;
+    setBoardSize((prev) => (prev.w === w && prev.h === h ? prev : { w, h }));
 
-    const hardRemeasure = () => {
-      setHeights(new Map());
-      setColWidths([]);
-      measureAndDraw();
-    };
-
-    measureAndDraw();
-    const ro = typeof ResizeObserver !== "undefined" ? new ResizeObserver(measureAndDraw) : null;
-    ro?.observe(board);
-    window.addEventListener("resize", hardRemeasure);
-    window.addEventListener("orientationchange", hardRemeasure);
-    window.addEventListener("bracket-zoom-change", measureAndDraw);
-    const vv = window.visualViewport;
-    vv?.addEventListener("resize", measureAndDraw);
-    return () => {
-      cancelAnimationFrame(raf);
-      ro?.disconnect();
-      window.removeEventListener("resize", hardRemeasure);
-      window.removeEventListener("orientationchange", hardRemeasure);
-      window.removeEventListener("bracket-zoom-change", measureAndDraw);
-      vv?.removeEventListener("resize", measureAndDraw);
-    };
+    const nextPaths = buildJoinPaths(winnerEdges, board, {
+      forceStraightSingles: lockSingleGameRow,
+    });
+    if (gf1 && gf2 && !ifNecUi.shaded) {
+      const dashed = buildIfNecessaryDashedPath(gf1.id, gf2.id, board);
+      if (dashed) nextPaths.push(dashed);
+    }
+    setPaths((prev) => (samePathList(prev, nextPaths) ? prev : nextPaths));
   }, [
-    allGames,
     columns,
     winnerEdges,
     heights,
     colWidths,
-    tops,
-    contentH,
     gf1,
     gf2,
     ifNecUi.shaded,
     isOpen,
-    hideHeaders,
     fixedColWidth,
     lockSingleGameRow,
   ]);
+
+  const measureRef = useRef(measureAndDraw);
+  const rafRef = useRef(0);
+
+  /** Coalesce every trigger into a single measurement per frame. */
+  const scheduleMeasure = useCallback(() => {
+    cancelAnimationFrame(rafRef.current);
+    rafRef.current = requestAnimationFrame(() => measureRef.current());
+  }, []);
+
+  // Bracket data, round visibility, note offsets and card heights all land here.
+  useLayoutEffect(() => {
+    measureRef.current = measureAndDraw;
+    scheduleMeasure();
+  }, [measureAndDraw, scheduleMeasure, allGames, tops, contentH, hideHeaders]);
+
+  useEffect(() => {
+    const board = boardRef.current;
+    if (!board) return;
+    let live = true;
+
+    const hardRemeasure = () => {
+      if (!live) return;
+      setHeights((prev) => (prev.size === 0 ? prev : new Map()));
+      setColWidths((prev) => (prev.length === 0 ? prev : []));
+      scheduleMeasure();
+    };
+
+    // Mobile browsers fire `resize` whenever the URL bar collapses. Height-only
+    // changes cannot affect column widths or card heights, so ignore them —
+    // `visualViewport` resize is skipped entirely for the same reason (it also
+    // fires on every scroll and pinch).
+    let lastViewportWidth = window.innerWidth;
+    const onViewportResize = () => {
+      if (window.innerWidth === lastViewportWidth) return;
+      lastViewportWidth = window.innerWidth;
+      hardRemeasure();
+    };
+
+    const ro =
+      typeof ResizeObserver !== "undefined" ? new ResizeObserver(() => scheduleMeasure()) : null;
+    ro?.observe(board);
+    window.addEventListener("resize", onViewportResize);
+    window.addEventListener("orientationchange", hardRemeasure);
+    window.addEventListener("bracket-zoom-change", scheduleMeasure);
+    // Late web-font swaps change both card heights and longest-word widths.
+    void document.fonts?.ready.then(hardRemeasure).catch(() => {});
+
+    return () => {
+      live = false;
+      cancelAnimationFrame(rafRef.current);
+      ro?.disconnect();
+      window.removeEventListener("resize", onViewportResize);
+      window.removeEventListener("orientationchange", hardRemeasure);
+      window.removeEventListener("bracket-zoom-change", scheduleMeasure);
+    };
+  }, [scheduleMeasure]);
 
   const columnShellH = contentH + (hideHeaders ? 0 : HEADER_H);
 

@@ -1,8 +1,51 @@
 "use client";
 
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useId, useMemo, useSyncExternalStore } from "react";
 import { focusWindowRange, isIndexInFocusWindow } from "@/lib/brackets/bracket-round-window";
-import { readRoundFocusPrefs, writeRoundFocusPrefs } from "@/lib/brackets/bracket-viewer-prefs";
+import {
+  readRoundFocusPrefs,
+  writeRoundFocusPrefs,
+  type StoredRoundFocus,
+} from "@/lib/brackets/bracket-viewer-prefs";
+
+const EMPTY_FOCUS: StoredRoundFocus = { extraOpen: [], forcedCollapsed: [] };
+
+// The rounds cookie is an external store keyed by persist key, so the first client
+// render already reflects the saved columns instead of flipping them open afterwards.
+// Unpersisted callers get an ephemeral key and stay in memory.
+const focusSnapshots = new Map<string, StoredRoundFocus>();
+const focusListeners = new Map<string, Set<() => void>>();
+
+function subscribeToFocus(key: string, listener: () => void) {
+  let listeners = focusListeners.get(key);
+  if (!listeners) {
+    listeners = new Set();
+    focusListeners.set(key, listeners);
+  }
+  listeners.add(listener);
+  return () => {
+    listeners.delete(listener);
+  };
+}
+
+function getFocusSnapshot(key: string, persist: boolean): StoredRoundFocus {
+  const cached = focusSnapshots.get(key);
+  if (cached) return cached;
+  const next = (persist ? readRoundFocusPrefs(key) : null) ?? EMPTY_FOCUS;
+  focusSnapshots.set(key, next);
+  return next;
+}
+
+function getFocusServerSnapshot(): StoredRoundFocus {
+  return EMPTY_FOCUS;
+}
+
+function publishFocus(key: string, next: StoredRoundFocus, persist: boolean) {
+  focusSnapshots.set(key, next);
+  if (persist) writeRoundFocusPrefs(key, next);
+  const listeners = focusListeners.get(key);
+  if (listeners) for (const listener of [...listeners]) listener();
+}
 
 export function useRoundFocus(
   columnCount: number,
@@ -14,30 +57,23 @@ export function useRoundFocus(
     () => focusWindowRange(activeIndex, columnCount),
     [activeIndex, columnCount],
   );
-  const [forcedCollapsed, setForcedCollapsed] = useState<Set<number>>(() => new Set());
-  const [extraOpen, setExtraOpen] = useState<Set<number>>(() => new Set());
-  const [ready, setReady] = useState(!persistKey);
 
-  useEffect(() => {
-    if (!persistKey || expandAll) {
-      setReady(true);
-      return;
-    }
-    const saved = readRoundFocusPrefs(persistKey);
-    if (saved) {
-      setForcedCollapsed(new Set(saved.forcedCollapsed));
-      setExtraOpen(new Set(saved.extraOpen));
-    }
-    setReady(true);
-  }, [persistKey, expandAll]);
+  const ephemeralKey = useId();
+  const persist = !!persistKey && !expandAll;
+  const key = persist ? persistKey! : ephemeralKey;
 
-  useEffect(() => {
-    if (!ready || !persistKey || expandAll) return;
-    writeRoundFocusPrefs(persistKey, {
-      extraOpen: [...extraOpen],
-      forcedCollapsed: [...forcedCollapsed],
-    });
-  }, [ready, persistKey, expandAll, extraOpen, forcedCollapsed]);
+  const subscribe = useCallback(
+    (listener: () => void) => subscribeToFocus(key, listener),
+    [key],
+  );
+  const snapshot = useSyncExternalStore(
+    subscribe,
+    useCallback(() => getFocusSnapshot(key, persist), [key, persist]),
+    getFocusServerSnapshot,
+  );
+
+  const forcedCollapsed = useMemo(() => new Set(snapshot.forcedCollapsed), [snapshot]);
+  const extraOpen = useMemo(() => new Set(snapshot.extraOpen), [snapshot]);
 
   const isOpen = useCallback(
     (index: number) => {
@@ -52,27 +88,22 @@ export function useRoundFocus(
   const toggle = useCallback(
     (index: number) => {
       if (expandAll) return;
+      const nextCollapsed = new Set(forcedCollapsed);
+      const nextExtraOpen = new Set(extraOpen);
       if (isOpen(index)) {
-        if (isIndexInFocusWindow(index, lo, hi)) {
-          setForcedCollapsed((prev) => new Set(prev).add(index));
-        } else {
-          setExtraOpen((prev) => {
-            const next = new Set(prev);
-            next.delete(index);
-            return next;
-          });
-        }
-        return;
+        if (isIndexInFocusWindow(index, lo, hi)) nextCollapsed.add(index);
+        else nextExtraOpen.delete(index);
+      } else {
+        nextCollapsed.delete(index);
+        nextExtraOpen.add(index);
       }
-      setForcedCollapsed((prev) => {
-        if (!prev.has(index)) return prev;
-        const next = new Set(prev);
-        next.delete(index);
-        return next;
-      });
-      setExtraOpen((prev) => new Set(prev).add(index));
+      publishFocus(
+        key,
+        { extraOpen: [...nextExtraOpen], forcedCollapsed: [...nextCollapsed] },
+        persist,
+      );
     },
-    [expandAll, isOpen, hi, lo],
+    [expandAll, extraOpen, forcedCollapsed, hi, isOpen, key, lo, persist],
   );
 
   const rangeOverlaps = useCallback(

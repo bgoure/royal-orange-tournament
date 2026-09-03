@@ -5,7 +5,7 @@ import { formatFieldWithLocation } from "@/lib/field-display";
 import { listGamesAdmin } from "@/lib/services/admin-games";
 import { getTournamentStructure } from "@/lib/services/admin-structure";
 import { listFieldScheduleConflicts } from "@/lib/services/schedule-conflicts";
-import { getTournamentForRequest } from "@/lib/tournament-context";
+import { getRequestNowMs, getTournamentForRequest } from "@/lib/tournament-context";
 
 export default async function AdminGamesPage({
   searchParams,
@@ -22,10 +22,11 @@ export default async function AdminGamesPage({
     return <AdminNoTournamentPlaceholder />;
   }
 
-  const [games, structure, fieldConflicts] = await Promise.all([
+  const [games, structure, fieldConflicts, now] = await Promise.all([
     listGamesAdmin(tournament.id),
     getTournamentStructure(tournament.id),
     listFieldScheduleConflicts(tournament.id),
+    getRequestNowMs(),
   ]);
 
   if (!structure) {
@@ -67,6 +68,7 @@ export default async function AdminGamesPage({
       tournamentName={tournament.name}
       tournamentTimezone={tournament.timezone}
       isAdmin={isAdmin}
+      now={now}
       mode={mode}
       fieldConflicts={fieldConflicts}
     />

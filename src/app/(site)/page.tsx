@@ -1,6 +1,6 @@
 import type { Metadata } from "next";
 import { MarketingHome } from "@/components/marketing/MarketingHome";
-import { listLiveTournamentsForDirectory } from "@/lib/tournament-context";
+import { getRequestNowMs, listLiveTournamentsForDirectory } from "@/lib/tournament-context";
 
 export const dynamic = "force-dynamic";
 
@@ -15,6 +15,9 @@ export const metadata: Metadata = {
 };
 
 export default async function SiteRootPage() {
-  const tournaments = await listLiveTournamentsForDirectory();
-  return <MarketingHome tournaments={tournaments} />;
+  const [tournaments, now] = await Promise.all([
+    listLiveTournamentsForDirectory(),
+    getRequestNowMs(),
+  ]);
+  return <MarketingHome tournaments={tournaments} now={now} />;
 }

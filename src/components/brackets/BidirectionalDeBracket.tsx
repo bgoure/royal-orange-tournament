@@ -154,7 +154,7 @@ export function BidirectionalDeBracket({
     <div className="flex flex-col gap-3">
       <div
         {...{ [DIVISION_SWIPE_IGNORE]: "" }}
-        className={`flex gap-2 pb-2 ${fitContent ? "w-max overflow-visible" : "overflow-x-auto"}`}
+        className="flex w-max gap-2 overflow-visible pb-2"
         role="region"
         aria-label="Bidirectional double-elimination bracket"
       >

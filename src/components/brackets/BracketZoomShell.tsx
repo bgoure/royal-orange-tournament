@@ -7,6 +7,7 @@ import {
   useEffect,
   useRef,
   useState,
+  useSyncExternalStore,
   type ReactNode,
   type TouchEvent as ReactTouchEvent,
 } from "react";
@@ -74,13 +75,34 @@ export function BracketZoomShell({
   const pinchRef = useRef<{ startDist: number; startPct: number } | null>(null);
   const scrollerRef = useRef<HTMLDivElement>(null);
   const overlayRef = useRef<HTMLDivElement>(null);
-  const scalePctRef = useRef(scalePct);
-  scalePctRef.current = scalePct;
   const [immersive, setImmersive] = useState(false);
-  const [mounted, setMounted] = useState(false);
+  const mounted = useSyncExternalStore(
+    () => () => {},
+    () => true,
+    () => false,
+  );
+  const [pinching, setPinching] = useState(false);
   const tapRef = useRef<{ x: number; y: number; pinching: boolean } | null>(null);
+  const contentRef = useRef<HTMLDivElement>(null);
+  const [contentH, setContentH] = useState(0);
+  const zoomed = scalePct !== 100;
 
-  useEffect(() => setMounted(true), []);
+  // Layout height of the unscaled tree. Reserving `height * scale` keeps the scaled
+  // tree from overflowing (and being clipped by) the horizontal scroller, so the
+  // document stays the only vertical scroll container in normal mode.
+  useEffect(() => {
+    const el = contentRef.current;
+    if (!el || typeof ResizeObserver === "undefined") return;
+    const sync = () => {
+      const next = el.offsetHeight;
+      setContentH((prev) => (Math.abs(prev - next) < 1 ? prev : next));
+    };
+    const ro = new ResizeObserver(sync);
+    ro.observe(el);
+    sync();
+    return () => ro.disconnect();
+    // Entering photo view re-parents the scroller into the portal — re-observe it.
+  }, [immersive, mounted]);
 
   const clampPct = useCallback((n: number) => Math.min(MAX_PCT, Math.max(MIN_PCT, Math.round(n))), []);
 
@@ -140,7 +162,6 @@ export function BracketZoomShell({
 
   useEffect(() => {
     if (!immersive) return;
-    setScalePct(100);
     const prevOverflow = document.body.style.overflow;
     document.body.style.overflow = "hidden";
     const id = requestAnimationFrame(() => {
@@ -173,8 +194,9 @@ export function BracketZoomShell({
     if (e.touches.length === 2) {
       pinchRef.current = {
         startDist: touchDistance(e.touches),
-        startPct: scalePctRef.current,
+        startPct: scalePct,
       };
+      setPinching(true);
       if (tapRef.current) tapRef.current.pinching = true;
     } else if (e.touches.length === 1 && immersive) {
       tapRef.current = {
@@ -188,6 +210,7 @@ export function BracketZoomShell({
   const onTouchEnd = (e: ReactTouchEvent) => {
     if (e.touches.length < 2) {
       pinchRef.current = null;
+      setPinching(false);
       notifyZoomChange();
     }
     if (!immersive || e.touches.length > 0) return;
@@ -221,11 +244,7 @@ export function BracketZoomShell({
   const scroller = (
     <div
       ref={scrollerRef}
-      className={
-        immersive
-          ? "h-full overflow-auto pb-2"
-          : "overflow-x-auto overflow-y-auto pb-2"
-      }
+      className={immersive ? "h-full overflow-auto pb-2" : "overflow-x-auto pb-2"}
       style={{
         WebkitOverflowScrolling: "touch",
         touchAction: "pan-x pan-y",
@@ -235,14 +254,18 @@ export function BracketZoomShell({
       onTouchEnd={onTouchEnd}
       onTouchCancel={onTouchEnd}
     >
-      <div
-        className="origin-top-left will-change-transform"
-        style={{
-          transform: `scale(${scale})`,
-          width: scale !== 1 ? `${100 / scale}%` : undefined,
-        }}
-      >
-        {children}
+      <div style={{ height: zoomed && contentH > 0 ? Math.ceil(contentH * scale) : undefined }}>
+        <div
+          ref={contentRef}
+          className="origin-top-left"
+          style={{
+            transform: zoomed ? `scale(${scale})` : undefined,
+            width: zoomed ? `${100 / scale}%` : undefined,
+            willChange: zoomed || pinching ? "transform" : undefined,
+          }}
+        >
+          {children}
+        </div>
       </div>
     </div>
   );
@@ -257,7 +280,14 @@ export function BracketZoomShell({
       }
       title={immersive ? "Return to brackets" : "Full bracket with every round open"}
       aria-label={immersive ? "Close photo view and return to brackets" : "View full bracket as photo"}
-      onClick={() => (immersive ? closePhoto() : setImmersive(true))}
+      onClick={() => {
+        if (immersive) {
+          closePhoto();
+        } else {
+          setScalePct(100);
+          setImmersive(true);
+        }
+      }}
     >
       {immersive ? "Close photo" : "View as photo"}
     </button>

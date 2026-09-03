@@ -63,7 +63,10 @@ export async function GET() {
   return NextResponse.json(manifest, {
     headers: {
       "content-type": "application/manifest+json",
-      "cache-control": "public, max-age=60",
+      // Branding here is resolved from the tournament cookie, so a shared cache would hand
+      // one organization's manifest to another. Keep it per-request and uncacheable.
+      "cache-control": "private, no-store, max-age=0, must-revalidate",
+      vary: "Cookie",
     },
   });
 }
