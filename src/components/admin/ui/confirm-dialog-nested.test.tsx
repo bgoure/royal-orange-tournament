@@ -7,7 +7,7 @@
  */
 import assert from "node:assert/strict";
 import { afterEach, describe, it } from "node:test";
-import { createElement, useState, type ReactNode } from "react";
+import { createElement, useEffect, useState, type ReactNode } from "react";
 import { createRoot, type Root } from "react-dom/client";
 import { act } from "react";
 import { JSDOM } from "jsdom";
@@ -32,6 +32,14 @@ Object.defineProperty(globalThis, "HTMLButtonElement", {
 });
 Object.defineProperty(globalThis, "getComputedStyle", {
   value: dom.window.getComputedStyle.bind(dom.window),
+  configurable: true,
+});
+Object.defineProperty(globalThis, "KeyboardEvent", {
+  value: dom.window.KeyboardEvent,
+  configurable: true,
+});
+Object.defineProperty(globalThis, "Event", {
+  value: dom.window.Event,
   configurable: true,
 });
 // React 19 / testing helpers sometimes touch these:
@@ -89,11 +97,29 @@ function RadixStyleModalShell({
 function NestedDeleteFixture({
   placeConfirm,
   onConfirm,
+  onEditorEscape,
 }: {
   placeConfirm: "inside" | "sibling";
   onConfirm: () => void;
+  /**
+   * Fired if Escape reaches the document in the bubble phase — i.e. the confirm
+   * failed to stopPropagation and the underlying editor would dismiss.
+   */
+  onEditorEscape?: () => void;
 }) {
   const [open, setOpen] = useState(false);
+
+  // Parent-editor Escape listener (bubble). ConfirmDialog handles Escape in
+  // capture and stopPropagation; if that works, this never runs.
+  useEffect(() => {
+    if (!onEditorEscape) return;
+    const onKeyDown = (event: KeyboardEvent) => {
+      if (event.key === "Escape") onEditorEscape();
+    };
+    document.addEventListener("keydown", onKeyDown);
+    return () => document.removeEventListener("keydown", onKeyDown);
+  }, [onEditorEscape]);
+
   const confirm = createElement(ConfirmDialog, {
     contained: placeConfirm === "inside",
     open,
@@ -247,6 +273,63 @@ describe("nested ConfirmDialog under Radix-style modal isolation", () => {
       trigger,
       "Cancel should restore focus to the Delete team trigger",
     );
+  });
+
+  it("Escape closes contained confirm without dismissing the editor or deleting", () => {
+    let confirmed = 0;
+    let editorEscapes = 0;
+    mount(
+      createElement(NestedDeleteFixture, {
+        placeConfirm: "inside",
+        onConfirm: () => {
+          confirmed += 1;
+        },
+        onEditorEscape: () => {
+          editorEscapes += 1;
+        },
+      }),
+    );
+
+    const trigger = document.querySelector<HTMLButtonElement>('[data-testid="delete-trigger"]')!;
+    const modal = document.querySelector('[data-testid="modal-content"]');
+    assert.ok(modal, "editor/modal shell should be mounted");
+
+    act(() => {
+      trigger.focus();
+      trigger.click();
+    });
+
+    assert.ok(
+      document.querySelector('[role="dialog"][aria-modal="true"]'),
+      "confirmation should be open",
+    );
+
+    act(() => {
+      document.dispatchEvent(
+        new KeyboardEvent("keydown", {
+          key: "Escape",
+          bubbles: true,
+          cancelable: true,
+        }),
+      );
+    });
+
+    assert.equal(
+      document.querySelector('[role="dialog"][aria-modal="true"]'),
+      null,
+      "Escape must close the confirmation",
+    );
+    assert.equal(
+      document.activeElement,
+      trigger,
+      "Escape cancel must restore focus to the Delete team trigger",
+    );
+    assert.ok(
+      document.querySelector('[data-testid="modal-content"]'),
+      "underlying editor/modal must remain open",
+    );
+    assert.equal(editorEscapes, 0, "Escape must not propagate to dismiss the editor");
+    assert.equal(confirmed, 0, "Escape must not dispatch the delete action");
   });
 
   it("sibling confirm outside modal content is not pointer-reachable (the P1 failure mode)", () => {
