@@ -44,6 +44,7 @@ import {
   OBA13_ROUND_5_REDRAW_NOTE,
   type Oba13Round5RedrawPool,
 } from "@/lib/services/oba-de-13";
+import { sameMeasuredHeights } from "@/components/brackets/bracket-zoom-layout";
 
 type WinnerEdge = {
   fromGameId: string;
@@ -644,14 +645,6 @@ function samePathList(a: DrawnPath[], b: DrawnPath[]): boolean {
   return true;
 }
 
-function sameHeightMap(a: Map<string, number>, b: Map<string, number>): boolean {
-  if (a.size !== b.size) return false;
-  for (const [id, h] of b) {
-    if (a.get(id) !== h) return false;
-  }
-  return true;
-}
-
 /** Layout-space rect (undo CSS zoom/scale so SVG paths stay aligned). */
 function layoutRect(el: HTMLElement, board: HTMLElement) {
   const er = el.getBoundingClientRect();
@@ -936,7 +929,7 @@ function ChronoBoard({
 
     // Card heights feed the layout pass, so land them first and let the resulting
     // render schedule the next measurement.
-    if (!sameHeightMap(heights, nextHeights)) {
+    if (!sameMeasuredHeights(heights, nextHeights)) {
       setHeights(nextHeights);
       return;
     }

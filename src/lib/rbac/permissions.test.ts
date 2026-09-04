@@ -29,10 +29,18 @@ describe("RBAC permissions", () => {
     assert.equal(can("SCOREKEEPER", "user:manageRoles"), false);
   });
 
-  it("PUBLIC cannot mutate", () => {
+  it("PUBLIC cannot mutate games", () => {
     assert.equal(can("PUBLIC", "game:read"), true);
     assert.equal(can("PUBLIC", "game:update"), false);
     assert.equal(can("PUBLIC", "game:create"), false);
+  });
+
+  it("PUBLIC and SCOREKEEPER cannot update teams or configure brackets (board save gates)", () => {
+    assert.equal(can("PUBLIC", "team:update"), false);
+    assert.equal(can("SCOREKEEPER", "team:update"), false);
+    assert.equal(can("PUBLIC", "bracket:configure"), false);
+    assert.equal(can("SCOREKEEPER", "bracket:configure"), false);
+    assert.equal(can("ADMIN", "team:update"), true);
   });
 });
 

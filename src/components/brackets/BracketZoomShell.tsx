@@ -14,6 +14,10 @@ import {
 import { createPortal } from "react-dom";
 import { DIVISION_SWIPE_IGNORE } from "@/lib/division-swipe-ignore";
 import { BracketDisplayFilters } from "@/components/brackets/BracketViewerPrefs";
+import {
+  NON_IMMERSIVE_BRACKET_SCROLL_CLASS,
+  reservedZoomHeight,
+} from "@/components/brackets/bracket-zoom-layout";
 
 const MIN_PCT = 50;
 const MAX_PCT = 200;
@@ -82,10 +86,14 @@ export function BracketZoomShell({
     () => false,
   );
   const [pinching, setPinching] = useState(false);
+  /** Layout width/reflow scale — frozen while pinching so cards don’t reflow mid-gesture. */
+  const [layoutScalePct, setLayoutScalePct] = useState(100);
   const tapRef = useRef<{ x: number; y: number; pinching: boolean } | null>(null);
   const contentRef = useRef<HTMLDivElement>(null);
   const [contentH, setContentH] = useState(0);
   const zoomed = scalePct !== 100;
+  const layoutScale = layoutScalePct / 100;
+  const layoutZoomed = layoutScalePct !== 100;
 
   // Layout height of the unscaled tree. Reserving `height * scale` keeps the scaled
   // tree from overflowing (and being clipped by) the horizontal scroller, so the
@@ -106,7 +114,8 @@ export function BracketZoomShell({
 
   const clampPct = useCallback((n: number) => Math.min(MAX_PCT, Math.max(MIN_PCT, Math.round(n))), []);
 
-  const setScale = useCallback(
+  /** Live visual scale (used during pinch). */
+  const setScaleLive = useCallback(
     (next: number | ((prev: number) => number)) => {
       setScalePct((prev) => {
         const raw = typeof next === "function" ? next(prev) : next;
@@ -114,6 +123,22 @@ export function BracketZoomShell({
       });
     },
     [clampPct],
+  );
+
+  /** Commit visual + layout scale together (buttons / pinch end). */
+  const commitScale = useCallback(
+    (next: number | ((prev: number) => number)) => {
+      setScalePct((prev) => {
+        const raw = typeof next === "function" ? next(prev) : next;
+        return clampPct(raw);
+      });
+      setLayoutScalePct(() => {
+        const visualPrev = scalePct;
+        const raw = typeof next === "function" ? next(visualPrev) : next;
+        return clampPct(raw);
+      });
+    },
+    [clampPct, scalePct],
   );
 
   useEffect(() => {
@@ -211,6 +236,7 @@ export function BracketZoomShell({
     if (e.touches.length < 2) {
       pinchRef.current = null;
       setPinching(false);
+      commitScale(scalePct);
       notifyZoomChange();
     }
     if (!immersive || e.touches.length > 0) return;
@@ -235,16 +261,16 @@ export function BracketZoomShell({
       if (pinchRef.current.startDist < 8) return;
       e.preventDefault();
       const next = pinchRef.current.startPct * (dist / pinchRef.current.startDist);
-      setScale(next);
+      setScaleLive(next);
     };
     el.addEventListener("touchmove", move, { passive: false });
     return () => el.removeEventListener("touchmove", move);
-  }, [setScale, immersive]);
+  }, [setScaleLive, immersive]);
 
   const scroller = (
     <div
       ref={scrollerRef}
-      className={immersive ? "h-full overflow-auto pb-2" : "overflow-x-auto pb-2"}
+      className={immersive ? "h-full overflow-auto pb-2" : NON_IMMERSIVE_BRACKET_SCROLL_CLASS}
       style={{
         WebkitOverflowScrolling: "touch",
         touchAction: "pan-x pan-y",
@@ -254,13 +280,14 @@ export function BracketZoomShell({
       onTouchEnd={onTouchEnd}
       onTouchCancel={onTouchEnd}
     >
-      <div style={{ height: zoomed && contentH > 0 ? Math.ceil(contentH * scale) : undefined }}>
+      <div style={{ height: reservedZoomHeight(contentH, scale) }}>
         <div
           ref={contentRef}
           className="origin-top-left"
           style={{
             transform: zoomed ? `scale(${scale})` : undefined,
-            width: zoomed ? `${100 / scale}%` : undefined,
+            // Freeze layout width while pinching so chrono cards/SVG don’t reflow mid-gesture.
+            width: layoutZoomed ? `${100 / layoutScale}%` : undefined,
             willChange: zoomed || pinching ? "transform" : undefined,
           }}
         >
@@ -285,6 +312,7 @@ export function BracketZoomShell({
           closePhoto();
         } else {
           setScalePct(100);
+          setLayoutScalePct(100);
           setImmersive(true);
         }
       }}
@@ -318,7 +346,7 @@ export function BracketZoomShell({
           className="inline-flex size-9 items-center justify-center rounded-lg border border-zinc-300 bg-white text-lg font-semibold text-zinc-800 shadow-sm disabled:opacity-40"
           aria-label="Zoom out"
           disabled={scalePct <= MIN_PCT}
-          onClick={() => setScale((p) => p - STEP_PCT)}
+          onClick={() => commitScale((p) => p - STEP_PCT)}
         >
           −
         </button>
@@ -326,7 +354,7 @@ export function BracketZoomShell({
           type="button"
           className="min-w-14 rounded-lg border border-zinc-300 bg-white px-2 py-1.5 text-xs font-semibold tabular-nums text-zinc-800 shadow-sm"
           aria-label="Reset zoom"
-          onClick={() => setScale(100)}
+          onClick={() => commitScale(100)}
         >
           {scalePct}%
         </button>
@@ -335,7 +363,7 @@ export function BracketZoomShell({
           className="inline-flex size-9 items-center justify-center rounded-lg border border-zinc-300 bg-white text-lg font-semibold text-zinc-800 shadow-sm disabled:opacity-40"
           aria-label="Zoom in"
           disabled={scalePct >= MAX_PCT}
-          onClick={() => setScale((p) => p + STEP_PCT)}
+          onClick={() => commitScale((p) => p + STEP_PCT)}
         >
           +
         </button>

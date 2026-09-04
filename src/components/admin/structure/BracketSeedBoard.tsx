@@ -4,6 +4,7 @@ import {
   startTransition,
   useActionState,
   useMemo,
+  useReducer,
   useState,
   type DragEvent,
   type KeyboardEvent,
@@ -14,25 +15,27 @@ import {
   type BracketActionResult,
 } from "@/app/admin/_actions/brackets";
 import { ActionMessage } from "@/components/admin/structure/ActionMessage";
+import {
+  bankTeams as filterBankTeams,
+  byeSeedsReady as computeByeSeedsReady,
+  createBaseline,
+  createInitialSeedBoardState,
+  isBoardDirty,
+  seedBoardReducer,
+  selectionToPayload,
+  toSavePayload,
+  type DragPayload,
+  type SeedBoardMatch,
+  type SeedBoardSide,
+  type SeedBoardTeam,
+  type SlotSide,
+} from "@/components/admin/structure/bracket-seed-board-state";
 
-export type SeedBoardTeam = { id: string; name: string };
+export type { SeedBoardTeam, SeedBoardSide, SeedBoardMatch };
 
 export type ByeSeedSeatProp = {
   label: string;
   team: SeedBoardTeam | null;
-};
-
-export type SeedBoardSide =
-  | { kind: "team"; teamId: string; name: string }
-  | { kind: "bye" }
-  | { kind: "empty" };
-
-export type SeedBoardMatch = {
-  matchId: string;
-  matchIndex: number;
-  home: SeedBoardSide;
-  away: SeedBoardSide;
-  locked: boolean;
 };
 
 export type SeedBoardProps = {
@@ -41,62 +44,9 @@ export type SeedBoardProps = {
   teams: SeedBoardTeam[];
   matches: SeedBoardMatch[];
   canConfigure: boolean;
-  /** Named format preset (e.g. oba_de_5) — adjusts Round 1 seeding copy. */
   presetKey?: string | null;
-  /**
-   * Mid-bracket bye-seed seats (discovered from feeders: one open side + one feeder).
-   * Used for OBA 5–7 and any map with the same shape.
-   */
   byeSeedSeats?: ByeSeedSeatProp[];
 };
-
-type SlotSide = "home" | "away";
-type DragPayload =
-  | { type: "team"; teamId: string; from?: { matchId: string; side: SlotSide } }
-  | { type: "bye"; from?: { matchId: string; side: SlotSide } };
-
-type BoardSnapshot = {
-  matches: SeedBoardMatch[];
-  byeSeedIds: (string | null)[];
-};
-
-type Selection =
-  | { kind: "team"; teamId: string }
-  | { kind: "bye" }
-  | null;
-
-function sideToSave(side: SeedBoardSide): { bye: true } | { teamId: string } {
-  if (side.kind === "team") return { teamId: side.teamId };
-  return { bye: true };
-}
-
-function sidesEqual(a: SeedBoardSide, b: SeedBoardSide): boolean {
-  if (a.kind !== b.kind) return false;
-  if (a.kind === "team" && b.kind === "team") return a.teamId === b.teamId;
-  return true;
-}
-
-function snapshotsEqual(a: BoardSnapshot, b: BoardSnapshot): boolean {
-  if (a.byeSeedIds.length !== b.byeSeedIds.length) return false;
-  for (let i = 0; i < a.byeSeedIds.length; i++) {
-    if (a.byeSeedIds[i] !== b.byeSeedIds[i]) return false;
-  }
-  if (a.matches.length !== b.matches.length) return false;
-  for (let i = 0; i < a.matches.length; i++) {
-    const x = a.matches[i]!;
-    const y = b.matches[i]!;
-    if (x.matchId !== y.matchId) return false;
-    if (!sidesEqual(x.home, y.home) || !sidesEqual(x.away, y.away)) return false;
-  }
-  return true;
-}
-
-function cloneSnapshot(s: BoardSnapshot): BoardSnapshot {
-  return {
-    matches: s.matches.map((m) => ({ ...m, home: { ...m.home }, away: { ...m.away } })),
-    byeSeedIds: [...s.byeSeedIds],
-  };
-}
 
 export function BracketSeedBoard({
   bracketId,
@@ -107,26 +57,23 @@ export function BracketSeedBoard({
   presetKey,
   byeSeedSeats = [],
 }: SeedBoardProps) {
-  const baseline = useMemo<BoardSnapshot>(
-    () => ({
-      matches: initialMatches,
-      byeSeedIds: byeSeedSeats.map((s) => s.team?.id ?? null),
-    }),
+  const baseline = useMemo(
+    () =>
+      createBaseline(
+        initialMatches,
+        byeSeedSeats.map((s) => s.team?.id ?? null),
+      ),
     [initialMatches, byeSeedSeats],
   );
 
-  const [matches, setMatches] = useState(initialMatches);
-  const [byeSeedIds, setByeSeedIds] = useState<(string | null)[]>(() =>
-    byeSeedSeats.map((s) => s.team?.id ?? null),
-  );
-  const [undoStack, setUndoStack] = useState<BoardSnapshot[]>([]);
+  const [board, dispatch] = useReducer(seedBoardReducer, baseline, createInitialSeedBoardState);
   const [drag, setDrag] = useState<DragPayload | null>(null);
-  const [selection, setSelection] = useState<Selection>(null);
-  const [ackImpact, setAckImpact] = useState(false);
-  const [state, formAction, pending] = useActionState(
+  const [actionState, formAction, pending] = useActionState(
     saveBracketRoundZeroSeeding,
     undefined as BracketActionResult | undefined,
   );
+
+  const { matches, byeSeedIds, undoStack, selection, ackImpact } = board;
 
   const teamNameById = useMemo(() => {
     const m = new Map(teams.map((t) => [t.id, t.name]));
@@ -141,220 +88,67 @@ export function BracketSeedBoard({
     return m;
   }, [teams, initialMatches, byeSeedSeats]);
 
-  const placedTeamIds = useMemo(() => {
-    const ids = new Set<string>();
-    for (const match of matches) {
-      if (match.home.kind === "team") ids.add(match.home.teamId);
-      if (match.away.kind === "team") ids.add(match.away.teamId);
-    }
-    for (const id of byeSeedIds) {
-      if (id) ids.add(id);
-    }
-    return ids;
-  }, [matches, byeSeedIds]);
-
-  const bankTeams = teams.filter((t) => !placedTeamIds.has(t.id));
+  const bankTeams = filterBankTeams(teams, board);
   const anyLocked = matches.some((m) => m.locked);
   const editable = canConfigure && !anyLocked;
-  const currentSnap: BoardSnapshot = { matches, byeSeedIds };
-  const dirty = !snapshotsEqual(currentSnap, baseline);
+  const dirty = isBoardDirty(board, baseline);
 
   const slotErrorByMatch = useMemo(() => {
     const map = new Map<string, string[]>();
-    if (!state || state.ok || !state.slotErrors) return map;
-    for (const err of state.slotErrors) {
+    if (!actionState || actionState.ok || !actionState.slotErrors) return map;
+    for (const err of actionState.slotErrors) {
       if (!err.matchId) continue;
       const list = map.get(err.matchId) ?? [];
       list.push(err.message);
       map.set(err.matchId, list);
     }
     return map;
-  }, [state]);
+  }, [actionState]);
 
-  function pushUndo() {
-    setUndoStack((s) => [...s.slice(-19), cloneSnapshot({ matches, byeSeedIds })]);
-  }
-
-  function resetBoard() {
-    setMatches(baseline.matches.map((m) => ({ ...m, home: { ...m.home }, away: { ...m.away } })));
-    setByeSeedIds([...baseline.byeSeedIds]);
-    setUndoStack([]);
-    setSelection(null);
-    setAckImpact(false);
-  }
-
-  function undoLast() {
-    setUndoStack((stack) => {
-      if (stack.length === 0) return stack;
-      const prev = stack[stack.length - 1]!;
-      setMatches(prev.matches);
-      setByeSeedIds(prev.byeSeedIds);
-      setSelection(null);
-      return stack.slice(0, -1);
-    });
-  }
-
-  function clearSide(matchId: string, side: SlotSide) {
-    if (!editable) return;
-    pushUndo();
-    setMatches((prev) =>
-      prev.map((m) =>
-        m.matchId === matchId ? { ...m, [side]: { kind: "empty" as const } } : m,
-      ),
-    );
-  }
-
-  function removeTeamFromByeSeeds(teamId: string) {
-    setByeSeedIds((prev) => prev.map((id) => (id === teamId ? null : id)));
+  function placeOn(matchId: string, side: SlotSide, payload: DragPayload) {
+    dispatch({ type: "PLACE_ON", matchId, side, payload, teamNameById, editable });
   }
 
   function placeOnByeSeed(index: number, payload: DragPayload) {
-    if (payload.type !== "team") return;
-    pushUndo();
-    let displaced: string | null = null;
-    setByeSeedIds((prev) => {
-      const next = [...prev];
-      displaced = next[index] ?? null;
-      for (let i = 0; i < next.length; i++) {
-        if (next[i] === payload.teamId) next[i] = null;
-      }
-      next[index] = payload.teamId;
-      return next;
-    });
-    setMatches((prev) => {
-      let next = prev.map((m) => {
-        let home = m.home;
-        let away = m.away;
-        if (home.kind === "team" && home.teamId === payload.teamId) home = { kind: "empty" };
-        if (away.kind === "team" && away.teamId === payload.teamId) away = { kind: "empty" };
-        return home === m.home && away === m.away ? m : { ...m, home, away };
-      });
-      if (payload.from && displaced) {
-        const { matchId: fromId, side: fromSide } = payload.from;
-        const swapTeamId = displaced;
-        next = next.map((m) =>
-          m.matchId === fromId
-            ? {
-                ...m,
-                [fromSide]: {
-                  kind: "team" as const,
-                  teamId: swapTeamId,
-                  name: teamNameById.get(swapTeamId) ?? "Team",
-                },
-              }
-            : m,
-        );
-      } else if (payload.from) {
-        const { matchId: fromId, side: fromSide } = payload.from;
-        next = next.map((m) =>
-          m.matchId === fromId ? { ...m, [fromSide]: { kind: "empty" as const } } : m,
-        );
-      }
-      return next;
-    });
-    setSelection(null);
+    dispatch({ type: "PLACE_BYE_SEED", index, payload, teamNameById, editable });
   }
 
-  function placeOn(matchId: string, side: SlotSide, payload: DragPayload) {
-    const target = matches.find((m) => m.matchId === matchId);
-    if (!target || target.locked) return;
-    pushUndo();
-    if (payload.type === "team") {
-      removeTeamFromByeSeeds(payload.teamId);
-    }
-    setMatches((prev) => {
-      const current = prev.find((m) => m.matchId === matchId);
-      if (!current || current.locked) return prev;
-
-      const incoming: SeedBoardSide =
-        payload.type === "bye"
-          ? { kind: "bye" }
-          : {
-              kind: "team",
-              teamId: payload.teamId,
-              name: teamNameById.get(payload.teamId) ?? "Team",
-            };
-
-      const displaced = current[side];
-      let next = prev.map((m) =>
-        m.matchId === matchId ? { ...m, [side]: incoming } : m,
-      );
-
-      if (payload.from) {
-        const { matchId: fromId, side: fromSide } = payload.from;
-        if (fromId !== matchId || fromSide !== side) {
-          const swapIn: SeedBoardSide =
-            displaced.kind === "empty" ? { kind: "empty" } : displaced;
-          next = next.map((m) =>
-            m.matchId === fromId ? { ...m, [fromSide]: swapIn } : m,
-          );
-        }
-      } else if (payload.type === "team") {
-        next = next.map((m) => {
-          if (m.matchId === matchId) return m;
-          let home = m.home;
-          let away = m.away;
-          if (home.kind === "team" && home.teamId === payload.teamId) home = { kind: "empty" };
-          if (away.kind === "team" && away.teamId === payload.teamId) away = { kind: "empty" };
-          return home === m.home && away === m.away ? m : { ...m, home, away };
-        });
-      }
-
-      return next;
-    });
-    setSelection(null);
+  function clearSide(matchId: string, side: SlotSide) {
+    dispatch({ type: "CLEAR_SIDE", matchId, side, editable });
   }
 
-  function selectionToPayload(): DragPayload | null {
-    if (!selection) return null;
-    if (selection.kind === "bye") return { type: "bye" };
-    // Find origin if seated
-    for (const match of matches) {
-      if (match.home.kind === "team" && match.home.teamId === selection.teamId) {
-        return { type: "team", teamId: selection.teamId, from: { matchId: match.matchId, side: "home" } };
-      }
-      if (match.away.kind === "team" && match.away.teamId === selection.teamId) {
-        return { type: "team", teamId: selection.teamId, from: { matchId: match.matchId, side: "away" } };
-      }
-    }
-    return { type: "team", teamId: selection.teamId };
+  function resetBoard() {
+    dispatch({ type: "RESET", baseline });
+  }
+
+  function undoLast() {
+    dispatch({ type: "UNDO" });
   }
 
   function applySelectionToSeat(matchId: string, side: SlotSide) {
-    const payload = selectionToPayload();
+    const payload = selectionToPayload(selection, matches);
     if (!payload) return;
     placeOn(matchId, side, payload);
   }
 
   function applySelectionToByeSeed(index: number) {
-    const payload = selectionToPayload();
+    const payload = selectionToPayload(selection, matches);
     if (!payload || payload.type !== "team") return;
     placeOnByeSeed(index, payload);
   }
 
   function toggleTeamSelection(teamId: string) {
-    if (!editable) return;
-    setSelection((cur) =>
-      cur?.kind === "team" && cur.teamId === teamId ? null : { kind: "team", teamId },
-    );
+    dispatch({ type: "TOGGLE_TEAM", teamId, editable });
   }
 
   function toggleByeSelection() {
-    if (!editable) return;
-    setSelection((cur) => (cur?.kind === "bye" ? null : { kind: "bye" }));
+    dispatch({ type: "TOGGLE_BYE", editable });
   }
 
-  const slotsJson = JSON.stringify(
-    matches.map((m) => ({
-      matchId: m.matchId,
-      home: sideToSave(m.home),
-      away: sideToSave(m.away),
-    })),
-  );
-  const byeSeedTeamIdsJson = JSON.stringify(byeSeedIds.filter((id): id is string => id != null));
-  const byeSeedsReady =
-    byeSeedSeats.length === 0 ||
-    (byeSeedIds.length === byeSeedSeats.length && byeSeedIds.every((id) => id != null));
+  const savePayload = toSavePayload(board);
+  const slotsJson = JSON.stringify(savePayload.slots);
+  const byeSeedTeamIdsJson = JSON.stringify(savePayload.byeSeedTeamIds);
+  const byeSeedsReady = computeByeSeedsReady(byeSeedSeats.length, byeSeedIds);
 
   const selectedLabel =
     selection?.kind === "bye"
@@ -363,7 +157,7 @@ export function BracketSeedBoard({
         ? teamNameById.get(selection.teamId) ?? "Team"
         : null;
 
-  const needsAck = Boolean(state && !state.ok && state.requiresAck);
+  const needsAck = Boolean(actionState && !actionState.ok && actionState.requiresAck);
 
   return (
     <div className="rounded-xl border border-emerald-200 bg-emerald-50/40 p-4">
@@ -429,8 +223,8 @@ export function BracketSeedBoard({
       </div>
 
       <div className="mt-3">
-        <ActionMessage state={state} />
-        {state?.ok ? (
+        <ActionMessage state={actionState} />
+        {actionState?.ok ? (
           <p className="rounded-md bg-emerald-50 px-3 py-2 text-sm text-emerald-900 ring-1 ring-emerald-200">
             Round 1 seeding saved.
           </p>
@@ -441,7 +235,7 @@ export function BracketSeedBoard({
               type="checkbox"
               className="mt-0.5"
               checked={ackImpact}
-              onChange={(e) => setAckImpact(e.target.checked)}
+              onChange={(e) => dispatch({ type: "SET_ACK", value: e.target.checked })}
             />
             <span>
               I understand later-round seats will be cleared for unplayed games. This does not delete
@@ -468,7 +262,7 @@ export function BracketSeedBoard({
           Selected: <strong>{selectedLabel}</strong> — tap an Away/Home seat
           {byeSeedSeats.length > 0 ? " or bye-seed slot" : ""} to place
           {selection?.kind === "team" ? " / swap" : ""}.{" "}
-          <button type="button" className="font-medium underline" onClick={() => setSelection(null)}>
+          <button type="button" className="font-medium underline" onClick={() => dispatch({ type: "CLEAR_SELECTION" })}>
             Cancel
           </button>
         </p>
@@ -610,9 +404,9 @@ export function BracketSeedBoard({
                   {byeSeedSeats.map((seat, index) => {
                     const teamId = byeSeedIds[index] ?? null;
                     const byeErr =
-                      state &&
-                      !state.ok &&
-                      state.slotErrors?.find((e) => e.byeSeedIndex === index)?.message;
+                      actionState &&
+                      !actionState.ok &&
+                      actionState.slotErrors?.find((e) => e.byeSeedIndex === index)?.message;
                     return (
                       <div
                         key={`${seat.label}-${index}`}
@@ -660,9 +454,7 @@ export function BracketSeedBoard({
                                 if (selection) {
                                   applySelectionToByeSeed(index);
                                 } else {
-                                  setByeSeedIds((prev) =>
-                                    prev.map((id, i) => (i === index ? null : id)),
-                                  );
+                                  dispatch({ type: "CLEAR_BYE_SEED", index, editable });
                                 }
                               }}
                               title="Click to remove · drag or select to move"
@@ -698,7 +490,13 @@ export function BracketSeedBoard({
                 onDrop={() => {
                   if (drag?.type === "team" || drag?.type === "bye") {
                     if (drag.from) clearSide(drag.from.matchId, drag.from.side);
-                    else if (drag.type === "team") removeTeamFromByeSeeds(drag.teamId);
+                    else if (drag.type === "team") {
+                      dispatch({
+                        type: "REMOVE_TEAM_FROM_BYE_SEEDS",
+                        teamId: drag.teamId,
+                        editable,
+                      });
+                    }
                     setDrag(null);
                   }
                 }}
