@@ -2,6 +2,7 @@ import type { Prisma } from "@prisma/client";
 import { GameKind, GameStatus } from "@prisma/client";
 import { divisionTabGameWhere } from "@/lib/division-tabs";
 import { prisma } from "@/lib/db";
+import { publicPlayableGameClause } from "@/lib/services/public-playable-games";
 import { teamWithPublicLogoInclude } from "@/lib/team-logo";
 
 /** On the public site, hide consolation games until that division’s playoff bracket is published. */
@@ -119,6 +120,7 @@ function sortGamesForScheduleList<T extends { gameNumber: string | null; schedul
 export async function listGamesForTournament(tournamentId: string, filters: GameListFilters = {}) {
   const conditions: Prisma.GameWhereInput[] = [
     { tournamentId },
+    publicPlayableGameClause(),
     publicConsolationVisibilityClause(),
     hideUnusedPlayoffSlotsClause(),
   ];
@@ -158,6 +160,7 @@ export async function listGamesForTournament(tournamentId: string, filters: Game
 export async function listFinalGamesForTournament(tournamentId: string, filters: GameListFilters = {}) {
   const conditions: Prisma.GameWhereInput[] = [
     { tournamentId },
+    publicPlayableGameClause(),
     publicConsolationVisibilityClause(),
     hideUnusedPlayoffSlotsClause(),
     { status: { in: PUBLIC_RECENT_RESULT_STATUSES } },
@@ -206,6 +209,7 @@ async function listGameFilterFacets(
 ): Promise<ScheduleFilterFacets> {
   const conditions: Prisma.GameWhereInput[] = [
     { tournamentId },
+    publicPlayableGameClause(),
     publicConsolationVisibilityClause(),
     hideUnusedPlayoffSlotsClause(),
   ];
@@ -296,6 +300,7 @@ export async function listUpcomingGamesForHome(
       status: { notIn: HOME_UPCOMING_EXCLUDED_STATUSES },
       OR: [{ scheduledAt: { gte: now } }, { status: GameStatus.LIVE }],
     },
+    publicPlayableGameClause(),
     publicConsolationVisibilityClause(),
   ];
   const divW = divisionTabGameWhere(divisionTabId);
@@ -321,6 +326,7 @@ export async function listGamesForFavoriteTeamIds(
 
   const conditions: Prisma.GameWhereInput[] = [
     { tournamentId },
+    publicPlayableGameClause(),
     publicConsolationVisibilityClause(),
     {
       OR: [{ homeTeamId: { in: unique } }, { awayTeamId: { in: unique } }],
@@ -344,6 +350,7 @@ export async function listRecentGamesForHome(
 ) {
   const conditions: Prisma.GameWhereInput[] = [
     { tournamentId },
+    publicPlayableGameClause(),
     publicConsolationVisibilityClause(),
     hideUnusedPlayoffSlotsClause(),
     { status: { in: PUBLIC_RECENT_RESULT_STATUSES } },

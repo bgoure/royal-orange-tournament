@@ -5,6 +5,7 @@ import { jsPDF } from "jspdf";
 import { domToPng } from "modern-screenshot";
 import { BracketExportSurface } from "@/components/brackets/BracketExportSurface";
 import type { BracketWith, GameRow } from "@/components/brackets/bracket-types";
+import { BlockingModal } from "@/components/ui/BlockingModal";
 import {
   BRACKET_EXPORT_PAGE_IN_H,
   BRACKET_EXPORT_PAGE_IN_W,
@@ -40,6 +41,7 @@ export function BracketExportControls({
   const liveId = useId();
   const [job, setJob] = useState<Job | null>(null);
   const [error, setError] = useState<string | null>(null);
+  const [pickerOpen, setPickerOpen] = useState(false);
   const jobRef = useRef(job);
   jobRef.current = job;
 
@@ -78,24 +80,49 @@ export function BracketExportControls({
     [tournamentName, divisionName],
   );
 
+  const startJob = (format: Format) => {
+    setError(null);
+    setPickerOpen(false);
+    setJob({ format, nonce: Date.now() });
+  };
+
   if (brackets.length === 0) return null;
 
   const busy = job != null;
   const iconBtn =
     "inline-flex size-9 items-center justify-center rounded-lg border border-zinc-300 bg-white text-zinc-800 shadow-sm hover:bg-zinc-50 disabled:opacity-50";
+  const textBtn =
+    "inline-flex min-h-11 w-full items-center justify-center rounded-lg border border-zinc-300 bg-white px-3 py-2 text-sm font-semibold text-zinc-800 hover:bg-zinc-50 disabled:opacity-50";
 
   return (
     <div className="print:hidden">
-      <div className="flex items-center gap-1.5">
+      <div className="flex items-center gap-1.5 md:hidden">
+        <button
+          type="button"
+          disabled={busy}
+          aria-label={job ? `Preparing ${job.format.toUpperCase()}` : "Download bracket"}
+          title="Download"
+          onClick={() => setPickerOpen(true)}
+          className={iconBtn}
+        >
+          {busy ? (
+            <span className="text-[10px] font-semibold">…</span>
+          ) : (
+            <svg viewBox="0 0 24 24" className="size-5" fill="none" stroke="currentColor" strokeWidth={1.75} aria-hidden>
+              <path d="M12 4v11" strokeLinecap="round" />
+              <path d="M7 11l5 5 5-5" strokeLinecap="round" strokeLinejoin="round" />
+              <path d="M5 19h14" strokeLinecap="round" />
+            </svg>
+          )}
+        </button>
+      </div>
+      <div className="hidden items-center gap-1.5 md:flex">
         <button
           type="button"
           disabled={busy}
           aria-label={busy && job.format === "png" ? "Preparing PNG" : "Download PNG"}
           title="Download PNG of the full expanded bracket"
-          onClick={() => {
-            setError(null);
-            setJob({ format: "png", nonce: Date.now() });
-          }}
+          onClick={() => startJob("png")}
           className={iconBtn}
         >
           {busy && job.format === "png" ? (
@@ -113,10 +140,7 @@ export function BracketExportControls({
           disabled={busy}
           aria-label={busy && job.format === "pdf" ? "Preparing PDF" : "Download PDF"}
           title="Download PDF"
-          onClick={() => {
-            setError(null);
-            setJob({ format: "pdf", nonce: Date.now() });
-          }}
+          onClick={() => startJob("pdf")}
           className={iconBtn}
         >
           {busy && job.format === "pdf" ? (
@@ -141,6 +165,21 @@ export function BracketExportControls({
           )}
         </button>
       </div>
+      <BlockingModal
+        open={pickerOpen}
+        title="Download bracket"
+        onClose={() => setPickerOpen(false)}
+        closeLabel="Cancel"
+      >
+        <div className="flex flex-col gap-2">
+          <button type="button" disabled={busy} className={textBtn} onClick={() => startJob("png")}>
+            Download as PNG
+          </button>
+          <button type="button" disabled={busy} className={textBtn} onClick={() => startJob("pdf")}>
+            Download as PDF
+          </button>
+        </div>
+      </BlockingModal>
       {error ? (
         <p className="mt-1 text-sm text-red-700" role="alert">
           {error}

@@ -5,6 +5,7 @@ import {
   useCallback,
   useContext,
   useId,
+  useState,
   useSyncExternalStore,
   type ReactNode,
 } from "react";
@@ -14,6 +15,7 @@ import {
   writeBracketDisplayPrefs,
   type BracketDisplayPrefs,
 } from "@/lib/brackets/bracket-viewer-prefs";
+import { BlockingModal } from "@/components/ui/BlockingModal";
 
 // The prefs cookie is an external store: keeping it outside React lets the first
 // client render already use the saved value, while SSR/hydration uses the defaults.
@@ -107,18 +109,21 @@ function FilterChip({
   );
 }
 
-export function BracketDisplayFilters() {
+export function BracketDisplayFilters({ variant = "chips" }: { variant?: "chips" | "funnel" }) {
   const uid = useId();
   const { prefs, setPrefs } = useContext(BracketViewerPrefsContext);
   const patch = (partial: Partial<BracketDisplayPrefs>) => setPrefs({ ...prefs, ...partial });
+  const [open, setOpen] = useState(false);
 
-  return (
+  const chips = (
     <div
       className="flex min-w-0 flex-wrap items-center gap-1.5"
       role="group"
       aria-label="Bracket card display options"
     >
-      <span className="text-[11px] font-medium uppercase tracking-wide text-zinc-500">Show</span>
+      {variant === "chips" ? (
+        <span className="text-[11px] font-medium uppercase tracking-wide text-zinc-500">Show</span>
+      ) : null}
       <FilterChip
         id={`${uid}-datetime`}
         label="Date / time"
@@ -146,4 +151,27 @@ export function BracketDisplayFilters() {
       />
     </div>
   );
+
+  if (variant === "funnel") {
+    return (
+      <>
+        <button
+          type="button"
+          className="inline-flex size-9 items-center justify-center rounded-lg border border-zinc-300 bg-white text-zinc-800 shadow-sm hover:bg-zinc-50"
+          aria-label="Bracket display filters"
+          title="Filters"
+          onClick={() => setOpen(true)}
+        >
+          <svg viewBox="0 0 24 24" className="size-5" fill="none" stroke="currentColor" strokeWidth={1.75} aria-hidden>
+            <path d="M4 5h16l-6.5 7.5v5L10.5 20v-7.5L4 5z" strokeLinejoin="round" />
+          </svg>
+        </button>
+        <BlockingModal open={open} title="Show on cards" onClose={() => setOpen(false)} closeLabel="Close">
+          {chips}
+        </BlockingModal>
+      </>
+    );
+  }
+
+  return chips;
 }

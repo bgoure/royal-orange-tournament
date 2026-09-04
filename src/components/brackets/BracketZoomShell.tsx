@@ -270,6 +270,37 @@ export function BracketZoomShell({
     </div>
   );
 
+  const photoIconButton = (
+    <button
+      type="button"
+      className={
+        immersive
+          ? "inline-flex size-11 items-center justify-center rounded-lg bg-royal text-white shadow-sm"
+          : "inline-flex size-9 items-center justify-center rounded-lg border border-zinc-300 bg-white text-zinc-800 shadow-sm"
+      }
+      title={immersive ? "Return to brackets" : "Full bracket with every round open"}
+      aria-label={immersive ? "Close photo view and return to brackets" : "View full bracket as photo"}
+      onClick={() => {
+        if (immersive) {
+          closePhoto();
+        } else {
+          setScalePct(100);
+          setImmersive(true);
+        }
+      }}
+    >
+      {immersive ? (
+        <span className="text-xs font-semibold">Close</span>
+      ) : (
+        <svg viewBox="0 0 24 24" className="size-5" fill="none" stroke="currentColor" strokeWidth={1.75} aria-hidden>
+          <rect x="3" y="5" width="18" height="14" rx="2" />
+          <circle cx="8.5" cy="10" r="1.25" fill="currentColor" stroke="none" />
+          <path d="M21 16.5l-5.2-5.2a1.5 1.5 0 00-2.1 0L6 19" strokeLinecap="round" strokeLinejoin="round" />
+        </svg>
+      )}
+    </button>
+  );
+
   const photoButton = (
     <button
       type="button"
@@ -293,52 +324,59 @@ export function BracketZoomShell({
     </button>
   );
 
+  const zoomControls = (
+    <div className="flex items-center gap-1">
+      <span className="mr-1 text-[11px] font-medium uppercase tracking-wide text-zinc-500">
+        Zoom
+      </span>
+      <button
+        type="button"
+        className="inline-flex size-9 items-center justify-center rounded-lg border border-zinc-300 bg-white text-lg font-semibold text-zinc-800 shadow-sm disabled:opacity-40"
+        aria-label="Zoom out"
+        disabled={scalePct <= MIN_PCT}
+        onClick={() => setScale((p) => p - STEP_PCT)}
+      >
+        −
+      </button>
+      <button
+        type="button"
+        className="min-w-14 rounded-lg border border-zinc-300 bg-white px-2 py-1.5 text-xs font-semibold tabular-nums text-zinc-800 shadow-sm"
+        aria-label="Reset zoom"
+        onClick={() => setScale(100)}
+      >
+        {scalePct}%
+      </button>
+      <button
+        type="button"
+        className="inline-flex size-9 items-center justify-center rounded-lg border border-zinc-300 bg-white text-lg font-semibold text-zinc-800 shadow-sm disabled:opacity-40"
+        aria-label="Zoom in"
+        disabled={scalePct >= MAX_PCT}
+        onClick={() => setScale((p) => p + STEP_PCT)}
+      >
+        +
+      </button>
+    </div>
+  );
+
   const toolbar = (
-    <div
-      className={`mb-2 grid grid-cols-[minmax(0,1fr)_auto_minmax(0,1fr)] items-center gap-2 ${
-        immersive ? "px-3" : ""
-      }`}
-      style={
-        immersive
-          ? { paddingTop: "max(0.75rem, env(safe-area-inset-top, 0px))" }
-          : undefined
-      }
-    >
-      <div className="flex min-w-0 flex-wrap items-center gap-1.5 justify-self-start">
-        {toolbarStart}
-        <BracketDisplayFilters />
+    <div className={immersive ? "px-3" : ""} style={immersive ? { paddingTop: "max(0.75rem, env(safe-area-inset-top, 0px))" } : undefined}>
+      <div className="mb-2 flex items-center justify-between gap-2 md:hidden">
+        <div className="flex min-w-0 items-center gap-1.5">
+          <BracketDisplayFilters variant="funnel" />
+          {toolbarStart}
+        </div>
+        <div className="flex items-center gap-1.5">
+          {immersive ? zoomControls : null}
+          {photoIconButton}
+        </div>
       </div>
-      <div className="justify-self-center">{photoButton}</div>
-      <div className={`items-center gap-1 justify-self-end ${immersive ? "flex" : "hidden md:flex"}`}>
-        <span className="mr-1 text-[11px] font-medium uppercase tracking-wide text-zinc-500">
-          Zoom
-        </span>
-        <button
-          type="button"
-          className="inline-flex size-9 items-center justify-center rounded-lg border border-zinc-300 bg-white text-lg font-semibold text-zinc-800 shadow-sm disabled:opacity-40"
-          aria-label="Zoom out"
-          disabled={scalePct <= MIN_PCT}
-          onClick={() => setScale((p) => p - STEP_PCT)}
-        >
-          −
-        </button>
-        <button
-          type="button"
-          className="min-w-14 rounded-lg border border-zinc-300 bg-white px-2 py-1.5 text-xs font-semibold tabular-nums text-zinc-800 shadow-sm"
-          aria-label="Reset zoom"
-          onClick={() => setScale(100)}
-        >
-          {scalePct}%
-        </button>
-        <button
-          type="button"
-          className="inline-flex size-9 items-center justify-center rounded-lg border border-zinc-300 bg-white text-lg font-semibold text-zinc-800 shadow-sm disabled:opacity-40"
-          aria-label="Zoom in"
-          disabled={scalePct >= MAX_PCT}
-          onClick={() => setScale((p) => p + STEP_PCT)}
-        >
-          +
-        </button>
+      <div className="mb-2 hidden grid-cols-[minmax(0,1fr)_auto_minmax(0,1fr)] items-center gap-2 md:grid">
+        <div className="flex min-w-0 flex-wrap items-center gap-1.5 justify-self-start">
+          {toolbarStart}
+          <BracketDisplayFilters />
+        </div>
+        <div className="justify-self-center">{photoButton}</div>
+        <div className="justify-self-end">{zoomControls}</div>
       </div>
     </div>
   );

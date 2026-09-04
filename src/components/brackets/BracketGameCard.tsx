@@ -201,6 +201,15 @@ export function BracketGameCard({
       : "Sit-out unassigned"
     : null;
 
+  const showTimeRow = !hasScore && (display.showGameNumber || display.showDateTime);
+  const showLocationMeta =
+    !hasScore &&
+    (showLivePill ||
+      showScheduleStatusPill ||
+      showPoolMeta ||
+      (game.gameKind === GameKind.CONSOLATION && game.division) ||
+      display.showLocation);
+
   return (
     <article
       className={`w-full rounded-2xl border border-white/45 shadow-[0_8px_30px_rgb(0,0,0,0.06)] backdrop-blur-md dark:border-zinc-600/55 dark:shadow-[0_8px_30px_rgb(0,0,0,0.25)] ${surfaceGradient} ${leftBorder} ${cardPadding}${quickShell}`}
@@ -214,7 +223,13 @@ export function BracketGameCard({
         </p>
       ) : null}
 
-      {display.showGameNumber || display.showDateTime ? (
+      {hasScore && display.showGameNumber ? (
+        <div className="flex items-center justify-center">
+          <span className="inline-block rounded-md bg-accent px-2.5 py-0.5 text-[11px] font-bold tabular-nums text-white">
+            {gameIdLabel}
+          </span>
+        </div>
+      ) : showTimeRow ? (
         <div className="flex flex-wrap items-center justify-center gap-x-2 gap-y-1">
           {display.showGameNumber ? (
             <span className="inline-block rounded-md bg-accent px-2.5 py-0.5 text-[11px] font-bold tabular-nums text-white">
@@ -229,7 +244,7 @@ export function BracketGameCard({
         </div>
       ) : null}
 
-      {showLivePill || showScheduleStatusPill || showPoolMeta || (game.gameKind === GameKind.CONSOLATION && game.division) || display.showLocation ? (
+      {showLocationMeta ? (
         <div className="mt-1.5 flex flex-col items-center gap-0.5 text-center">{metaRow}</div>
       ) : null}
 
@@ -248,37 +263,33 @@ export function BracketGameCard({
           ) : null}
         </div>
       ) : hasScore ? (
-        <div className="mt-1.5 space-y-2">
-          <div className="flex items-start justify-between gap-2">
-            <div className="flex min-w-0 flex-1 flex-col items-start gap-1">
-              <TeamLogoMark team={away.team} sizeClass={scoredLogoSize} />
-              {display.showTeamNames ? (
-                <p
-                  data-bracket-team-name
-                  className={`min-w-0 text-xs font-bold leading-snug text-zinc-900 dark:text-zinc-100 ${BRACKET_TEAM_NAME_CLASS} ${slotLineTextClass(away)}`}
-                >
-                  {away.primary}
-                  {!away.isPlaceholder ? maybeBracketAhTag(showHomeAway, "A") : null}
-                </p>
-              ) : null}
-            </div>
+        <div className="mt-1.5 space-y-1.5">
+          <div className="flex items-center gap-2">
+            <TeamLogoMark team={away.team} sizeClass={scoredLogoSize} />
+            {display.showTeamNames ? (
+              <p
+                data-bracket-team-name
+                className={`min-w-0 flex-1 text-xs font-bold leading-snug text-zinc-900 dark:text-zinc-100 ${BRACKET_TEAM_NAME_CLASS} ${slotLineTextClass(away)}`}
+              >
+                {away.primary}
+                {!away.isPlaceholder ? maybeBracketAhTag(showHomeAway, "A") : null}
+              </p>
+            ) : null}
             <span className="shrink-0 self-center text-base font-bold tabular-nums text-zinc-900 dark:text-zinc-100">
               {game.awayRuns}
             </span>
           </div>
-          <div className="flex items-start justify-between gap-2">
-            <div className="flex min-w-0 flex-1 flex-col items-start gap-1">
-              <TeamLogoMark team={home.team} sizeClass={scoredLogoSize} />
-              {display.showTeamNames ? (
-                <p
-                  data-bracket-team-name
-                  className={`min-w-0 text-xs font-bold leading-snug text-zinc-900 dark:text-zinc-100 ${BRACKET_TEAM_NAME_CLASS} ${slotLineTextClass(home)}`}
-                >
-                  {home.primary}
-                  {!home.isPlaceholder ? maybeBracketAhTag(showHomeAway, "H") : null}
-                </p>
-              ) : null}
-            </div>
+          <div className="flex items-center gap-2">
+            <TeamLogoMark team={home.team} sizeClass={scoredLogoSize} />
+            {display.showTeamNames ? (
+              <p
+                data-bracket-team-name
+                className={`min-w-0 flex-1 text-xs font-bold leading-snug text-zinc-900 dark:text-zinc-100 ${BRACKET_TEAM_NAME_CLASS} ${slotLineTextClass(home)}`}
+              >
+                {home.primary}
+                {!home.isPlaceholder ? maybeBracketAhTag(showHomeAway, "H") : null}
+              </p>
+            ) : null}
             <span className="shrink-0 self-center text-base font-bold tabular-nums text-zinc-900 dark:text-zinc-100">
               {game.homeRuns}
             </span>

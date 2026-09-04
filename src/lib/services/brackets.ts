@@ -1,5 +1,6 @@
 import { GameKind } from "@prisma/client";
 import { prisma } from "@/lib/db";
+import { publicPlayableGameClause } from "@/lib/services/public-playable-games";
 
 /** Shared shape for public bracket-style games (playoff + consolation). */
 export const publicBracketStyleGameInclude = {
@@ -49,7 +50,7 @@ export const publicBracketStyleGameInclude = {
  */
 export type BracketReadClient = { bracket: Pick<typeof prisma.bracket, "findMany"> };
 
-export type ListBracketsOptions = { publishedOnly?: boolean };
+export type ListBracketsOptions = { publishedOnly?: boolean; hideStructuralByes?: boolean };
 
 /**
  * Read-only. Public pages render from this, so it must never write — round-grouping
@@ -70,6 +71,7 @@ export async function listBracketsForTournament(
       division: { select: { id: true, name: true } },
       rounds: { orderBy: { roundIndex: "asc" } },
       games: {
+        ...(opts?.hideStructuralByes ? { where: publicPlayableGameClause() } : {}),
         orderBy: [{ bracketRound: { roundIndex: "asc" } }, { bracketPosition: "asc" }],
         include: {
           pool: { include: { division: true } },
@@ -125,6 +127,7 @@ export function listConsolationGamesForTournament(
     where: {
       tournamentId,
       gameKind: GameKind.CONSOLATION,
+      ...publicPlayableGameClause(),
       ...(opts?.publishedOnly
         ? {
             division: {

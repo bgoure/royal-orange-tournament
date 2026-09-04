@@ -9,7 +9,11 @@ import {
   formatScheduleDayGroupHeading,
   tournamentCalendarDayKey,
 } from "@/lib/datetime-tournament";
-import { playoffScheduleBracketCaption, poolFinishPlaceholderLabel } from "@/lib/brackets/bracket-display";
+import {
+  playoffScheduleBracketCaption,
+  playoffScheduleRoundOnlyLabel,
+  poolFinishPlaceholderLabel,
+} from "@/lib/brackets/bracket-display";
 import { isOba13SitOutGameNumber } from "@/lib/services/oba-de-13";
 import { brandCardGradientClass } from "@/lib/brand-card-gradient";
 import { publicGlassCardOverlay2xl } from "@/lib/public-glass-card";
@@ -232,6 +236,13 @@ function bracketCaptionForScheduleCard(g: GameWithTeams): string | null {
   });
 }
 
+function roundOnlyLabelForScheduleCard(g: GameWithTeams): string | null {
+  return playoffScheduleRoundOnlyLabel({
+    gameKind: g.gameKind,
+    bracketRound: g.bracketRound ?? undefined,
+  });
+}
+
 function GameCardInner({
   g,
   compact,
@@ -245,6 +256,7 @@ function GameCardInner({
   tournamentId,
   glassVariant = true,
   showHomeAway = true,
+  finalResultChrome = false,
 }: {
   g: GameWithTeams;
   compact?: boolean;
@@ -262,6 +274,8 @@ function GameCardInner({
   glassVariant?: boolean;
   /** Pool/RR tournaments show (A)/(H); bracket-only events hide them. */
   showHomeAway?: boolean;
+  /** Bracket-only Final cards: drop time/location/division; center G# + Final; round-only footer. */
+  finalResultChrome?: boolean;
 }) {
   const quickEdit = usePublicQuickGameEdit();
   const quickOpen = quickEdit?.enabled
@@ -391,6 +405,112 @@ function GameCardInner({
       <span className="min-w-0 break-words text-right">{g.field.name}</span>
     </div>
   );
+
+  const cardShadowFinal = muted ? "shadow-[0_1px_2px_rgba(0,0,0,0.05)]" : "shadow-[0_1px_3px_rgba(0,0,0,0.1)]";
+  const roundOnly = roundOnlyLabelForScheduleCard(g);
+
+  if (finalResultChrome && g.status === "FINAL") {
+    const scoredBlock = hasScore ? (
+      <div className={`mt-1.5 space-y-1 ${liveProminent ? "text-lg" : ""}`}>
+        <div className="flex min-w-0 items-center justify-between gap-2">
+          <div className="flex min-w-0 items-center gap-2">
+            <TeamLogoMark team={g.awayTeam} sizeClass={compact ? logoSize : scheduleLogoSize} className={logoTone} />
+            <p className={`min-w-0 truncate leading-snug ${awayNameCls}`}>
+              {awaySide.text}
+              {maybeAhSuffix(showHomeAway, "A")}
+            </p>
+            {tournamentId && g.awayTeamId ? (
+              <FavoriteTeamButton
+                tournamentId={tournamentId}
+                teamId={g.awayTeamId}
+                teamName={g.awayTeam?.name ?? undefined}
+                divisionId={divisionIdForFavorite}
+              />
+            ) : null}
+          </div>
+          <span className={`shrink-0 font-bold tabular-nums ${scoreTone} ${scoreNum}`}>{g.awayRuns}</span>
+        </div>
+        <div className="flex min-w-0 items-center justify-between gap-2">
+          <div className="flex min-w-0 items-center gap-2">
+            <TeamLogoMark team={g.homeTeam} sizeClass={compact ? logoSize : scheduleLogoSize} className={logoTone} />
+            <p className={`min-w-0 truncate leading-snug ${homeNameCls}`}>
+              {homeSide.text}
+              {maybeAhSuffix(showHomeAway, "H")}
+            </p>
+            {tournamentId && g.homeTeamId ? (
+              <FavoriteTeamButton
+                tournamentId={tournamentId}
+                teamId={g.homeTeamId}
+                teamName={g.homeTeam?.name ?? undefined}
+                divisionId={divisionIdForFavorite}
+              />
+            ) : null}
+          </div>
+          <span className={`shrink-0 font-bold tabular-nums ${scoreTone} ${scoreNum}`}>{g.homeRuns}</span>
+        </div>
+      </div>
+    ) : (
+      <div className="mt-1.5 min-w-0 space-y-0.5">
+        <p className={`flex min-w-0 items-center gap-2 leading-snug ${awayNameCls}`}>
+          <TeamLogoMark team={g.awayTeam} sizeClass={compact ? logoSize : scheduleLogoSize} className={logoTone} />
+          <span className="min-w-0 truncate">
+            {awaySide.text}
+            {maybeAhSuffix(showHomeAway, "A")}
+          </span>
+          {tournamentId && g.awayTeamId ? (
+            <FavoriteTeamButton
+              tournamentId={tournamentId}
+              teamId={g.awayTeamId}
+              teamName={g.awayTeam?.name ?? undefined}
+              divisionId={divisionIdForFavorite}
+            />
+          ) : null}
+          <span className={`shrink-0 font-normal ${vsTone}`}>vs</span>
+        </p>
+        <p className={`flex min-w-0 items-center gap-2 truncate leading-snug ${homeNameCls}`}>
+          <TeamLogoMark team={g.homeTeam} sizeClass={compact ? logoSize : scheduleLogoSize} className={logoTone} />
+          <span className="truncate">
+            {homeSide.text}
+            {maybeAhSuffix(showHomeAway, "H")}
+          </span>
+          {tournamentId && g.homeTeamId ? (
+            <FavoriteTeamButton
+              tournamentId={tournamentId}
+              teamId={g.homeTeamId}
+              teamName={g.homeTeam?.name ?? undefined}
+              divisionId={divisionIdForFavorite}
+            />
+          ) : null}
+        </p>
+      </div>
+    );
+
+    return (
+      <div
+        className={
+          glassVariant
+            ? `${publicGlassCardOverlay2xl} ${surfaceResolved} ${leftBorderResolved} ${compactShell}${quickShell}`
+            : `min-w-0 rounded-2xl border border-zinc-200 dark:border-zinc-700 ${cardShadowFinal} ${surfaceResolved} ${leftBorderResolved} ${compactShell}${quickShell}`
+        }
+        {...quickInteract}
+      >
+        <div className="flex items-center justify-center gap-2">
+          <span
+            className={`inline-block shrink-0 rounded-md px-2 py-0.5 text-[11px] font-bold tabular-nums ${idBadgeCls}`}
+          >
+            {gameIdDisplayLabel(g, fallbackSeq)}
+          </span>
+          <span className={`text-[10px] font-bold ${muted ? "text-zinc-500 dark:text-zinc-400" : "text-zinc-700 dark:text-zinc-200"}`}>
+            Final
+          </span>
+        </div>
+        {scoredBlock}
+        {roundOnly ? (
+          <p className={`mt-1 text-right text-[10px] leading-tight ${metaTone}`}>{roundOnly}</p>
+        ) : null}
+      </div>
+    );
+  }
 
   if (scheduleCompactLayout && !hasScore) {
     const timeLine = compact
@@ -710,6 +830,7 @@ function HorizontalGameRow({
   tournamentId,
   glassVariant = true,
   showHomeAway = true,
+  finalResultChrome = false,
 }: {
   rows: { g: GameWithTeams; fallbackSeq: number }[];
   liveProminent?: boolean;
@@ -722,6 +843,7 @@ function HorizontalGameRow({
   tournamentId?: string;
   glassVariant?: boolean;
   showHomeAway?: boolean;
+  finalResultChrome?: boolean;
 }) {
   return (
     <ul
@@ -743,6 +865,7 @@ function HorizontalGameRow({
               tournamentId={tournamentId}
               glassVariant={glassVariant}
               showHomeAway={showHomeAway}
+              finalResultChrome={finalResultChrome}
             />
           </AnimatedListItem>
         ) : (
@@ -760,6 +883,7 @@ function HorizontalGameRow({
             tournamentId={tournamentId}
             glassVariant={glassVariant}
             showHomeAway={showHomeAway}
+            finalResultChrome={finalResultChrome}
           />
         ),
       )}
@@ -782,6 +906,7 @@ export function GameList({
   tournamentId,
   glassVariant = true,
   showHomeAway = true,
+  finalResultChrome = false,
 }: {
   games: GameWithTeams[];
   /** Tournament IANA zone for “Live today” and schedule day grouping. */
@@ -807,6 +932,8 @@ export function GameList({
   glassVariant?: boolean;
   /** When false (bracket-only / no pool play), hide (A)/(H) markers. */
   showHomeAway?: boolean;
+  /** Bracket-only Final cards: no time/location/division; G# + Final on top; round-only footer. */
+  finalResultChrome?: boolean;
 }) {
   if (games.length === 0) {
     return (
@@ -869,6 +996,7 @@ export function GameList({
             tournamentId={tournamentId}
             glassVariant={glassVariant}
           showHomeAway={showHomeAway}
+          finalResultChrome={finalResultChrome}
           />
         ) : (
           <ul className="flex flex-col gap-2">
@@ -885,6 +1013,7 @@ export function GameList({
                 tournamentId={tournamentId}
                 glassVariant={glassVariant}
               showHomeAway={showHomeAway}
+              finalResultChrome={finalResultChrome}
               />
             ))}
           </ul>
@@ -908,6 +1037,7 @@ export function GameList({
             tournamentId={tournamentId}
             glassVariant={glassVariant}
           showHomeAway={showHomeAway}
+          finalResultChrome={finalResultChrome}
           />
         ) : null}
       </div>
@@ -922,7 +1052,7 @@ export function GameList({
   const restGrouped =
     activeByCalendarDay?.map(([dayKey, rows]) => (
       <section key={dayKey} className="flex flex-col gap-2">
-        <h2 className="sticky top-[4.75rem] z-30 -mx-1 border-b border-zinc-200/90 bg-white/90 px-1 py-2 text-sm font-bold text-zinc-900 backdrop-blur-md dark:border-zinc-700/90 dark:bg-zinc-950/90 dark:text-zinc-100 md:top-[5rem]">
+        <h2 className="sticky top-[calc(4.75rem+env(safe-area-inset-top,0px))] z-30 -mx-1 border-b border-zinc-200/90 bg-white/90 px-1 py-2 text-sm font-bold text-zinc-900 backdrop-blur-md dark:border-zinc-700/90 dark:bg-zinc-950/90 dark:text-zinc-100 md:top-[calc(5rem+env(safe-area-inset-top,0px))]">
           {formatScheduleDayGroupHeading(rows[0]!.g.scheduledAt, tz)}
         </h2>
         <ul className="flex flex-col gap-2">
@@ -938,6 +1068,7 @@ export function GameList({
               tournamentId={tournamentId}
               glassVariant={glassVariant}
             showHomeAway={showHomeAway}
+            finalResultChrome={finalResultChrome}
             />
           ))}
         </ul>
@@ -950,7 +1081,7 @@ export function GameList({
   const completedGrouped =
     completedByCalendarDay?.map(([dayKey, rows]) => (
       <section key={`completed-${dayKey}`} className="flex flex-col gap-2">
-        <h3 className="sticky top-[4.75rem] z-30 -mx-1 border-b border-zinc-200/90 bg-white/90 px-1 py-2 text-sm font-bold text-zinc-500 backdrop-blur-md dark:border-zinc-700/90 dark:bg-zinc-950/90 dark:text-zinc-400 md:top-[5rem]">
+        <h3 className="sticky top-[calc(4.75rem+env(safe-area-inset-top,0px))] z-30 -mx-1 border-b border-zinc-200/90 bg-white/90 px-1 py-2 text-sm font-bold text-zinc-500 backdrop-blur-md dark:border-zinc-700/90 dark:bg-zinc-950/90 dark:text-zinc-400 md:top-[calc(5rem+env(safe-area-inset-top,0px))]">
           {formatScheduleDayGroupHeading(rows[0]!.g.scheduledAt, tz)}
         </h3>
         <ul className="flex flex-col gap-2">
@@ -967,6 +1098,7 @@ export function GameList({
               tournamentId={tournamentId}
               glassVariant={glassVariant}
             showHomeAway={showHomeAway}
+            finalResultChrome={finalResultChrome}
             />
           ))}
         </ul>
@@ -996,6 +1128,7 @@ export function GameList({
                 tournamentId={tournamentId}
                 glassVariant={glassVariant}
               showHomeAway={showHomeAway}
+              finalResultChrome={finalResultChrome}
               />
             ))}
           </ul>
@@ -1023,6 +1156,7 @@ export function GameList({
                 tournamentId={tournamentId}
                 glassVariant={glassVariant}
               showHomeAway={showHomeAway}
+              finalResultChrome={finalResultChrome}
               />
             ))}
           </ul>

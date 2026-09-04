@@ -42,7 +42,7 @@ export function SiteHeader({
   });
 
   return (
-    <header className="sticky top-0 z-40 border-b border-royal-200/80 bg-royal-900/95 backdrop-blur-md">
+    <header className="sticky top-0 z-40 border-b border-royal-200/80 bg-royal-900/95 pt-[env(safe-area-inset-top,0px)] backdrop-blur-md">
       <div className="mx-auto flex max-w-5xl items-center justify-between gap-2 px-4 py-2.5 sm:gap-3 sm:py-3">
         <Link
           href={tp()}
