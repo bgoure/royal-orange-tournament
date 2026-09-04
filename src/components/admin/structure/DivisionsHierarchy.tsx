@@ -24,6 +24,7 @@ import { ActionBar } from "@/components/admin/ui/ActionBar";
 import { ConfirmDialog } from "@/components/admin/ui/ConfirmDialog";
 import { EntityEditorSheet } from "@/components/admin/ui/EntityEditorSheet";
 import { StatusBadge, type StatusTone } from "@/components/admin/ui/StatusBadge";
+import { useEditorFormUx } from "@/components/admin/ui/useEditorFormUx";
 import {
   createInitialEntitySheetState,
   entitySheetReducer,
@@ -163,15 +164,12 @@ function EditDivisionSheet({
   const [display, setDisplay] = useState(division);
   if (division != null && division !== display) setDisplay(division);
 
-  useEffect(() => {
-    if (!open) return;
-    if (updState?.ok) onClose();
-  }, [updState, open, onClose]);
-
-  useEffect(() => {
-    if (!open) return;
-    if (delState?.ok) onClose();
-  }, [delState, open, onClose]);
+  const ux = useEditorFormUx({
+    open,
+    onClose,
+    savedOk: Boolean(updState?.ok || delState?.ok),
+    nestedBusy: confirmDelete,
+  });
 
   if (!display) return null;
 
@@ -179,43 +177,65 @@ function EditDivisionSheet({
     <EntityEditorSheet
       open={open}
       onOpenChange={(next) => {
-        if (!next) onClose();
+        if (!next) ux.onCloseAttempt();
       }}
       title="Edit division"
       subtitle={display.name}
-      dismissible={!confirmDelete}
-      onCloseAttempt={() => !confirmDelete}
+      status={
+        ux.justSaved ? (
+          <StatusBadge tone="success">Saved</StatusBadge>
+        ) : ux.dirty ? (
+          <StatusBadge tone="warning">{ux.unsavedLabel}</StatusBadge>
+        ) : null
+      }
+      dismissible={ux.dismissible}
+      onCloseAttempt={ux.onCloseAttempt}
       overlay={
-        <ConfirmDialog
-          contained
-          open={confirmDelete && open}
-          title={`Delete “${display.name}”?`}
-          description={divisionDeleteConfirmDescription()}
-          confirmLabel="Delete division"
-          tone="danger"
-          busy={delPending}
-          onConfirm={() => {
-            if (delPending) return;
-            const fd = new FormData();
-            fd.set("id", display.id);
-            startTransition(() => {
-              void delAction(fd);
-            });
-          }}
-          onCancel={() => {
-            if (!delPending) setConfirmDelete(false);
-          }}
-        />
+        <>
+          <ConfirmDialog
+            contained
+            open={ux.discardOpen}
+            title={ux.discardTitle}
+            description={ux.discardDescription}
+            confirmLabel="Discard"
+            cancelLabel="Keep editing"
+            onConfirm={ux.confirmDiscard}
+            onCancel={ux.cancelDiscard}
+          />
+          <ConfirmDialog
+            contained
+            open={confirmDelete && open}
+            title={`Delete “${display.name}”?`}
+            description={divisionDeleteConfirmDescription()}
+            confirmLabel="Delete division"
+            tone="danger"
+            busy={delPending}
+            onConfirm={() => {
+              if (delPending) return;
+              const fd = new FormData();
+              fd.set("id", display.id);
+              startTransition(() => {
+                void delAction(fd);
+              });
+            }}
+            onCancel={() => {
+              if (!delPending) setConfirmDelete(false);
+            }}
+          />
+        </>
       }
       footer={
         <ActionBar align="end">
-          <button type="button" onClick={onClose} disabled={confirmDelete} className={btnSecondary}>
+          {ux.justSaved ? (
+            <p className="mr-auto text-sm font-medium text-emerald-800">Saved.</p>
+          ) : null}
+          <button type="button" onClick={() => ux.onCloseAttempt()} disabled={confirmDelete || ux.discardOpen} className={btnSecondary}>
             Cancel
           </button>
           <button
             type="submit"
             form="edit-division-form"
-            disabled={updPending || confirmDelete}
+            disabled={updPending || confirmDelete || ux.justSaved}
             className={btnPrimary}
           >
             {updPending ? "Saving…" : "Save changes"}
@@ -238,7 +258,12 @@ function EditDivisionSheet({
       }
     >
       <ErrorBanner message={updState && !updState.ok ? updState.error : undefined} />
-      <form id="edit-division-form" action={updAction} className="flex flex-col gap-5">
+      <form
+        id="edit-division-form"
+        action={updAction}
+        className="flex flex-col gap-5"
+        {...ux.formDirtyProps}
+      >
         <input type="hidden" name="id" value={display.id} />
         <div>
           <label htmlFor="edit-div-name" className={labelClass}>
@@ -379,15 +404,12 @@ function EditPoolSheet({
   const [display, setDisplay] = useState(pool);
   if (pool != null && pool !== display) setDisplay(pool);
 
-  useEffect(() => {
-    if (!open) return;
-    if (updState?.ok) onClose();
-  }, [updState, open, onClose]);
-
-  useEffect(() => {
-    if (!open) return;
-    if (delState?.ok) onClose();
-  }, [delState, open, onClose]);
+  const ux = useEditorFormUx({
+    open,
+    onClose,
+    savedOk: Boolean(updState?.ok || delState?.ok),
+    nestedBusy: confirmDelete,
+  });
 
   if (!display) return null;
 
@@ -395,43 +417,70 @@ function EditPoolSheet({
     <EntityEditorSheet
       open={open}
       onOpenChange={(next) => {
-        if (!next) onClose();
+        if (!next) ux.onCloseAttempt();
       }}
       title="Edit pool"
       subtitle={display.name}
-      dismissible={!confirmDelete}
-      onCloseAttempt={() => !confirmDelete}
+      status={
+        ux.justSaved ? (
+          <StatusBadge tone="success">Saved</StatusBadge>
+        ) : ux.dirty ? (
+          <StatusBadge tone="warning">{ux.unsavedLabel}</StatusBadge>
+        ) : null
+      }
+      dismissible={ux.dismissible}
+      onCloseAttempt={ux.onCloseAttempt}
       overlay={
-        <ConfirmDialog
-          contained
-          open={confirmDelete && open}
-          title={`Delete “${display.name}”?`}
-          description={poolDeleteConfirmDescription()}
-          confirmLabel="Delete pool"
-          tone="danger"
-          busy={delPending}
-          onConfirm={() => {
-            if (delPending) return;
-            const fd = new FormData();
-            fd.set("id", display.id);
-            startTransition(() => {
-              void delAction(fd);
-            });
-          }}
-          onCancel={() => {
-            if (!delPending) setConfirmDelete(false);
-          }}
-        />
+        <>
+          <ConfirmDialog
+            contained
+            open={ux.discardOpen}
+            title={ux.discardTitle}
+            description={ux.discardDescription}
+            confirmLabel="Discard"
+            cancelLabel="Keep editing"
+            onConfirm={ux.confirmDiscard}
+            onCancel={ux.cancelDiscard}
+          />
+          <ConfirmDialog
+            contained
+            open={confirmDelete && open}
+            title={`Delete “${display.name}”?`}
+            description={poolDeleteConfirmDescription()}
+            confirmLabel="Delete pool"
+            tone="danger"
+            busy={delPending}
+            onConfirm={() => {
+              if (delPending) return;
+              const fd = new FormData();
+              fd.set("id", display.id);
+              startTransition(() => {
+                void delAction(fd);
+              });
+            }}
+            onCancel={() => {
+              if (!delPending) setConfirmDelete(false);
+            }}
+          />
+        </>
       }
       footer={
         <ActionBar align="end">
-          <button type="button" onClick={onClose} disabled={confirmDelete} className={btnSecondary}>
+          {ux.justSaved ? (
+            <p className="mr-auto text-sm font-medium text-emerald-800">Saved.</p>
+          ) : null}
+          <button
+            type="button"
+            onClick={() => ux.onCloseAttempt()}
+            disabled={confirmDelete || ux.discardOpen}
+            className={btnSecondary}
+          >
             Cancel
           </button>
           <button
             type="submit"
             form="edit-pool-form"
-            disabled={updPending || confirmDelete}
+            disabled={updPending || confirmDelete || ux.justSaved}
             className={btnPrimary}
           >
             {updPending ? "Saving…" : "Save changes"}
@@ -461,7 +510,12 @@ function EditPoolSheet({
         </Link>
         .
       </p>
-      <form id="edit-pool-form" action={updAction} className="flex flex-col gap-5">
+      <form
+        id="edit-pool-form"
+        action={updAction}
+        className="flex flex-col gap-5"
+        {...ux.formDirtyProps}
+      >
         <input type="hidden" name="id" value={display.id} />
         <div>
           <label htmlFor="edit-pool-name" className={labelClass}>
@@ -602,20 +656,19 @@ function DivisionSummaryCard({
                       {cardLabelDisplay(pool.cardLabelColor)}
                       <span aria-hidden> · </span>
                       Sort {pool.sortOrder}
+                      <span aria-hidden> · </span>
+                      <Link href="/admin/teams" className="font-medium text-emerald-800 underline">
+                        Manage on Teams
+                      </Link>
                     </p>
                   </div>
-                  <div className="flex flex-wrap gap-2">
-                    <Link href="/admin/teams" className={btnGhost}>
-                      Teams
-                    </Link>
-                    <button
-                      type="button"
-                      onClick={() => onEditPool(pool.id)}
-                      className={btnSecondary + " px-3 text-xs"}
-                    >
-                      Edit
-                    </button>
-                  </div>
+                  <button
+                    type="button"
+                    onClick={() => onEditPool(pool.id)}
+                    className={btnSecondary + " h-10 px-3 text-xs"}
+                  >
+                    Edit
+                  </button>
                 </li>
               ))}
             </ul>

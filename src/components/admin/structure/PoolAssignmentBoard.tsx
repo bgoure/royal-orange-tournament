@@ -283,6 +283,13 @@ function PoolAssignmentBoardInner({
             Pool assignments saved.
           </p>
         ) : null}
+      {state && !state.ok && state.fieldErrors && state.fieldErrors.length > 0 ? (
+          <ul className="mt-2 list-disc space-y-0.5 pl-4 text-xs text-red-800">
+            {state.fieldErrors.map((fe, i) => (
+              <li key={`${fe.teamId ?? fe.poolId ?? i}-${i}`}>{fe.message}</li>
+            ))}
+          </ul>
+        ) : null}
         {state && !state.ok && state.requiresStructureReset ? (
           <p className="mt-2 text-xs text-amber-900">
             Use{" "}
@@ -464,7 +471,7 @@ function TeamChip({
         onDragEnd={onDragEnd}
         aria-pressed={selected}
         className={
-          "cursor-grab rounded-md border px-2 py-1 text-xs font-medium active:cursor-grabbing disabled:cursor-default " +
+          "inline-flex min-h-10 cursor-grab items-center rounded-md border px-3 py-2 text-sm font-medium active:cursor-grabbing disabled:cursor-default " +
           (selected
             ? "border-emerald-500 bg-emerald-100 text-emerald-950 ring-2 ring-emerald-400"
             : "border-emerald-200 bg-emerald-50 text-emerald-900")
@@ -481,7 +488,7 @@ function TeamChip({
         <select
           id={`move-${team.id}`}
           aria-label={`Move ${team.name} to pool`}
-          className="max-w-[7rem] rounded border border-zinc-300 bg-white py-0.5 text-[10px] text-zinc-700"
+          className="min-h-10 max-w-[9rem] rounded border border-zinc-300 bg-white px-2 py-1.5 text-xs text-zinc-700"
           defaultValue=""
           onClick={(e) => e.stopPropagation()}
           onChange={(e) => {

@@ -6,6 +6,7 @@ import type { ContentActionResult } from "@/app/admin/_actions/content-shared";
 import { moveField } from "@/app/admin/_actions/fields";
 import { AdminPageHeader } from "@/components/admin/ui/AdminPageHeader";
 import { StatusBadge } from "@/components/admin/ui/StatusBadge";
+import { ReorderMenu } from "@/components/admin/ui/ReorderMenu";
 import {
   createInitialEntitySheetState,
   entitySheetReducer,
@@ -23,17 +24,6 @@ const btnPrimary =
   "inline-flex h-10 items-center justify-center rounded-md bg-emerald-600 px-4 text-sm font-medium text-white hover:bg-emerald-700 disabled:opacity-50";
 const btnSecondary =
   "inline-flex h-10 items-center justify-center rounded-md border border-zinc-300 bg-white px-4 text-sm font-medium text-zinc-800 hover:bg-zinc-50 disabled:opacity-50";
-const btnGhost =
-  "inline-flex h-9 items-center justify-center rounded-md border border-zinc-200 bg-white px-2 text-xs font-medium text-zinc-700 hover:bg-zinc-50 disabled:opacity-50";
-
-function ErrorBanner({ message }: { message: string | undefined }) {
-  if (!message) return null;
-  return (
-    <p role="alert" className="mt-3 rounded-md bg-red-50 px-3 py-2 text-sm text-red-800 ring-1 ring-red-200">
-      {message}
-    </p>
-  );
-}
 
 export function FieldsAdmin({
   groups,
@@ -214,29 +204,39 @@ function FieldRow({
           <span aria-hidden> · </span>
           Sort {field.sortOrder}
         </p>
-        <ErrorBanner
-          message={
+      </div>
+      <div className="flex flex-wrap items-center gap-2">
+        <ReorderMenu
+          label={`Reorder ${field.name}`}
+          error={
             (upState && !upState.ok ? upState.error : undefined) ??
             (downState && !downState.ok ? downState.error : undefined)
           }
-        />
-      </div>
-      <div className="flex flex-wrap gap-2">
-        <form action={upAction} className="inline">
-          <input type="hidden" name="id" value={field.id} />
-          <input type="hidden" name="direction" value="up" />
-          <button type="submit" disabled={upPending || index === 0} className={btnGhost}>
-            Up
-          </button>
-        </form>
-        <form action={downAction} className="inline">
-          <input type="hidden" name="id" value={field.id} />
-          <input type="hidden" name="direction" value="down" />
-          <button type="submit" disabled={downPending || index >= total - 1} className={btnGhost}>
-            Down
-          </button>
-        </form>
-        <button type="button" onClick={onEdit} className={btnSecondary + " h-9 px-3 text-xs"}>
+        >
+          <form action={upAction}>
+            <input type="hidden" name="id" value={field.id} />
+            <input type="hidden" name="direction" value="up" />
+            <button
+              type="submit"
+              disabled={upPending || index === 0}
+              className="flex h-10 w-full items-center rounded px-3 text-left text-sm text-zinc-800 hover:bg-zinc-50 disabled:opacity-40"
+            >
+              Move up
+            </button>
+          </form>
+          <form action={downAction}>
+            <input type="hidden" name="id" value={field.id} />
+            <input type="hidden" name="direction" value="down" />
+            <button
+              type="submit"
+              disabled={downPending || index >= total - 1}
+              className="flex h-10 w-full items-center rounded px-3 text-left text-sm text-zinc-800 hover:bg-zinc-50 disabled:opacity-40"
+            >
+              Move down
+            </button>
+          </form>
+        </ReorderMenu>
+        <button type="button" onClick={onEdit} className={btnSecondary + " h-10 px-3 text-xs"}>
           Edit
         </button>
       </div>

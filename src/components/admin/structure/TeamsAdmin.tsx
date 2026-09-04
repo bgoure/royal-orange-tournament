@@ -28,6 +28,7 @@ import { ActionBar } from "@/components/admin/ui/ActionBar";
 import { ConfirmDialog } from "@/components/admin/ui/ConfirmDialog";
 import { ResponsiveEntityList, type EntityColumn } from "@/components/admin/ui/ResponsiveEntityList";
 import { StatusBadge } from "@/components/admin/ui/StatusBadge";
+import { useEditorFormUx } from "@/components/admin/ui/useEditorFormUx";
 import {
   PoolAssignmentBoard,
   type PoolAssignmentDivision,
@@ -332,15 +333,12 @@ function EditTeamSheet({
     setDisplayTeam(team);
   }
 
-  useEffect(() => {
-    if (!open) return;
-    if (updState?.ok) onClose();
-  }, [updState, open, onClose]);
-
-  useEffect(() => {
-    if (!open) return;
-    if (delState?.ok) onClose();
-  }, [delState, open, onClose]);
+  const ux = useEditorFormUx({
+    open,
+    onClose,
+    savedOk: Boolean(updState?.ok || delState?.ok),
+    nestedBusy: confirmDelete,
+  });
 
   if (!displayTeam) return null;
 
@@ -353,44 +351,71 @@ function EditTeamSheet({
       <EntityEditorSheet
         open={open}
         onOpenChange={(next) => {
-          if (!next) onClose();
+          if (!next) ux.onCloseAttempt();
         }}
         title="Edit team"
         subtitle={displayTeam.name}
-        dismissible={!confirmDelete}
-        onCloseAttempt={() => !confirmDelete}
+        status={
+          ux.justSaved ? (
+            <StatusBadge tone="success">Saved</StatusBadge>
+          ) : ux.dirty ? (
+            <StatusBadge tone="warning">{ux.unsavedLabel}</StatusBadge>
+          ) : null
+        }
+        dismissible={ux.dismissible}
+        onCloseAttempt={ux.onCloseAttempt}
         overlay={
-          <ConfirmDialog
-            contained
-            open={confirmDelete && open}
-            title={`Delete "${displayTeam.name}"?`}
-            description="This is permanent. Teams with scheduled games cannot be deleted — remove or reassign their games first."
-            confirmLabel="Delete team"
-            tone="danger"
-            busy={delPending}
-            onConfirm={() => {
-              if (delPending) return;
-              const fd = new FormData();
-              fd.set("id", displayTeam.id);
-              startTransition(() => {
-                void delAction(fd);
-              });
-            }}
-            onCancel={() => {
-              if (delPending) return;
-              setConfirmDelete(false);
-            }}
-          />
+          <>
+            <ConfirmDialog
+              contained
+              open={ux.discardOpen}
+              title={ux.discardTitle}
+              description={ux.discardDescription}
+              confirmLabel="Discard"
+              cancelLabel="Keep editing"
+              onConfirm={ux.confirmDiscard}
+              onCancel={ux.cancelDiscard}
+            />
+            <ConfirmDialog
+              contained
+              open={confirmDelete && open}
+              title={`Delete "${displayTeam.name}"?`}
+              description="This is permanent. Teams with scheduled games cannot be deleted — remove or reassign their games first."
+              confirmLabel="Delete team"
+              tone="danger"
+              busy={delPending}
+              onConfirm={() => {
+                if (delPending) return;
+                const fd = new FormData();
+                fd.set("id", displayTeam.id);
+                startTransition(() => {
+                  void delAction(fd);
+                });
+              }}
+              onCancel={() => {
+                if (delPending) return;
+                setConfirmDelete(false);
+              }}
+            />
+          </>
         }
         footer={
           <ActionBar align="end">
-            <button type="button" onClick={onClose} disabled={confirmDelete} className={btnSecondary}>
+            {ux.justSaved ? (
+              <p className="mr-auto text-sm font-medium text-emerald-800">Saved.</p>
+            ) : null}
+            <button
+              type="button"
+              onClick={() => ux.onCloseAttempt()}
+              disabled={confirmDelete || ux.discardOpen}
+              className={btnSecondary}
+            >
               Cancel
             </button>
             <button
               type="submit"
               form="edit-team-form"
-              disabled={updPending || confirmDelete}
+              disabled={updPending || confirmDelete || ux.justSaved}
               className={btnPrimary}
             >
               {updPending ? "Saving…" : "Save changes"}
@@ -415,8 +440,9 @@ function EditTeamSheet({
           ) : null
         }
       >
-        <ErrorBanner message={updError} />
-        <form id="edit-team-form" action={updAction} className="flex flex-col gap-5">
+        <ErrorBanner message={updError ?? logoUpError ?? logoClearError} />
+        <form id="edit-team-form" action={updAction} className="flex flex-col gap-5" {...ux.formDirtyProps}>
+
           <input type="hidden" name="id" value={displayTeam.id} />
           <div>
             <label htmlFor="edit-pool" className={labelClass}>

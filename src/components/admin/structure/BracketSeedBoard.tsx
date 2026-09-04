@@ -760,7 +760,7 @@ export function BracketSeedBoard({
                 onClick={toggleByeSelection}
                 aria-pressed={selection?.kind === "bye"}
                 className={
-                  "mt-2 cursor-grab rounded-md border px-2 py-1 text-xs font-semibold active:cursor-grabbing " +
+                  "mt-2 inline-flex min-h-10 cursor-grab items-center rounded-md border px-3 py-2 text-sm font-semibold active:cursor-grabbing " +
                   (selection?.kind === "bye"
                     ? "border-amber-500 bg-amber-100 text-amber-950 ring-2 ring-amber-400"
                     : "border-amber-300 bg-white text-amber-950")
@@ -808,7 +808,7 @@ function BankChip({
       }}
       aria-pressed={selected}
       className={
-        "cursor-grab rounded-md border px-2 py-1 text-xs font-medium active:cursor-grabbing " +
+        "inline-flex min-h-10 cursor-grab items-center rounded-md border px-3 py-2 text-sm font-medium active:cursor-grabbing " +
         (selected
           ? "border-emerald-500 bg-emerald-100 text-emerald-950 ring-2 ring-emerald-400"
           : "border-sky-300 bg-white text-sky-950")
@@ -904,8 +904,8 @@ function DropSeat({
             }
             className={
               side.kind === "bye"
-                ? "cursor-grab rounded-md border border-amber-300 bg-amber-50 px-2 py-1 text-xs font-semibold text-amber-950 disabled:cursor-default"
-                : "cursor-grab rounded-md border border-emerald-200 bg-emerald-50 px-2 py-1 text-xs font-medium text-emerald-900 disabled:cursor-default"
+                ? "inline-flex min-h-10 cursor-grab items-center rounded-md border border-amber-300 bg-amber-50 px-3 py-2 text-sm font-semibold text-amber-950 disabled:cursor-default"
+                : "inline-flex min-h-10 cursor-grab items-center rounded-md border border-emerald-200 bg-emerald-50 px-3 py-2 text-sm font-medium text-emerald-900 disabled:cursor-default"
             }
           >
             {side.kind === "bye" ? "BYE" : side.name}

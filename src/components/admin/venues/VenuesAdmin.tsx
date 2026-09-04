@@ -24,6 +24,8 @@ import { ActionBar } from "@/components/admin/ui/ActionBar";
 import { ConfirmDialog } from "@/components/admin/ui/ConfirmDialog";
 import { EntityEditorSheet } from "@/components/admin/ui/EntityEditorSheet";
 import { StatusBadge } from "@/components/admin/ui/StatusBadge";
+import { ReorderMenu } from "@/components/admin/ui/ReorderMenu";
+import { useEditorFormUx } from "@/components/admin/ui/useEditorFormUx";
 import {
   createInitialEntitySheetState,
   entitySheetReducer,
@@ -164,15 +166,12 @@ function EditLocationSheet({
   const [display, setDisplay] = useState(location);
   if (location != null && location !== display) setDisplay(location);
 
-  useEffect(() => {
-    if (!open) return;
-    if (updState?.ok) onClose();
-  }, [updState, open, onClose]);
-
-  useEffect(() => {
-    if (!open) return;
-    if (delState?.ok) onClose();
-  }, [delState, open, onClose]);
+  const ux = useEditorFormUx({
+    open,
+    onClose,
+    savedOk: Boolean(updState?.ok || delState?.ok),
+    nestedBusy: confirmDelete,
+  });
 
   if (!display) return null;
 
@@ -180,43 +179,70 @@ function EditLocationSheet({
     <EntityEditorSheet
       open={open}
       onOpenChange={(next) => {
-        if (!next) onClose();
+        if (!next) ux.onCloseAttempt();
       }}
       title="Edit location"
       subtitle={display.name}
-      dismissible={!confirmDelete}
-      onCloseAttempt={() => !confirmDelete}
+      status={
+        ux.justSaved ? (
+          <StatusBadge tone="success">Saved</StatusBadge>
+        ) : ux.dirty ? (
+          <StatusBadge tone="warning">{ux.unsavedLabel}</StatusBadge>
+        ) : null
+      }
+      dismissible={ux.dismissible}
+      onCloseAttempt={ux.onCloseAttempt}
       overlay={
-        <ConfirmDialog
-          contained
-          open={confirmDelete && open}
-          title={`Delete “${display.name}”?`}
-          description="Locations with fields cannot be deleted. Reassign or remove fields first."
-          confirmLabel="Delete location"
-          tone="danger"
-          busy={delPending}
-          onConfirm={() => {
-            if (delPending) return;
-            const fd = new FormData();
-            fd.set("id", display.id);
-            startTransition(() => {
-              void delAction(fd);
-            });
-          }}
-          onCancel={() => {
-            if (!delPending) setConfirmDelete(false);
-          }}
-        />
+        <>
+          <ConfirmDialog
+            contained
+            open={ux.discardOpen}
+            title={ux.discardTitle}
+            description={ux.discardDescription}
+            confirmLabel="Discard"
+            cancelLabel="Keep editing"
+            onConfirm={ux.confirmDiscard}
+            onCancel={ux.cancelDiscard}
+          />
+          <ConfirmDialog
+            contained
+            open={confirmDelete && open}
+            title={`Delete “${display.name}”?`}
+            description="Locations with fields cannot be deleted. Reassign or remove fields first."
+            confirmLabel="Delete location"
+            tone="danger"
+            busy={delPending}
+            onConfirm={() => {
+              if (delPending) return;
+              const fd = new FormData();
+              fd.set("id", display.id);
+              startTransition(() => {
+                void delAction(fd);
+              });
+            }}
+            onCancel={() => {
+              if (!delPending) setConfirmDelete(false);
+            }}
+          />
+        </>
       }
       footer={
         <ActionBar align="end">
-          <button type="button" onClick={onClose} disabled={confirmDelete} className={btnSecondary}>
+          {ux.justSaved ? (
+            <p className="mr-auto text-sm font-medium text-emerald-800">Saved.</p>
+          ) : null}
+          <button
+            type="button"
+            onClick={() => ux.onCloseAttempt()}
+            disabled={confirmDelete || ux.discardOpen}
+            className={btnSecondary}
+          >
             Cancel
           </button>
           <button
             type="submit"
             form="edit-location-form"
-            disabled={updPending || confirmDelete}
+            disabled={updPending || confirmDelete || ux.justSaved}
             className={btnPrimary}
           >
             {updPending ? "Saving…" : "Save changes"}
@@ -254,7 +280,7 @@ function EditLocationSheet({
           </form>
         )}
       </div>
-      <form id="edit-location-form" action={updAction} className="flex flex-col gap-5">
+      <form id="edit-location-form" action={updAction} className="flex flex-col gap-5" {...ux.formDirtyProps}>
         <input type="hidden" name="id" value={display.id} />
         <div>
           <label htmlFor="edit-loc-name" className={labelClass}>
@@ -434,15 +460,12 @@ export function EditFieldSheet({
   const [display, setDisplay] = useState(field);
   if (field != null && field !== display) setDisplay(field);
 
-  useEffect(() => {
-    if (!open) return;
-    if (updState?.ok) onClose();
-  }, [updState, open, onClose]);
-
-  useEffect(() => {
-    if (!open) return;
-    if (delState?.ok) onClose();
-  }, [delState, open, onClose]);
+  const ux = useEditorFormUx({
+    open,
+    onClose,
+    savedOk: Boolean(updState?.ok || delState?.ok),
+    nestedBusy: confirmDelete,
+  });
 
   if (!display) return null;
 
@@ -452,43 +475,70 @@ export function EditFieldSheet({
     <EntityEditorSheet
       open={open}
       onOpenChange={(next) => {
-        if (!next) onClose();
+        if (!next) ux.onCloseAttempt();
       }}
       title="Edit field"
       subtitle={display.name}
-      dismissible={!confirmDelete}
-      onCloseAttempt={() => !confirmDelete}
+      status={
+        ux.justSaved ? (
+          <StatusBadge tone="success">Saved</StatusBadge>
+        ) : ux.dirty ? (
+          <StatusBadge tone="warning">{ux.unsavedLabel}</StatusBadge>
+        ) : null
+      }
+      dismissible={ux.dismissible}
+      onCloseAttempt={ux.onCloseAttempt}
       overlay={
-        <ConfirmDialog
-          contained
-          open={confirmDelete && open}
-          title={`Delete “${display.name}”?`}
-          description="You can’t delete a field that still has scheduled games."
-          confirmLabel="Delete field"
-          tone="danger"
-          busy={delPending}
-          onConfirm={() => {
-            if (delPending) return;
-            const fd = new FormData();
-            fd.set("id", display.id);
-            startTransition(() => {
-              void delAction(fd);
-            });
-          }}
-          onCancel={() => {
-            if (!delPending) setConfirmDelete(false);
-          }}
-        />
+        <>
+          <ConfirmDialog
+            contained
+            open={ux.discardOpen}
+            title={ux.discardTitle}
+            description={ux.discardDescription}
+            confirmLabel="Discard"
+            cancelLabel="Keep editing"
+            onConfirm={ux.confirmDiscard}
+            onCancel={ux.cancelDiscard}
+          />
+          <ConfirmDialog
+            contained
+            open={confirmDelete && open}
+            title={`Delete “${display.name}”?`}
+            description="You can’t delete a field that still has scheduled games."
+            confirmLabel="Delete field"
+            tone="danger"
+            busy={delPending}
+            onConfirm={() => {
+              if (delPending) return;
+              const fd = new FormData();
+              fd.set("id", display.id);
+              startTransition(() => {
+                void delAction(fd);
+              });
+            }}
+            onCancel={() => {
+              if (!delPending) setConfirmDelete(false);
+            }}
+          />
+        </>
       }
       footer={
         <ActionBar align="end">
-          <button type="button" onClick={onClose} disabled={confirmDelete} className={btnSecondary}>
+          {ux.justSaved ? (
+            <p className="mr-auto text-sm font-medium text-emerald-800">Saved.</p>
+          ) : null}
+          <button
+            type="button"
+            onClick={() => ux.onCloseAttempt()}
+            disabled={confirmDelete || ux.discardOpen}
+            className={btnSecondary}
+          >
             Cancel
           </button>
           <button
             type="submit"
             form="edit-field-form"
-            disabled={updPending || confirmDelete}
+            disabled={updPending || confirmDelete || ux.justSaved}
             className={btnPrimary}
           >
             {updPending ? "Saving…" : "Save changes"}
@@ -513,7 +563,7 @@ export function EditFieldSheet({
       }
     >
       <ErrorBanner message={actionError(updState)} />
-      <form id="edit-field-form" action={updAction} className="flex flex-col gap-5">
+      <form id="edit-field-form" action={updAction} className="flex flex-col gap-5" {...ux.formDirtyProps}>
         <input type="hidden" name="id" value={display.id} />
         <div>
           <label htmlFor="edit-field-name" className={labelClass}>
@@ -593,24 +643,36 @@ function FieldSummaryRow({
           <span aria-hidden> · </span>
           Sort {field.sortOrder}
         </p>
-        <ErrorBanner message={actionError(upState) ?? actionError(downState)} />
       </div>
-      <div className="flex flex-wrap gap-2">
-        <form action={upAction} className="inline">
-          <input type="hidden" name="id" value={field.id} />
-          <input type="hidden" name="direction" value="up" />
-          <button type="submit" disabled={upPending || index === 0} className={btnGhost}>
-            Up
-          </button>
-        </form>
-        <form action={downAction} className="inline">
-          <input type="hidden" name="id" value={field.id} />
-          <input type="hidden" name="direction" value="down" />
-          <button type="submit" disabled={downPending || index >= total - 1} className={btnGhost}>
-            Down
-          </button>
-        </form>
-        <button type="button" onClick={onEdit} className={btnSecondary + " h-9 px-3 text-xs"}>
+      <div className="flex flex-wrap items-center gap-2">
+        <ReorderMenu
+          label={`Reorder ${field.name}`}
+          error={actionError(upState) ?? actionError(downState)}
+        >
+          <form action={upAction}>
+            <input type="hidden" name="id" value={field.id} />
+            <input type="hidden" name="direction" value="up" />
+            <button
+              type="submit"
+              disabled={upPending || index === 0}
+              className="flex h-10 w-full items-center rounded px-3 text-left text-sm text-zinc-800 hover:bg-zinc-50 disabled:opacity-40"
+            >
+              Move up
+            </button>
+          </form>
+          <form action={downAction}>
+            <input type="hidden" name="id" value={field.id} />
+            <input type="hidden" name="direction" value="down" />
+            <button
+              type="submit"
+              disabled={downPending || index >= total - 1}
+              className="flex h-10 w-full items-center rounded px-3 text-left text-sm text-zinc-800 hover:bg-zinc-50 disabled:opacity-40"
+            >
+              Move down
+            </button>
+          </form>
+        </ReorderMenu>
+        <button type="button" onClick={onEdit} className={btnSecondary + " h-10 px-3 text-xs"}>
           Edit
         </button>
       </div>
@@ -812,27 +874,39 @@ function LocationCard({
             <span aria-hidden> · </span>
             {mapOk ? "Map available" : "No map link"}
           </p>
-          <ErrorBanner message={actionError(upState) ?? actionError(downState)} />
         </div>
-        <div className="flex flex-wrap gap-2">
-          <form action={upAction} className="inline">
-            <input type="hidden" name="id" value={loc.id} />
-            <input type="hidden" name="direction" value="up" />
-            <button type="submit" disabled={upPending || index === 0} className={btnGhost}>
-              Up
-            </button>
-          </form>
-          <form action={downAction} className="inline">
-            <input type="hidden" name="id" value={loc.id} />
-            <input type="hidden" name="direction" value="down" />
-            <button type="submit" disabled={downPending || index >= total - 1} className={btnGhost}>
-              Down
-            </button>
-          </form>
-          <button type="button" onClick={onEdit} className={btnSecondary + " h-9 px-3 text-xs"}>
+        <div className="flex flex-wrap items-center gap-2">
+          <ReorderMenu
+            label={`Reorder ${loc.name}`}
+            error={actionError(upState) ?? actionError(downState)}
+          >
+            <form action={upAction}>
+              <input type="hidden" name="id" value={loc.id} />
+              <input type="hidden" name="direction" value="up" />
+              <button
+                type="submit"
+                disabled={upPending || index === 0}
+                className="flex h-10 w-full items-center rounded px-3 text-left text-sm text-zinc-800 hover:bg-zinc-50 disabled:opacity-40"
+              >
+                Move up
+              </button>
+            </form>
+            <form action={downAction}>
+              <input type="hidden" name="id" value={loc.id} />
+              <input type="hidden" name="direction" value="down" />
+              <button
+                type="submit"
+                disabled={downPending || index >= total - 1}
+                className="flex h-10 w-full items-center rounded px-3 text-left text-sm text-zinc-800 hover:bg-zinc-50 disabled:opacity-40"
+              >
+                Move down
+              </button>
+            </form>
+          </ReorderMenu>
+          <button type="button" onClick={onEdit} className={btnSecondary + " h-10 px-3 text-xs"}>
             Edit
           </button>
-          <button type="button" onClick={onToggle} aria-expanded={expanded} className={btnGhost}>
+          <button type="button" onClick={onToggle} aria-expanded={expanded} className={btnGhost + " h-10"}>
             {expanded ? "Hide fields" : "Show fields"}
           </button>
         </div>
