@@ -16,6 +16,13 @@ type Props = {
   onCancel: () => void;
   /** Optional extra content (e.g. a "type the name to confirm" input). */
   children?: ReactNode;
+  /**
+   * When true, render as an absolute overlay inside a positioned ancestor
+   * (e.g. EntityEditorSheet / Drawer.Content) instead of a viewport-fixed
+   * portal sibling. Required when nesting under a Radix modal dialog, which
+   * disables pointer events outside its content node.
+   */
+  contained?: boolean;
 };
 
 const FOCUSABLE =
@@ -26,8 +33,8 @@ const FOCUSABLE =
  * inside the panel, focus starts on the safest control, and the previously
  * focused element is restored on close.
  *
- * Stacks above EntityEditorSheet (z-80) at z-90 so nested delete confirms stay
- * visible and receive Escape / focus while the editor remains underneath.
+ * Nest under EntityEditorSheet via `contained` + the sheet's `overlay` slot so
+ * the confirm stays inside the Radix modal content tree and remains interactive.
  */
 export function ConfirmDialog({
   open,
@@ -40,23 +47,33 @@ export function ConfirmDialog({
   onConfirm,
   onCancel,
   children,
+  contained = false,
 }: Props) {
   const titleId = useId();
   const descriptionId = useId();
   const panelRef = useRef<HTMLDivElement>(null);
   const cancelRef = useRef<HTMLButtonElement>(null);
   const confirmRef = useRef<HTMLButtonElement>(null);
+  const openerRef = useRef<HTMLElement | null>(null);
 
   const handleCancel = useCallback(() => {
     if (busy) return;
     onCancel();
   }, [busy, onCancel]);
 
-  // Restore focus to whatever opened the dialog.
+  const handleConfirm = useCallback(() => {
+    if (busy) return;
+    onConfirm();
+  }, [busy, onConfirm]);
+
+  // Capture the opener when opening; restore focus when closing.
   useEffect(() => {
     if (!open) return;
-    const opener = document.activeElement as HTMLElement | null;
-    return () => opener?.focus?.();
+    openerRef.current = document.activeElement as HTMLElement | null;
+    return () => {
+      openerRef.current?.focus?.();
+      openerRef.current = null;
+    };
   }, [open]);
 
   // Destructive actions start on Cancel so Enter never nukes anything.
@@ -66,19 +83,22 @@ export function ConfirmDialog({
     (initial ?? panelRef.current)?.focus();
   }, [open, tone]);
 
+  // Only lock body scroll for viewport-level confirms; contained ones sit inside
+  // a parent that already manages scroll lock.
   useEffect(() => {
-    if (!open) return;
+    if (!open || contained) return;
     const previousOverflow = document.body.style.overflow;
     document.body.style.overflow = "hidden";
     return () => {
       document.body.style.overflow = previousOverflow;
     };
-  }, [open]);
+  }, [open, contained]);
 
   useEffect(() => {
     if (!open) return;
     const onKeyDown = (event: KeyboardEvent) => {
       if (event.key === "Escape") {
+        // Stop Vaul/Radix on the parent editor from also handling Escape.
         event.stopPropagation();
         event.preventDefault();
         handleCancel();
@@ -113,7 +133,14 @@ export function ConfirmDialog({
   if (!open) return null;
 
   return (
-    <div className="fixed inset-0 z-[90] flex items-end justify-center bg-black/50 p-4 sm:items-center">
+    <div
+      className={
+        contained
+          ? "absolute inset-0 z-20 flex items-end justify-center bg-black/50 p-4 sm:items-center"
+          : "fixed inset-0 z-[90] flex items-end justify-center bg-black/50 p-4 sm:items-center"
+      }
+      data-confirm-contained={contained ? "true" : "false"}
+    >
       <button
         type="button"
         className="absolute inset-0 cursor-default"
@@ -152,7 +179,7 @@ export function ConfirmDialog({
           <button
             ref={confirmRef}
             type="button"
-            onClick={onConfirm}
+            onClick={handleConfirm}
             disabled={busy}
             className={
               tone === "danger"

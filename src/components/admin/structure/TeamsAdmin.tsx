@@ -346,7 +346,6 @@ function EditTeamSheet({
   const logoClearError = logoClearState && !logoClearState.ok ? logoClearState.error : undefined;
 
   return (
-    <>
       <EntityEditorSheet
         open={open}
         onOpenChange={(next) => {
@@ -356,6 +355,29 @@ function EditTeamSheet({
         subtitle={displayTeam.name}
         dismissible={!confirmDelete}
         onCloseAttempt={() => !confirmDelete}
+        overlay={
+          <ConfirmDialog
+            contained
+            open={confirmDelete && open}
+            title={`Delete "${displayTeam.name}"?`}
+            description="This is permanent. Teams with scheduled games cannot be deleted — remove or reassign their games first."
+            confirmLabel="Delete team"
+            tone="danger"
+            busy={delPending}
+            onConfirm={() => {
+              if (delPending) return;
+              const fd = new FormData();
+              fd.set("id", displayTeam.id);
+              startTransition(() => {
+                void delAction(fd);
+              });
+            }}
+            onCancel={() => {
+              if (delPending) return;
+              setConfirmDelete(false);
+            }}
+          />
+        }
         footer={
           <ActionBar align="end">
             <button type="button" onClick={onClose} disabled={confirmDelete} className={btnSecondary}>
@@ -484,28 +506,6 @@ function EditTeamSheet({
           </form>
         </div>
       </EntityEditorSheet>
-
-      <ConfirmDialog
-        open={confirmDelete && open}
-        title={`Delete "${displayTeam.name}"?`}
-        description="This is permanent. Teams with scheduled games cannot be deleted — remove or reassign their games first."
-        confirmLabel="Delete team"
-        tone="danger"
-        busy={delPending}
-        onConfirm={() => {
-          if (delPending) return;
-          const fd = new FormData();
-          fd.set("id", displayTeam.id);
-          startTransition(() => {
-            void delAction(fd);
-          });
-        }}
-        onCancel={() => {
-          if (delPending) return;
-          setConfirmDelete(false);
-        }}
-      />
-    </>
   );
 }
 

@@ -27,6 +27,12 @@ type Props = {
    */
   dangerZone?: ReactNode;
   /**
+   * Nested overlays (e.g. ConfirmDialog with `contained`) rendered *inside*
+   * Drawer.Content so they remain interactive under Radix's modal pointer-events
+   * isolation. Do not render modal confirms as siblings outside this tree.
+   */
+  overlay?: ReactNode;
+  /**
    * Called when the user attempts to close the sheet (Escape, backdrop click,
    * or a Cancel button inside `footer`).  If you want to guard against unsaved
    * changes or a nested confirmation, return false here.  The default
@@ -69,8 +75,9 @@ function useResponsiveDrawerDirection(): DrawerDirection {
  *   – lg+:            right-side drawer (`direction="right"`)
  *
  * Accessibility relies on Vaul/Radix for focus trap, Escape, and focus return.
- * Nested confirmations should set `dismissible={false}` (and optionally
- * `onCloseAttempt`) so Escape only dismisses the top-most dialog.
+ * Nested confirmations must use the `overlay` slot (DOM child of Content) with
+ * ConfirmDialog `contained`, plus `dismissible={false}` while open, so Escape
+ * and pointer events stay on the confirmation without weakening modal focus.
  */
 export function EntityEditorSheet({
   open,
@@ -81,6 +88,7 @@ export function EntityEditorSheet({
   children,
   footer,
   dangerZone,
+  overlay,
   onCloseAttempt,
   dismissible = true,
 }: Props) {
@@ -129,6 +137,8 @@ export function EntityEditorSheet({
           aria-labelledby={titleId}
           aria-describedby={description ? descId : undefined}
           className={[
+            // Contained ConfirmDialog overlays use absolute inset-0; a `fixed`
+            // Content node is already a containing block for those absolutes.
             "fixed z-[80] flex flex-col bg-white outline-none",
             isRight
               ? "bottom-0 right-0 top-0 h-full w-full max-w-lg rounded-l-2xl shadow-2xl"
@@ -175,6 +185,9 @@ export function EntityEditorSheet({
           <div className={`shrink-0 border-t border-zinc-100 px-5 pt-4 ${isRight ? "pb-8" : "pb-6"}`}>
             {footer}
           </div>
+
+          {/* Nested confirm / overlays — must stay inside Content */}
+          {overlay}
         </Drawer.Content>
       </Drawer.Portal>
     </Drawer.Root>

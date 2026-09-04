@@ -1,6 +1,7 @@
 /**
- * Discover and run all `*.test.ts` files under src/ (platform-independent).
- * Integration suites self-skip without TEST_DATABASE_URL / disposable DB guards.
+ * Discover and run all `*.test.ts` / `*.test.tsx` files under src/
+ * (platform-independent). Integration suites self-skip without TEST_DATABASE_URL
+ * / disposable DB guards.
  */
 import { spawnSync } from "node:child_process";
 import { readdirSync, statSync } from "node:fs";
@@ -11,7 +12,7 @@ function walk(dir, out) {
     const p = join(dir, name);
     const st = statSync(p);
     if (st.isDirectory()) walk(p, out);
-    else if (name.endsWith(".test.ts")) out.push(p);
+    else if (name.endsWith(".test.ts") || name.endsWith(".test.tsx")) out.push(p);
   }
 }
 
@@ -19,7 +20,7 @@ const files = [];
 walk(join(process.cwd(), "src"), files);
 files.sort();
 if (files.length === 0) {
-  console.error("No *.test.ts files found under src/");
+  console.error("No *.test.ts / *.test.tsx files found under src/");
   process.exit(1);
 }
 
