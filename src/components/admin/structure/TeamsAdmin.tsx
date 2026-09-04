@@ -1,6 +1,14 @@
 "use client";
 
-import { startTransition, useActionState, useCallback, useEffect, useMemo, useReducer, useRef, useState } from "react";
+import {
+  startTransition,
+  useActionState,
+  useCallback,
+  useEffect,
+  useMemo,
+  useReducer,
+  useState,
+} from "react";
 import Link from "next/link";
 import type { Division, Pool, Team } from "@prisma/client";
 import {
@@ -126,6 +134,69 @@ export function applyTeamsFilter(
 }
 
 // ---------------------------------------------------------------------------
+// Sheet session state — remount sheets per opening so useActionState is fresh
+// ---------------------------------------------------------------------------
+
+/**
+ * Sheet UI state.
+ *
+ * `session` increments on every OPEN_* so React remounts the sheet component
+ * (via `key={session}`), clearing useActionState success/error leftovers.
+ * `open` goes false on CLOSE while `mode` stays, preserving the drawer exit
+ * animation until the next OPEN remounts a new session.
+ */
+export type TeamsSheetState = {
+  mode: "idle" | "add" | "edit" | "import";
+  session: number;
+  teamId: string | null;
+  open: boolean;
+};
+
+export type TeamsSheetAction =
+  | { type: "OPEN_ADD" }
+  | { type: "OPEN_EDIT"; teamId: string }
+  | { type: "OPEN_IMPORT" }
+  | { type: "CLOSE" }
+  | { type: "TEAM_GONE" };
+
+export const INITIAL_SHEET_STATE: TeamsSheetState = {
+  mode: "idle",
+  session: 0,
+  teamId: null,
+  open: false,
+};
+
+/** Pure sheet-session reducer — safe to unit-test without a DOM. */
+export function teamsSheetReducer(state: TeamsSheetState, action: TeamsSheetAction): TeamsSheetState {
+  switch (action.type) {
+    case "OPEN_ADD":
+      return { mode: "add", session: state.session + 1, teamId: null, open: true };
+    case "OPEN_EDIT":
+      return { mode: "edit", session: state.session + 1, teamId: action.teamId, open: true };
+    case "OPEN_IMPORT":
+      return { mode: "import", session: state.session + 1, teamId: null, open: true };
+    case "CLOSE":
+      return { ...state, open: false };
+    case "TEAM_GONE":
+      if (state.mode === "edit") {
+        return { ...state, open: false, mode: "idle", teamId: null };
+      }
+      return state;
+    default:
+      return state;
+  }
+}
+
+/** Resolve the live team object for an edit session from the latest props. */
+export function resolveEditingTeam(
+  teams: readonly TeamWithRelations[],
+  teamId: string | null,
+): TeamWithRelations | null {
+  if (!teamId) return null;
+  return teams.find((t) => t.id === teamId) ?? null;
+}
+
+// ---------------------------------------------------------------------------
 // Helpers
 // ---------------------------------------------------------------------------
 
@@ -158,29 +229,22 @@ function AddTeamSheet({
   poolOptions: PoolOption[];
 }) {
   const [state, action, pending] = useActionState(createTeam, undefined as ActionResult | undefined);
-  const wasSuccessRef = useRef(false);
 
+  // Fresh mount per session ⇒ state starts undefined; only this session's
+  // successful submit can close the sheet.
   useEffect(() => {
     if (!open) return;
-    if (pending) { wasSuccessRef.current = false; return; }
-    if (wasSuccessRef.current) return; // already handled
-    if (state?.ok) {
-      wasSuccessRef.current = true;
-      onClose();
-    }
-  }, [pending, state, open, onClose]);
-
-  // Reset success tracker when sheet closes.
-  useEffect(() => {
-    if (!open) wasSuccessRef.current = false;
-  }, [open]);
+    if (state?.ok) onClose();
+  }, [state, open, onClose]);
 
   const error = state && !state.ok ? state.error : undefined;
 
   return (
     <EntityEditorSheet
       open={open}
-      onOpenChange={(next) => { if (!next) onClose(); }}
+      onOpenChange={(next) => {
+        if (!next) onClose();
+      }}
       title="Add team"
       description="Every team must belong to a pool."
       footer={
@@ -219,7 +283,7 @@ function AddTeamSheet({
           <label htmlFor="add-seed" className={labelClass}>
             Seed <span className="text-zinc-400">(optional)</span>
           </label>
-          <input id="add-seed" name="seed" type="number" min={1} className={formClass} placeholder="—" />
+          <input id="add-seed" name="seed" type="number" min={0} className={formClass} placeholder="—" />
         </div>
       </form>
     </EntityEditorSheet>
@@ -239,6 +303,7 @@ function EditTeamSheet({
 }: {
   open: boolean;
   onClose: () => void;
+  /** Live team derived from latest props; may briefly be null while closing. */
   team: TeamWithRelations | null;
   poolOptions: PoolOption[];
   isAdmin: boolean;
@@ -254,40 +319,26 @@ function EditTeamSheet({
     undefined as ActionResult | undefined,
   );
   const [confirmDelete, setConfirmDelete] = useState(false);
-  const wasUpdSuccessRef = useRef(false);
-  const wasDelSuccessRef = useRef(false);
 
-  // Close sheet on successful update.
+  // Keep the last known team so the drawer can finish its exit animation after
+  // a successful delete removes the row from props. Official React pattern:
+  // adjust state during render when props provide a newer non-null team.
+  const [displayTeam, setDisplayTeam] = useState(team);
+  if (team != null && team !== displayTeam) {
+    setDisplayTeam(team);
+  }
+
   useEffect(() => {
-    if (!open || !team) return;
-    if (updPending) { wasUpdSuccessRef.current = false; return; }
-    if (wasUpdSuccessRef.current) return;
-    if (updState?.ok) {
-      wasUpdSuccessRef.current = true;
-      onClose();
-    }
-  }, [updPending, updState, open, team, onClose]);
+    if (!open) return;
+    if (updState?.ok) onClose();
+  }, [updState, open, onClose]);
 
-  // Close sheet on successful delete.
   useEffect(() => {
-    if (!open || !team) return;
-    if (delPending) { wasDelSuccessRef.current = false; return; }
-    if (wasDelSuccessRef.current) return;
-    if (delState?.ok) {
-      wasDelSuccessRef.current = true;
-      startTransition(() => {
-        setConfirmDelete(false);
-        onClose();
-      });
-    }
-  }, [delPending, delState, open, team, onClose]);
+    if (!open) return;
+    if (delState?.ok) onClose();
+  }, [delState, open, onClose]);
 
-  // Reset trackers when sheet opens for a new team.
-  useEffect(() => {
-    if (!open) { wasUpdSuccessRef.current = false; wasDelSuccessRef.current = false; }
-  }, [open]);
-
-  if (!team) return null;
+  if (!displayTeam) return null;
 
   const updError = updState && !updState.ok ? updState.error : undefined;
   const delError = delState && !delState.ok ? delState.error : undefined;
@@ -298,15 +349,24 @@ function EditTeamSheet({
     <>
       <EntityEditorSheet
         open={open}
-        onOpenChange={(next) => { if (!next) onClose(); }}
+        onOpenChange={(next) => {
+          if (!next) onClose();
+        }}
         title="Edit team"
-        subtitle={team.name}
+        subtitle={displayTeam.name}
+        dismissible={!confirmDelete}
+        onCloseAttempt={() => !confirmDelete}
         footer={
           <ActionBar align="end">
-            <button type="button" onClick={onClose} className={btnSecondary}>
+            <button type="button" onClick={onClose} disabled={confirmDelete} className={btnSecondary}>
               Cancel
             </button>
-            <button type="submit" form="edit-team-form" disabled={updPending} className={btnPrimary}>
+            <button
+              type="submit"
+              form="edit-team-form"
+              disabled={updPending || confirmDelete}
+              className={btnPrimary}
+            >
               {updPending ? "Saving…" : "Save changes"}
             </button>
           </ActionBar>
@@ -321,11 +381,7 @@ function EditTeamSheet({
               </p>
               <ErrorBanner message={delError} />
               <div className="mt-3">
-                <button
-                  type="button"
-                  onClick={() => setConfirmDelete(true)}
-                  className={btnDanger}
-                >
+                <button type="button" onClick={() => setConfirmDelete(true)} className={btnDanger}>
                   Delete team
                 </button>
               </div>
@@ -335,12 +391,18 @@ function EditTeamSheet({
       >
         <ErrorBanner message={updError} />
         <form id="edit-team-form" action={updAction} className="flex flex-col gap-5">
-          <input type="hidden" name="id" value={team.id} />
+          <input type="hidden" name="id" value={displayTeam.id} />
           <div>
             <label htmlFor="edit-pool" className={labelClass}>
               Division / pool <span aria-hidden className="text-red-500">*</span>
             </label>
-            <select id="edit-pool" name="poolId" required defaultValue={team.poolId} className={formClass}>
+            <select
+              id="edit-pool"
+              name="poolId"
+              required
+              defaultValue={displayTeam.poolId}
+              className={formClass}
+            >
               {poolOptions.map((o) => (
                 <option key={o.poolId} value={o.poolId}>
                   {o.label}
@@ -352,7 +414,13 @@ function EditTeamSheet({
             <label htmlFor="edit-name" className={labelClass}>
               Team name <span aria-hidden className="text-red-500">*</span>
             </label>
-            <input id="edit-name" name="name" required defaultValue={team.name} className={formClass} />
+            <input
+              id="edit-name"
+              name="name"
+              required
+              defaultValue={displayTeam.name}
+              className={formClass}
+            />
           </div>
           <div>
             <label htmlFor="edit-seed" className={labelClass}>
@@ -362,30 +430,30 @@ function EditTeamSheet({
               id="edit-seed"
               name="seed"
               type="number"
-              min={1}
-              defaultValue={team.seed ?? ""}
+              min={0}
+              defaultValue={displayTeam.seed ?? ""}
               className={formClass}
             />
           </div>
         </form>
 
-        {/* Logo section */}
+        {/* Logo section — displayTeam tracks the latest props after revalidation */}
         <div className="mt-6 border-t border-zinc-100 pt-5">
           <p className={labelClass}>Team logo</p>
           <p className="mt-1 text-xs text-zinc-500">
             PNG, JPEG, or WebP · max 200 KB. Shown on the public schedule, results, and standings.
           </p>
 
-          {team.logo ? (
+          {displayTeam.logo ? (
             <div className="mt-3 flex items-center gap-3">
               {/* eslint-disable-next-line @next/next/no-img-element */}
               <img
-                src={teamLogoUrl(team.id, team.logo.updatedAt)}
+                src={teamLogoUrl(displayTeam.id, displayTeam.logo.updatedAt)}
                 alt=""
                 className="h-12 w-12 rounded object-contain ring-1 ring-zinc-200"
               />
               <form action={logoClearAction}>
-                <input type="hidden" name="teamId" value={team.id} />
+                <input type="hidden" name="teamId" value={displayTeam.id} />
                 <button type="submit" disabled={logoClearPending} className={btnDanger}>
                   {logoClearPending ? "Removing…" : "Remove logo"}
                 </button>
@@ -396,8 +464,12 @@ function EditTeamSheet({
           <ErrorBanner message={logoUpError} />
           <ErrorBanner message={logoClearError} />
 
-          <form action={logoUpAction} encType="multipart/form-data" className="mt-3 flex flex-wrap items-end gap-3">
-            <input type="hidden" name="teamId" value={team.id} />
+          <form
+            action={logoUpAction}
+            encType="multipart/form-data"
+            className="mt-3 flex flex-wrap items-end gap-3"
+          >
+            <input type="hidden" name="teamId" value={displayTeam.id} />
             <div className="flex-1">
               <input
                 type="file"
@@ -407,25 +479,31 @@ function EditTeamSheet({
               />
             </div>
             <button type="submit" disabled={logoUpPending} className={btnSecondary}>
-              {logoUpPending ? "Uploading…" : team.logo ? "Replace" : "Upload"}
+              {logoUpPending ? "Uploading…" : displayTeam.logo ? "Replace" : "Upload"}
             </button>
           </form>
         </div>
       </EntityEditorSheet>
 
       <ConfirmDialog
-        open={confirmDelete}
-        title={`Delete "${team.name}"?`}
+        open={confirmDelete && open}
+        title={`Delete "${displayTeam.name}"?`}
         description="This is permanent. Teams with scheduled games cannot be deleted — remove or reassign their games first."
         confirmLabel="Delete team"
         tone="danger"
         busy={delPending}
         onConfirm={() => {
+          if (delPending) return;
           const fd = new FormData();
-          fd.set("id", team.id);
-          void delAction(fd);
+          fd.set("id", displayTeam.id);
+          startTransition(() => {
+            void delAction(fd);
+          });
         }}
-        onCancel={() => setConfirmDelete(false)}
+        onCancel={() => {
+          if (delPending) return;
+          setConfirmDelete(false);
+        }}
       />
     </>
   );
@@ -449,15 +527,15 @@ function ImportNamesSheet({
   const [state, action, pending] = useActionState(importPoolTeams, undefined as ActionResult | undefined);
   const [selectedPoolId, setSelectedPoolId] = useState(poolOptions[0]?.poolId ?? "");
   const [namesText, setNamesText] = useState("");
-  const wasSuccessRef = useRef(false);
 
-  // Compute preview: how many names → how many renames vs creates
-  const previewLines = useMemo(() => {
-    return namesText
-      .split("\n")
-      .map((l) => l.trim())
-      .filter(Boolean);
-  }, [namesText]);
+  const previewLines = useMemo(
+    () =>
+      namesText
+        .split("\n")
+        .map((l) => l.trim())
+        .filter(Boolean),
+    [namesText],
+  );
 
   const existingInPool = useMemo(
     () => existingTeams.filter((t) => t.poolId === selectedPoolId),
@@ -469,31 +547,17 @@ function ImportNamesSheet({
 
   useEffect(() => {
     if (!open) return;
-    if (pending) { wasSuccessRef.current = false; return; }
-    if (wasSuccessRef.current) return;
-    if (state?.ok) {
-      wasSuccessRef.current = true;
-      startTransition(() => {
-        setNamesText("");
-        onClose();
-      });
-    }
-  }, [pending, state, open, onClose]);
-
-  useEffect(() => {
-    if (!open) {
-      wasSuccessRef.current = false;
-      // Reset pool selection to first option when sheet re-opens.
-      startTransition(() => setSelectedPoolId(poolOptions[0]?.poolId ?? ""));
-    }
-  }, [open, poolOptions]);
+    if (state?.ok) onClose();
+  }, [state, open, onClose]);
 
   const error = state && !state.ok ? state.error : undefined;
 
   return (
     <EntityEditorSheet
       open={open}
-      onOpenChange={(next) => { if (!next) onClose(); }}
+      onOpenChange={(next) => {
+        if (!next) onClose();
+      }}
       title="Paste team names"
       description="Paste one name per line. Existing teams in the selected pool are renamed in order (by seed, then creation time). Extra names create new teams."
       footer={
@@ -501,7 +565,12 @@ function ImportNamesSheet({
           <button type="button" onClick={onClose} className={btnSecondary}>
             Cancel
           </button>
-          <button type="submit" form="import-names-form" disabled={pending || previewLines.length === 0} className={btnPrimary}>
+          <button
+            type="submit"
+            form="import-names-form"
+            disabled={pending || previewLines.length === 0}
+            className={btnPrimary}
+          >
             {pending ? "Applying…" : "Apply names"}
           </button>
         </ActionBar>
@@ -547,13 +616,22 @@ function ImportNamesSheet({
           </p>
         </div>
 
-        {/* Preview */}
         {previewLines.length > 0 ? (
           <div className="rounded-md bg-zinc-50 px-4 py-3 text-sm text-zinc-700 ring-1 ring-zinc-200">
-            <p className="font-medium">{previewLines.length} name{previewLines.length !== 1 ? "s" : ""} detected:</p>
+            <p className="font-medium">
+              {previewLines.length} name{previewLines.length !== 1 ? "s" : ""} detected:
+            </p>
             <ul className="mt-1 space-y-0.5 text-xs text-zinc-600">
-              {renameCount > 0 ? <li>→ {renameCount} existing team{renameCount !== 1 ? "s" : ""} will be renamed</li> : null}
-              {createCount > 0 ? <li>→ {createCount} new team{createCount !== 1 ? "s" : ""} will be created</li> : null}
+              {renameCount > 0 ? (
+                <li>
+                  → {renameCount} existing team{renameCount !== 1 ? "s" : ""} will be renamed
+                </li>
+              ) : null}
+              {createCount > 0 ? (
+                <li>
+                  → {createCount} new team{createCount !== 1 ? "s" : ""} will be created
+                </li>
+              ) : null}
             </ul>
           </div>
         ) : null}
@@ -566,12 +644,6 @@ function ImportNamesSheet({
 // Main TeamsAdmin component
 // ---------------------------------------------------------------------------
 
-type SheetMode =
-  | { kind: "closed" }
-  | { kind: "add" }
-  | { kind: "edit"; team: TeamWithRelations }
-  | { kind: "import" };
-
 type Props = {
   teams: TeamWithRelations[];
   poolOptions: PoolOption[];
@@ -580,13 +652,28 @@ type Props = {
 };
 
 export function TeamsAdmin({ teams, poolOptions, tournamentName, isAdmin }: Props) {
-  const [sheet, setSheet] = useState<SheetMode>({ kind: "closed" });
+  const [sheet, dispatchSheet] = useReducer(teamsSheetReducer, INITIAL_SHEET_STATE);
   const [filter, dispatchFilter] = useReducer(teamsFilterReducer, INITIAL_FILTER_STATE);
 
-  const openAdd = useCallback(() => setSheet({ kind: "add" }), []);
-  const openImport = useCallback(() => setSheet({ kind: "import" }), []);
-  const openEdit = useCallback((team: TeamWithRelations) => setSheet({ kind: "edit", team }), []);
-  const closeSheet = useCallback(() => setSheet({ kind: "closed" }), []);
+  const closeSheet = useCallback(() => dispatchSheet({ type: "CLOSE" }), []);
+  const openAdd = useCallback(() => dispatchSheet({ type: "OPEN_ADD" }), []);
+  const openImport = useCallback(() => dispatchSheet({ type: "OPEN_IMPORT" }), []);
+  const openEdit = useCallback(
+    (team: TeamWithRelations) => dispatchSheet({ type: "OPEN_EDIT", teamId: team.id }),
+    [],
+  );
+
+  const editingTeam = useMemo(
+    () => (sheet.mode === "edit" ? resolveEditingTeam(teams, sheet.teamId) : null),
+    [sheet.mode, sheet.teamId, teams],
+  );
+
+  // If the edited team vanished after revalidation (e.g. deleted elsewhere), close safely.
+  useEffect(() => {
+    if (sheet.mode === "edit" && sheet.open && sheet.teamId && !editingTeam) {
+      dispatchSheet({ type: "TEAM_GONE" });
+    }
+  }, [sheet.mode, sheet.open, sheet.teamId, editingTeam]);
 
   const divisions = useMemo(() => {
     const seen = new Map<string, string>();
@@ -668,12 +755,22 @@ export function TeamsAdmin({ teams, poolOptions, tournamentName, isAdmin }: Prop
     },
   ];
 
+  // Keep the sheet mounted while open=false so the exit animation can play;
+  // remount on the next OPEN_* via key={session}.
+  const showAdd = sheet.mode === "add";
+  const showEdit = sheet.mode === "edit";
+  const showImport = sheet.mode === "import";
+
   return (
     <div className="flex flex-col gap-6">
       <AdminPageHeader
         eyebrow={tournamentName}
         title="Teams"
-        meta={`${teams.length} team${teams.length !== 1 ? "s" : ""}${placeholderCount > 0 ? ` · ${placeholderCount} placeholder${placeholderCount !== 1 ? "s" : ""}` : ""}`}
+        meta={`${teams.length} team${teams.length !== 1 ? "s" : ""}${
+          placeholderCount > 0
+            ? ` · ${placeholderCount} placeholder${placeholderCount !== 1 ? "s" : ""}`
+            : ""
+        }`}
         actions={
           <>
             {poolOptions.length > 0 ? (
@@ -690,39 +787,39 @@ export function TeamsAdmin({ teams, poolOptions, tournamentName, isAdmin }: Prop
         }
       />
 
-      {/* No pools yet */}
       {poolOptions.length === 0 ? (
         <section className="rounded-xl border border-dashed border-amber-300 bg-amber-50/80 px-6 py-10 text-center">
           <h2 className="text-base font-semibold text-amber-950">No pools yet</h2>
           <p className="mx-auto mt-2 max-w-md text-sm text-amber-900/80">
             Create a division and at least one pool first, then come back to add teams.
           </p>
-          <Link
-            href="/admin/divisions"
-            className={`${btnPrimary} mt-5`}
-          >
+          <Link href="/admin/divisions" className={`${btnPrimary} mt-5`}>
             Go to Divisions &amp; pools →
           </Link>
         </section>
       ) : null}
 
-      {/* Placeholder nudge */}
       {placeholderCount > 0 && poolOptions.length > 0 ? (
         <div className="rounded-xl border border-emerald-200 bg-emerald-50/50 px-5 py-4">
           <p className="text-sm font-semibold text-emerald-950">
             {placeholderCount} placeholder name{placeholderCount !== 1 ? "s" : ""} need real names
           </p>
           <p className="mt-1 text-xs text-emerald-900/80">
-            Use <button type="button" onClick={openImport} className="font-medium underline">Paste / import names</button> to rename them in bulk, or edit each team individually.
+            Use{" "}
+            <button type="button" onClick={openImport} className="font-medium underline">
+              Paste / import names
+            </button>{" "}
+            to rename them in bulk, or edit each team individually.
           </p>
         </div>
       ) : null}
 
-      {/* Filter bar */}
       {teams.length > 0 ? (
         <div className="flex flex-wrap items-end gap-3">
-          <div className="flex-1 min-w-[160px]">
-            <label htmlFor="team-search" className={labelClass}>Search</label>
+          <div className="min-w-[160px] flex-1">
+            <label htmlFor="team-search" className={labelClass}>
+              Search
+            </label>
             <input
               id="team-search"
               type="search"
@@ -734,7 +831,9 @@ export function TeamsAdmin({ teams, poolOptions, tournamentName, isAdmin }: Prop
           </div>
           {divisions.length > 1 ? (
             <div className="min-w-[140px]">
-              <label htmlFor="team-division-filter" className={labelClass}>Division</label>
+              <label htmlFor="team-division-filter" className={labelClass}>
+                Division
+              </label>
               <select
                 id="team-division-filter"
                 value={filter.divisionId}
@@ -743,14 +842,18 @@ export function TeamsAdmin({ teams, poolOptions, tournamentName, isAdmin }: Prop
               >
                 <option value="">All divisions</option>
                 {divisions.map(([id, name]) => (
-                  <option key={id} value={id}>{name}</option>
+                  <option key={id} value={id}>
+                    {name}
+                  </option>
                 ))}
               </select>
             </div>
           ) : null}
           {poolsForDivision.length > 1 ? (
             <div className="min-w-[120px]">
-              <label htmlFor="team-pool-filter" className={labelClass}>Pool</label>
+              <label htmlFor="team-pool-filter" className={labelClass}>
+                Pool
+              </label>
               <select
                 id="team-pool-filter"
                 value={filter.poolId}
@@ -759,17 +862,26 @@ export function TeamsAdmin({ teams, poolOptions, tournamentName, isAdmin }: Prop
               >
                 <option value="">All pools</option>
                 {poolsForDivision.map(([id, name]) => (
-                  <option key={id} value={id}>{name}</option>
+                  <option key={id} value={id}>
+                    {name}
+                  </option>
                 ))}
               </select>
             </div>
           ) : null}
           <div className="min-w-[120px]">
-            <label htmlFor="team-sort" className={labelClass}>Sort by</label>
+            <label htmlFor="team-sort" className={labelClass}>
+              Sort by
+            </label>
             <select
               id="team-sort"
               value={filter.sortBy}
-              onChange={(e) => dispatchFilter({ type: "SET_SORT", value: e.target.value as TeamsFilterState["sortBy"] })}
+              onChange={(e) =>
+                dispatchFilter({
+                  type: "SET_SORT",
+                  value: e.target.value as TeamsFilterState["sortBy"],
+                })
+              }
               className={formClass}
             >
               <option value="name">Name</option>
@@ -777,7 +889,7 @@ export function TeamsAdmin({ teams, poolOptions, tournamentName, isAdmin }: Prop
               <option value="pool">Pool</option>
             </select>
           </div>
-          {(filter.search || filter.divisionId || filter.poolId || filter.sortBy !== "name") ? (
+          {filter.search || filter.divisionId || filter.poolId || filter.sortBy !== "name" ? (
             <button
               type="button"
               onClick={() => dispatchFilter({ type: "RESET" })}
@@ -789,7 +901,6 @@ export function TeamsAdmin({ teams, poolOptions, tournamentName, isAdmin }: Prop
         </div>
       ) : null}
 
-      {/* Team list */}
       {poolOptions.length > 0 ? (
         <ResponsiveEntityList
           rows={filtered}
@@ -798,7 +909,7 @@ export function TeamsAdmin({ teams, poolOptions, tournamentName, isAdmin }: Prop
           caption="Teams list"
           renderCard={(t) => (
             <div className="flex items-center justify-between gap-3">
-              <div className="flex items-center gap-3 min-w-0">
+              <div className="flex min-w-0 items-center gap-3">
                 {t.logo ? (
                   // eslint-disable-next-line @next/next/no-img-element
                   <img
@@ -821,7 +932,9 @@ export function TeamsAdmin({ teams, poolOptions, tournamentName, isAdmin }: Prop
                     {t.seed != null ? ` · Seed ${t.seed}` : ""}
                   </p>
                   {PLACEHOLDER_TEAM_NAME_RE.test(t.name) ? (
-                    <StatusBadge tone="warning" className="mt-1">Placeholder</StatusBadge>
+                    <StatusBadge tone="warning" className="mt-1">
+                      Placeholder
+                    </StatusBadge>
                   ) : null}
                 </div>
               </div>
@@ -861,25 +974,33 @@ export function TeamsAdmin({ teams, poolOptions, tournamentName, isAdmin }: Prop
         />
       ) : null}
 
-      {/* Sheets */}
-      <AddTeamSheet
-        open={sheet.kind === "add"}
-        onClose={closeSheet}
-        poolOptions={poolOptions}
-      />
-      <EditTeamSheet
-        open={sheet.kind === "edit"}
-        onClose={closeSheet}
-        team={sheet.kind === "edit" ? sheet.team : null}
-        poolOptions={poolOptions}
-        isAdmin={isAdmin}
-      />
-      <ImportNamesSheet
-        open={sheet.kind === "import"}
-        onClose={closeSheet}
-        poolOptions={poolOptions}
-        existingTeams={teams}
-      />
+      {showAdd ? (
+        <AddTeamSheet
+          key={sheet.session}
+          open={sheet.open}
+          onClose={closeSheet}
+          poolOptions={poolOptions}
+        />
+      ) : null}
+      {showEdit ? (
+        <EditTeamSheet
+          key={sheet.session}
+          open={sheet.open}
+          onClose={closeSheet}
+          team={editingTeam}
+          poolOptions={poolOptions}
+          isAdmin={isAdmin}
+        />
+      ) : null}
+      {showImport ? (
+        <ImportNamesSheet
+          key={sheet.session}
+          open={sheet.open}
+          onClose={closeSheet}
+          poolOptions={poolOptions}
+          existingTeams={teams}
+        />
+      ) : null}
     </div>
   );
 }

@@ -1,5 +1,6 @@
 /**
- * Unit tests for the pure TeamsAdmin filter reducer and applyTeamsFilter helper.
+ * Unit tests for the pure TeamsAdmin filter reducer, sheet-session reducer,
+ * and applyTeamsFilter helper.
  * No DOM, no React, no database — safe to run without any environment variables.
  */
 import assert from "node:assert/strict";
@@ -7,9 +8,13 @@ import { describe, it } from "node:test";
 import {
   applyTeamsFilter,
   INITIAL_FILTER_STATE,
+  INITIAL_SHEET_STATE,
+  resolveEditingTeam,
   teamsFilterReducer,
+  teamsSheetReducer,
   type TeamWithRelations,
   type TeamsFilterState,
+  type TeamsSheetState,
 } from "./TeamsAdmin";
 
 // ---------------------------------------------------------------------------
@@ -223,5 +228,120 @@ describe("applyTeamsFilter — immutability", () => {
     const copy = [...TEAMS];
     applyTeamsFilter(TEAMS, { ...INITIAL_FILTER_STATE, sortBy: "seed" });
     assert.deepEqual(TEAMS, copy);
+  });
+});
+
+// ---------------------------------------------------------------------------
+// teamsSheetReducer — session keys and teamId storage
+// ---------------------------------------------------------------------------
+
+describe("teamsSheetReducer", () => {
+  it("OPEN_ADD increments session and opens add mode", () => {
+    const next = teamsSheetReducer(INITIAL_SHEET_STATE, { type: "OPEN_ADD" });
+    assert.equal(next.mode, "add");
+    assert.equal(next.session, 1);
+    assert.equal(next.teamId, null);
+    assert.equal(next.open, true);
+  });
+
+  it("OPEN_EDIT stores teamId and increments session", () => {
+    const next = teamsSheetReducer(INITIAL_SHEET_STATE, {
+      type: "OPEN_EDIT",
+      teamId: "t1",
+    });
+    assert.equal(next.mode, "edit");
+    assert.equal(next.teamId, "t1");
+    assert.equal(next.session, 1);
+    assert.equal(next.open, true);
+  });
+
+  it("re-opening increments session so React remounts clean action state", () => {
+    let state = teamsSheetReducer(INITIAL_SHEET_STATE, { type: "OPEN_ADD" });
+    state = teamsSheetReducer(state, { type: "CLOSE" });
+    assert.equal(state.open, false);
+    assert.equal(state.mode, "add"); // mode kept for exit animation
+    assert.equal(state.session, 1);
+
+    state = teamsSheetReducer(state, { type: "OPEN_ADD" });
+    assert.equal(state.session, 2);
+    assert.equal(state.open, true);
+    assert.equal(state.mode, "add");
+  });
+
+  it("OPEN_IMPORT increments session", () => {
+    const afterAdd = teamsSheetReducer(INITIAL_SHEET_STATE, { type: "OPEN_ADD" });
+    const next = teamsSheetReducer(afterAdd, { type: "OPEN_IMPORT" });
+    assert.equal(next.mode, "import");
+    assert.equal(next.session, 2);
+    assert.equal(next.teamId, null);
+  });
+
+  it("CLOSE sets open=false without resetting session or mode", () => {
+    const open: TeamsSheetState = {
+      mode: "edit",
+      session: 3,
+      teamId: "t2",
+      open: true,
+    };
+    const next = teamsSheetReducer(open, { type: "CLOSE" });
+    assert.deepEqual(next, { mode: "edit", session: 3, teamId: "t2", open: false });
+  });
+
+  it("TEAM_GONE closes an edit session and clears teamId", () => {
+    const open: TeamsSheetState = {
+      mode: "edit",
+      session: 4,
+      teamId: "gone",
+      open: true,
+    };
+    const next = teamsSheetReducer(open, { type: "TEAM_GONE" });
+    assert.equal(next.open, false);
+    assert.equal(next.mode, "idle");
+    assert.equal(next.teamId, null);
+    assert.equal(next.session, 4); // session unchanged
+  });
+
+  it("TEAM_GONE is a no-op for non-edit modes", () => {
+    const open = teamsSheetReducer(INITIAL_SHEET_STATE, { type: "OPEN_ADD" });
+    const next = teamsSheetReducer(open, { type: "TEAM_GONE" });
+    assert.deepEqual(next, open);
+  });
+
+  it("switching from edit to add clears teamId and bumps session", () => {
+    let state = teamsSheetReducer(INITIAL_SHEET_STATE, {
+      type: "OPEN_EDIT",
+      teamId: "t1",
+    });
+    state = teamsSheetReducer(state, { type: "OPEN_ADD" });
+    assert.equal(state.mode, "add");
+    assert.equal(state.teamId, null);
+    assert.equal(state.session, 2);
+  });
+});
+
+describe("resolveEditingTeam", () => {
+  it("returns the matching team from the latest list", () => {
+    const found = resolveEditingTeam(TEAMS, "t3");
+    assert.equal(found?.id, "t3");
+    assert.equal(found?.name, "Storm");
+  });
+
+  it("returns null when teamId is null", () => {
+    assert.equal(resolveEditingTeam(TEAMS, null), null);
+  });
+
+  it("returns null when the team is no longer in the list", () => {
+    assert.equal(resolveEditingTeam(TEAMS, "missing"), null);
+  });
+
+  it("picks up updated logo data from a refreshed list", () => {
+    const withLogo: TeamWithRelations = {
+      ...TEAMS[0]!,
+      logo: { mimeType: "image/png", updatedAt: new Date("2026-06-01") },
+    };
+    const refreshed = [withLogo, ...TEAMS.slice(1)];
+    const found = resolveEditingTeam(refreshed, "t1");
+    assert.ok(found?.logo);
+    assert.equal(found!.logo!.mimeType, "image/png");
   });
 });

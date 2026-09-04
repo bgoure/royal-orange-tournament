@@ -25,6 +25,9 @@ const FOCUSABLE =
  * Modal confirmation with a full keyboard contract: Escape closes, Tab cycles
  * inside the panel, focus starts on the safest control, and the previously
  * focused element is restored on close.
+ *
+ * Stacks above EntityEditorSheet (z-80) at z-90 so nested delete confirms stay
+ * visible and receive Escape / focus while the editor remains underneath.
  */
 export function ConfirmDialog({
   open,
@@ -77,6 +80,7 @@ export function ConfirmDialog({
     const onKeyDown = (event: KeyboardEvent) => {
       if (event.key === "Escape") {
         event.stopPropagation();
+        event.preventDefault();
         handleCancel();
         return;
       }
@@ -109,7 +113,7 @@ export function ConfirmDialog({
   if (!open) return null;
 
   return (
-    <div className="fixed inset-0 z-[70] flex items-end justify-center bg-black/50 p-4 sm:items-center">
+    <div className="fixed inset-0 z-[90] flex items-end justify-center bg-black/50 p-4 sm:items-center">
       <button
         type="button"
         className="absolute inset-0 cursor-default"
