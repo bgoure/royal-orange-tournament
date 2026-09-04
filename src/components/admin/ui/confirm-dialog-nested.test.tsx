@@ -7,7 +7,7 @@
  */
 import assert from "node:assert/strict";
 import { afterEach, describe, it } from "node:test";
-import { createElement, useEffect, useState, type ReactNode } from "react";
+import { createElement, useEffect, useRef, useState, type ReactNode } from "react";
 import { createRoot, type Root } from "react-dom/client";
 import { act } from "react";
 import { JSDOM } from "jsdom";
@@ -97,29 +97,11 @@ function RadixStyleModalShell({
 function NestedDeleteFixture({
   placeConfirm,
   onConfirm,
-  onEditorEscape,
 }: {
   placeConfirm: "inside" | "sibling";
   onConfirm: () => void;
-  /**
-   * Fired if Escape reaches the document in the bubble phase — i.e. the confirm
-   * failed to stopPropagation and the underlying editor would dismiss.
-   */
-  onEditorEscape?: () => void;
 }) {
   const [open, setOpen] = useState(false);
-
-  // Parent-editor Escape listener (bubble). ConfirmDialog handles Escape in
-  // capture and stopPropagation; if that works, this never runs.
-  useEffect(() => {
-    if (!onEditorEscape) return;
-    const onKeyDown = (event: KeyboardEvent) => {
-      if (event.key === "Escape") onEditorEscape();
-    };
-    document.addEventListener("keydown", onKeyDown);
-    return () => document.removeEventListener("keydown", onKeyDown);
-  }, [onEditorEscape]);
-
   const confirm = createElement(ConfirmDialog, {
     contained: placeConfirm === "inside",
     open,
@@ -150,6 +132,90 @@ function NestedDeleteFixture({
       siblingOverlay: placeConfirm === "sibling" ? confirm : undefined,
     },
     deleteBtn,
+  );
+}
+
+/**
+ * Models EntityEditorSheet + nested ConfirmDialog Escape contract:
+ * - Parent/Radix Escape listener is on document capture and is registered when
+ *   the editor opens — before ConfirmDialog mounts its own capture handler.
+ * - While confirmation is open, dismissible is false (same as TeamsAdmin), so the
+ *   parent listener may observe Escape but must not unmount the editor.
+ */
+function NestedDeleteWithDismissibleEditor({
+  onConfirm,
+  onParentCaptureEscape,
+  onBubbleEscape,
+}: {
+  onConfirm: () => void;
+  /** May fire — Radix/Vaul capture runs before ConfirmDialog; that is OK. */
+  onParentCaptureEscape?: () => void;
+  /** Secondary: should not fire if ConfirmDialog stopPropagation works. */
+  onBubbleEscape?: () => void;
+}) {
+  const [editorOpen, setEditorOpen] = useState(true);
+  const [confirmOpen, setConfirmOpen] = useState(false);
+  // Live dismissible flag read by the stable capture listener (ref so the parent
+  // listener stays registered from editor-open, matching Vaul registration order).
+  const dismissibleRef = useRef(true);
+  useEffect(() => {
+    dismissibleRef.current = !confirmOpen;
+  }, [confirmOpen]);
+
+  // Primary: parent/Radix capture listener — registered once while editor is open,
+  // before ConfirmDialog's capture handler is added on confirm open.
+  useEffect(() => {
+    if (!editorOpen) return;
+    const onKeyDown = (event: KeyboardEvent) => {
+      if (event.key !== "Escape") return;
+      onParentCaptureEscape?.();
+      // EntityEditorSheet handleOpenChange(false): refuse close when !dismissible.
+      if (!dismissibleRef.current) return;
+      setEditorOpen(false);
+    };
+    document.addEventListener("keydown", onKeyDown, true);
+    return () => document.removeEventListener("keydown", onKeyDown, true);
+  }, [editorOpen, onParentCaptureEscape]);
+
+  // Secondary: bubble-phase observer (ConfirmDialog stopPropagation should block).
+  useEffect(() => {
+    if (!editorOpen) return;
+    const onKeyDown = (event: KeyboardEvent) => {
+      if (event.key === "Escape") onBubbleEscape?.();
+    };
+    document.addEventListener("keydown", onKeyDown);
+    return () => document.removeEventListener("keydown", onKeyDown);
+  }, [editorOpen, onBubbleEscape]);
+
+  if (!editorOpen) {
+    return createElement("div", { "data-testid": "editor-closed" }, "closed");
+  }
+
+  return createElement(
+    RadixStyleModalShell,
+    {
+      overlay: createElement(ConfirmDialog, {
+        contained: true,
+        open: confirmOpen,
+        title: 'Delete "Lightning"?',
+        description: "This is permanent.",
+        confirmLabel: "Delete team",
+        cancelLabel: "Cancel",
+        tone: "danger",
+        busy: false,
+        onConfirm,
+        onCancel: () => setConfirmOpen(false),
+      }),
+    },
+    createElement(
+      "button",
+      {
+        type: "button",
+        "data-testid": "delete-trigger",
+        onClick: () => setConfirmOpen(true),
+      },
+      "Delete team",
+    ),
   );
 }
 
@@ -277,23 +343,30 @@ describe("nested ConfirmDialog under Radix-style modal isolation", () => {
 
   it("Escape closes contained confirm without dismissing the editor or deleting", () => {
     let confirmed = 0;
-    let editorEscapes = 0;
+    let parentCaptureEscapes = 0;
+    let bubbleEscapes = 0;
     mount(
-      createElement(NestedDeleteFixture, {
-        placeConfirm: "inside",
+      createElement(NestedDeleteWithDismissibleEditor, {
         onConfirm: () => {
           confirmed += 1;
         },
-        onEditorEscape: () => {
-          editorEscapes += 1;
+        onParentCaptureEscape: () => {
+          parentCaptureEscapes += 1;
+        },
+        onBubbleEscape: () => {
+          bubbleEscapes += 1;
         },
       }),
     );
 
     const trigger = document.querySelector<HTMLButtonElement>('[data-testid="delete-trigger"]')!;
-    const modal = document.querySelector('[data-testid="modal-content"]');
-    assert.ok(modal, "editor/modal shell should be mounted");
+    assert.ok(
+      document.querySelector('[data-testid="modal-content"]'),
+      "editor/modal shell should be mounted",
+    );
 
+    // Parent capture listener is already registered (editor open). Opening the
+    // confirm adds ConfirmDialog's capture handler afterward — same order as Vaul.
     act(() => {
       trigger.focus();
       trigger.click();
@@ -303,6 +376,8 @@ describe("nested ConfirmDialog under Radix-style modal isolation", () => {
       document.querySelector('[role="dialog"][aria-modal="true"]'),
       "confirmation should be open",
     );
+    // While confirm is open, dismissible is false — parent may still observe Escape.
+    const parentEscapesBefore = parentCaptureEscapes;
 
     act(() => {
       document.dispatchEvent(
@@ -326,10 +401,26 @@ describe("nested ConfirmDialog under Radix-style modal isolation", () => {
     );
     assert.ok(
       document.querySelector('[data-testid="modal-content"]'),
-      "underlying editor/modal must remain open",
+      "underlying editor must remain open because it is non-dismissible during confirmation",
     );
-    assert.equal(editorEscapes, 0, "Escape must not propagate to dismiss the editor");
+    assert.equal(
+      document.querySelector('[data-testid="editor-closed"]'),
+      null,
+      "editor must not unmount on Escape while confirmation is open",
+    );
+    // Parent capture listener may correctly observe Escape (Radix registers first);
+    // the guarantee is dismissible=false prevents dismiss — not that it never runs.
+    assert.ok(
+      parentCaptureEscapes > parentEscapesBefore,
+      "parent/Radix capture listener is expected to observe Escape before ConfirmDialog",
+    );
     assert.equal(confirmed, 0, "Escape must not dispatch the delete action");
+    // Secondary: ConfirmDialog stopPropagation should keep Escape out of bubble phase.
+    assert.equal(
+      bubbleEscapes,
+      0,
+      "secondary: Escape should not reach bubble-phase listeners after ConfirmDialog handles it",
+    );
   });
 
   it("sibling confirm outside modal content is not pointer-reachable (the P1 failure mode)", () => {
