@@ -27,7 +27,10 @@ export function listLocationsWithFields(tournamentId: string) {
     where: { tournamentId },
     orderBy: { sortOrder: "asc" },
     include: {
-      fields: { orderBy: { sortOrder: "asc" } },
+      fields: {
+        orderBy: { sortOrder: "asc" },
+        include: { _count: { select: { games: true } } },
+      },
     },
   });
 }

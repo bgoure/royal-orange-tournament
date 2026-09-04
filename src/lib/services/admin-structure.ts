@@ -11,6 +11,14 @@ export function getTournamentStructure(tournamentId: string) {
       divisions: {
         orderBy: { sortOrder: "asc" },
         include: {
+          brackets: {
+            select: {
+              format: true,
+              published: true,
+              name: true,
+              presetKey: true,
+            },
+          },
           pools: {
             orderBy: { sortOrder: "asc" },
             include: {

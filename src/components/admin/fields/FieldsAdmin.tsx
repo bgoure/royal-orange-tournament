@@ -1,31 +1,36 @@
 "use client";
 
-import { useActionState } from "react";
+import { useActionState, useCallback, useEffect, useReducer, useState } from "react";
 import Link from "next/link";
-import type { Field, Location } from "@prisma/client";
 import type { ContentActionResult } from "@/app/admin/_actions/content-shared";
-import { createField, deleteField, moveField, updateField } from "@/app/admin/_actions/fields";
-import { ConfirmForm } from "@/components/admin/structure/ConfirmForm";
+import { moveField } from "@/app/admin/_actions/fields";
+import { AdminPageHeader } from "@/components/admin/ui/AdminPageHeader";
+import { StatusBadge } from "@/components/admin/ui/StatusBadge";
+import {
+  createInitialEntitySheetState,
+  entitySheetReducer,
+  resolveEntityById,
+} from "@/components/admin/ui/entity-sheet-session";
+import {
+  AddFieldSheet,
+  EditFieldSheet,
+  type FieldWithGameCount,
+  type LocationWithFields,
+} from "@/components/admin/venues/VenuesAdmin";
 import { tournamentPathFromBase } from "@/lib/tournament-public-path";
 
-const formClass =
-  "rounded-md border border-zinc-300 bg-white px-2 py-1.5 text-sm text-zinc-900 shadow-sm focus:border-emerald-500 focus:outline-none focus:ring-2 focus:ring-emerald-500/20";
-const labelClass = "text-[10px] font-semibold uppercase tracking-wide text-zinc-500";
 const btnPrimary =
-  "rounded-md bg-emerald-600 px-3 py-2 text-sm font-medium text-white hover:bg-emerald-700 disabled:opacity-50";
+  "inline-flex h-10 items-center justify-center rounded-md bg-emerald-600 px-4 text-sm font-medium text-white hover:bg-emerald-700 disabled:opacity-50";
 const btnSecondary =
-  "rounded-md border border-zinc-300 bg-white px-3 py-2 text-sm font-medium text-zinc-800 hover:bg-zinc-50 disabled:opacity-50";
-const btnDanger =
-  "rounded-md border border-red-200 bg-red-50 px-2 py-1 text-xs font-medium text-red-800 hover:bg-red-100";
-const btnGhost = "rounded-md border border-zinc-200 bg-white px-2 py-1 text-xs font-medium text-zinc-700 hover:bg-zinc-50";
+  "inline-flex h-10 items-center justify-center rounded-md border border-zinc-300 bg-white px-4 text-sm font-medium text-zinc-800 hover:bg-zinc-50 disabled:opacity-50";
+const btnGhost =
+  "inline-flex h-9 items-center justify-center rounded-md border border-zinc-200 bg-white px-2 text-xs font-medium text-zinc-700 hover:bg-zinc-50 disabled:opacity-50";
 
-export type LocationWithFields = Location & { fields: Field[] };
-
-function ErrorBanner({ state }: { state: ContentActionResult | undefined }) {
-  if (!state || state.ok) return null;
+function ErrorBanner({ message }: { message: string | undefined }) {
+  if (!message) return null;
   return (
-    <p className="rounded-md bg-red-50 px-3 py-2 text-sm text-red-800 ring-1 ring-red-200" role="alert">
-      {state.error}
+    <p role="alert" className="mt-3 rounded-md bg-red-50 px-3 py-2 text-sm text-red-800 ring-1 ring-red-200">
+      {message}
     </p>
   );
 }
@@ -38,253 +43,203 @@ export function FieldsAdmin({
 }: {
   groups: LocationWithFields[];
   tournamentName: string;
-  /** Canonical public site base (`/{slug}` live or `/{folder}/{slug}` when archived). */
   publicSitePath: string;
   canManage: boolean;
 }) {
-  const [createRootState, createRootAction, createRootPending] = useActionState(
-    createField,
-    undefined as ContentActionResult | undefined,
+  const [sheet, dispatchSheet] = useReducer(
+    (s: ReturnType<typeof createInitialEntitySheetState>, a: Parameters<typeof entitySheetReducer>[1]) =>
+      entitySheetReducer(s, a),
+    createInitialEntitySheetState(),
+  );
+  const [defaultLoc, setDefaultLoc] = useState<string | undefined>();
+
+  const closeSheet = useCallback(() => dispatchSheet({ type: "CLOSE" }), []);
+  const openAdd = useCallback((locationId?: string) => {
+    setDefaultLoc(locationId);
+    dispatchSheet({ type: "OPEN", mode: "add-field" });
+  }, []);
+  const openEdit = useCallback(
+    (id: string) => dispatchSheet({ type: "OPEN", mode: "edit-field", entityId: id }),
+    [],
   );
 
-  const hasLocations = groups.length > 0;
+  const allFields = groups.flatMap((g) => g.fields);
+  const editingField =
+    sheet.mode === "edit-field" ? resolveEntityById(allFields, sheet.entityId) : null;
+
+  useEffect(() => {
+    if (sheet.mode === "edit-field" && sheet.open && sheet.entityId && !editingField) {
+      dispatchSheet({ type: "ENTITY_GONE" });
+    }
+  }, [sheet, editingField]);
+
+  const totalFields = allFields.length;
 
   return (
-    <div className="flex flex-col gap-10">
-      <header className="flex flex-wrap items-end justify-between gap-4 border-b border-zinc-200 pb-6">
-        <div>
-          <p className="text-xs font-medium uppercase tracking-wide text-zinc-500">Tournament</p>
-          <h1 className="text-2xl font-semibold tracking-tight text-zinc-900">Fields</h1>
-          <p className="mt-1 text-sm text-zinc-600">{tournamentName}</p>
-          <p className="mt-2 max-w-xl text-xs text-zinc-500">
-            Diamonds and playable fields belong to a location. Games reference a single field.
-          </p>
-        </div>
-        <div className="flex flex-wrap gap-2">
-          <Link href="/admin/locations" className={btnSecondary}>
-            Locations
-          </Link>
-          <Link href="/admin/games" className={btnSecondary}>
-            Games
-          </Link>
-          <Link href={tournamentPathFromBase(publicSitePath, "schedule")} className={btnSecondary}>
-            View schedule ↗
-          </Link>
-        </div>
-      </header>
+    <div className="flex flex-col gap-6">
+      <AdminPageHeader
+        eyebrow={tournamentName}
+        title="Fields"
+        description="Diamonds and playable fields belong to a location."
+        meta={`${totalFields} field${totalFields === 1 ? "" : "s"} across ${groups.length} location${groups.length === 1 ? "" : "s"}`}
+        actions={
+          canManage ? (
+            <>
+              <Link href="/admin/locations" className={btnSecondary}>
+                Locations
+              </Link>
+              <Link href={tournamentPathFromBase(publicSitePath, "schedule")} className={btnSecondary}>
+                Schedule ↗
+              </Link>
+              <button
+                type="button"
+                onClick={() => openAdd()}
+                disabled={groups.length === 0}
+                className={btnPrimary}
+              >
+                Add field
+              </button>
+            </>
+          ) : (
+            <Link href="/admin/locations" className={btnSecondary}>
+              Locations
+            </Link>
+          )
+        }
+      />
 
       {!canManage ? (
         <p className="text-sm text-zinc-600">You don’t have permission to manage fields.</p>
-      ) : !hasLocations ? (
+      ) : groups.length === 0 ? (
         <div className="rounded-xl border border-amber-200 bg-amber-50 px-4 py-6 text-sm text-amber-900">
-          Add at least one <Link href="/admin/locations" className="font-semibold underline">location</Link> before
-          creating fields.
+          Add at least one{" "}
+          <Link href="/admin/locations" className="font-semibold underline">
+            location
+          </Link>{" "}
+          before creating fields.
         </div>
       ) : (
-        <>
-          <section className="rounded-xl border border-zinc-200 bg-white p-6 shadow-sm">
-            <h2 className="text-sm font-semibold text-zinc-900">Quick add field</h2>
-            <p className="mt-1 text-xs text-zinc-500">Choose a location, then name the diamond (e.g. Field A).</p>
-            <ErrorBanner state={createRootState} />
-            <form action={createRootAction} className="mt-4 flex max-w-2xl flex-col gap-4">
-              <div>
-                <label htmlFor="qf-loc" className={labelClass}>
-                  Location
-                </label>
-                <select id="qf-loc" name="locationId" required className={`${formClass} mt-1 w-full`}>
-                  {groups.map((g) => (
-                    <option key={g.id} value={g.id}>
-                      {g.name}
-                      {g.isHeadquarters ? " (HQ)" : ""}
-                    </option>
-                  ))}
-                </select>
+        <div className="flex flex-col gap-4">
+          {groups.map((loc) => (
+            <section key={loc.id} className="overflow-hidden rounded-xl border border-zinc-200 bg-white shadow-sm">
+              <div className="flex flex-wrap items-center justify-between gap-3 border-b border-zinc-100 px-4 py-3 sm:px-5">
+                <div className="flex flex-wrap items-center gap-2">
+                  <h2 className="text-base font-semibold text-zinc-900">{loc.name}</h2>
+                  {loc.isHeadquarters ? <StatusBadge tone="success">HQ</StatusBadge> : null}
+                  <span className="text-xs text-zinc-500">
+                    {loc.fields.length} field{loc.fields.length === 1 ? "" : "s"}
+                  </span>
+                </div>
+                <button
+                  type="button"
+                  onClick={() => openAdd(loc.id)}
+                  className={btnSecondary + " h-9 px-3 text-xs"}
+                >
+                  Add field
+                </button>
               </div>
-              <div>
-                <label htmlFor="qf-name" className={labelClass}>
-                  Field name
-                </label>
-                <input id="qf-name" name="name" required className={`${formClass} mt-1 w-full`} placeholder="Diamond 1" />
+              <div className="bg-zinc-50/50 px-4 py-4 sm:px-5">
+                {loc.fields.length === 0 ? (
+                  <p className="text-sm text-zinc-500">No fields at this location yet.</p>
+                ) : (
+                  <ul className="flex flex-col gap-2">
+                    {loc.fields.map((f, idx) => (
+                      <FieldRow
+                        key={f.id}
+                        field={f}
+                        locationName={loc.name}
+                        index={idx}
+                        total={loc.fields.length}
+                        onEdit={() => openEdit(f.id)}
+                      />
+                    ))}
+                  </ul>
+                )}
               </div>
-              <div>
-                <label htmlFor="qf-sort" className={labelClass}>
-                  Sort order (optional)
-                </label>
-                <input id="qf-sort" name="sortOrder" type="number" className={`${formClass} mt-1 w-full max-w-xs`} />
-              </div>
-              <button type="submit" disabled={createRootPending} className={`${btnPrimary} w-fit`}>
-                {createRootPending ? "Saving…" : "Add field"}
-              </button>
-            </form>
-          </section>
-
-          <div className="flex flex-col gap-8">
-            {groups.map((loc) => (
-              <LocationFieldSection key={loc.id} location={loc} allLocations={groups} />
-            ))}
-          </div>
-        </>
+            </section>
+          ))}
+        </div>
       )}
+
+      {sheet.mode === "add-field" ? (
+        <AddFieldSheet
+          key={sheet.session}
+          open={sheet.open}
+          onClose={closeSheet}
+          locations={groups}
+          defaultLocationId={defaultLoc}
+        />
+      ) : null}
+      {sheet.mode === "edit-field" ? (
+        <EditFieldSheet
+          key={sheet.session}
+          open={sheet.open}
+          onClose={closeSheet}
+          field={editingField}
+          locations={groups}
+        />
+      ) : null}
     </div>
   );
 }
 
-function LocationFieldSection({
-  location: loc,
-  allLocations,
-}: {
-  location: LocationWithFields;
-  allLocations: LocationWithFields[];
-}) {
-  const [createState, createAction, createPending] = useActionState(
-    createField,
-    undefined as ContentActionResult | undefined,
-  );
-
-  return (
-    <section className="rounded-xl border border-zinc-200 bg-zinc-50/40 shadow-sm">
-      <div className="border-b border-zinc-200 bg-white px-4 py-3">
-        <div className="flex flex-wrap items-center gap-2">
-          <h2 className="text-base font-semibold text-zinc-900">{loc.name}</h2>
-          {loc.isHeadquarters ? (
-            <span className="rounded-full bg-emerald-100 px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-emerald-900">
-              Headquarters
-            </span>
-          ) : null}
-          <span className="text-xs text-zinc-500">
-            {loc.fields.length} field{loc.fields.length === 1 ? "" : "s"}
-          </span>
-        </div>
-      </div>
-
-      <div className="flex flex-col gap-4 p-4">
-        <div className="rounded-lg border border-zinc-200 bg-white p-4">
-          <h3 className="text-xs font-semibold uppercase tracking-wide text-zinc-500">Add field here</h3>
-          <ErrorBanner state={createState} />
-          <form action={createAction} className="mt-3 flex max-w-xl flex-col gap-3 sm:flex-row sm:flex-wrap sm:items-end">
-            <input type="hidden" name="locationId" value={loc.id} />
-            <div className="min-w-[12rem] flex-1">
-              <label className={labelClass}>Name</label>
-              <input name="name" required className={`${formClass} mt-1 w-full`} placeholder="Diamond 2" />
-            </div>
-            <button type="submit" disabled={createPending} className={`${btnSecondary} h-fit shrink-0`}>
-              {createPending ? "…" : "Add"}
-            </button>
-          </form>
-        </div>
-
-        {loc.fields.length === 0 ? (
-          <p className="text-sm text-zinc-500">No fields at this location yet.</p>
-        ) : (
-          <ul className="flex flex-col gap-4">
-            {loc.fields.map((f, idx) => (
-              <FieldEditRow
-                key={f.id}
-                field={f}
-                index={idx}
-                total={loc.fields.length}
-                allLocations={allLocations}
-              />
-            ))}
-          </ul>
-        )}
-      </div>
-    </section>
-  );
-}
-
-function FieldEditRow({
-  field: f,
+function FieldRow({
+  field,
+  locationName,
   index,
   total,
-  allLocations,
+  onEdit,
 }: {
-  field: Field;
+  field: FieldWithGameCount;
+  locationName: string;
   index: number;
   total: number;
-  allLocations: LocationWithFields[];
+  onEdit: () => void;
 }) {
-  const [updState, updAction, updPending] = useActionState(
-    updateField,
-    undefined as ContentActionResult | undefined,
-  );
-  const [delState, delAction, delPending] = useActionState(
-    deleteField,
-    undefined as ContentActionResult | undefined,
-  );
   const [upState, upAction, upPending] = useActionState(moveField, undefined as ContentActionResult | undefined);
   const [downState, downAction, downPending] = useActionState(
     moveField,
     undefined as ContentActionResult | undefined,
   );
+  const gameCount = field._count?.games ?? 0;
 
   return (
-    <li className="rounded-lg border border-zinc-200 bg-white p-4">
-      <div className="mb-2 flex flex-wrap items-center justify-between gap-2">
-        <div className="flex flex-wrap gap-2">
-          <form action={upAction} className="inline">
-            <input type="hidden" name="id" value={f.id} />
-            <input type="hidden" name="direction" value="up" />
-            <button type="submit" disabled={upPending || index === 0} className={btnGhost}>
-              Up
-            </button>
-          </form>
-          <form action={downAction} className="inline">
-            <input type="hidden" name="id" value={f.id} />
-            <input type="hidden" name="direction" value="down" />
-            <button type="submit" disabled={downPending || index >= total - 1} className={btnGhost}>
-              Down
-            </button>
-          </form>
-        </div>
-        <ConfirmForm
-          message="Delete this field? You can’t delete it if games still use it."
-          action={delAction}
-          className="inline"
-        >
-          <input type="hidden" name="id" value={f.id} />
-          <button type="submit" disabled={delPending} className={btnDanger}>
-            Delete
-          </button>
-        </ConfirmForm>
+    <li className="flex flex-wrap items-center justify-between gap-3 rounded-lg border border-zinc-200 bg-white px-3 py-3">
+      <div className="min-w-0">
+        <p className="font-medium text-zinc-900">{field.name}</p>
+        <p className="mt-0.5 text-xs text-zinc-500">
+          {locationName}
+          <span aria-hidden> · </span>
+          {gameCount} game{gameCount === 1 ? "" : "s"}
+          <span aria-hidden> · </span>
+          Sort {field.sortOrder}
+        </p>
+        <ErrorBanner
+          message={
+            (upState && !upState.ok ? upState.error : undefined) ??
+            (downState && !downState.ok ? downState.error : undefined)
+          }
+        />
       </div>
-      <ErrorBanner state={updState ?? delState ?? upState ?? downState} />
-      <form action={updAction} className="grid max-w-2xl gap-3 sm:grid-cols-2">
-        <input type="hidden" name="id" value={f.id} />
-        <div className="sm:col-span-2">
-          <label className={labelClass}>Field name</label>
-          <input name="name" required defaultValue={f.name} className={`${formClass} mt-1 w-full`} />
-        </div>
-        <div className="sm:col-span-2">
-          <label className={labelClass}>Location</label>
-          <select
-            name="locationId"
-            required
-            defaultValue={f.locationId}
-            className={`${formClass} mt-1 w-full`}
-          >
-            {allLocations.map((loc) => (
-              <option key={loc.id} value={loc.id}>
-                {loc.name}
-              </option>
-            ))}
-          </select>
-        </div>
-        <div>
-          <label className={labelClass}>Sort order</label>
-          <input
-            name="sortOrder"
-            type="number"
-            defaultValue={f.sortOrder}
-            className={`${formClass} mt-1 w-full`}
-          />
-        </div>
-        <div className="flex items-end">
-          <button type="submit" disabled={updPending} className={`${btnSecondary} px-3 py-2 text-sm`}>
-            {updPending ? "Saving…" : "Update"}
+      <div className="flex flex-wrap gap-2">
+        <form action={upAction} className="inline">
+          <input type="hidden" name="id" value={field.id} />
+          <input type="hidden" name="direction" value="up" />
+          <button type="submit" disabled={upPending || index === 0} className={btnGhost}>
+            Up
           </button>
-        </div>
-      </form>
+        </form>
+        <form action={downAction} className="inline">
+          <input type="hidden" name="id" value={field.id} />
+          <input type="hidden" name="direction" value="down" />
+          <button type="submit" disabled={downPending || index >= total - 1} className={btnGhost}>
+            Down
+          </button>
+        </form>
+        <button type="button" onClick={onEdit} className={btnSecondary + " h-9 px-3 text-xs"}>
+          Edit
+        </button>
+      </div>
     </li>
   );
 }

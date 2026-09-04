@@ -58,6 +58,7 @@ export async function createField(
       },
     });
     revalidatePath("/admin/fields");
+    revalidatePath("/admin/locations");
     revalidatePath("/admin/games");
     revalidatePath("/admin/brackets");
     await revalidatePublishedTournamentSites();
@@ -109,6 +110,7 @@ export async function updateField(
       },
     });
     revalidatePath("/admin/fields");
+    revalidatePath("/admin/locations");
     revalidatePath("/admin/games");
     revalidatePath("/admin/brackets");
     await revalidatePublishedTournamentSites();
@@ -145,6 +147,7 @@ export async function deleteField(
 
     await prisma.field.delete({ where: { id } });
     revalidatePath("/admin/fields");
+    revalidatePath("/admin/locations");
     revalidatePath("/admin/games");
     revalidatePath("/admin/brackets");
     await revalidatePublishedTournamentSites();
@@ -192,6 +195,7 @@ export async function moveField(
       prisma.field.update({ where: { id: b.id }, data: { sortOrder: a.sortOrder } }),
     ]);
     revalidatePath("/admin/fields");
+    revalidatePath("/admin/locations");
     await revalidatePublishedTournamentSites();
     return { ok: true };
   } catch (e) {
