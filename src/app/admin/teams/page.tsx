@@ -2,6 +2,7 @@ import { AdminNoTournamentPlaceholder } from "@/components/admin/AdminNoTourname
 import { TeamsAdmin } from "@/components/admin/structure/TeamsAdmin";
 import { getTeamsAdminList, getTournamentStructure } from "@/lib/services/admin-structure";
 import { loadAdminPageTournament } from "@/lib/rbac/tenant-access";
+import { can } from "@/lib/rbac/permissions";
 
 export const dynamic = "force-dynamic";
 
@@ -30,14 +31,25 @@ export default async function AdminTeamsPage() {
   );
 
   const isAdmin = session?.user?.role === "ADMIN";
+  const canAssignPools = session?.user?.role ? can(session.user.role, "team:update") : false;
+
+  const assignmentDivisions = structure.divisions.map((d) => ({
+    id: d.id,
+    name: d.name,
+    pools: d.pools.map((p) => ({ id: p.id, name: p.name, sortOrder: p.sortOrder })),
+    teams: d.pools.flatMap((p) => p.teams.map((t) => ({ id: t.id, name: t.name, poolId: p.id }))),
+    publishedBracket: d.brackets.some((b) => b.published),
+  }));
 
   return (
     <TeamsAdmin
       key={tournament.id}
       teams={teams}
       poolOptions={poolOptions}
+      assignmentDivisions={assignmentDivisions}
       tournamentName={tournament.name}
       isAdmin={isAdmin}
+      canAssignPools={canAssignPools}
     />
   );
 }

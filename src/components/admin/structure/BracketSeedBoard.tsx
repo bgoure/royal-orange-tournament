@@ -1,11 +1,20 @@
 "use client";
 
-import { useActionState, useMemo, useState, type DragEvent } from "react";
+import {
+  startTransition,
+  useActionState,
+  useMemo,
+  useState,
+  type DragEvent,
+  type KeyboardEvent,
+} from "react";
+import Link from "next/link";
 import {
   saveBracketRoundZeroSeeding,
   type BracketActionResult,
 } from "@/app/admin/_actions/brackets";
 import { ActionMessage } from "@/components/admin/structure/ActionMessage";
+
 export type SeedBoardTeam = { id: string; name: string };
 
 export type ByeSeedSeatProp = {
@@ -46,9 +55,47 @@ type DragPayload =
   | { type: "team"; teamId: string; from?: { matchId: string; side: SlotSide } }
   | { type: "bye"; from?: { matchId: string; side: SlotSide } };
 
+type BoardSnapshot = {
+  matches: SeedBoardMatch[];
+  byeSeedIds: (string | null)[];
+};
+
+type Selection =
+  | { kind: "team"; teamId: string }
+  | { kind: "bye" }
+  | null;
+
 function sideToSave(side: SeedBoardSide): { bye: true } | { teamId: string } {
   if (side.kind === "team") return { teamId: side.teamId };
   return { bye: true };
+}
+
+function sidesEqual(a: SeedBoardSide, b: SeedBoardSide): boolean {
+  if (a.kind !== b.kind) return false;
+  if (a.kind === "team" && b.kind === "team") return a.teamId === b.teamId;
+  return true;
+}
+
+function snapshotsEqual(a: BoardSnapshot, b: BoardSnapshot): boolean {
+  if (a.byeSeedIds.length !== b.byeSeedIds.length) return false;
+  for (let i = 0; i < a.byeSeedIds.length; i++) {
+    if (a.byeSeedIds[i] !== b.byeSeedIds[i]) return false;
+  }
+  if (a.matches.length !== b.matches.length) return false;
+  for (let i = 0; i < a.matches.length; i++) {
+    const x = a.matches[i]!;
+    const y = b.matches[i]!;
+    if (x.matchId !== y.matchId) return false;
+    if (!sidesEqual(x.home, y.home) || !sidesEqual(x.away, y.away)) return false;
+  }
+  return true;
+}
+
+function cloneSnapshot(s: BoardSnapshot): BoardSnapshot {
+  return {
+    matches: s.matches.map((m) => ({ ...m, home: { ...m.home }, away: { ...m.away } })),
+    byeSeedIds: [...s.byeSeedIds],
+  };
 }
 
 export function BracketSeedBoard({
@@ -60,11 +107,22 @@ export function BracketSeedBoard({
   presetKey,
   byeSeedSeats = [],
 }: SeedBoardProps) {
+  const baseline = useMemo<BoardSnapshot>(
+    () => ({
+      matches: initialMatches,
+      byeSeedIds: byeSeedSeats.map((s) => s.team?.id ?? null),
+    }),
+    [initialMatches, byeSeedSeats],
+  );
+
   const [matches, setMatches] = useState(initialMatches);
   const [byeSeedIds, setByeSeedIds] = useState<(string | null)[]>(() =>
     byeSeedSeats.map((s) => s.team?.id ?? null),
   );
+  const [undoStack, setUndoStack] = useState<BoardSnapshot[]>([]);
   const [drag, setDrag] = useState<DragPayload | null>(null);
+  const [selection, setSelection] = useState<Selection>(null);
+  const [ackImpact, setAckImpact] = useState(false);
   const [state, formAction, pending] = useActionState(
     saveBracketRoundZeroSeeding,
     undefined as BracketActionResult | undefined,
@@ -98,8 +156,47 @@ export function BracketSeedBoard({
   const bankTeams = teams.filter((t) => !placedTeamIds.has(t.id));
   const anyLocked = matches.some((m) => m.locked);
   const editable = canConfigure && !anyLocked;
+  const currentSnap: BoardSnapshot = { matches, byeSeedIds };
+  const dirty = !snapshotsEqual(currentSnap, baseline);
+
+  const slotErrorByMatch = useMemo(() => {
+    const map = new Map<string, string[]>();
+    if (!state || state.ok || !state.slotErrors) return map;
+    for (const err of state.slotErrors) {
+      if (!err.matchId) continue;
+      const list = map.get(err.matchId) ?? [];
+      list.push(err.message);
+      map.set(err.matchId, list);
+    }
+    return map;
+  }, [state]);
+
+  function pushUndo() {
+    setUndoStack((s) => [...s.slice(-19), cloneSnapshot({ matches, byeSeedIds })]);
+  }
+
+  function resetBoard() {
+    setMatches(baseline.matches.map((m) => ({ ...m, home: { ...m.home }, away: { ...m.away } })));
+    setByeSeedIds([...baseline.byeSeedIds]);
+    setUndoStack([]);
+    setSelection(null);
+    setAckImpact(false);
+  }
+
+  function undoLast() {
+    setUndoStack((stack) => {
+      if (stack.length === 0) return stack;
+      const prev = stack[stack.length - 1]!;
+      setMatches(prev.matches);
+      setByeSeedIds(prev.byeSeedIds);
+      setSelection(null);
+      return stack.slice(0, -1);
+    });
+  }
 
   function clearSide(matchId: string, side: SlotSide) {
+    if (!editable) return;
+    pushUndo();
     setMatches((prev) =>
       prev.map((m) =>
         m.matchId === matchId ? { ...m, [side]: { kind: "empty" as const } } : m,
@@ -113,6 +210,7 @@ export function BracketSeedBoard({
 
   function placeOnByeSeed(index: number, payload: DragPayload) {
     if (payload.type !== "team") return;
+    pushUndo();
     let displaced: string | null = null;
     setByeSeedIds((prev) => {
       const next = [...prev];
@@ -154,15 +252,19 @@ export function BracketSeedBoard({
       }
       return next;
     });
+    setSelection(null);
   }
 
   function placeOn(matchId: string, side: SlotSide, payload: DragPayload) {
+    const target = matches.find((m) => m.matchId === matchId);
+    if (!target || target.locked) return;
+    pushUndo();
     if (payload.type === "team") {
       removeTeamFromByeSeeds(payload.teamId);
     }
     setMatches((prev) => {
-      const target = prev.find((m) => m.matchId === matchId);
-      if (!target || target.locked) return prev;
+      const current = prev.find((m) => m.matchId === matchId);
+      if (!current || current.locked) return prev;
 
       const incoming: SeedBoardSide =
         payload.type === "bye"
@@ -173,7 +275,7 @@ export function BracketSeedBoard({
               name: teamNameById.get(payload.teamId) ?? "Team",
             };
 
-      const displaced = target[side];
+      const displaced = current[side];
       let next = prev.map((m) =>
         m.matchId === matchId ? { ...m, [side]: incoming } : m,
       );
@@ -200,6 +302,46 @@ export function BracketSeedBoard({
 
       return next;
     });
+    setSelection(null);
+  }
+
+  function selectionToPayload(): DragPayload | null {
+    if (!selection) return null;
+    if (selection.kind === "bye") return { type: "bye" };
+    // Find origin if seated
+    for (const match of matches) {
+      if (match.home.kind === "team" && match.home.teamId === selection.teamId) {
+        return { type: "team", teamId: selection.teamId, from: { matchId: match.matchId, side: "home" } };
+      }
+      if (match.away.kind === "team" && match.away.teamId === selection.teamId) {
+        return { type: "team", teamId: selection.teamId, from: { matchId: match.matchId, side: "away" } };
+      }
+    }
+    return { type: "team", teamId: selection.teamId };
+  }
+
+  function applySelectionToSeat(matchId: string, side: SlotSide) {
+    const payload = selectionToPayload();
+    if (!payload) return;
+    placeOn(matchId, side, payload);
+  }
+
+  function applySelectionToByeSeed(index: number) {
+    const payload = selectionToPayload();
+    if (!payload || payload.type !== "team") return;
+    placeOnByeSeed(index, payload);
+  }
+
+  function toggleTeamSelection(teamId: string) {
+    if (!editable) return;
+    setSelection((cur) =>
+      cur?.kind === "team" && cur.teamId === teamId ? null : { kind: "team", teamId },
+    );
+  }
+
+  function toggleByeSelection() {
+    if (!editable) return;
+    setSelection((cur) => (cur?.kind === "bye" ? null : { kind: "bye" }));
   }
 
   const slotsJson = JSON.stringify(
@@ -214,35 +356,75 @@ export function BracketSeedBoard({
     byeSeedSeats.length === 0 ||
     (byeSeedIds.length === byeSeedSeats.length && byeSeedIds.every((id) => id != null));
 
+  const selectedLabel =
+    selection?.kind === "bye"
+      ? "BYE (walkover)"
+      : selection?.kind === "team"
+        ? teamNameById.get(selection.teamId) ?? "Team"
+        : null;
+
+  const needsAck = Boolean(state && !state.ok && state.requiresAck);
+
   return (
     <div className="rounded-xl border border-emerald-200 bg-emerald-50/40 p-4">
       <div className="flex flex-wrap items-start justify-between gap-3">
         <div>
           <h3 className="text-sm font-semibold text-zinc-900">Round 1 seed board</h3>
           <p className="mt-1 text-xs text-zinc-600">
-            {bracketName} — drag teams into Away / Home seats. Teams that sit out Round 1 belong in{" "}
-            <span className="font-medium">Sitting out</span> (not on the yellow BYE chip). Drop the
-            BYE chip onto a seat only when that seat is a walkover.
+            {bracketName} — drag teams into Away / Home seats, or tap a team then tap a seat.
+            Empty seats, team seats, structural BYE walkovers, and sitting-out / bye-seed seats are
+            distinct. Later-round winner/loser feeders are not droppable here.
           </p>
         </div>
         {editable ? (
-          <form action={formAction} className="flex flex-wrap items-center gap-2">
-            <input type="hidden" name="bracketId" value={bracketId} />
-            <input type="hidden" name="slots" value={slotsJson} />
-            <input type="hidden" name="byeSeedTeamIds" value={byeSeedTeamIdsJson} />
-            <button
-              type="submit"
-              disabled={pending || !byeSeedsReady}
-              title={
-                byeSeedsReady
-                  ? undefined
-                  : "Assign every Round 1 bye seed (Seed 1 / Seed 2) before saving"
-              }
-              className="rounded-md bg-emerald-600 px-3 py-2 text-sm font-medium text-white hover:bg-emerald-700 disabled:opacity-50"
+          <div className="flex flex-wrap items-center gap-2">
+            <form
+              action={(fd) => {
+                fd.set("bracketId", bracketId);
+                fd.set("slots", slotsJson);
+                fd.set("byeSeedTeamIds", byeSeedTeamIdsJson);
+                if (ackImpact) fd.set("acknowledgeImpact", "1");
+                startTransition(() => {
+                  void formAction(fd);
+                });
+              }}
+              className="contents"
             >
-              {pending ? "Saving…" : "Save Round 1"}
+              <button
+                type="submit"
+                disabled={pending || !byeSeedsReady || (needsAck && !ackImpact)}
+                title={
+                  !byeSeedsReady
+                    ? "Assign every Round 1 bye seed (Seed 1 / Seed 2) before saving"
+                    : needsAck && !ackImpact
+                      ? "Confirm the impact warning before saving"
+                      : undefined
+                }
+                className="rounded-md bg-emerald-600 px-3 py-2 text-sm font-medium text-white hover:bg-emerald-700 disabled:opacity-50"
+              >
+                {pending ? "Saving…" : needsAck ? "Confirm & save Round 1" : "Save Round 1"}
+              </button>
+            </form>
+            <button
+              type="button"
+              disabled={!dirty || pending}
+              onClick={resetBoard}
+              className="rounded-md border border-zinc-300 bg-white px-3 py-2 text-sm font-medium text-zinc-800 hover:bg-zinc-50 disabled:opacity-50"
+            >
+              Reset
             </button>
-          </form>
+            <button
+              type="button"
+              disabled={undoStack.length === 0 || pending}
+              onClick={undoLast}
+              className="rounded-md border border-zinc-300 bg-white px-3 py-2 text-sm font-medium text-zinc-800 hover:bg-zinc-50 disabled:opacity-50"
+            >
+              Undo
+            </button>
+            {dirty ? (
+              <span className="text-xs font-medium text-amber-800">Unsaved changes</span>
+            ) : null}
+          </div>
         ) : null}
       </div>
 
@@ -253,11 +435,42 @@ export function BracketSeedBoard({
             Round 1 seeding saved.
           </p>
         ) : null}
+        {needsAck ? (
+          <label className="mt-2 flex items-start gap-2 rounded-md border border-amber-300 bg-amber-50 px-3 py-2 text-xs text-amber-950">
+            <input
+              type="checkbox"
+              className="mt-0.5"
+              checked={ackImpact}
+              onChange={(e) => setAckImpact(e.target.checked)}
+            />
+            <span>
+              I understand later-round seats will be cleared for unplayed games. This does not delete
+              the bracket or regenerate the schedule. Check the box, then press{" "}
+              <strong>Confirm &amp; save Round 1</strong>.
+            </span>
+          </label>
+        ) : null}
       </div>
 
       {anyLocked ? (
         <p className="mt-3 text-xs text-amber-900">
-          Round 1 has a live or scored game — reseating is locked until that game is cleared.
+          Round 1 has a live or scored game — reseating is locked. For administrative one-off seat
+          fixes, use{" "}
+          <Link href="/admin/games" className="font-medium underline">
+            Games → Teams (override)
+          </Link>
+          .
+        </p>
+      ) : null}
+
+      {selectedLabel ? (
+        <p className="mt-3 rounded-md border border-emerald-300 bg-emerald-50 px-3 py-2 text-xs text-emerald-950">
+          Selected: <strong>{selectedLabel}</strong> — tap an Away/Home seat
+          {byeSeedSeats.length > 0 ? " or bye-seed slot" : ""} to place
+          {selection?.kind === "team" ? " / swap" : ""}.{" "}
+          <button type="button" className="font-medium underline" onClick={() => setSelection(null)}>
+            Cancel
+          </button>
         </p>
       ) : null}
 
@@ -318,7 +531,13 @@ export function BracketSeedBoard({
             >
               <p className="text-[10px] font-semibold uppercase tracking-wide text-zinc-500">
                 Game {match.matchIndex + 1}
+                {match.locked ? " · locked" : ""}
               </p>
+              {slotErrorByMatch.get(match.matchId)?.map((msg, i) => (
+                <p key={i} className="mt-1 text-xs text-red-700" role="alert">
+                  {msg}
+                </p>
+              ))}
               <div className="mt-2 grid gap-2 sm:grid-cols-2">
                 {(["away", "home"] as const).map((side) => (
                   <DropSeat
@@ -326,6 +545,7 @@ export function BracketSeedBoard({
                     label={side === "away" ? "Away" : "Home"}
                     side={match[side]}
                     disabled={!editable || match.locked}
+                    selectedTarget={Boolean(selection)}
                     onDragOver={(e) => e.preventDefault()}
                     onDrop={() => {
                       if (!drag || match.locked) return;
@@ -349,6 +569,24 @@ export function BracketSeedBoard({
                     }}
                     onDragEndChip={() => setDrag(null)}
                     onClear={() => clearSide(match.matchId, side)}
+                    onActivateSeat={() => {
+                      if (selection) applySelectionToSeat(match.matchId, side);
+                      else if (match[side].kind === "team") {
+                        toggleTeamSelection(match[side].teamId);
+                      } else if (match[side].kind === "bye") {
+                        toggleByeSelection();
+                      }
+                    }}
+                    onChipKeyDown={(e) => {
+                      if (e.key === "Enter" || e.key === " ") {
+                        e.preventDefault();
+                        if (selection) applySelectionToSeat(match.matchId, side);
+                      }
+                      if (e.key === "Backspace" || e.key === "Delete") {
+                        e.preventDefault();
+                        clearSide(match.matchId, side);
+                      }
+                    }}
                   />
                 ))}
               </div>
@@ -364,26 +602,52 @@ export function BracketSeedBoard({
                   Round 1 bye seeds
                 </p>
                 <p className="mt-1 text-[11px] leading-snug text-sky-900/80">
-                  Drop the strongest remaining teams here (Seed 1 = strongest). Save writes them onto
-                  later-round seats; the feeder opponent stays TBD until Round 1 is played.
+                  Strongest remaining teams (Seed 1 = strongest). Save writes them onto later-round
+                  seats; the feeder opponent stays TBD until Round 1 is played — not a droppable
+                  winner/loser feeder.
                 </p>
                 <div className="mt-2 flex flex-col gap-2">
                   {byeSeedSeats.map((seat, index) => {
                     const teamId = byeSeedIds[index] ?? null;
+                    const byeErr =
+                      state &&
+                      !state.ok &&
+                      state.slotErrors?.find((e) => e.byeSeedIndex === index)?.message;
                     return (
                       <div
                         key={`${seat.label}-${index}`}
+                        role="button"
+                        tabIndex={0}
                         onDragOver={(e) => e.preventDefault()}
                         onDrop={() => {
                           if (!drag) return;
                           placeOnByeSeed(index, drag);
                           setDrag(null);
                         }}
-                        className="min-h-[52px] rounded-md border border-sky-200 bg-white px-2 py-1.5"
+                        onClick={() => {
+                          if (selection?.kind === "team") applySelectionToByeSeed(index);
+                        }}
+                        onKeyDown={(e: KeyboardEvent) => {
+                          if (e.key === "Enter" || e.key === " ") {
+                            e.preventDefault();
+                            if (selection?.kind === "team") applySelectionToByeSeed(index);
+                          }
+                        }}
+                        className={
+                          "min-h-[52px] rounded-md border bg-white px-2 py-1.5 outline-none focus-visible:ring-2 focus-visible:ring-sky-500 " +
+                          (selection?.kind === "team"
+                            ? "border-sky-400 ring-1 ring-sky-200"
+                            : "border-sky-200")
+                        }
                       >
                         <p className="text-[10px] font-semibold uppercase tracking-wide text-sky-800">
                           {seat.label}
                         </p>
+                        {byeErr ? (
+                          <p className="text-[11px] text-red-700" role="alert">
+                            {byeErr}
+                          </p>
+                        ) : null}
                         <div className="mt-1">
                           {teamId ? (
                             <button
@@ -391,18 +655,35 @@ export function BracketSeedBoard({
                               draggable
                               onDragStart={() => setDrag({ type: "team", teamId })}
                               onDragEnd={() => setDrag(null)}
-                              onClick={() =>
-                                setByeSeedIds((prev) =>
-                                  prev.map((id, i) => (i === index ? null : id)),
-                                )
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                if (selection) {
+                                  applySelectionToByeSeed(index);
+                                } else {
+                                  setByeSeedIds((prev) =>
+                                    prev.map((id, i) => (i === index ? null : id)),
+                                  );
+                                }
+                              }}
+                              title="Click to remove · drag or select to move"
+                              aria-pressed={
+                                selection?.kind === "team" && selection.teamId === teamId
                               }
-                              title="Click to remove · drag to move"
-                              className="cursor-grab rounded-md border border-emerald-200 bg-emerald-50 px-2 py-1 text-xs font-medium text-emerald-900"
+                              className={
+                                "cursor-grab rounded-md border px-2 py-1 text-xs font-medium " +
+                                (selection?.kind === "team" && selection.teamId === teamId
+                                  ? "border-emerald-500 bg-emerald-100 text-emerald-950 ring-2 ring-emerald-400"
+                                  : "border-emerald-200 bg-emerald-50 text-emerald-900")
+                              }
                             >
                               {teamNameById.get(teamId) ?? "Team"}
                             </button>
                           ) : (
-                            <p className="text-xs text-sky-700/70">Drop seed {index + 1}</p>
+                            <p className="text-xs text-sky-700/70">
+                              {selection?.kind === "team"
+                                ? "Tap to place selected team"
+                                : `Drop seed ${index + 1}`}
+                            </p>
                           )}
                         </div>
                       </div>
@@ -417,6 +698,7 @@ export function BracketSeedBoard({
                 onDrop={() => {
                   if (drag?.type === "team" || drag?.type === "bye") {
                     if (drag.from) clearSide(drag.from.matchId, drag.from.side);
+                    else if (drag.type === "team") removeTeamFromByeSeeds(drag.teamId);
                     setDrag(null);
                   }
                 }}
@@ -424,21 +706,22 @@ export function BracketSeedBoard({
                 <p className="text-[10px] font-semibold uppercase tracking-wide text-sky-900">
                   Sitting out (Round 1 bye)
                 </p>
+                <p className="mt-1 text-[11px] text-sky-900/80">
+                  Teams waiting until a later round — not the yellow structural BYE walkover chip.
+                </p>
                 <div className="mt-2 flex min-h-[48px] flex-wrap gap-1.5">
                   {bankTeams.length === 0 ? (
                     <p className="text-xs text-sky-800/70">All teams are in Round 1 seats</p>
                   ) : (
                     bankTeams.map((t) => (
-                      <button
+                      <BankChip
                         key={t.id}
-                        type="button"
-                        draggable
+                        label={t.name}
+                        selected={selection?.kind === "team" && selection.teamId === t.id}
                         onDragStart={() => setDrag({ type: "team", teamId: t.id })}
                         onDragEnd={() => setDrag(null)}
-                        className="cursor-grab rounded-md border border-sky-300 bg-white px-2 py-1 text-xs font-medium text-sky-950 active:cursor-grabbing"
-                      >
-                        {t.name}
-                      </button>
+                        onActivate={() => toggleTeamSelection(t.id)}
+                      />
                     ))
                   )}
                 </div>
@@ -452,16 +735,14 @@ export function BracketSeedBoard({
                 </p>
                 <div className="mt-2 flex min-h-[40px] flex-wrap gap-1.5">
                   {bankTeams.map((t) => (
-                    <button
+                    <BankChip
                       key={t.id}
-                      type="button"
-                      draggable
+                      label={t.name}
+                      selected={selection?.kind === "team" && selection.teamId === t.id}
                       onDragStart={() => setDrag({ type: "team", teamId: t.id })}
                       onDragEnd={() => setDrag(null)}
-                      className="cursor-grab rounded-md border border-zinc-300 bg-white px-2 py-1 text-xs font-medium text-zinc-800 active:cursor-grabbing"
-                    >
-                      {t.name}
-                    </button>
+                      onActivate={() => toggleTeamSelection(t.id)}
+                    />
                   ))}
                 </div>
               </div>
@@ -469,20 +750,27 @@ export function BracketSeedBoard({
 
             <div className="rounded-lg border border-dashed border-amber-300 bg-amber-50/80 p-3">
               <p className="text-[10px] font-semibold uppercase tracking-wide text-amber-900">
-                BYE chip (walkover)
+                BYE chip (structural walkover)
               </p>
               <button
                 type="button"
                 draggable
                 onDragStart={() => setDrag({ type: "bye" })}
                 onDragEnd={() => setDrag(null)}
-                className="mt-2 cursor-grab rounded-md border border-amber-300 bg-white px-2 py-1 text-xs font-semibold text-amber-950 active:cursor-grabbing"
+                onClick={toggleByeSelection}
+                aria-pressed={selection?.kind === "bye"}
+                className={
+                  "mt-2 cursor-grab rounded-md border px-2 py-1 text-xs font-semibold active:cursor-grabbing " +
+                  (selection?.kind === "bye"
+                    ? "border-amber-500 bg-amber-100 text-amber-950 ring-2 ring-amber-400"
+                    : "border-amber-300 bg-white text-amber-950")
+                }
               >
                 BYE
               </button>
               <p className="mt-2 text-[11px] leading-snug text-amber-900/80">
-                Drag onto an Away/Home seat for a walkover. Formats with mid-round bye seeds use the
-                slots above instead of this chip for top seeds.
+                Place on an Away/Home seat only for a walkover. Mid-round bye seeds use the slots
+                above for top seeds sitting out Round 1.
               </p>
             </div>
           </div>
@@ -492,35 +780,104 @@ export function BracketSeedBoard({
   );
 }
 
+function BankChip({
+  label,
+  selected,
+  onDragStart,
+  onDragEnd,
+  onActivate,
+}: {
+  label: string;
+  selected: boolean;
+  onDragStart: () => void;
+  onDragEnd: () => void;
+  onActivate: () => void;
+}) {
+  return (
+    <button
+      type="button"
+      draggable
+      onDragStart={onDragStart}
+      onDragEnd={onDragEnd}
+      onClick={onActivate}
+      onKeyDown={(e) => {
+        if (e.key === "Enter" || e.key === " ") {
+          e.preventDefault();
+          onActivate();
+        }
+      }}
+      aria-pressed={selected}
+      className={
+        "cursor-grab rounded-md border px-2 py-1 text-xs font-medium active:cursor-grabbing " +
+        (selected
+          ? "border-emerald-500 bg-emerald-100 text-emerald-950 ring-2 ring-emerald-400"
+          : "border-sky-300 bg-white text-sky-950")
+      }
+    >
+      {label}
+    </button>
+  );
+}
+
 function DropSeat({
   label,
   side,
   disabled,
+  selectedTarget,
   onDragOver,
   onDrop,
   onDragStartChip,
   onDragEndChip,
   onClear,
+  onActivateSeat,
+  onChipKeyDown,
 }: {
   label: string;
   side: SeedBoardSide;
   disabled: boolean;
+  selectedTarget: boolean;
   onDragOver: (e: DragEvent) => void;
   onDrop: () => void;
   onDragStartChip: () => void;
   onDragEndChip: () => void;
   onClear: () => void;
+  onActivateSeat: () => void;
+  onChipKeyDown: (e: KeyboardEvent) => void;
 }) {
+  const kindLabel =
+    side.kind === "empty" ? "empty" : side.kind === "bye" ? "structural BYE" : "team";
+
   return (
     <div
+      role="button"
+      tabIndex={disabled ? -1 : 0}
+      aria-label={`${label} seat (${kindLabel})`}
       onDragOver={disabled ? undefined : onDragOver}
       onDrop={disabled ? undefined : onDrop}
-      className="min-h-[52px] rounded-md border border-zinc-200 bg-zinc-50/80 px-2 py-1.5"
+      onClick={disabled ? undefined : onActivateSeat}
+      onKeyDown={
+        disabled
+          ? undefined
+          : (e) => {
+              if (e.key === "Enter" || e.key === " ") {
+                e.preventDefault();
+                onActivateSeat();
+              }
+            }
+      }
+      className={
+        "min-h-[52px] rounded-md border px-2 py-1.5 outline-none focus-visible:ring-2 focus-visible:ring-emerald-500 " +
+        (selectedTarget && !disabled
+          ? "border-emerald-400 bg-emerald-50/80 ring-1 ring-emerald-200"
+          : "border-zinc-200 bg-zinc-50/80")
+      }
     >
       <p className="text-[10px] font-semibold uppercase tracking-wide text-zinc-500">{label}</p>
       <div className="mt-1">
         {side.kind === "empty" ? (
-          <p className="text-xs text-zinc-400">Drop team or BYE</p>
+          <p className="text-xs text-zinc-400">
+            {selectedTarget ? "Tap to place" : "Empty — drop team or BYE"}
+          </p>
         ) : (
           <button
             type="button"
@@ -528,8 +885,23 @@ function DropSeat({
             disabled={disabled}
             onDragStart={disabled ? undefined : onDragStartChip}
             onDragEnd={disabled ? undefined : onDragEndChip}
-            onClick={disabled ? undefined : onClear}
-            title={disabled ? undefined : "Click to remove · drag to move"}
+            onClick={
+              disabled
+                ? undefined
+                : (e) => {
+                    e.stopPropagation();
+                    if (selectedTarget) onActivateSeat();
+                    else onClear();
+                  }
+            }
+            onKeyDown={disabled ? undefined : onChipKeyDown}
+            title={
+              disabled
+                ? undefined
+                : selectedTarget
+                  ? "Place or swap selection here"
+                  : "Click to remove · drag or select to move"
+            }
             className={
               side.kind === "bye"
                 ? "cursor-grab rounded-md border border-amber-300 bg-amber-50 px-2 py-1 text-xs font-semibold text-amber-950 disabled:cursor-default"

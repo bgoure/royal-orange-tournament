@@ -9,6 +9,7 @@ import { can } from "@/lib/rbac/permissions";
 import { listBracketImplicitSeedSeats } from "@/lib/services/bracket-seed-seats";
 import { loadAdminPageTournament } from "@/lib/rbac/tenant-access";
 import type { SeedBoardSide } from "@/components/admin/structure/BracketSeedBoard";
+import { isCompetitiveSeatLocked } from "@/lib/services/assignment-impact";
 
 export const dynamic = "force-dynamic";
 
@@ -101,9 +102,7 @@ export default async function AdminStructurePage({
           })),
           matches: round0.matches.map((m) => {
             const g = m.game;
-            const locked =
-              g?.status === "LIVE" ||
-              (g?.status === "FINAL" && g.resultType === "REGULAR");
+            const locked = g ? isCompetitiveSeatLocked(g) : false;
             return {
               matchId: m.id,
               matchIndex: m.matchIndex,

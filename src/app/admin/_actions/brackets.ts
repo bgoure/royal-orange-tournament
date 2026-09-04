@@ -42,6 +42,11 @@ import {
   applyOba13PlacementSchema,
 } from "@/lib/validations/bracket-admin";
 import { saveBracketRoundZeroSeedingSchema } from "@/lib/validations/bracket-seed-board";
+import {
+  countClearableLaterRoundSeats,
+} from "@/lib/services/assignment-impact-db";
+import { isCompetitiveSeatLocked } from "@/lib/services/assignment-impact";
+import { formatSeedBoardImpactMessage } from "@/lib/services/assignment-impact";
 import { advanceByeWinnersInRound0, resyncQualifierConclusion } from "@/lib/services/bracket-advance";
 import { listBracketsForTournament } from "@/lib/services/brackets";
 import {
@@ -51,7 +56,20 @@ import {
 import type { Session } from "next-auth";
 import { GrandFinalMode } from "@prisma/client";
 
-export type BracketActionResult = { ok: true } | { ok: false; error: string };
+export type BracketActionResult =
+  | { ok: true }
+  | {
+      ok: false;
+      error: string;
+      slotErrors?: Array<{
+        matchId?: string;
+        side?: "home" | "away";
+        byeSeedIndex?: number;
+        message: string;
+      }>;
+      requiresAck?: boolean;
+      impactClearedSeats?: number;
+    };
 
 async function bracketContext(): Promise<
   { session: Session; tournament: TournamentForRequest } | { error: string }
@@ -814,9 +832,27 @@ export async function saveBracketRoundZeroSeeding(
     byeSeedTeamIds: byeSeedTeamIdsRaw,
   });
   if (!parsed.success) {
+    const flat = parsed.error.flatten();
+    const slotErrors: NonNullable<Extract<BracketActionResult, { ok: false }>["slotErrors"]> = [];
+    for (const issue of parsed.error.issues) {
+      if (issue.path[0] === "slots" && typeof issue.path[1] === "number") {
+        const idx = issue.path[1];
+        const matchId =
+          Array.isArray(slotsRaw) && slotsRaw[idx] && typeof slotsRaw[idx] === "object"
+            ? String((slotsRaw[idx] as { matchId?: string }).matchId ?? "")
+            : undefined;
+        slotErrors.push({
+          matchId: matchId || undefined,
+          message: issue.message,
+        });
+      } else if (issue.path[0] === "byeSeedTeamIds") {
+        slotErrors.push({ message: issue.message });
+      }
+    }
     return {
       ok: false,
-      error: parsed.error.flatten().formErrors.join(", ") || "Invalid Round 1 seeding",
+      error: flat.formErrors.join(", ") || parsed.error.issues[0]?.message || "Invalid Round 1 seeding",
+      slotErrors: slotErrors.length > 0 ? slotErrors : undefined,
     };
   }
 
@@ -848,18 +884,11 @@ export async function saveBracketRoundZeroSeeding(
     if (!round0) return { ok: false, error: "Round 1 not found" };
 
     // LIVE always blocked. FINAL REGULAR (played) blocked; FINAL FORFEIT_* (BYE walkovers) can be reseated.
-    if (
-      round0.matches.some((m) => {
-        const g = m.game;
-        if (!g) return false;
-        if (g.status === "LIVE") return true;
-        if (g.status === "FINAL" && g.resultType === "REGULAR") return true;
-        return false;
-      })
-    ) {
+    if (round0.matches.some((m) => m.game && isCompetitiveSeatLocked(m.game))) {
       return {
         ok: false,
-        error: "Cannot reseat Round 1 while a game is live or already scored.",
+        error:
+          "Cannot reseat Round 1 while a game is live or already scored. Use Games → Teams (override) for administrative corrections.",
       };
     }
 
@@ -883,15 +912,29 @@ export async function saveBracketRoundZeroSeeding(
     );
 
     for (const slot of parsed.data.slots) {
-      for (const side of [slot.home, slot.away]) {
+      for (const side of [slot.home, slot.away] as const) {
         if ("teamId" in side && !divisionTeamIds.has(side.teamId)) {
-          return { ok: false, error: "A selected team is not in this division." };
+          return {
+            ok: false,
+            error: "A selected team is not in this division.",
+            slotErrors: [
+              {
+                matchId: slot.matchId,
+                side: side === slot.home ? "home" : "away",
+                message: "Team is not in this division.",
+              },
+            ],
+          };
         }
       }
     }
-    for (const teamId of parsed.data.byeSeedTeamIds) {
+    for (const [i, teamId] of parsed.data.byeSeedTeamIds.entries()) {
       if (!divisionTeamIds.has(teamId)) {
-        return { ok: false, error: "A Round 1 bye seed is not in this division." };
+        return {
+          ok: false,
+          error: "A Round 1 bye seed is not in this division.",
+          slotErrors: [{ byeSeedIndex: i, message: "Team is not in this division." }],
+        };
       }
     }
 
@@ -904,12 +947,28 @@ export async function saveBracketRoundZeroSeeding(
           error: `This bracket needs ${seedSeats.length} Round 1 bye seed(s) assigned (${seedSeats
             .map((s) => s.label)
             .join("; ")}).`,
+          slotErrors: seedSeats.map((_, i) =>
+            parsed.data.byeSeedTeamIds[i]
+              ? null
+              : { byeSeedIndex: i, message: `Assign ${seedSeats[i]!.label} before saving.` },
+          ).filter(Boolean) as Array<{ byeSeedIndex: number; message: string }>,
         };
       }
     } else if (parsed.data.byeSeedTeamIds.length > 0) {
       return {
         ok: false,
         error: "This bracket has no mid-round bye-seed seats — leave the bye-seed list empty.",
+      };
+    }
+
+    const clearableLater = await countClearableLaterRoundSeats(bracket.id);
+    const ack = String(formData.get("acknowledgeImpact") ?? "") === "1";
+    if (clearableLater > 0 && !ack) {
+      return {
+        ok: false,
+        error: formatSeedBoardImpactMessage(clearableLater),
+        requiresAck: true,
+        impactClearedSeats: clearableLater,
       };
     }
 

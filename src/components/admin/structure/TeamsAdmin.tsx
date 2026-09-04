@@ -28,6 +28,10 @@ import { ActionBar } from "@/components/admin/ui/ActionBar";
 import { ConfirmDialog } from "@/components/admin/ui/ConfirmDialog";
 import { ResponsiveEntityList, type EntityColumn } from "@/components/admin/ui/ResponsiveEntityList";
 import { StatusBadge } from "@/components/admin/ui/StatusBadge";
+import {
+  PoolAssignmentBoard,
+  type PoolAssignmentDivision,
+} from "@/components/admin/structure/PoolAssignmentBoard";
 
 // ---------------------------------------------------------------------------
 // Types
@@ -647,11 +651,20 @@ function ImportNamesSheet({
 type Props = {
   teams: TeamWithRelations[];
   poolOptions: PoolOption[];
+  assignmentDivisions: PoolAssignmentDivision[];
   tournamentName: string;
   isAdmin: boolean;
+  canAssignPools: boolean;
 };
 
-export function TeamsAdmin({ teams, poolOptions, tournamentName, isAdmin }: Props) {
+export function TeamsAdmin({
+  teams,
+  poolOptions,
+  assignmentDivisions,
+  tournamentName,
+  isAdmin,
+  canAssignPools,
+}: Props) {
   const [sheet, dispatchSheet] = useReducer(teamsSheetReducer, INITIAL_SHEET_STATE);
   const [filter, dispatchFilter] = useReducer(teamsFilterReducer, INITIAL_FILTER_STATE);
 
@@ -797,6 +810,10 @@ export function TeamsAdmin({ teams, poolOptions, tournamentName, isAdmin }: Prop
             Go to Divisions &amp; pools →
           </Link>
         </section>
+      ) : null}
+
+      {assignmentDivisions.some((d) => d.pools.length > 0) ? (
+        <PoolAssignmentBoard divisions={assignmentDivisions} canAssign={canAssignPools} />
       ) : null}
 
       {placeholderCount > 0 && poolOptions.length > 0 ? (

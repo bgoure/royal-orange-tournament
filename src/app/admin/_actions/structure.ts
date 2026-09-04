@@ -26,12 +26,24 @@ import {
   teamCreateSchema,
   teamUpdateSchema,
 } from "@/lib/validations/structure";
+import { savePoolAssignmentsSchema } from "@/lib/validations/pool-assignments";
+import {
+  assessTeamPoolMoveImpact,
+  poolAssignmentBlockReason,
+} from "@/lib/services/assignment-impact-db";
 import { type TournamentForRequest } from "@/lib/tournament-context";
 import { requireAuthorizedTournamentContext } from "@/lib/rbac/tenant-access";
 import { isGenericWizardDivisionTitle } from "@/lib/brackets/bracket-public-title";
 import type { Session } from "next-auth";
 
-export type ActionResult = { ok: true } | { ok: false; error: string };
+export type ActionResult =
+  | { ok: true }
+  | {
+      ok: false;
+      error: string;
+      fieldErrors?: Array<{ teamId?: string; poolId?: string; message: string }>;
+      requiresStructureReset?: boolean;
+    };
 
 async function tournamentContext(): Promise<
   { session: Session; tournament: TournamentForRequest } | { error: string }
@@ -413,6 +425,145 @@ export async function updateTeam(_prev: ActionResult | undefined, formData: Form
   }
   revalidatePath("/admin/divisions");
   revalidatePath("/admin/teams");
+  await revalidatePublishedTournamentSites();
+  return { ok: true };
+}
+
+/**
+ * Batch-move teams between pools in one division.
+ * Blocks when any moved team is still listed on a game or the division has a published bracket —
+ * callers must reset competition structure first (this action never auto-resets).
+ */
+export async function savePoolAssignments(
+  _prev: ActionResult | undefined,
+  formData: FormData,
+): Promise<ActionResult> {
+  const ctx = await tournamentContext();
+  if ("error" in ctx) return { ok: false, error: ctx.error };
+  if (!can(ctx.session.user.role, "team:update")) return denyPermission();
+
+  let assignmentsRaw: unknown;
+  try {
+    assignmentsRaw = JSON.parse(String(formData.get("assignments") ?? "[]"));
+  } catch {
+    return { ok: false, error: "Invalid assignment payload" };
+  }
+
+  const parsed = savePoolAssignmentsSchema.safeParse({
+    divisionId: formData.get("divisionId"),
+    assignments: assignmentsRaw,
+  });
+  if (!parsed.success) {
+    return {
+      ok: false,
+      error: parsed.error.flatten().formErrors.join(", ") || "Invalid pool assignments",
+    };
+  }
+
+  const { divisionId, assignments } = parsed.data;
+  try {
+    await assertDivisionInTournament(divisionId, ctx.tournament.id);
+  } catch {
+    return { ok: false, error: "Division not found in this tournament" };
+  }
+
+  const scopeErr = await assertDivisionScope(ctx.session.user.id, ctx.session.user.role, divisionId);
+  if (scopeErr) return { ok: false, error: scopeErr };
+
+  const pools = await prisma.pool.findMany({
+    where: { divisionId, division: { tournamentId: ctx.tournament.id } },
+    select: { id: true },
+  });
+  const poolIds = new Set(pools.map((p) => p.id));
+  if (poolIds.size === 0) return { ok: false, error: "This division has no pools." };
+
+  const fieldErrors: Array<{ teamId?: string; poolId?: string; message: string }> = [];
+  for (const a of assignments) {
+    if (!poolIds.has(a.poolId)) {
+      fieldErrors.push({
+        teamId: a.teamId,
+        poolId: a.poolId,
+        message: "Target pool is not in this division.",
+      });
+    }
+  }
+
+  const teamRows = await prisma.team.findMany({
+    where: {
+      id: { in: assignments.map((a) => a.teamId) },
+      pool: { division: { tournamentId: ctx.tournament.id } },
+    },
+    select: { id: true, poolId: true, pool: { select: { divisionId: true } } },
+  });
+  const teamById = new Map(teamRows.map((t) => [t.id, t]));
+
+  for (const a of assignments) {
+    const row = teamById.get(a.teamId);
+    if (!row) {
+      fieldErrors.push({ teamId: a.teamId, message: "Team not found in this tournament." });
+      continue;
+    }
+    if (row.pool.divisionId !== divisionId) {
+      fieldErrors.push({
+        teamId: a.teamId,
+        message: "Team belongs to a different division.",
+      });
+    }
+  }
+
+  if (fieldErrors.length > 0) {
+    return {
+      ok: false,
+      error: fieldErrors[0]!.message,
+      fieldErrors,
+    };
+  }
+
+  const changing = assignments.filter((a) => {
+    const row = teamById.get(a.teamId);
+    return row && row.poolId !== a.poolId;
+  });
+  if (changing.length === 0) return { ok: true };
+
+  const impact = await assessTeamPoolMoveImpact(
+    ctx.tournament.id,
+    changing.map((a) => a.teamId),
+  );
+  const block = poolAssignmentBlockReason(impact);
+  if (block) {
+    return {
+      ok: false,
+      error: block,
+      requiresStructureReset: true,
+      fieldErrors: changing.map((a) => ({
+        teamId: a.teamId,
+        poolId: a.poolId,
+        message: block,
+      })),
+    };
+  }
+
+  const poolsToRecompute = new Set<string>();
+  await prisma.$transaction(async (tx) => {
+    for (const a of changing) {
+      const row = teamById.get(a.teamId)!;
+      poolsToRecompute.add(row.poolId);
+      poolsToRecompute.add(a.poolId);
+      await tx.team.update({
+        where: { id: a.teamId },
+        data: { poolId: a.poolId },
+      });
+    }
+  });
+
+  for (const poolId of poolsToRecompute) {
+    await recomputePoolStandings(poolId);
+  }
+
+  revalidatePath("/admin/divisions");
+  revalidatePath("/admin/teams");
+  revalidatePath("/admin/structure");
+  revalidatePath("/admin/standings");
   await revalidatePublishedTournamentSites();
   return { ok: true };
 }
