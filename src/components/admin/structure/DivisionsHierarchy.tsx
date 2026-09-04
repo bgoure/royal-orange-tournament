@@ -30,6 +30,12 @@ import {
   resolveEntityById,
 } from "@/components/admin/ui/entity-sheet-session";
 import {
+  divisionDeleteConfirmDescription,
+  divisionDeleteDangerHint,
+  poolDeleteConfirmDescription,
+  poolDeleteDangerHint,
+} from "@/components/admin/structure/division-destructive-copy";
+import {
   countTeamsInPools,
   divisionReadiness,
   type DivisionBracketSummary,
@@ -184,7 +190,7 @@ function EditDivisionSheet({
           contained
           open={confirmDelete && open}
           title={`Delete “${display.name}”?`}
-          description="Deletes this division and all pools, teams, and related pool data. This cannot be undone."
+          description={divisionDeleteConfirmDescription()}
           confirmLabel="Delete division"
           tone="danger"
           busy={delPending}
@@ -220,9 +226,7 @@ function EditDivisionSheet({
         isAdmin ? (
           <div>
             <p className="text-sm font-semibold text-red-900">Danger zone</p>
-            <p className="mt-1 text-xs text-zinc-500">
-              Deleting removes pools and teams under this division.
-            </p>
+            <p className="mt-1 text-xs text-zinc-500">{divisionDeleteDangerHint()}</p>
             <ErrorBanner message={delState && !delState.ok ? delState.error : undefined} />
             <div className="mt-3">
               <button type="button" onClick={() => setConfirmDelete(true)} className={btnDanger}>
@@ -402,7 +406,7 @@ function EditPoolSheet({
           contained
           open={confirmDelete && open}
           title={`Delete “${display.name}”?`}
-          description="Deletes this pool and all teams in it. Games referencing those teams will be removed."
+          description={poolDeleteConfirmDescription()}
           confirmLabel="Delete pool"
           tone="danger"
           busy={delPending}
@@ -438,11 +442,7 @@ function EditPoolSheet({
         isAdmin ? (
           <div>
             <p className="text-sm font-semibold text-red-900">Danger zone</p>
-            <p className="mt-1 text-xs text-zinc-500">
-              {display.teams.length > 0
-                ? `This pool has ${display.teams.length} team${display.teams.length === 1 ? "" : "s"}. Deleting removes them.`
-                : "This pool has no teams."}
-            </p>
+            <p className="mt-1 text-xs text-zinc-500">{poolDeleteDangerHint(display.teams.length)}</p>
             <ErrorBanner message={delState && !delState.ok ? delState.error : undefined} />
             <div className="mt-3">
               <button type="button" onClick={() => setConfirmDelete(true)} className={btnDanger}>

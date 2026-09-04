@@ -75,6 +75,7 @@ export async function createVenue(
       },
     });
     revalidatePath("/admin/locations");
+    revalidatePath("/admin/fields");
     await revalidatePublishedTournamentSites();
     revalidatePath("/admin/tournament-settings");
     return { ok: true };
@@ -135,6 +136,7 @@ export async function updateVenue(
       },
     });
     revalidatePath("/admin/locations");
+    revalidatePath("/admin/fields");
     await revalidatePublishedTournamentSites();
     revalidatePath("/admin/tournament-settings");
     return { ok: true };
@@ -191,6 +193,7 @@ export async function deleteVenue(
     }
 
     revalidatePath("/admin/locations");
+    revalidatePath("/admin/fields");
     await revalidatePublishedTournamentSites();
     revalidatePath("/admin/tournament-settings");
     return { ok: true };
@@ -231,6 +234,7 @@ export async function moveVenue(
       prisma.location.update({ where: { id: b.id }, data: { sortOrder: a.sortOrder } }),
     ]);
     revalidatePath("/admin/locations");
+    revalidatePath("/admin/fields");
     await revalidatePublishedTournamentSites();
     return { ok: true };
   } catch (e) {
