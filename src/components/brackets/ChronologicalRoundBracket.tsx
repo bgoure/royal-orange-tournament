@@ -1189,9 +1189,9 @@ function ChronoBoard({
                   ) : null}
                 </div>
               ) : null}
-              {showR7ByeLabel && games.some((g) => (g.gameNumber?.trim() ?? "") === "24A")
+              {showR7ByeLabel
                 ? (() => {
-                    const g23 = gameByNumber(allGames, "23A");
+                    const g23 = gameByNumber(games, "23A");
                     if (!g23) return null;
                     const y23 = (tops.get(g23.id) ?? COL_PAD_Y) + col.noteOffset;
                     const h23 = heights.get(g23.id) ?? EST_CARD_H;
