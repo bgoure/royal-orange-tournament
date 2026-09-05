@@ -9,9 +9,13 @@ import { TeamLogoMark } from "@/components/ui/TeamLogo";
 import { GAME_CARD_STATUS_STYLES, publicGameStatusLabel } from "@/components/schedule/GameList";
 import type { GameRow } from "@/components/brackets/bracket-types";
 import { getBracketSlotSources } from "@/lib/brackets/game-slot-sources";
-import { isOba13SitOutGameNumber } from "@/lib/services/oba-de-13";
+import {
+  isOba13SitOutGameNumber,
+  oba13PlaceholderPrimary,
+  OBA13_GAME,
+} from "@/lib/services/oba-de-13";
 import { BRACKET_TEAM_NAME_CLASS } from "@/components/brackets/bracket-card-layout";
-import { slotLines, slotLineTextClass } from "@/components/brackets/bracket-slot-lines";
+import { slotLines, slotLineTextClass, type SlotLine } from "@/components/brackets/bracket-slot-lines";
 import type { QuickEditGamePayload } from "@/components/public-admin/PublicQuickGameProvider";
 import { usePublicQuickGameEdit } from "@/components/public-admin/PublicQuickGameProvider";
 import { useBracketDisplayPrefs } from "@/components/brackets/BracketViewerPrefs";
@@ -64,6 +68,34 @@ function isDirectEntryPoolName(name: string | null | undefined): boolean {
   return (name ?? "").trim().toLowerCase() === "direct entry";
 }
 
+function applyOba13PublicSlot(
+  line: SlotLine,
+  game: GameRow,
+  slot: "home" | "away",
+  r5ByeName: string | null | undefined,
+): SlotLine {
+  if (line.team) return line;
+  const fromNum =
+    slot === "away"
+      ? game.bracketMatch?.awayFromMatch?.game?.gameNumber
+      : game.bracketMatch?.homeFromMatch?.game?.gameNumber;
+  const copy = oba13PlaceholderPrimary(game.gameNumber, fromNum);
+  const withCopy = copy ? { ...line, primary: copy, isPlaceholder: true } : line;
+
+  if (!r5ByeName || (game.gameNumber?.trim() ?? "") !== OBA13_GAME.G23A) return withCopy;
+  const bothEmpty = !game.awayTeam && !game.homeTeam;
+  if (bothEmpty && slot === "away") {
+    return { primary: r5ByeName, secondary: null, team: null, isPlaceholder: false };
+  }
+  if (!bothEmpty && slot === "away" && !game.awayTeam && game.homeTeam?.name !== r5ByeName) {
+    return { primary: r5ByeName, secondary: null, team: null, isPlaceholder: false };
+  }
+  if (!bothEmpty && slot === "home" && !game.homeTeam && game.awayTeam?.name !== r5ByeName) {
+    return { primary: r5ByeName, secondary: null, team: null, isPlaceholder: false };
+  }
+  return withCopy;
+}
+
 export function BracketGameCard({
   game,
   roundIndexDb,
@@ -75,6 +107,7 @@ export function BracketGameCard({
   gLabelFallbackIndexZeroBased,
   showHomeAway = true,
   minHeight,
+  oba13R5ByeName = null,
 }: {
   game: GameRow;
   /** BracketRound.roundIndex from DB (not index in UI column list). */
@@ -89,32 +122,44 @@ export function BracketGameCard({
   showHomeAway?: boolean;
   /** Stretch shorter cards so a left-to-right chain shares one midline. */
   minHeight?: number;
+  /** Display-only 4-0 name on empty 23A (do not persist). */
+  oba13R5ByeName?: string | null;
 }) {
   const bm = game.bracketMatch;
   const bracketMatchIndex = bm?.matchIndex ?? matchIndex;
   const gChipIndex = gLabelFallbackIndexZeroBased ?? matchIndex;
   const src = getBracketSlotSources(game);
-  const away = slotLines(
-    game.awayTeam,
-    src.awayPool,
-    src.awayRank,
-    roundIndexDb,
-    bracketMatchIndex,
+  const away = applyOba13PublicSlot(
+    slotLines(
+      game.awayTeam,
+      src.awayPool,
+      src.awayRank,
+      roundIndexDb,
+      bracketMatchIndex,
+      "away",
+      prevRoundName,
+      bm?.awayIsBye ?? false,
+      bm ? { from: bm.awayFromMatch, kind: bm.awayFromKind } : null,
+    ),
+    game,
     "away",
-    prevRoundName,
-    bm?.awayIsBye ?? false,
-    bm ? { from: bm.awayFromMatch, kind: bm.awayFromKind } : null,
+    oba13R5ByeName,
   );
-  const home = slotLines(
-    game.homeTeam,
-    src.homePool,
-    src.homeRank,
-    roundIndexDb,
-    bracketMatchIndex,
+  const home = applyOba13PublicSlot(
+    slotLines(
+      game.homeTeam,
+      src.homePool,
+      src.homeRank,
+      roundIndexDb,
+      bracketMatchIndex,
+      "home",
+      prevRoundName,
+      bm?.homeIsBye ?? false,
+      bm ? { from: bm.homeFromMatch, kind: bm.homeFromKind } : null,
+    ),
+    game,
     "home",
-    prevRoundName,
-    bm?.homeIsBye ?? false,
-    bm ? { from: bm.homeFromMatch, kind: bm.homeFromKind } : null,
+    oba13R5ByeName,
   );
 
   const display = useBracketDisplayPrefs();

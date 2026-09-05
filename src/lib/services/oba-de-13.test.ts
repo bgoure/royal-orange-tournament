@@ -11,8 +11,11 @@ import {
   isOba13SitOutGameNumber,
   oba13EndgameBranchForGameNumber,
   oba13PublicEndgameMode,
+  oba13PlaceholderPrimary,
   oba13SitOutByeNote,
+  oba13Round5ByeTeam,
   oba13Round5RedrawPool,
+  oba13Round5Undefeated,
   suggestOba13OddRoundPairing,
 } from "@/lib/services/oba-de-13";
 import type { ObaByeCandidate } from "@/lib/services/oba-bye-award";
@@ -340,5 +343,240 @@ describe("oba13Round5RedrawPool", () => {
       },
     ];
     assert.equal(oba13Round5RedrawPool(games), null);
+  });
+});
+
+describe("oba13 4-0 vs 3-0 endgame lock", () => {
+  function finalGame(opts: {
+    gameNumber: string;
+    homeId: string;
+    awayId: string;
+    homeName: string;
+    awayName: string;
+    homeRuns: number;
+    awayRuns: number;
+  }) {
+    return {
+      gameNumber: opts.gameNumber,
+      status: "FINAL",
+      resultType: "REGULAR",
+      homeTeamId: opts.homeId,
+      awayTeamId: opts.awayId,
+      homeRuns: opts.homeRuns,
+      awayRuns: opts.awayRuns,
+      homeTeam: { name: opts.homeName },
+      awayTeam: { name: opts.awayName },
+    };
+  }
+
+  function openGame(gameNumber: string) {
+    return {
+      gameNumber,
+      status: "SCHEDULED",
+      resultType: "REGULAR",
+      homeTeamId: null,
+      awayTeamId: null,
+      homeRuns: null,
+      awayRuns: null,
+      homeTeam: null,
+      awayTeam: null,
+    };
+  }
+
+  const endgameBothBranches = [
+    openGame("23A"),
+    openGame("24A"),
+    openGame("25A"),
+    openGame("23B"),
+    openGame("24B"),
+    openGame("25B"),
+    openGame("21"),
+    openGame("22"),
+  ];
+
+  it("labels a 4-0 (no prior bye) as the R5 bye and locks Bracket A while 23B is still scheduled", () => {
+    const games = [
+      finalGame({
+        gameNumber: "2",
+        homeId: "oak",
+        awayId: "p",
+        homeName: "Oakville",
+        awayName: "Paris",
+        homeRuns: 4,
+        awayRuns: 1,
+      }),
+      finalGame({
+        gameNumber: "3",
+        homeId: "oak",
+        awayId: "q",
+        homeName: "Oakville",
+        awayName: "Quinte",
+        homeRuns: 6,
+        awayRuns: 0,
+      }),
+      finalGame({
+        gameNumber: "4",
+        homeId: "oak",
+        awayId: "r",
+        homeName: "Oakville",
+        awayName: "Richmond",
+        homeRuns: 3,
+        awayRuns: 2,
+      }),
+      finalGame({
+        gameNumber: "18",
+        homeId: "oak",
+        awayId: "s",
+        homeName: "Oakville",
+        awayName: "Sarnia",
+        homeRuns: 5,
+        awayRuns: 1,
+      }),
+      {
+        gameNumber: "10",
+        status: "SCHEDULED",
+        resultType: "REGULAR",
+        homeTeamId: "t1",
+        awayTeamId: "w2",
+        homeRuns: null,
+        awayRuns: null,
+        homeTeam: { name: "Team 1" },
+        awayTeam: { name: "Winner 2" },
+      },
+      ...endgameBothBranches,
+    ];
+    const bye = oba13Round5ByeTeam(games);
+    assert.ok(bye);
+    assert.equal(bye!.teamId, "oak");
+    assert.equal(bye!.name, "Oakville");
+    assert.equal(bye!.wins, 4);
+    assert.equal(bye!.losses, 0);
+    assert.equal(bye!.priorByeCount, 0);
+    assert.equal(oba13PublicEndgameMode(games), "A");
+  });
+
+  it("does not treat a 3-0 (R1 bye via G10 home) as the R5 bye; mode stays placeholder until G21 and G22 are final", () => {
+    const games = [
+      finalGame({
+        gameNumber: "10",
+        homeId: "ham",
+        awayId: "d",
+        homeName: "Hamilton",
+        awayName: "Durham",
+        homeRuns: 5,
+        awayRuns: 2,
+      }),
+      finalGame({
+        gameNumber: "16",
+        homeId: "ham",
+        awayId: "c",
+        homeName: "Hamilton",
+        awayName: "Cambridge",
+        homeRuns: 4,
+        awayRuns: 1,
+      }),
+      finalGame({
+        gameNumber: "18",
+        homeId: "ham",
+        awayId: "a",
+        homeName: "Hamilton",
+        awayName: "Aurora",
+        homeRuns: 3,
+        awayRuns: 0,
+      }),
+      ...endgameBothBranches,
+    ];
+    const undefeated = oba13Round5Undefeated(games);
+    assert.ok(undefeated);
+    assert.equal(undefeated!.teamId, "ham");
+    assert.equal(undefeated!.wins, 3);
+    assert.equal(undefeated!.priorByeCount, 1);
+    assert.equal(oba13Round5ByeTeam(games), null);
+    assert.equal(oba13PublicEndgameMode(games), "placeholder");
+  });
+
+  it("after G21 and G22 are final, 3 alive locks A and 4 alive locks B", () => {
+    const threeAlive = [
+      finalGame({
+        gameNumber: "10",
+        homeId: "ham",
+        awayId: "d",
+        homeName: "Hamilton",
+        awayName: "Durham",
+        homeRuns: 5,
+        awayRuns: 2,
+      }),
+      finalGame({
+        gameNumber: "16",
+        homeId: "ham",
+        awayId: "c",
+        homeName: "Hamilton",
+        awayName: "Cambridge",
+        homeRuns: 4,
+        awayRuns: 1,
+      }),
+      finalGame({
+        gameNumber: "18",
+        homeId: "ham",
+        awayId: "a",
+        homeName: "Hamilton",
+        awayName: "Aurora",
+        homeRuns: 3,
+        awayRuns: 0,
+      }),
+      finalGame({
+        gameNumber: "2",
+        homeId: "a",
+        awayId: "b",
+        homeName: "Aurora",
+        awayName: "Barrie",
+        homeRuns: 2,
+        awayRuns: 1,
+      }),
+      finalGame({
+        gameNumber: "21",
+        homeId: "a",
+        awayId: "c",
+        homeName: "Aurora",
+        awayName: "Cambridge",
+        homeRuns: 4,
+        awayRuns: 3,
+      }),
+      finalGame({
+        gameNumber: "22",
+        homeId: "b",
+        awayId: "d",
+        homeName: "Barrie",
+        awayName: "Durham",
+        homeRuns: 6,
+        awayRuns: 2,
+      }),
+      openGame("23A"),
+      openGame("23B"),
+    ];
+    assert.equal(oba13Round5ByeTeam(threeAlive), null);
+    assert.equal(oba13PublicEndgameMode(threeAlive), "A");
+
+    const fourAlive = [
+      ...threeAlive,
+      finalGame({
+        gameNumber: "3",
+        homeId: "a",
+        awayId: "e",
+        homeName: "Aurora",
+        awayName: "Etobicoke",
+        homeRuns: 7,
+        awayRuns: 1,
+      }),
+    ];
+    assert.equal(oba13PublicEndgameMode(fourAlive), "B");
+  });
+
+  it("uses poster slot copy for empty Bracket A seats", () => {
+    assert.equal(oba13PlaceholderPrimary("24A", "R6 Bye"), "R6 Bye");
+    assert.equal(oba13PlaceholderPrimary("24A", "23A"), "Winner 23A");
+    assert.equal(oba13PlaceholderPrimary("25A", "24A"), "Winner 24A");
+    assert.equal(oba13PlaceholderPrimary("25A", "R7 Bye"), "R7 bye or L24A");
+    assert.equal(oba13PlaceholderPrimary("23A", "21"), null);
   });
 });

@@ -22,7 +22,10 @@ export function matchSortIndex(g: GameRow): number {
 
 export function feederGameLabel(from: BracketMatchFeederRef): string {
   const n = from.game?.gameNumber?.trim();
-  if (n) return `G${n}`;
+  if (n) {
+    if (/bye/i.test(n)) return n;
+    return `G${n}`;
+  }
   return `Match ${from.matchIndex + 1}`;
 }
 

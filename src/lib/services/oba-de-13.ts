@@ -249,16 +249,190 @@ export function oba13Round5RedrawPool(games: RedrawPoolGame[]): Oba13Round5Redra
   return { teams, waitingOn };
 }
 
+export type Oba13EndgameGame = {
+  gameNumber?: string | null;
+  status?: string;
+  resultType?: string;
+  homeTeamId?: string | null;
+  awayTeamId?: string | null;
+  homeRuns?: number | null;
+  awayRuns?: number | null;
+  homeTeam?: { name: string } | null;
+  awayTeam?: { name: string } | null;
+};
+
+export type Oba13Round5Undefeated = {
+  teamId: string;
+  name: string;
+  wins: number;
+  losses: number;
+  priorByeCount: number;
+};
+
+function winnerLookup(games: Oba13EndgameGame[]): (gameNumber: string) => string | null {
+  return (num: string) => {
+    const g = byGameNumber(games, num);
+    if (!g || g.status !== "FINAL") return null;
+    return bracketWinnerTeamId({
+      status: g.status ?? "",
+      resultType: g.resultType ?? "REGULAR",
+      homeTeamId: g.homeTeamId ?? null,
+      awayTeamId: g.awayTeamId ?? null,
+      homeRuns: g.homeRuns ?? null,
+      awayRuns: g.awayRuns ?? null,
+    });
+  };
+}
+
+function implicitByeCountByTeam(games: Oba13EndgameGame[]): Map<string, number> {
+  const awards = inferOba13ImplicitByes(
+    games.map((g) => ({
+      gameNumber: g.gameNumber ?? null,
+      homeTeamId: g.homeTeamId ?? null,
+      awayTeamId: g.awayTeamId ?? null,
+      status: g.status ?? "SCHEDULED",
+      resultType: g.resultType ?? "REGULAR",
+      homeRuns: g.homeRuns ?? null,
+      awayRuns: g.awayRuns ?? null,
+    })),
+    winnerLookup(games),
+  );
+  const counts = new Map<string, number>();
+  for (const a of awards) {
+    counts.set(a.teamId, (counts.get(a.teamId) ?? 0) + 1);
+  }
+  return counts;
+}
+
+function winCountsFromGames(games: Oba13EndgameGame[]): Map<string, number> {
+  const wins = new Map<string, number>();
+  for (const g of games) {
+    if (g.status !== "FINAL") continue;
+    const w = bracketWinnerTeamId({
+      status: g.status ?? "",
+      resultType: g.resultType ?? "REGULAR",
+      homeTeamId: g.homeTeamId ?? null,
+      awayTeamId: g.awayTeamId ?? null,
+      homeRuns: g.homeRuns ?? null,
+      awayRuns: g.awayRuns ?? null,
+    });
+    if (!w) continue;
+    wins.set(w, (wins.get(w) ?? 0) + 1);
+  }
+  return wins;
+}
+
 /**
- * Public tree: both A and B stay visible (placeholder) until the unused branch
- * is cancelled after Round 5. Then only the live branch remains.
+ * Undefeated team still alive after Round 4 has started (at least one of G18–G20 final).
+ * `priorByeCount` uses implicit R1/R2/R4 sit-outs so a 3-0 (had a bye) is distinct from 4-0.
+ */
+export function oba13Round5Undefeated(games: Oba13EndgameGame[]): Oba13Round5Undefeated | null {
+  const g18 = byGameNumber(games, OBA13_GAME.G18);
+  const g19 = byGameNumber(games, OBA13_GAME.G19);
+  const g20 = byGameNumber(games, OBA13_GAME.G20);
+  if (![g18, g19, g20].some((g) => isFinalGame(g))) return null;
+
+  const scored = games.filter((g) => g.status === "FINAL");
+  const losses = bracketLossCountsFromGames(
+    scored.map((g) => ({
+      status: g.status ?? "",
+      resultType: g.resultType ?? "REGULAR",
+      homeTeamId: g.homeTeamId ?? null,
+      awayTeamId: g.awayTeamId ?? null,
+      homeRuns: g.homeRuns ?? null,
+      awayRuns: g.awayRuns ?? null,
+    })),
+  );
+  const wins = winCountsFromGames(games);
+  const byeCounts = implicitByeCountByTeam(games);
+  const seen = new Set<string>();
+  for (const g of games) {
+    if (g.homeTeamId) seen.add(g.homeTeamId);
+    if (g.awayTeamId) seen.add(g.awayTeamId);
+  }
+
+  let best: Oba13Round5Undefeated | null = null;
+  for (const teamId of seen) {
+    const lossCount = losses.get(teamId) ?? 0;
+    if (lossCount !== 0) continue;
+    const winCount = wins.get(teamId) ?? 0;
+    if (winCount < 3) continue;
+    const row: Oba13Round5Undefeated = {
+      teamId,
+      name: nameForTeam(games as RedrawPoolGame[], teamId),
+      wins: winCount,
+      losses: lossCount,
+      priorByeCount: byeCounts.get(teamId) ?? 0,
+    };
+    if (
+      !best ||
+      row.wins - row.priorByeCount > best.wins - best.priorByeCount ||
+      (row.wins === best.wins && row.priorByeCount < best.priorByeCount)
+    ) {
+      best = row;
+    }
+  }
+  return best;
+}
+
+/** 4-0 undefeated (no R1–R4 sit-out) — the only team labeled as the Round 5 bye. */
+export function oba13Round5ByeTeam(games: Oba13EndgameGame[]): Oba13Round5Undefeated | null {
+  const u = oba13Round5Undefeated(games);
+  if (!u || u.losses !== 0 || u.priorByeCount !== 0 || u.wins < 4) return null;
+  return u;
+}
+
+function r5GamesFinal(games: Oba13EndgameGame[]): boolean {
+  const g21 = byGameNumber(games, OBA13_GAME.G21);
+  const g22 = byGameNumber(games, OBA13_GAME.G22);
+  return isFinalGame(g21) && isFinalGame(g22);
+}
+
+function aliveCountAmongEntrants(games: Oba13EndgameGame[]): number {
+  const entrants = new Set<string>();
+  for (const g of games) {
+    if (g.status === "CANCELLED") continue;
+    if (g.homeTeamId) entrants.add(g.homeTeamId);
+    if (g.awayTeamId) entrants.add(g.awayTeamId);
+  }
+  const losses = bracketLossCountsFromGames(
+    games
+      .filter((g) => g.status === "FINAL")
+      .map((g) => ({
+        status: g.status ?? "",
+        resultType: g.resultType ?? "REGULAR",
+        homeTeamId: g.homeTeamId ?? null,
+        awayTeamId: g.awayTeamId ?? null,
+        homeRuns: g.homeRuns ?? null,
+        awayRuns: g.awayRuns ?? null,
+      })),
+  );
+  let n = 0;
+  for (const id of entrants) {
+    if ((losses.get(id) ?? 0) < 2) n += 1;
+  }
+  return n;
+}
+
+/**
+ * Public tree: a known 4-0 locks Bracket A immediately. A 3-0 undefeated keeps
+ * both boxes until G21 and G22 are final, then remaining-team count decides.
+ * If the unused branch was already cancelled, that remaining branch wins.
  */
 export function oba13PublicEndgameMode(
-  games: { gameNumber?: string | null }[],
+  games: Oba13EndgameGame[],
 ): "placeholder" | Oba13EndgameBranch {
+  if (oba13Round5ByeTeam(games)) return "A";
+
+  if (r5GamesFinal(games)) {
+    const branch = oba13EndgameBranch(aliveCountAmongEntrants(games));
+    if (branch) return branch;
+  }
+
   let hasA = false;
   let hasB = false;
   for (const g of games) {
+    if (g.status === "CANCELLED") continue;
     const branch = oba13EndgameBranchForGameNumber(g.gameNumber);
     if (branch === "A") hasA = true;
     if (branch === "B") hasB = true;
@@ -266,6 +440,21 @@ export function oba13PublicEndgameMode(
   if (hasA && !hasB) return "A";
   if (hasB && !hasA) return "B";
   return "placeholder";
+}
+
+/** Empty-slot copy on Bracket A (OBA poster). */
+export function oba13PlaceholderPrimary(
+  toGameNumber: string | null | undefined,
+  fromGameNumber: string | null | undefined,
+): string | null {
+  const to = toGameNumber?.trim() ?? "";
+  const from = fromGameNumber?.trim() ?? "";
+  if (to === OBA13_GAME.G23A) return null;
+  if (to === OBA13_GAME.G24A && from === OBA13_GAME.BYE_R6) return "R6 Bye";
+  if (to === OBA13_GAME.G24A && from === OBA13_GAME.G23A) return "Winner 23A";
+  if (to === OBA13_GAME.G25A && from === OBA13_GAME.G24A) return "Winner 24A";
+  if (to === OBA13_GAME.G25A && from === OBA13_GAME.BYE_R7) return "R7 bye or L24A";
+  return null;
 }
 
 /** RP5.2 n.i + n.ii pool (admin may still override). */
