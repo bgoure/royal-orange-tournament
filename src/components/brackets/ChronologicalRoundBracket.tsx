@@ -59,7 +59,7 @@ const EST_CARD_H = 148;
 const MIN_GAP = 36;
 const BAND_GAP = 56;
 const COL_PAD_Y = 12;
-const HEADER_H = 56;
+const HEADER_H = 44;
 const JOIN_INSET = 28;
 /** Raise each successive losers-lane column to show progression (G5 above G4, G9 above G7). */
 const LOSERS_PROGRESSION_LIFT = 52;
@@ -1024,9 +1024,14 @@ function ChronoBoard({
       for (const g of allGames) base.set(g.id, COL_PAD_Y);
     }
     enforceColumnMinGaps(layoutColumns, base, heights);
+    let sharedByeY = 0;
     for (const col of layoutColumns) {
       if (!col.byeCard) continue;
-      base.set(col.byeCard.id, columnByeTop(col.games, base, heights));
+      sharedByeY = Math.max(sharedByeY, columnByeTop(col.games, base, heights));
+    }
+    for (const col of layoutColumns) {
+      if (!col.byeCard) continue;
+      base.set(col.byeCard.id, sharedByeY);
     }
     return base;
   }, [layoutColumns, winnerEdges, heights, isOba13, isOba12, lockSingleGameRow, allGames]);
@@ -1228,13 +1233,13 @@ function ChronoBoard({
               <h3 className="text-xs font-bold uppercase tracking-[0.08em] text-royal">
                 {withBracketRoundDay(col.label, games, timeZone)}
               </h3>
-              <p className="mt-0.5 text-[11px] font-medium text-transparent" aria-hidden>
-                &nbsp;
-              </p>
+              {col.subtitle ? (
+                <p className="mt-0.5 text-[11px] font-medium text-zinc-600">{col.subtitle}</p>
+              ) : null}
               {!expandAll ? (
                 <button
                   type="button"
-                  className="mt-1 text-[10px] font-semibold text-zinc-500 hover:text-royal"
+                  className="mt-0.5 text-[10px] font-semibold text-zinc-500 hover:text-royal"
                   onClick={() => onToggle(ci)}
                 >
                   (-)
@@ -1433,13 +1438,10 @@ function ObaEndgameBoxes({
               <h3 className="text-xs font-bold uppercase tracking-[0.08em] text-royal">
                 {withBracketRoundDay(col.label, col.games, timeZone)}
               </h3>
-              <p className="mt-0.5 text-[11px] font-medium text-transparent" aria-hidden>
-                &nbsp;
-              </p>
               {!expandAll ? (
                 <button
                   type="button"
-                  className="mt-1 text-[10px] font-semibold text-zinc-500 hover:text-royal"
+                  className="mt-0.5 text-[10px] font-semibold text-zinc-500 hover:text-royal"
                   onClick={() => onToggle(i)}
                 >
                   (-)
