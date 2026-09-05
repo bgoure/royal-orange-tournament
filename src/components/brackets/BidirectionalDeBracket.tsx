@@ -65,7 +65,7 @@ function RoundColumn({
             className="mt-1 text-[10px] font-semibold uppercase tracking-wide text-zinc-500 hover:text-royal"
             onClick={onCollapse}
           >
-            Hide
+            (-)
           </button>
         ) : null}
       </div>

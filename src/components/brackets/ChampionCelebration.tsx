@@ -15,6 +15,8 @@ export type ChampionCelebrationProps = {
    * primary “winning the …” congratulations copy.
    */
   subtitle?: string;
+  /** Tighter banner for placing above a championship card. */
+  compact?: boolean;
 };
 
 type ConfettiPiece = {
@@ -92,13 +94,20 @@ export function ChampionCelebration({
   winnerTeam,
   className = "",
   subtitle,
+  compact = false,
 }: ChampionCelebrationProps) {
   const reduceMotion = useReducedMotion();
   const divisionTournamentBold = `${divisionName.trim()} ${tournamentClosingPhrase(tournamentName)}`.trim();
+  const heroMax = compact ? "max-h-[3.4rem] sm:max-h-[4rem]" : HERO_ASSET_MAX_H;
+  const trophyH = compact
+    ? "h-[3.4rem] max-w-[min(120px,32vw)] sm:h-[4rem]"
+    : "h-[7.2rem] max-w-[min(220px,45vw)] sm:h-[8.4rem]";
 
   return (
     <section
-      className={`relative isolate overflow-hidden rounded-2xl border border-royal/25 bg-gradient-to-b from-royal-50/90 via-white/92 to-amber-50/45 px-4 py-6 shadow-md backdrop-blur-md sm:px-6 dark:from-royal-950/55 dark:via-zinc-900/75 dark:to-amber-950/25 ${className}`.trim()}
+      className={`relative isolate overflow-hidden rounded-2xl border border-royal/25 bg-gradient-to-b from-royal-50/90 via-white/92 to-amber-50/45 shadow-md backdrop-blur-md dark:from-royal-950/55 dark:via-zinc-900/75 dark:to-amber-950/25 ${
+        compact ? "px-2 py-2 sm:px-3" : "px-4 py-6 sm:px-6"
+      } ${className}`.trim()}
       aria-label={`Champion: ${winnerTeam.name}`}
     >
       <div className="relative z-10 flex flex-col items-stretch">
@@ -106,20 +115,34 @@ export function ChampionCelebration({
           initial={reduceMotion ? false : { y: -6, opacity: 0 }}
           animate={reduceMotion ? undefined : { y: 0, opacity: 1 }}
           transition={{ type: "spring", stiffness: 320, damping: 22 }}
-          className="relative min-h-[8.5rem] overflow-hidden rounded-xl border border-zinc-200/90 bg-zinc-50/90 px-3 py-3 sm:min-h-[9.5rem] sm:px-4 sm:py-4"
+          className={`relative overflow-hidden rounded-xl border border-zinc-200/90 bg-zinc-50/90 ${
+            compact ? "min-h-[4.25rem] px-2 py-2" : "min-h-[8.5rem] px-3 py-3 sm:min-h-[9.5rem] sm:px-4 sm:py-4"
+          }`}
         >
           <ConfettiLayer show={!reduceMotion} />
 
-          <div className="relative z-10 flex min-h-[7.5rem] flex-row flex-wrap items-center justify-center gap-4 sm:min-h-[8.25rem] sm:gap-6">
-            <div className="flex min-w-0 max-w-[min(100%,14rem)] items-center justify-center sm:max-w-[min(100%,16rem)]">
+          <div
+            className={`relative z-10 flex flex-row flex-wrap items-center justify-center ${
+              compact ? "min-h-[3.75rem] gap-2" : "min-h-[7.5rem] gap-4 sm:min-h-[8.25rem] sm:gap-6"
+            }`}
+          >
+            <div
+              className={`flex min-w-0 items-center justify-center ${
+                compact ? "max-w-[min(100%,7rem)]" : "max-w-[min(100%,14rem)] sm:max-w-[min(100%,16rem)]"
+              }`}
+            >
               {winnerTeam.logo ? (
                 <TeamLogoMark
                   team={winnerTeam}
-                  sizeClass={`h-auto w-auto max-w-full ${HERO_ASSET_MAX_H}`}
-                  className={`!h-auto object-contain ${HERO_ASSET_MAX_H}`}
+                  sizeClass={`h-auto w-auto max-w-full ${heroMax}`}
+                  className={`!h-auto object-contain ${heroMax}`}
                 />
               ) : (
-                <p className="line-clamp-3 text-center text-sm font-bold leading-tight text-royal sm:text-base">
+                <p
+                  className={`line-clamp-3 text-center font-bold leading-tight text-royal ${
+                    compact ? "text-xs" : "text-sm sm:text-base"
+                  }`}
+                >
                   {winnerTeam.name}
                 </p>
               )}
@@ -129,13 +152,17 @@ export function ChampionCelebration({
               <img
                 src="/championTrophy.png"
                 alt=""
-                className="h-[7.2rem] w-auto max-w-[min(220px,45vw)] object-contain sm:h-[8.4rem]"
+                className={`w-auto object-contain ${trophyH}`}
               />
             </div>
           </div>
         </motion.div>
 
-        <p className="mx-auto mt-4 max-w-lg text-center text-sm leading-snug text-zinc-800 sm:text-base">
+        <p
+          className={`mx-auto text-center leading-snug text-zinc-800 ${
+            compact ? "mt-2 max-w-none text-[11px]" : "mt-4 max-w-lg text-sm sm:text-base"
+          }`}
+        >
           Congratulations to <strong className="font-bold text-zinc-900">{winnerTeam.name}</strong> for
           <br />
           winning the <strong className="font-bold text-royal">{divisionTournamentBold}</strong>

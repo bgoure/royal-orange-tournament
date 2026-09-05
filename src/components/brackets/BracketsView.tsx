@@ -17,7 +17,7 @@ import { BracketGameCard } from "@/components/brackets/BracketGameCard";
 import { BRACKET_ROUND_COLUMN_CLASS } from "@/components/brackets/bracket-card-layout";
 import { BidirectionalDeBracket } from "@/components/brackets/BidirectionalDeBracket";
 import { ChronologicalRoundBracket } from "@/components/brackets/ChronologicalRoundBracket";
-import { ChampionCelebration } from "@/components/brackets/ChampionCelebration";
+import { ChampionCelebration, type ChampionCelebrationProps } from "@/components/brackets/ChampionCelebration";
 import { CollapsedRoundStrip } from "@/components/brackets/CollapsedRoundStrip";
 import { useRoundFocus } from "@/components/brackets/use-round-focus";
 import type { BracketWith, GameRow } from "@/components/brackets/bracket-types";
@@ -94,7 +94,7 @@ function BracketGrid({
                   className="mt-1 text-[10px] font-semibold uppercase tracking-wide text-zinc-500 hover:text-royal"
                   onClick={() => focus.toggle(ri)}
                 >
-                  Hide
+                  (-)
                 </button>
               ) : null}
             </div>
@@ -127,11 +127,13 @@ export function BracketDesktopTree({
   tournamentTimezone,
   showHomeAway = true,
   fitContent = false,
+  celebration = null,
 }: {
   b: BracketWith;
   tournamentTimezone?: string | null;
   showHomeAway?: boolean;
   fitContent?: boolean;
+  celebration?: ChampionCelebrationProps | null;
 }) {
   const photoExpandAll = useBracketPhotoExpandAll();
   const showAllRounds = fitContent || photoExpandAll;
@@ -182,6 +184,7 @@ export function BracketDesktopTree({
         presetKey={b.presetKey}
         expandAll={showAllRounds}
         persistKey={showAllRounds ? undefined : b.id}
+        celebration={celebration}
       />
     );
   }
@@ -227,26 +230,30 @@ function BracketSection({
   exportToolbar?: () => ReactNode;
 }) {
   const champion = useMemo(() => resolveChampionFromBracket(b), [b]);
+  const celebration = useMemo((): ChampionCelebrationProps | null => {
+    if (!champion || !shouldShowChampionCelebration(champion)) return null;
+    const others =
+      champion.isQualifier && champion.qualifiedTeams
+        ? champion.qualifiedTeams
+            .filter((t) => t.id !== champion.winnerTeam.id)
+            .map((t) => t.name)
+            .filter(Boolean)
+        : [];
+    return {
+      tournamentName,
+      divisionName: champion.divisionName,
+      winnerTeam: champion.winnerTeam,
+      subtitle: others.length > 0 ? `Also advancing: ${others.join(" · ")}` : undefined,
+    };
+  }, [champion, tournamentName]);
   // One tree for every breakpoint — mobile differences are CSS inside this mount.
   const treeMount = useMemo(() => assertSingleInteractiveTree(bracketTreeMounts(b.id)), [b.id]);
+  const isOba13 = b.presetKey === "oba_de_13";
 
   return (
     <section className="min-w-0" aria-labelledby={`bracket-heading-${b.id}`}>
-      {champion && shouldShowChampionCelebration(champion) ? (
-        <ChampionCelebration
-          tournamentName={tournamentName}
-          divisionName={champion.divisionName}
-          winnerTeam={champion.winnerTeam}
-          className="mb-4"
-          subtitle={(() => {
-            if (!champion.isQualifier || !champion.qualifiedTeams) return undefined;
-            const others = champion.qualifiedTeams
-              .filter((t) => t.id !== champion.winnerTeam.id)
-              .map((t) => t.name)
-              .filter(Boolean);
-            return others.length > 0 ? `Also advancing: ${others.join(" · ")}` : undefined;
-          })()}
-        />
+      {celebration && !isOba13 ? (
+        <ChampionCelebration {...celebration} className="mb-4" />
       ) : null}
       <div className={BRACKET_DESKTOP_WIDE_CLASS}>
       <SectionTitle id={`bracket-heading-${b.id}`} className="normal-case tracking-normal">
@@ -264,6 +271,7 @@ function BracketSection({
             b={b}
             tournamentTimezone={tournamentTimezone}
             showHomeAway={showHomeAway}
+            celebration={celebration}
           />
         </BracketZoomShell>
       </div>

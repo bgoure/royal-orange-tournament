@@ -17,7 +17,7 @@ export function CollapsedRoundStrip({
       <span className="text-[10px] font-bold uppercase tracking-[0.08em] [writing-mode:vertical-rl]">
         {label}
       </span>
-      <span className="text-[9px] font-semibold text-zinc-500">Show</span>
+      <span className="text-[11px] font-semibold text-zinc-500">(+)</span>
     </button>
   );
 }

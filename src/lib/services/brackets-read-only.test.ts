@@ -68,12 +68,12 @@ describe("listBracketsForTournament", () => {
     const { listBracketsForTournament } = await import("./brackets");
     const { calls, client } = makeReadOnlySpy();
 
-    await listBracketsForTournament("t1", { publishedOnly: true, hideStructuralByes: true }, client as never);
+    await listBracketsForTournament("t1", { publishedOnly: true }, client as never);
 
     assert.deepEqual(calls, ["bracket.findMany"]);
   });
 
-  it("filters structural byes on the public site path", async () => {
+  it("keeps sit-out rows on the public bracket tree for bye cards", async () => {
     const { listBracketsForTournament } = await import("./brackets");
     const seen: Record<string, unknown>[] = [];
     const client = {
@@ -85,10 +85,10 @@ describe("listBracketsForTournament", () => {
       },
     };
 
-    await listBracketsForTournament("t1", { publishedOnly: true, hideStructuralByes: true }, client as never);
+    await listBracketsForTournament("t1", { publishedOnly: true }, client as never);
 
     const include = seen[0]?.include as { games?: { where?: unknown } };
-    assert.ok(include?.games?.where, "public brackets must filter sit-out games");
+    assert.equal(include?.games?.where, undefined, "sit-outs stay on the bracket tree");
   });
 
   it("filters to published brackets only when asked", async () => {
