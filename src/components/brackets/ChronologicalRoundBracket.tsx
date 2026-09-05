@@ -163,6 +163,7 @@ type DecoratedColumn = ChronologicalRoundColumn<GameRow> & {
   noteOffset: number;
   redrawPool?: Oba13Round5RedrawPool | Oba12Round5RedrawPool;
   byeCard?: Oba13ByeCardModel;
+  columnNote?: string;
 };
 
 function isObaSitOutGameNumber(n: string | null | undefined): boolean {
@@ -267,15 +268,21 @@ function attachOba13ByeCards(
         ...col,
         byeCard: {
           id: r7Sit?.id ?? "oba13-r7-bye-card",
-          title: "Bye Team:",
+          title: "Round 7 Bye Team:",
           teamName: team?.name?.trim() || "TBD",
           team,
           muted: !r7ByeRequired(allGames, r5Bye),
           footnote:
             r5Name !== "TBD"
-              ? `Only if ${r5Name} loses R23A game`
-              : "Only if R5 Bye loses R23A game",
+              ? `Only if ${r5Name} loses G23A game`
+              : "Only if R5 Bye loses G23A game",
         },
+      };
+    }
+    if (showLateByes && isRoundNumberColumn(col.label, 8)) {
+      return {
+        ...col,
+        columnNote: "If Necessary, only if Round 5 Bye team loses G23A or G24A",
       };
     }
     return col;
@@ -1237,6 +1244,14 @@ function ChronoBoard({
             </div>
             )}
             <div className="relative flex-1 px-3" style={{ height: contentH }}>
+              {col.columnNote ? (
+                <p
+                  className="absolute left-3 right-3 z-20 text-center text-[10px] italic leading-snug text-zinc-400"
+                  style={{ top: COL_PAD_Y }}
+                >
+                  {col.columnNote}
+                </p>
+              ) : null}
               {showCelebration && celebration ? (
                 <div
                   data-bracket-game-id="oba13-celebration"
