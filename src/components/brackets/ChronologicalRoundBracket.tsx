@@ -876,13 +876,13 @@ function resolveIfNecessaryUi(
   };
 }
 
-function byeRowTop(
-  playable: GameRow[],
+function columnByeTop(
+  games: GameRow[],
   tops: Map<string, number>,
   heights: Map<string, number>,
 ): number {
   let max = COL_PAD_Y;
-  for (const g of playable) {
+  for (const g of games) {
     max = Math.max(max, (tops.get(g.id) ?? COL_PAD_Y) + (heights.get(g.id) ?? EST_CARD_H));
   }
   return max + MIN_GAP;
@@ -1024,10 +1024,9 @@ function ChronoBoard({
       for (const g of allGames) base.set(g.id, COL_PAD_Y);
     }
     enforceColumnMinGaps(layoutColumns, base, heights);
-    const byeY = byeRowTop(allGames, base, heights);
     for (const col of layoutColumns) {
       if (!col.byeCard) continue;
-      base.set(col.byeCard.id, byeY);
+      base.set(col.byeCard.id, columnByeTop(col.games, base, heights));
     }
     return base;
   }, [layoutColumns, winnerEdges, heights, isOba13, isOba12, lockSingleGameRow, allGames]);
@@ -1336,7 +1335,7 @@ function ChronoBoard({
                 <div
                   data-bracket-game-id={col.byeCard.id}
                   className="absolute left-3 right-3 z-20"
-                  style={{ top: tops.get(col.byeCard.id) ?? byeRowTop(allGames, tops, heights) }}
+                  style={{ top: tops.get(col.byeCard.id) ?? columnByeTop(games, tops, heights) }}
                 >
                   <BracketByeCard
                     seed={col.byeCard.id}
