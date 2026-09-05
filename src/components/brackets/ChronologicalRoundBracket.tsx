@@ -969,6 +969,18 @@ function ChronoBoard({
     () => layoutColumns.flatMap((col) => col.sitOutGames),
     [layoutColumns],
   );
+  const r6ByeTeam = useMemo(() => {
+    for (const g of byGameId.values()) {
+      if ((g.gameNumber?.trim() ?? "") === OBA13_GAME.BYE_R6) return sitOutTeam(g);
+    }
+    return null;
+  }, [byGameId]);
+  const r7ByeTeam = useMemo(() => {
+    for (const g of byGameId.values()) {
+      if ((g.gameNumber?.trim() ?? "") === OBA13_GAME.BYE_R7) return sitOutTeam(g);
+    }
+    return null;
+  }, [byGameId]);
   const edgeGames = useMemo(() => [...allGames, ...sitOutVisible], [allGames, sitOutVisible]);
   const visibleById = useMemo(() => gameIdMap(edgeGames), [edgeGames]);
   const winnerEdges = useMemo(() => {
@@ -1287,6 +1299,10 @@ function ChronoBoard({
                       minHeight={lockSingleGameRow ? rowCardHeight : undefined}
                       oba13R5ByeName={oba13R5ByeName}
                       oba13R5ByeTeam={oba13R5ByeTeam}
+                      oba13R6ByeName={r6ByeTeam?.name ?? null}
+                      oba13R6ByeTeam={r6ByeTeam}
+                      oba13R7ByeName={r7ByeTeam?.name ?? null}
+                      oba13R7ByeTeam={r7ByeTeam}
                       gLabelFallbackIndexZeroBased={
                         Number.isFinite(Number.parseInt(String(g.gameNumber ?? ""), 10))
                           ? Number.parseInt(String(g.gameNumber ?? ""), 10) - 1

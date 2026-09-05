@@ -449,11 +449,12 @@ export function oba13PlaceholderPrimary(
 ): string | null {
   const to = toGameNumber?.trim() ?? "";
   const from = fromGameNumber?.trim() ?? "";
+  if (to === OBA13_GAME.G23A && from === OBA13_GAME.BYE_R5) return "Round 5\nBye Team";
   if (to === OBA13_GAME.G23A) return null;
-  if (to === OBA13_GAME.G24A && from === OBA13_GAME.BYE_R6) return "R6 Bye";
+  if (to === OBA13_GAME.G24A && from === OBA13_GAME.BYE_R6) return "Round 6\nBye Team";
   if (to === OBA13_GAME.G24A && from === OBA13_GAME.G23A) return "Winner 23A";
   if (to === OBA13_GAME.G25A && from === OBA13_GAME.G24A) return "Winner 24A";
-  if (to === OBA13_GAME.G25A && from === OBA13_GAME.BYE_R7) return "R7 Bye Team\nor\nLoser 24A";
+  if (to === OBA13_GAME.G25A && from === OBA13_GAME.BYE_R7) return "Round 7\nBye Team";
   return null;
 }
 

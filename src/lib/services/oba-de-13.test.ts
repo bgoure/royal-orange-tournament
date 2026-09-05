@@ -573,10 +573,11 @@ describe("oba13 4-0 vs 3-0 endgame lock", () => {
   });
 
   it("uses poster slot copy for empty Bracket A seats", () => {
-    assert.equal(oba13PlaceholderPrimary("24A", "R6 Bye"), "R6 Bye");
+    assert.equal(oba13PlaceholderPrimary("24A", "R6 Bye"), "Round 6\nBye Team");
     assert.equal(oba13PlaceholderPrimary("24A", "23A"), "Winner 23A");
     assert.equal(oba13PlaceholderPrimary("25A", "24A"), "Winner 24A");
-    assert.equal(oba13PlaceholderPrimary("25A", "R7 Bye"), "R7 Bye Team\nor\nLoser 24A");
+    assert.equal(oba13PlaceholderPrimary("25A", "R7 Bye"), "Round 7\nBye Team");
+    assert.equal(oba13PlaceholderPrimary("23A", "R5 Bye"), "Round 5\nBye Team");
     assert.equal(oba13PlaceholderPrimary("23A", "21"), null);
   });
 });

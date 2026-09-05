@@ -68,40 +68,68 @@ function isDirectEntryPoolName(name: string | null | undefined): boolean {
   return (name ?? "").trim().toLowerCase() === "direct entry";
 }
 
+type Oba13ByeDisplay = {
+  r5Name?: string | null;
+  r5Team?: TeamWithPool | null;
+  r6Name?: string | null;
+  r6Team?: TeamWithPool | null;
+  r7Name?: string | null;
+  r7Team?: TeamWithPool | null;
+};
+
+function byeRoundSlotLine(round: 5 | 6 | 7, team: TeamWithPool | null | undefined): SlotLine {
+  return {
+    primary: `Round ${round}\nBye Team`,
+    secondary: null,
+    team: team ?? null,
+    isPlaceholder: true,
+  };
+}
+
+function isByeFeeder(fromNum: string | null | undefined, primary: string, bye: string): boolean {
+  if ((fromNum ?? "").trim() === bye) return true;
+  const p = primary.trim();
+  return p === bye || p === `${bye} Winner` || p === `${bye} Loser`;
+}
+
 function applyOba13PublicSlot(
   line: SlotLine,
   game: GameRow,
   slot: "home" | "away",
-  r5ByeName: string | null | undefined,
-  r5ByeTeam: TeamWithPool | null | undefined,
+  byes: Oba13ByeDisplay,
 ): SlotLine {
-  if (line.team) return line;
   const fromNum =
     slot === "away"
       ? game.bracketMatch?.awayFromMatch?.game?.gameNumber
       : game.bracketMatch?.homeFromMatch?.game?.gameNumber;
+  if (!line.team) {
+    if (isByeFeeder(fromNum, line.primary, OBA13_GAME.BYE_R6)) {
+      return byeRoundSlotLine(6, byes.r6Team);
+    }
+    if (isByeFeeder(fromNum, line.primary, OBA13_GAME.BYE_R7)) {
+      return byeRoundSlotLine(7, byes.r7Team);
+    }
+    if (isByeFeeder(fromNum, line.primary, OBA13_GAME.BYE_R5)) {
+      return byeRoundSlotLine(5, byes.r5Team);
+    }
+  }
+
   const copy = oba13PlaceholderPrimary(game.gameNumber, fromNum);
   const withCopy = copy ? { ...line, primary: copy, isPlaceholder: true } : line;
 
-  const displayTeam = r5ByeTeam ?? null;
-  const displayName = displayTeam?.name?.trim() || r5ByeName?.trim() || "";
-  if (!displayName || (game.gameNumber?.trim() ?? "") !== OBA13_GAME.G23A) return withCopy;
-  const namedSlot = (empty: boolean): SlotLine | null => {
-    if (!empty) return null;
-    return {
-      primary: displayName,
-      secondary: null,
-      team: displayTeam,
-      isPlaceholder: !displayTeam,
-    };
-  };
+  const displayTeam = byes.r5Team ?? null;
+  const displayName = displayTeam?.name?.trim() || byes.r5Name?.trim() || "";
+  if (line.team || !displayName || (game.gameNumber?.trim() ?? "") !== OBA13_GAME.G23A) {
+    return line.team ? line : withCopy;
+  }
+  const named = byeRoundSlotLine(5, displayTeam);
   const bothEmpty = !game.awayTeam && !game.homeTeam;
-  if (bothEmpty && slot === "away") return namedSlot(true)!;
+  if (bothEmpty && slot === "away") return named;
   if (!bothEmpty && slot === "away" && !game.awayTeam && game.homeTeam?.name !== displayName) {
-    return namedSlot(true)!;
+    return named;
   }
   if (!bothEmpty && slot === "home" && !game.homeTeam && game.awayTeam?.name !== displayName) {
-    return namedSlot(true)!;
+    return named;
   }
   return withCopy;
 }
@@ -113,14 +141,33 @@ function SlotPrimary({
   line: SlotLine;
   extra?: ReactNode;
 }) {
-  const multiline = line.primary.includes("\n");
+  const parts = line.primary.split("\n");
+  if (parts.length < 2) {
+    return (
+      <p
+        data-bracket-team-name
+        className={`text-sm leading-[1.15] ${BRACKET_TEAM_NAME_CLASS} ${slotLineTextClass(line)}`}
+      >
+        {line.primary}
+        {extra}
+      </p>
+    );
+  }
+  const title = parts[0]!;
+  const rest = parts.slice(1).join("\n");
   return (
-    <p
-      data-bracket-team-name
-      className={`${multiline ? "whitespace-pre-line text-center text-sm leading-snug" : "text-sm leading-[1.15]"} ${BRACKET_TEAM_NAME_CLASS} ${slotLineTextClass(line)}`}
-    >
-      {line.primary}
-      {extra}
+    <p data-bracket-team-name className="text-center text-sm leading-snug">
+      <span className={`block font-medium italic text-zinc-500 ${BRACKET_TEAM_NAME_CLASS}`}>{title}</span>
+      <span
+        className={`block ${BRACKET_TEAM_NAME_CLASS} ${slotLineTextClass({
+          ...line,
+          primary: rest,
+          team: line.isPlaceholder ? null : line.team,
+        })}`}
+      >
+        {rest}
+        {extra}
+      </span>
     </p>
   );
 }
@@ -138,6 +185,10 @@ export function BracketGameCard({
   minHeight,
   oba13R5ByeName = null,
   oba13R5ByeTeam = null,
+  oba13R6ByeName = null,
+  oba13R6ByeTeam = null,
+  oba13R7ByeName = null,
+  oba13R7ByeTeam = null,
 }: {
   game: GameRow;
   /** BracketRound.roundIndex from DB (not index in UI column list). */
@@ -156,6 +207,10 @@ export function BracketGameCard({
   oba13R5ByeName?: string | null;
   /** Display-only 4-0 team (logo + matchup type) on empty 23A. */
   oba13R5ByeTeam?: TeamWithPool | null;
+  oba13R6ByeName?: string | null;
+  oba13R6ByeTeam?: TeamWithPool | null;
+  oba13R7ByeName?: string | null;
+  oba13R7ByeTeam?: TeamWithPool | null;
 }) {
   const bm = game.bracketMatch;
   const bracketMatchIndex = bm?.matchIndex ?? matchIndex;
@@ -175,8 +230,14 @@ export function BracketGameCard({
     ),
     game,
     "away",
-    oba13R5ByeName,
-    oba13R5ByeTeam,
+    {
+      r5Name: oba13R5ByeName,
+      r5Team: oba13R5ByeTeam,
+      r6Name: oba13R6ByeName,
+      r6Team: oba13R6ByeTeam,
+      r7Name: oba13R7ByeName,
+      r7Team: oba13R7ByeTeam,
+    },
   );
   const home = applyOba13PublicSlot(
     slotLines(
@@ -192,8 +253,14 @@ export function BracketGameCard({
     ),
     game,
     "home",
-    oba13R5ByeName,
-    oba13R5ByeTeam,
+    {
+      r5Name: oba13R5ByeName,
+      r5Team: oba13R5ByeTeam,
+      r6Name: oba13R6ByeName,
+      r6Team: oba13R6ByeTeam,
+      r7Name: oba13R7ByeName,
+      r7Team: oba13R7ByeTeam,
+    },
   );
 
   const display = useBracketDisplayPrefs();
