@@ -453,7 +453,7 @@ export function oba13PlaceholderPrimary(
   if (to === OBA13_GAME.G24A && from === OBA13_GAME.BYE_R6) return "R6 Bye";
   if (to === OBA13_GAME.G24A && from === OBA13_GAME.G23A) return "Winner 23A";
   if (to === OBA13_GAME.G25A && from === OBA13_GAME.G24A) return "Winner 24A";
-  if (to === OBA13_GAME.G25A && from === OBA13_GAME.BYE_R7) return "R7 bye or L24A";
+  if (to === OBA13_GAME.G25A && from === OBA13_GAME.BYE_R7) return "R7 Bye Team\nor\nLoser 24A";
   return null;
 }
 

@@ -1,13 +1,13 @@
 "use client";
 
-import type { KeyboardEvent } from "react";
+import type { KeyboardEvent, ReactNode } from "react";
 import { GameKind } from "@prisma/client";
 import { formatBracketGameTimeOnly } from "@/lib/datetime-tournament";
 import { brandCardGradientClass } from "@/lib/brand-card-gradient";
 import { poolCardLabelTextClass } from "@/lib/pool-card-label";
 import { TeamLogoMark } from "@/components/ui/TeamLogo";
 import { GAME_CARD_STATUS_STYLES, publicGameStatusLabel } from "@/components/schedule/GameList";
-import type { GameRow } from "@/components/brackets/bracket-types";
+import type { GameRow, TeamWithPool } from "@/components/brackets/bracket-types";
 import { getBracketSlotSources } from "@/lib/brackets/game-slot-sources";
 import {
   isOba13SitOutGameNumber,
@@ -73,6 +73,7 @@ function applyOba13PublicSlot(
   game: GameRow,
   slot: "home" | "away",
   r5ByeName: string | null | undefined,
+  r5ByeTeam: TeamWithPool | null | undefined,
 ): SlotLine {
   if (line.team) return line;
   const fromNum =
@@ -82,18 +83,46 @@ function applyOba13PublicSlot(
   const copy = oba13PlaceholderPrimary(game.gameNumber, fromNum);
   const withCopy = copy ? { ...line, primary: copy, isPlaceholder: true } : line;
 
-  if (!r5ByeName || (game.gameNumber?.trim() ?? "") !== OBA13_GAME.G23A) return withCopy;
+  const displayTeam = r5ByeTeam ?? null;
+  const displayName = displayTeam?.name?.trim() || r5ByeName?.trim() || "";
+  if (!displayName || (game.gameNumber?.trim() ?? "") !== OBA13_GAME.G23A) return withCopy;
+  const namedSlot = (empty: boolean): SlotLine | null => {
+    if (!empty) return null;
+    return {
+      primary: displayName,
+      secondary: null,
+      team: displayTeam,
+      isPlaceholder: !displayTeam,
+    };
+  };
   const bothEmpty = !game.awayTeam && !game.homeTeam;
-  if (bothEmpty && slot === "away") {
-    return { primary: r5ByeName, secondary: null, team: null, isPlaceholder: false };
+  if (bothEmpty && slot === "away") return namedSlot(true)!;
+  if (!bothEmpty && slot === "away" && !game.awayTeam && game.homeTeam?.name !== displayName) {
+    return namedSlot(true)!;
   }
-  if (!bothEmpty && slot === "away" && !game.awayTeam && game.homeTeam?.name !== r5ByeName) {
-    return { primary: r5ByeName, secondary: null, team: null, isPlaceholder: false };
-  }
-  if (!bothEmpty && slot === "home" && !game.homeTeam && game.awayTeam?.name !== r5ByeName) {
-    return { primary: r5ByeName, secondary: null, team: null, isPlaceholder: false };
+  if (!bothEmpty && slot === "home" && !game.homeTeam && game.awayTeam?.name !== displayName) {
+    return namedSlot(true)!;
   }
   return withCopy;
+}
+
+function SlotPrimary({
+  line,
+  extra,
+}: {
+  line: SlotLine;
+  extra?: ReactNode;
+}) {
+  const multiline = line.primary.includes("\n");
+  return (
+    <p
+      data-bracket-team-name
+      className={`${multiline ? "whitespace-pre-line text-center text-sm leading-snug" : "text-sm leading-[1.15]"} ${BRACKET_TEAM_NAME_CLASS} ${slotLineTextClass(line)}`}
+    >
+      {line.primary}
+      {extra}
+    </p>
+  );
 }
 
 export function BracketGameCard({
@@ -108,6 +137,7 @@ export function BracketGameCard({
   showHomeAway = true,
   minHeight,
   oba13R5ByeName = null,
+  oba13R5ByeTeam = null,
 }: {
   game: GameRow;
   /** BracketRound.roundIndex from DB (not index in UI column list). */
@@ -124,6 +154,8 @@ export function BracketGameCard({
   minHeight?: number;
   /** Display-only 4-0 name on empty 23A (do not persist). */
   oba13R5ByeName?: string | null;
+  /** Display-only 4-0 team (logo + matchup type) on empty 23A. */
+  oba13R5ByeTeam?: TeamWithPool | null;
 }) {
   const bm = game.bracketMatch;
   const bracketMatchIndex = bm?.matchIndex ?? matchIndex;
@@ -144,6 +176,7 @@ export function BracketGameCard({
     game,
     "away",
     oba13R5ByeName,
+    oba13R5ByeTeam,
   );
   const home = applyOba13PublicSlot(
     slotLines(
@@ -160,6 +193,7 @@ export function BracketGameCard({
     game,
     "home",
     oba13R5ByeName,
+    oba13R5ByeTeam,
   );
 
   const display = useBracketDisplayPrefs();
@@ -257,7 +291,7 @@ export function BracketGameCard({
 
   return (
     <article
-      className={`w-full rounded-2xl border border-white/45 shadow-[0_8px_30px_rgb(0,0,0,0.06)] backdrop-blur-md dark:border-zinc-600/55 dark:shadow-[0_8px_30px_rgb(0,0,0,0.25)] ${surfaceGradient} ${leftBorder} ${cardPadding}${quickShell}`}
+      className={`${hasScore ? "mx-auto w-[90%]" : "w-full"} rounded-2xl border border-white/45 shadow-[0_8px_30px_rgb(0,0,0,0.06)] backdrop-blur-md dark:border-zinc-600/55 dark:shadow-[0_8px_30px_rgb(0,0,0,0.25)] ${surfaceGradient} ${leftBorder} ${cardPadding}${quickShell}`}
       style={minHeight != null ? { minHeight } : undefined}
       aria-label={`Bracket match ${gChipIndex + 1}`}
       {...quickInteract}
@@ -346,13 +380,10 @@ export function BracketGameCard({
             <TeamLogoMark team={away.team} sizeClass={scheduleLogoSize} />
             {display.showTeamNames ? (
               <div className="min-w-0 w-full">
-                <p
-                  data-bracket-team-name
-                  className={`text-sm leading-[1.15] ${BRACKET_TEAM_NAME_CLASS} ${slotLineTextClass(away)}`}
-                >
-                  {away.primary}
-                  {!away.isPlaceholder ? maybeBracketAhTag(showHomeAway, "A") : null}
-                </p>
+                <SlotPrimary
+                  line={away}
+                  extra={!away.isPlaceholder ? maybeBracketAhTag(showHomeAway, "A") : null}
+                />
                 {away.secondary ? (
                   <p className="mt-0.5 text-xs text-zinc-500 dark:text-zinc-400">{away.secondary}</p>
                 ) : null}
@@ -364,13 +395,10 @@ export function BracketGameCard({
             <TeamLogoMark team={home.team} sizeClass={scheduleLogoSize} />
             {display.showTeamNames ? (
               <div className="min-w-0 w-full">
-                <p
-                  data-bracket-team-name
-                  className={`text-sm leading-[1.15] ${BRACKET_TEAM_NAME_CLASS} ${slotLineTextClass(home)}`}
-                >
-                  {home.primary}
-                  {!home.isPlaceholder ? maybeBracketAhTag(showHomeAway, "H") : null}
-                </p>
+                <SlotPrimary
+                  line={home}
+                  extra={!home.isPlaceholder ? maybeBracketAhTag(showHomeAway, "H") : null}
+                />
                 {home.secondary ? (
                   <p className="mt-0.5 text-xs text-zinc-500 dark:text-zinc-400">{home.secondary}</p>
                 ) : null}

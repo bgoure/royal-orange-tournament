@@ -218,6 +218,12 @@ function sitOutTeam(game: GameRow | undefined): TeamWithPool | null {
   return game?.homeTeam ?? game?.awayTeam ?? null;
 }
 
+function r7ByeRequired(games: GameRow[], r5Bye: Oba13Round5Undefeated | null): boolean {
+  const g23 = gameByNumber(games, OBA13_GAME.G23A);
+  if (!g23 || g23.status !== "FINAL" || !r5Bye) return false;
+  return bracketLoserTeamId(g23) === r5Bye.teamId;
+}
+
 function attachOba13ByeCards(
   columns: DecoratedColumn[],
   allGames: GameRow[],
@@ -264,7 +270,7 @@ function attachOba13ByeCards(
           title: "Bye Team:",
           teamName: team?.name?.trim() || "TBD",
           team,
-          muted: true,
+          muted: !r7ByeRequired(allGames, r5Bye),
           footnote:
             r5Name !== "TBD"
               ? `Only if ${r5Name} loses R23A game`
@@ -606,10 +612,23 @@ function layoutGameTops(
     centerBetweenGameNumbers(allFlat, tops, hOf, "18", "14", "15");
     alignCentersToGameNumber(allFlat, tops, hOf, "9", "14");
     alignCentersToGameNumber(allFlat, tops, hOf, "19", "5");
-    // 13-team A: 23A with G21, 24A between G21/G22, 25A with G22.
+    // 13-team A: start from 23A=G21 / 24A=mid / 25A=G22, then drop the band so
+    // 23A sits between G21 and G22 and 24A/25A move down by the same amount.
     alignCentersToGameNumber(allFlat, tops, hOf, "23A", "21");
     centerBetweenGameNumbers(allFlat, tops, hOf, "24A", "21", "22");
     alignCentersToGameNumber(allFlat, tops, hOf, "25A", "22");
+    const g23a = gameByNumber(allFlat, "23A");
+    if (g23a && tops.has(g23a.id)) {
+      const old23 = tops.get(g23a.id)!;
+      centerBetweenGameNumbers(allFlat, tops, hOf, "23A", "21", "22");
+      const shift = (tops.get(g23a.id) ?? old23) - old23;
+      if (shift !== 0) {
+        for (const num of ["24A", "25A"]) {
+          const g = gameByNumber(allFlat, num);
+          if (g && tops.has(g.id)) tops.set(g.id, tops.get(g.id)! + shift);
+        }
+      }
+    }
   }
 
   if (isOba12) {
@@ -856,18 +875,35 @@ function byeRowTop(
   heights: Map<string, number>,
 ): number {
   let max = COL_PAD_Y;
-  for (const num of ["21", "22", "23A", "24A", "25A"]) {
-    const g = gameByNumber(playable, num);
-    if (!g) continue;
+  for (const g of playable) {
     max = Math.max(max, (tops.get(g.id) ?? COL_PAD_Y) + (heights.get(g.id) ?? EST_CARD_H));
-  }
-  if (max <= COL_PAD_Y) {
-    for (const g of playable) {
-      max = Math.max(max, (tops.get(g.id) ?? COL_PAD_Y) + (heights.get(g.id) ?? EST_CARD_H));
-    }
   }
   return max + MIN_GAP;
 }
+
+function enforceColumnMinGaps(
+  columns: DecoratedColumn[],
+  tops: Map<string, number>,
+  heights: Map<string, number>,
+): void {
+  for (const col of columns) {
+    const items = col.games
+      .map((g) => ({ id: g.id, h: heights.get(g.id) ?? EST_CARD_H }))
+      .sort((a, b) => (tops.get(a.id) ?? 0) - (tops.get(b.id) ?? 0));
+    for (let i = 1; i < items.length; i++) {
+      const prev = items[i - 1]!;
+      const cur = items[i]!;
+      const minY = (tops.get(prev.id) ?? 0) + prev.h + MIN_GAP;
+      if ((tops.get(cur.id) ?? 0) < minY) tops.set(cur.id, minY);
+    }
+  }
+}
+
+function alwaysOpenColumn(_index: number): boolean {
+  return true;
+}
+
+function noopToggle(_index: number): void {}
 
 function ChronoBoard({
   columns,
@@ -881,7 +917,13 @@ function ChronoBoard({
   isOpen,
   onToggle,
   oba13R5ByeName = null,
+  oba13R5ByeTeam = null,
   celebration = null,
+  hideHeaders = false,
+  blankEmpty = false,
+  fixedColWidth,
+  allowStaggeredSingles = false,
+  linkR5ByeTo23A = false,
 }: {
   columns: DecoratedColumn[];
   byGameId: Map<string, GameRow>;
@@ -894,7 +936,13 @@ function ChronoBoard({
   isOpen: (index: number) => boolean;
   onToggle: (index: number) => void;
   oba13R5ByeName?: string | null;
+  oba13R5ByeTeam?: TeamWithPool | null;
   celebration?: ChampionCelebrationProps | null;
+  hideHeaders?: boolean;
+  blankEmpty?: boolean;
+  fixedColWidth?: number;
+  allowStaggeredSingles?: boolean;
+  linkR5ByeTo23A?: boolean;
 }) {
   const boardRef = useRef<HTMLDivElement>(null);
   const [paths, setPaths] = useState<DrawnPath[]>([]);
@@ -918,27 +966,23 @@ function ChronoBoard({
   const visibleById = useMemo(() => gameIdMap(edgeGames), [edgeGames]);
   const winnerEdges = useMemo(() => {
     const edges = collectWinnerEdges(edgeGames, visibleById);
-    const g21 = gameByNumber(allGames, "21");
-    const g22 = gameByNumber(allGames, "22");
+    if (!linkR5ByeTo23A) return edges;
     const g23 = gameByNumber(allGames, "23A");
     const r5Bye = sitOutVisible.find((g) => (g.gameNumber?.trim() ?? "") === OBA13_GAME.BYE_R5);
     const r5ByeId =
       r5Bye?.id ?? layoutColumns.find((c) => c.byeCard && isRoundNumberColumn(c.label, 5))?.byeCard?.id;
-    if (g23) {
-      if (g21) edges.push({ fromGameId: g21.id, toGameId: g23.id, slot: "away" });
-      if (g22) edges.push({ fromGameId: g22.id, toGameId: g23.id, slot: "home" });
-      if (r5ByeId) edges.push({ fromGameId: r5ByeId, toGameId: g23.id, slot: "home" });
-    }
+    if (g23 && r5ByeId) edges.push({ fromGameId: r5ByeId, toGameId: g23.id, slot: "home" });
     return edges;
-  }, [edgeGames, visibleById, allGames, sitOutVisible, layoutColumns]);
+  }, [edgeGames, visibleById, allGames, sitOutVisible, layoutColumns, linkR5ByeTo23A]);
   const lockSingleGameRow = useMemo(() => {
+    if (allowStaggeredSingles) return false;
     let any = false;
     for (const col of layoutColumns) {
       if (col.games.length > 1) return false;
       if (col.games.length === 1) any = true;
     }
     return any;
-  }, [layoutColumns]);
+  }, [layoutColumns, allowStaggeredSingles]);
   const rowCardHeight = useMemo(() => {
     if (!lockSingleGameRow) return undefined;
     let max = 0;
@@ -958,11 +1002,21 @@ function ChronoBoard({
     [gf1, allGames, format],
   );
 
+  const byeMinHeight = useMemo(() => {
+    let max = EST_BYE_H;
+    for (const col of layoutColumns) {
+      if (!col.byeCard) continue;
+      max = Math.max(max, heights.get(col.byeCard.id) ?? 0);
+    }
+    return max;
+  }, [layoutColumns, heights]);
+
   const tops = useMemo(() => {
     const base = layoutGameTops(layoutColumns, winnerEdges, heights, isOba13, isOba12);
     if (lockSingleGameRow) {
       for (const g of allGames) base.set(g.id, COL_PAD_Y);
     }
+    enforceColumnMinGaps(layoutColumns, base, heights);
     const byeY = byeRowTop(allGames, base, heights);
     for (const col of layoutColumns) {
       if (!col.byeCard) continue;
@@ -998,6 +1052,7 @@ function ChronoBoard({
 
     const nextHeights = new Map<string, number>();
     const nextColWidths: number[] = columns.map((col, ci) => {
+      if (fixedColWidth != null) return fixedColWidth;
       if (!isOpen(ci)) return 44;
       let longestWord = 0;
       const measureIds = [
@@ -1015,7 +1070,9 @@ function ChronoBoard({
           longestWord = Math.max(longestWord, longestWordWidthPx(label, font));
         }
       }
-      return bracketColumnWidthForLongestWord(longestWord);
+      const width = bracketColumnWidthForLongestWord(longestWord);
+      const allFinal = col.games.length > 0 && col.games.every((g) => g.status === "FINAL");
+      return allFinal ? Math.round(width * 0.9) : width;
     });
     const cele = board.querySelector<HTMLElement>(`[data-bracket-game-id="oba13-celebration"]`);
     if (cele) nextHeights.set("oba13-celebration", cele.offsetHeight);
@@ -1056,6 +1113,7 @@ function ChronoBoard({
     ifNecUi.shaded,
     isOpen,
     lockSingleGameRow,
+    fixedColWidth,
   ]);
 
   const measureRef = useRef(measureAndDraw);
@@ -1071,7 +1129,7 @@ function ChronoBoard({
   useLayoutEffect(() => {
     measureRef.current = measureAndDraw;
     scheduleMeasure();
-  }, [measureAndDraw, scheduleMeasure, allGames, tops, contentH]);
+  }, [measureAndDraw, scheduleMeasure, allGames, tops, contentH, hideHeaders]);
 
   useEffect(() => {
     const board = boardRef.current;
@@ -1115,7 +1173,7 @@ function ChronoBoard({
     };
   }, [scheduleMeasure]);
 
-  const columnShellH = contentH + HEADER_H;
+  const columnShellH = contentH + (hideHeaders ? 0 : HEADER_H);
   const champGame =
     gameByNumber(allGames, "25A") ?? gameByNumber(allGames, "25B") ?? gf1 ?? gf2;
   const celebrationTop = champGame
@@ -1148,14 +1206,15 @@ function ChronoBoard({
         return (
           <div
             key={`${col.label}-${ci}`}
-            className={`relative ${BRACKET_ROUND_COLUMN_CLASS} rounded-xl ${
-              shade ? "bg-zinc-100" : "bg-zinc-50"
-            }`}
+            className={`relative ${BRACKET_ROUND_COLUMN_CLASS} ${
+              hideHeaders ? "rounded-lg" : "rounded-xl"
+            } ${shade ? "bg-zinc-100" : hideHeaders ? "bg-transparent" : "bg-zinc-50"}`}
             style={{
               height: columnShellH,
               width: colWidths[ci] ?? BRACKET_COL_DEFAULT_PX,
             }}
           >
+            {hideHeaders ? null : (
             <div
               className="relative z-20 flex shrink-0 flex-col items-center justify-center border-b border-zinc-200 bg-white px-3 py-2 text-center"
               style={{ minHeight: HEADER_H }}
@@ -1176,6 +1235,7 @@ function ChronoBoard({
                 </button>
               ) : null}
             </div>
+            )}
             <div className="relative flex-1 px-3" style={{ height: contentH }}>
               {showCelebration && celebration ? (
                 <div
@@ -1187,7 +1247,9 @@ function ChronoBoard({
                 </div>
               ) : null}
               {games.length === 0 && !col.byeCard && !col.redrawPool ? (
+                blankEmpty ? null : (
                 <p className="pt-4 text-sm text-zinc-500">Matchups TBA.</p>
+                )
               ) : (
                 games.map((g, mi) => (
                   <div
@@ -1205,6 +1267,7 @@ function ChronoBoard({
                       showHomeAway={showHomeAway}
                       minHeight={lockSingleGameRow ? rowCardHeight : undefined}
                       oba13R5ByeName={oba13R5ByeName}
+                      oba13R5ByeTeam={oba13R5ByeTeam}
                       gLabelFallbackIndexZeroBased={
                         Number.isFinite(Number.parseInt(String(g.gameNumber ?? ""), 10))
                           ? Number.parseInt(String(g.gameNumber ?? ""), 10) - 1
@@ -1267,16 +1330,19 @@ function ChronoBoard({
                     team={col.byeCard.team}
                     footnote={col.byeCard.footnote}
                     muted={col.byeCard.muted}
+                    minHeight={byeMinHeight}
                   />
                 </div>
               ) : null}
             </div>
+            {hideHeaders ? null : (
             <div
               className={`pointer-events-none absolute inset-0 z-[15] rounded-xl border ${
                 shade ? "border-zinc-300" : "border-zinc-200"
               }`}
               aria-hidden
             />
+            )}
           </div>
         );
       })}
@@ -1301,6 +1367,129 @@ function ChronoBoard({
           />
         ))}
       </svg>
+    </div>
+  );
+}
+
+function ObaEndgameBoxes({
+  late,
+  lateA,
+  lateB,
+  byGameId,
+  timeZone,
+  format,
+  showHomeAway,
+  expandAll,
+  isOpen,
+  onToggle,
+  isOba12,
+  aRemain,
+  bRemain,
+  oba13R5ByeName,
+  oba13R5ByeTeam,
+}: {
+  late: DecoratedColumn[];
+  lateA: DecoratedColumn[];
+  lateB: DecoratedColumn[];
+  byGameId: Map<string, GameRow>;
+  timeZone?: string | null;
+  format: BracketFormat | string;
+  showHomeAway: boolean;
+  expandAll: boolean;
+  isOpen: (index: number) => boolean;
+  onToggle: (index: number) => void;
+  isOba12: boolean;
+  aRemain: number;
+  bRemain: number;
+  oba13R5ByeName: string | null;
+  oba13R5ByeTeam: TeamWithPool | null;
+}) {
+  const colWidth = BRACKET_COL_DEFAULT_PX;
+  const openLate = late.map((col, i) => ({ col, i })).filter(({ i }) => isOpen(i));
+  return (
+    <div className="flex shrink-0 flex-col">
+      <div className="flex gap-5">
+        {late.map((col, i) =>
+          isOpen(i) ? (
+            <div
+              key={`endgame-h-${col.label}`}
+              className="flex shrink-0 flex-col items-center justify-center border-b border-zinc-200 bg-white px-3 py-2 text-center"
+              style={{ width: colWidth, minHeight: HEADER_H }}
+            >
+              <h3 className="text-xs font-bold uppercase tracking-[0.08em] text-royal">
+                {withBracketRoundDay(col.label, col.games, timeZone)}
+              </h3>
+              <p className="mt-0.5 text-[11px] font-medium text-transparent" aria-hidden>
+                &nbsp;
+              </p>
+              {!expandAll ? (
+                <button
+                  type="button"
+                  className="mt-1 text-[10px] font-semibold text-zinc-500 hover:text-royal"
+                  onClick={() => onToggle(i)}
+                >
+                  (-)
+                </button>
+              ) : null}
+            </div>
+          ) : (
+            <CollapsedRoundStrip
+              key={`${col.label}-collapsed`}
+              label={col.label}
+              onExpand={() => onToggle(i)}
+            />
+          ),
+        )}
+      </div>
+      {openLate.length === 0 ? null : (
+        <>
+          <div className="mt-2 rounded-xl border-2 border-royal bg-royal-50/60 py-2">
+            <p className="px-3 text-xs font-bold uppercase tracking-[0.08em] text-royal">Bracket A</p>
+            <p className="mb-2 mt-0.5 px-3 text-[11px] leading-snug text-zinc-600">
+              Bracket A to be used if {aRemain} teams remaining
+            </p>
+            <ChronoBoard
+              columns={lateA.filter((_, i) => isOpen(i))}
+              byGameId={byGameId}
+              timeZone={timeZone}
+              format={format}
+              showHomeAway={showHomeAway}
+              isOba13={!isOba12}
+              isOba12={isOba12}
+              expandAll
+              isOpen={alwaysOpenColumn}
+              onToggle={noopToggle}
+              hideHeaders
+              blankEmpty
+              fixedColWidth={colWidth}
+              allowStaggeredSingles={!isOba12}
+              oba13R5ByeName={isOba12 ? null : oba13R5ByeName}
+              oba13R5ByeTeam={isOba12 ? null : oba13R5ByeTeam}
+            />
+          </div>
+          <div className="mt-2 rounded-xl border-2 border-accent bg-accent-50/70 py-2">
+            <p className="px-3 text-xs font-bold uppercase tracking-[0.08em] text-accent-800">Bracket B</p>
+            <p className="mb-2 mt-0.5 px-3 text-[11px] leading-snug text-zinc-600">
+              Bracket B to be used if {bRemain} teams remaining
+            </p>
+            <ChronoBoard
+              columns={lateB.filter((_, i) => isOpen(i))}
+              byGameId={byGameId}
+              timeZone={timeZone}
+              format={format}
+              showHomeAway={showHomeAway}
+              isOba13={!isOba12}
+              isOba12={isOba12}
+              expandAll
+              isOpen={alwaysOpenColumn}
+              onToggle={noopToggle}
+              hideHeaders
+              blankEmpty
+              fixedColWidth={colWidth}
+            />
+          </div>
+        </>
+      )}
     </div>
   );
 }
@@ -1330,6 +1519,10 @@ export function ChronologicalRoundBracket({
   const isOba12 = presetKey === "oba_de_12";
   const drawMode = isOba13 ? "13" : isOba12 ? "12" : null;
   const allGamesFlat = useMemo(() => [...byRound.values()].flat(), [byRound]);
+  const playableForMode = useMemo(
+    () => allGamesFlat.filter((g) => !isObaSitOutGameNumber(g.gameNumber)),
+    [allGamesFlat],
+  );
   const byGameId = useMemo(() => gameIdMap(allGamesFlat), [allGamesFlat]);
 
   const gamesByRound = useMemo(() => {
@@ -1349,30 +1542,63 @@ export function ChronologicalRoundBracket({
     [allGamesFlat, isOba12],
   );
   const r5Bye = useMemo(
-    () => (isOba13 ? oba13Round5ByeTeam(allGamesFlat) : null),
-    [allGamesFlat, isOba13],
+    () => (isOba13 ? oba13Round5ByeTeam(playableForMode) : null),
+    [playableForMode, isOba13],
   );
+  const r5ByeTeam = useMemo(() => {
+    if (!isOba13) return null;
+    const sit = allGamesFlat.find((g) => (g.gameNumber?.trim() ?? "") === OBA13_GAME.BYE_R5);
+    return sitOutTeam(sit) ?? teamById(allGamesFlat, r5Bye?.teamId);
+  }, [allGamesFlat, r5Bye, isOba13]);
   const endgameMode = useMemo(
     () =>
       isOba13
-        ? oba13PublicEndgameMode(allGamesFlat)
+        ? oba13PublicEndgameMode(playableForMode)
         : isOba12
           ? oba12PublicEndgameMode(allGamesFlat)
           : "placeholder",
-    [allGamesFlat, isOba13, isOba12],
+    [playableForMode, allGamesFlat, isOba13, isOba12],
   );
-  const columns = useMemo(() => {
+  const branchFor = isOba13 ? oba13EndgameBranchForGameNumber : oba12EndgameBranchForGameNumber;
+  const decorated = useMemo(() => {
     let next = decorateColumns(rawColumns, drawMode);
-    if (isOba13) next = filterEndgameBranch(next, endgameMode, oba13EndgameBranchForGameNumber);
-    else if (isOba12) next = filterEndgameBranch(next, endgameMode, oba12EndgameBranchForGameNumber);
     if (isOba12 && redrawPool) {
       next = next.map((c) => (isRoundNumberColumn(c.label, 5) ? { ...c, redrawPool } : c));
     }
-    if (isOba13) next = attachOba13ByeCards(next, allGamesFlat, r5Bye, endgameMode);
     return next;
-  }, [rawColumns, drawMode, redrawPool, r5Bye, isOba13, isOba12, endgameMode, allGamesFlat]);
-  const activeIndex = useMemo(() => latestScoredColumnIndex(columns), [columns]);
-  const focus = useRoundFocus(columns.length, activeIndex, expandAll, expandAll ? undefined : persistKey);
+  }, [rawColumns, drawMode, redrawPool, isOba12]);
+  const splitAt = useMemo(
+    () => decorated.findIndex((c) => isRoundNumberColumn(c.label, 6)),
+    [decorated],
+  );
+  const showEndgameBoxes =
+    (isOba13 || isOba12) && endgameMode === "placeholder" && splitAt >= 0;
+  const early = useMemo(() => {
+    const slice = showEndgameBoxes ? decorated.slice(0, splitAt) : decorated;
+    const filtered = showEndgameBoxes ? slice : filterEndgameBranch(slice, endgameMode, branchFor);
+    return isOba13 ? attachOba13ByeCards(filtered, allGamesFlat, r5Bye, endgameMode) : filtered;
+  }, [decorated, showEndgameBoxes, splitAt, endgameMode, branchFor, isOba13, allGamesFlat, r5Bye]);
+  const late = useMemo(
+    () => (showEndgameBoxes && splitAt >= 0 ? decorated.slice(splitAt) : []),
+    [decorated, showEndgameBoxes, splitAt],
+  );
+  const lateA = useMemo(() => {
+    const taken = filterEndgameBranch(late, "A", branchFor);
+    return isOba13 ? attachOba13ByeCards(taken, allGamesFlat, r5Bye, "A") : taken;
+  }, [late, branchFor, isOba13, allGamesFlat, r5Bye]);
+  const lateB = useMemo(
+    () => filterEndgameBranch(late, "B", branchFor),
+    [late, branchFor],
+  );
+
+  const focusColumns = showEndgameBoxes ? [...early, ...late] : early;
+  const activeIndex = useMemo(() => latestScoredColumnIndex(focusColumns), [focusColumns]);
+  const focus = useRoundFocus(
+    focusColumns.length,
+    activeIndex,
+    expandAll,
+    expandAll ? undefined : persistKey,
+  );
 
   return (
     <div
@@ -1381,7 +1607,7 @@ export function ChronologicalRoundBracket({
       aria-label="Chronological double-elimination rounds"
     >
       <ChronoBoard
-        columns={columns}
+        columns={early}
         byGameId={byGameId}
         timeZone={timeZone}
         format={format}
@@ -1391,9 +1617,31 @@ export function ChronologicalRoundBracket({
         expandAll={expandAll}
         isOpen={focus.isOpen}
         onToggle={focus.toggle}
-        oba13R5ByeName={r5Bye?.name ?? null}
-        celebration={isOba13 ? celebration : null}
+        oba13R5ByeName={r5Bye?.name ?? r5ByeTeam?.name ?? null}
+        oba13R5ByeTeam={r5ByeTeam}
+        celebration={isOba13 && !showEndgameBoxes ? celebration : null}
+        linkR5ByeTo23A={isOba13 && endgameMode === "A"}
+        allowStaggeredSingles={isOba13 && endgameMode === "A"}
       />
+      {showEndgameBoxes ? (
+        <ObaEndgameBoxes
+          late={late}
+          lateA={lateA}
+          lateB={lateB}
+          byGameId={byGameId}
+          timeZone={timeZone}
+          format={format}
+          showHomeAway={showHomeAway}
+          expandAll={expandAll}
+          isOpen={(i) => focus.isOpen(early.length + i)}
+          onToggle={(i) => focus.toggle(early.length + i)}
+          isOba12={isOba12}
+          aRemain={isOba12 ? 2 : 3}
+          bRemain={isOba12 ? 3 : 4}
+          oba13R5ByeName={r5Bye?.name ?? r5ByeTeam?.name ?? null}
+          oba13R5ByeTeam={r5ByeTeam}
+        />
+      ) : null}
     </div>
   );
 }

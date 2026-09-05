@@ -12,6 +12,7 @@ export type BracketByeCardProps = {
   team: TeamWithPublicLogo | null;
   footnote?: string;
   muted?: boolean;
+  minHeight?: number;
 };
 
 const logoSize = "h-8 w-8 min-h-[32px] min-w-[32px] shrink-0";
@@ -24,6 +25,7 @@ export function BracketByeCard({
   team,
   footnote,
   muted = false,
+  minHeight,
 }: BracketByeCardProps) {
   const surface = muted
     ? "bg-zinc-100/95 dark:bg-zinc-800/80"
@@ -32,8 +34,9 @@ export function BracketByeCard({
   return (
     <article
       className={`w-full rounded-2xl border border-white/45 px-3 py-2 shadow-[0_8px_30px_rgb(0,0,0,0.06)] backdrop-blur-md dark:border-zinc-600/55 dark:shadow-[0_8px_30px_rgb(0,0,0,0.25)] ${surface} ${
-        muted ? "border-l-2 border-l-zinc-300" : "border-l-2 border-l-royal/90"
+        muted ? "border-l-2 border-l-zinc-300 opacity-50" : "border-l-2 border-l-royal/90"
       }`}
+      style={minHeight != null ? { minHeight } : undefined}
       aria-label={title}
     >
       <p className="text-center text-[11px] font-semibold leading-snug text-zinc-600 dark:text-zinc-400">
