@@ -30,7 +30,7 @@ export async function TournamentBracketsPublic({
   const publishedOnly = !bracketOnly;
 
   const [brackets, poolsForTabs, consolationGames, headerLogoRow] = await Promise.all([
-    listBracketsForTournament(tournament.id, { publishedOnly }),
+    listBracketsForTournament(tournament.id, { publishedOnly, hideStructuralByes: true }),
     listPoolsForDivisionTabs(tournament.id),
     listConsolationGamesForTournament(tournament.id, { publishedOnly }),
     prisma.gameSheetHeaderLogo.findUnique({

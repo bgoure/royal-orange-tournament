@@ -91,9 +91,10 @@ export async function TournamentSchedulePublic({
           <GameList
             games={games}
             timezone={tournament.timezone}
-            showScores={false}
+            showScores={bracketOnly}
             scheduleCompactLayout
             scheduleDeprioritizeCompleted
+            finalResultChrome={bracketOnly}
             tournamentId={tournament.id}
             showHomeAway={!bracketOnly}
           />

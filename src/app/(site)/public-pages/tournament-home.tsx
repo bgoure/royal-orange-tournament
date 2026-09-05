@@ -157,6 +157,7 @@ export async function TournamentHomePublic({
                 animateStagger
                 tournamentId={tournament.id}
                 showHomeAway={!bracketOnly}
+                finalResultChrome={bracketOnly}
                 emptyMessage="No recent games for this division yet."
                 emptyHint="Final scores, cancelled games, and games awaiting results appear here."
               />

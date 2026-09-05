@@ -38,7 +38,6 @@ import {
 import {
   isOba13SitOutGameNumber,
   oba13EndgameBranchForGameNumber,
-  oba13SitOutByeNote,
   oba13PublicEndgameMode,
   oba13Round5RedrawPool,
   OBA13_ROUND_5_REDRAW_NOTE,
@@ -167,7 +166,7 @@ function decorateColumns(
   const isObaDraw = mode === "13" || mode === "12";
   return columns.map((col) => {
     const sitOutGames = isObaDraw ? col.games.filter((g) => isObaSitOutGameNumber(g.gameNumber)) : [];
-    const sitOutNote = isObaDraw ? oba13SitOutByeNote(col.games) : null;
+    const sitOutNote = null;
     const roundNote =
       mode === "13" && isRoundNumberColumn(col.label, 5)
         ? OBA13_ROUND_5_REDRAW_NOTE
@@ -213,8 +212,6 @@ function splitObaEndgame(
     };
   }
   const late = columns.slice(start);
-  const sitOutFor = (branch: "A" | "B") =>
-    late.flatMap((c) => c.sitOutGames).filter((g) => branchFor(g.gameNumber) === branch);
   const take = (branch: "A" | "B") =>
     late.map((c) => {
       const games = c.games.filter((g) => branchFor(g.gameNumber) === branch);
@@ -228,8 +225,8 @@ function splitObaEndgame(
     bracketA: take("A"),
     bracketB: take("B"),
     endgameStart: start,
-    sitOutNoteA: oba13SitOutByeNote(sitOutFor("A")),
-    sitOutNoteB: oba13SitOutByeNote(sitOutFor("B")),
+    sitOutNoteA: null,
+    sitOutNoteB: null,
   };
 }
 

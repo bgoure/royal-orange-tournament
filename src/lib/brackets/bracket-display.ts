@@ -172,8 +172,20 @@ export function playoffScheduleBracketCaption(input: {
   const divName = input.bracketDivision?.name ?? input.division?.name;
   if (!divName) return null;
 
-  const roundLabel =
-    input.bracketRound.roundType === "FINAL" ? "Championship" : input.bracketRound.name;
+  const roundLabel = playoffScheduleRoundOnlyLabel(input);
+  if (!roundLabel) return null;
 
   return `${divName} · ${roundLabel}`;
+}
+
+/** Round label only (no division), for completed bracket-only schedule / home cards. */
+export function playoffScheduleRoundOnlyLabel(input: {
+  gameKind: GameKind;
+  bracketRound: {
+    name: string;
+    roundType: BracketRoundType;
+  } | null | undefined;
+}): string | null {
+  if (!input.bracketRound || input.gameKind === "CONSOLATION") return null;
+  return input.bracketRound.roundType === "FINAL" ? "Championship" : input.bracketRound.name;
 }

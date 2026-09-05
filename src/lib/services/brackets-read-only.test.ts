@@ -68,9 +68,27 @@ describe("listBracketsForTournament", () => {
     const { listBracketsForTournament } = await import("./brackets");
     const { calls, client } = makeReadOnlySpy();
 
-    await listBracketsForTournament("t1", { publishedOnly: true }, client as never);
+    await listBracketsForTournament("t1", { publishedOnly: true, hideStructuralByes: true }, client as never);
 
     assert.deepEqual(calls, ["bracket.findMany"]);
+  });
+
+  it("filters structural byes on the public site path", async () => {
+    const { listBracketsForTournament } = await import("./brackets");
+    const seen: Record<string, unknown>[] = [];
+    const client = {
+      bracket: {
+        findMany: async (args: Record<string, unknown>) => {
+          seen.push(args);
+          return [];
+        },
+      },
+    };
+
+    await listBracketsForTournament("t1", { publishedOnly: true, hideStructuralByes: true }, client as never);
+
+    const include = seen[0]?.include as { games?: { where?: unknown } };
+    assert.ok(include?.games?.where, "public brackets must filter sit-out games");
   });
 
   it("filters to published brackets only when asked", async () => {
