@@ -165,7 +165,7 @@ function byGameNumber<T extends { gameNumber?: string | null }>(
   return games.find((g) => (g.gameNumber?.trim() ?? "") === num);
 }
 
-function isFinalGame(g: { status: string } | undefined): boolean {
+function isFinalGame(g: { status?: string | null } | undefined): boolean {
   return g?.status === "FINAL";
 }
 
