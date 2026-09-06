@@ -2,7 +2,8 @@
  * Mid-bracket redraw / endgame slot resolution after OBA games finalize.
  * Seeded 4–7 workbook maps are fully feeder-wired (no-op).
  * 12-team: hide unused A/B branch after Round 5; hide if-necessary G23A when only one remains.
- * 13-team: hide unused A/B branch after Round 5; fill if-necessary G25A; hide unused R7 bye.
+ * 13-team: hide unused A/B branch after Round 5; seat Bracket A G24A/R7 bye
+ * (4-0 loser plays R6 bye; G23A winner sits R7); fill if-necessary G25A.
  */
 
 import { GameStatus } from "@prisma/client";
@@ -15,7 +16,9 @@ import {
 } from "@/lib/services/oba-de-12";
 import {
   OBA13_GAME,
+  oba13BracketARoute,
   oba13EndgameBranch,
+  oba13G24ADesiredSides,
   oba13GamesForUnusedBranch,
 } from "@/lib/services/oba-de-13";
 
@@ -146,8 +149,49 @@ async function resolveOba13(bracketId: string): Promise<void> {
   const refreshed = r5Done ? await load13Games(bracketId) : games;
   const g23a = byNumber(refreshed, OBA13_GAME.G23A);
   const bye7 = byNumber(refreshed, OBA13_GAME.BYE_R7);
+  const g24Open = byNumber(refreshed, OBA13_GAME.G24A);
+  const route = oba13BracketARoute(refreshed);
 
-  if (g23a?.status === "FINAL") {
+  const desired24 = g24Open && oba13G24ADesiredSides(route);
+  if (
+    g24Open &&
+    desired24 &&
+    g24Open.status !== "FINAL" &&
+    g24Open.status !== "CANCELLED" &&
+    (g24Open.homeTeamId !== desired24.homeTeamId || g24Open.awayTeamId !== desired24.awayTeamId)
+  ) {
+    await prisma.game.update({
+      where: { id: g24Open.id },
+      data: {
+        homeTeamId: desired24.homeTeamId,
+        awayTeamId: desired24.awayTeamId,
+        status: GameStatus.SCHEDULED,
+      },
+    });
+  }
+
+  if (route.r7ByeStatus === "cancel" && bye7 && bye7.status !== "FINAL") {
+    await cancelUnusedGames(refreshed, [OBA13_GAME.BYE_R7]);
+  } else if (
+    route.r7ByeStatus === "award" &&
+    route.r7ByeTeamId &&
+    bye7 &&
+    bye7.status !== "FINAL" &&
+    bye7.status !== "CANCELLED"
+  ) {
+    await prisma.game.update({
+      where: { id: bye7.id },
+      data: {
+        homeTeamId: route.r7ByeTeamId,
+        awayTeamId: null,
+        status: GameStatus.FINAL,
+        resultType: "FORFEIT_HOME_WINS",
+        homeRuns: 1,
+        awayRuns: 0,
+        schedulePlaceholder: true,
+      },
+    });
+  } else if (g23a?.status === "FINAL") {
     const alive = aliveFrom(refreshed);
     if (alive.length === 2 && bye7 && bye7.status !== "FINAL") {
       await cancelUnusedGames(refreshed, [OBA13_GAME.BYE_R7]);
@@ -212,4 +256,15 @@ export async function maybeResolveObaPresetPairings(bracketId: string): Promise<
     await resolveOba12(bracketId);
   }
   // oba_de_5 / oba_de_6 / oba_de_7 are fully feeder-wired seeded maps (no mid-bracket redraw).
+}
+
+/** Reseat Bracket A G24A / R7 bye on every 13-team map in a tournament. */
+export async function healOba13BracketsForTournament(tournamentId: string): Promise<void> {
+  const brackets = await prisma.bracket.findMany({
+    where: { tournamentId, presetKey: "oba_de_13" },
+    select: { id: true },
+  });
+  for (const b of brackets) {
+    await resolveOba13(b.id);
+  }
 }

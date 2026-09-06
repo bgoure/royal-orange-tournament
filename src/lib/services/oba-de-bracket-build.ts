@@ -1005,6 +1005,8 @@ export function gamesForOba13Draw(draw: string[]): GameDef[] {
       away: { kind: "bye" },
       gameNumber: g.BYE_R7,
     },
+    // Round 7 — G24A feeders default to W23A vs R6 bye; 4-0 routing reseats
+    // the still-alive G23A loser vs the R6 bye and gives W23A the R7 bye.
     {
       key: "G24A",
       roundGroup: "R7",

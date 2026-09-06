@@ -249,11 +249,11 @@ export const OBA_DE_PRESETS: Record<ObaDePresetKey, ObaDePreset> = {
       },
       {
         title: "Bracket A or B",
-        body: "After Round 5, three teams remaining (undefeated survived) uses Bracket A. Four remaining (undefeated lost in Round 5; all have one loss) uses Bracket B. Unused games are hidden. Admin places Round 6 (and Round 7 when three still remain in A).",
+        body: "After Round 5, three teams remaining (undefeated survived) uses Bracket A. Four remaining (undefeated lost in Round 5; all have one loss) uses Bracket B. Unused games are hidden. Admin places Round 6.",
       },
       {
         title: "Endgame",
-        body: "Bracket A: RP5.2 bye + Game 23A. If two remain, Game 24A is the final and Game 25A is if-necessary. If three remain, another RP5.2 bye (not the Round 6 bye team), Game 24A semi, then Game 25A vs the Round 7 bye. Bracket B: Games 23B and 24B, then Game 25B (W23B vs W24B) is the championship — no if-necessary, all have one loss.",
+        body: "Bracket A: RP5.2 bye + Game 23A. The Round 5 bye (4-0) always plays Game 24A against the Round 6 bye. If they lose Game 23A, the Game 23A winner sits Round 7 and Game 25A is Winner 24A vs that bye. If they win Game 23A, Game 25A is only required if they then lose Game 24A. Bracket B: Games 23B and 24B, then Game 25B (W23B vs W24B) is the championship — no if-necessary, all have one loss.",
       },
     ],
   },

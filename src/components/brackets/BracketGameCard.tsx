@@ -13,6 +13,7 @@ import {
   isOba13SitOutGameNumber,
   oba13PlaceholderPrimary,
   OBA13_GAME,
+  type Oba13BracketARoute,
 } from "@/lib/services/oba-de-13";
 import { BRACKET_TEAM_NAME_CLASS } from "@/components/brackets/bracket-card-layout";
 import { slotLines, slotLineTextClass, type SlotLine } from "@/components/brackets/bracket-slot-lines";
@@ -97,11 +98,28 @@ function applyOba13PublicSlot(
   game: GameRow,
   slot: "home" | "away",
   byes: Oba13ByeDisplay,
+  route?: Oba13BracketARoute | null,
 ): SlotLine {
   const fromNum =
     slot === "away"
       ? game.bracketMatch?.awayFromMatch?.game?.gameNumber
       : game.bracketMatch?.homeFromMatch?.game?.gameNumber;
+  const fromIs23A =
+    (fromNum ?? "").trim() === OBA13_GAME.G23A || /^winner\s*23a$/i.test(line.primary.trim());
+  const showR5On24A =
+    (game.gameNumber?.trim() ?? "") === OBA13_GAME.G24A &&
+    fromIs23A &&
+    (route?.g24aVsR6Source === "r5-bye" || route?.g24aVsR6Source === "g23a-loser") &&
+    (byes.r5Team || byes.r5Name);
+  if (showR5On24A) {
+    const name = byes.r5Team?.name?.trim() || byes.r5Name?.trim() || "Round 5\nBye Team";
+    return {
+      primary: name,
+      secondary: null,
+      team: byes.r5Team ?? null,
+      isPlaceholder: !byes.r5Team,
+    };
+  }
   if (!line.team) {
     if (isByeFeeder(fromNum, line.primary, OBA13_GAME.BYE_R6)) {
       return byeRoundSlotLine(6, byes.r6Team);
@@ -114,7 +132,7 @@ function applyOba13PublicSlot(
     }
   }
 
-  const copy = oba13PlaceholderPrimary(game.gameNumber, fromNum);
+  const copy = oba13PlaceholderPrimary(game.gameNumber, fromNum, route);
   const withCopy = copy ? { ...line, primary: copy, isPlaceholder: true } : line;
 
   const displayTeam = byes.r5Team ?? null;
@@ -189,6 +207,7 @@ export function BracketGameCard({
   oba13R6ByeTeam = null,
   oba13R7ByeName = null,
   oba13R7ByeTeam = null,
+  oba13Route = null,
 }: {
   game: GameRow;
   /** BracketRound.roundIndex from DB (not index in UI column list). */
@@ -211,6 +230,7 @@ export function BracketGameCard({
   oba13R6ByeTeam?: TeamWithPool | null;
   oba13R7ByeName?: string | null;
   oba13R7ByeTeam?: TeamWithPool | null;
+  oba13Route?: Oba13BracketARoute | null;
 }) {
   const bm = game.bracketMatch;
   const bracketMatchIndex = bm?.matchIndex ?? matchIndex;
@@ -238,6 +258,7 @@ export function BracketGameCard({
       r7Name: oba13R7ByeName,
       r7Team: oba13R7ByeTeam,
     },
+    oba13Route,
   );
   const home = applyOba13PublicSlot(
     slotLines(
@@ -261,6 +282,7 @@ export function BracketGameCard({
       r7Name: oba13R7ByeName,
       r7Team: oba13R7ByeTeam,
     },
+    oba13Route,
   );
 
   const display = useBracketDisplayPrefs();

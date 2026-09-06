@@ -12,6 +12,9 @@ import {
   oba13EndgameBranchForGameNumber,
   oba13PublicEndgameMode,
   oba13PlaceholderPrimary,
+  oba13BracketARoute,
+  oba13G24ADesiredSides,
+  applyOba13BracketADisplaySeats,
   oba13SitOutByeNote,
   oba13Round5ByeTeam,
   oba13Round5RedrawPool,
@@ -575,9 +578,285 @@ describe("oba13 4-0 vs 3-0 endgame lock", () => {
   it("uses poster slot copy for empty Bracket A seats", () => {
     assert.equal(oba13PlaceholderPrimary("24A", "R6 Bye"), "Round 6\nBye Team");
     assert.equal(oba13PlaceholderPrimary("24A", "23A"), "Winner 23A");
+    assert.equal(
+      oba13PlaceholderPrimary("24A", "23A", { g24aVsR6Source: "r5-bye" }),
+      "Round 5\nBye Team",
+    );
+    assert.equal(
+      oba13PlaceholderPrimary("24A", "23A", { g24aVsR6Source: "g23a-loser" }),
+      "Round 5\nBye Team",
+    );
     assert.equal(oba13PlaceholderPrimary("25A", "24A"), "Winner 24A");
     assert.equal(oba13PlaceholderPrimary("25A", "R7 Bye"), "Round 7\nBye Team");
     assert.equal(oba13PlaceholderPrimary("23A", "R5 Bye"), "Round 5\nBye Team");
     assert.equal(oba13PlaceholderPrimary("23A", "21"), null);
+  });
+});
+
+describe("oba13 Bracket A 4-0 G23A routing", () => {
+  function sitOut(gameNumber: string, teamId: string, name: string) {
+    return {
+      gameNumber,
+      status: "FINAL" as const,
+      resultType: "FORFEIT_HOME_WINS",
+      homeTeamId: teamId,
+      awayTeamId: null,
+      homeRuns: 1,
+      awayRuns: 0,
+      homeTeam: { name },
+      awayTeam: null,
+    };
+  }
+
+  function finalGame(opts: {
+    gameNumber: string;
+    homeId: string;
+    awayId: string;
+    homeName: string;
+    awayName: string;
+    homeRuns: number;
+    awayRuns: number;
+  }) {
+    return {
+      gameNumber: opts.gameNumber,
+      status: "FINAL" as const,
+      resultType: "REGULAR",
+      homeTeamId: opts.homeId,
+      awayTeamId: opts.awayId,
+      homeRuns: opts.homeRuns,
+      awayRuns: opts.awayRuns,
+      homeTeam: { name: opts.homeName },
+      awayTeam: { name: opts.awayName },
+    };
+  }
+
+  function scheduled(opts: {
+    gameNumber: string;
+    homeId: string | null;
+    awayId: string | null;
+    homeName?: string | null;
+    awayName?: string | null;
+  }) {
+    return {
+      gameNumber: opts.gameNumber,
+      status: "SCHEDULED" as const,
+      resultType: "REGULAR",
+      homeTeamId: opts.homeId,
+      awayTeamId: opts.awayId,
+      homeRuns: null,
+      awayRuns: null,
+      homeTeam: opts.homeName ? { name: opts.homeName } : null,
+      awayTeam: opts.awayName ? { name: opts.awayName } : null,
+    };
+  }
+
+  const oakvillePriorWins = [
+    finalGame({
+      gameNumber: "2",
+      homeId: "oak",
+      awayId: "p",
+      homeName: "Oakville",
+      awayName: "Paris",
+      homeRuns: 4,
+      awayRuns: 1,
+    }),
+    finalGame({
+      gameNumber: "3",
+      homeId: "oak",
+      awayId: "q",
+      homeName: "Oakville",
+      awayName: "Quinte",
+      homeRuns: 6,
+      awayRuns: 0,
+    }),
+    finalGame({
+      gameNumber: "4",
+      homeId: "oak",
+      awayId: "r",
+      homeName: "Oakville",
+      awayName: "Richmond",
+      homeRuns: 3,
+      awayRuns: 2,
+    }),
+    finalGame({
+      gameNumber: "18",
+      homeId: "oak",
+      awayId: "s",
+      homeName: "Oakville",
+      awayName: "Sarnia",
+      homeRuns: 5,
+      awayRuns: 1,
+    }),
+  ];
+
+  it("before G23A, seats the 4-0 R5 bye into G24A vs the R6 bye", () => {
+    const games = [
+      ...oakvillePriorWins,
+      sitOut("R5 Bye", "oak", "Oakville"),
+      sitOut("R6 Bye", "whitby", "Whitby"),
+      scheduled({
+        gameNumber: "23A",
+        homeId: "wt",
+        awayId: "oak",
+        homeName: "West Toronto",
+        awayName: "Oakville",
+      }),
+      scheduled({ gameNumber: "24A", homeId: null, awayId: "whitby", awayName: "Whitby" }),
+    ];
+    const route = oba13BracketARoute(games);
+    assert.equal(route.g24aVsR6TeamId, "oak");
+    assert.equal(route.g24aVsR6Source, "r5-bye");
+    assert.equal(route.r6ByeTeamId, "whitby");
+    assert.equal(route.r7ByeStatus, "pending");
+    assert.deepEqual(oba13G24ADesiredSides(route), { homeTeamId: "oak", awayTeamId: "whitby" });
+  });
+
+  it("scenario 1: 4-0 loses G23A → they play R6 bye in G24A; G23A winner sits R7", () => {
+    const games = [
+      ...oakvillePriorWins,
+      sitOut("R5 Bye", "oak", "Oakville"),
+      sitOut("R6 Bye", "whitby", "Whitby"),
+      finalGame({
+        gameNumber: "23A",
+        homeId: "wt",
+        awayId: "oak",
+        homeName: "West Toronto",
+        awayName: "Oakville",
+        homeRuns: 6,
+        awayRuns: 3,
+      }),
+      scheduled({
+        gameNumber: "24A",
+        homeId: "wt",
+        awayId: "whitby",
+        homeName: "West Toronto",
+        awayName: "Whitby",
+      }),
+    ];
+    const route = oba13BracketARoute(games);
+    assert.equal(route.g24aVsR6TeamId, "oak");
+    assert.equal(route.g24aVsR6Source, "g23a-loser");
+    assert.equal(route.r7ByeTeamId, "wt");
+    assert.equal(route.r7ByeStatus, "award");
+    assert.deepEqual(oba13G24ADesiredSides(route), { homeTeamId: "oak", awayTeamId: "whitby" });
+
+    const shown = applyOba13BracketADisplaySeats(games);
+    const g24 = shown.find((g) => g.gameNumber === "24A")!;
+    assert.equal(g24.homeTeamId, "oak");
+    assert.equal(g24.awayTeamId, "whitby");
+    const r7 = shown.find((g) => g.gameNumber === "R7 Bye");
+    assert.equal(r7, undefined);
+  });
+
+  it("scenario 1 display fills the R7 bye slot with the G23A winner", () => {
+    const games = [
+      sitOut("R5 Bye", "oak", "Oakville"),
+      sitOut("R6 Bye", "whitby", "Whitby"),
+      {
+        gameNumber: "R7 Bye",
+        status: "SCHEDULED" as const,
+        resultType: "REGULAR",
+        homeTeamId: null,
+        awayTeamId: null,
+        homeRuns: null,
+        awayRuns: null,
+        homeTeam: null,
+        awayTeam: null,
+      },
+      finalGame({
+        gameNumber: "23A",
+        homeId: "wt",
+        awayId: "oak",
+        homeName: "West Toronto",
+        awayName: "Oakville",
+        homeRuns: 6,
+        awayRuns: 3,
+      }),
+      scheduled({
+        gameNumber: "24A",
+        homeId: "wt",
+        awayId: "whitby",
+        homeName: "West Toronto",
+        awayName: "Whitby",
+      }),
+    ];
+    const shown = applyOba13BracketADisplaySeats(games);
+    const r7 = shown.find((g) => g.gameNumber === "R7 Bye")!;
+    assert.equal(r7.homeTeamId, "wt");
+  });
+
+  it("scenario 2: 4-0 wins G23A → they play G24A; R7 bye is cancelled", () => {
+    const games = [
+      ...oakvillePriorWins,
+      finalGame({
+        gameNumber: "21",
+        homeId: "wt",
+        awayId: "tigers",
+        homeName: "West Toronto",
+        awayName: "Waterloo",
+        homeRuns: 13,
+        awayRuns: 1,
+      }),
+      sitOut("R5 Bye", "oak", "Oakville"),
+      sitOut("R6 Bye", "whitby", "Whitby"),
+      finalGame({
+        gameNumber: "23A",
+        homeId: "wt",
+        awayId: "oak",
+        homeName: "West Toronto",
+        awayName: "Oakville",
+        homeRuns: 2,
+        awayRuns: 8,
+      }),
+      scheduled({
+        gameNumber: "24A",
+        homeId: "oak",
+        awayId: "whitby",
+        homeName: "Oakville",
+        awayName: "Whitby",
+      }),
+    ];
+    const route = oba13BracketARoute(games);
+    assert.equal(route.g24aVsR6TeamId, "oak");
+    assert.equal(route.g24aVsR6Source, "g23a-winner");
+    assert.equal(route.r7ByeStatus, "cancel");
+    assert.equal(route.r7ByeTeamId, null);
+    assert.deepEqual(oba13G24ADesiredSides(route), { homeTeamId: "oak", awayTeamId: "whitby" });
+  });
+
+  it("does not send an already-eliminated G23A loser (2 losses) into G24A", () => {
+    const games = [
+      finalGame({
+        gameNumber: "10",
+        homeId: "oneLoss",
+        awayId: "x",
+        homeName: "One Loss",
+        awayName: "X",
+        homeRuns: 1,
+        awayRuns: 5,
+      }),
+      sitOut("R5 Bye", "oneLoss", "One Loss"),
+      sitOut("R6 Bye", "bye6", "Bye Six"),
+      finalGame({
+        gameNumber: "23A",
+        homeId: "undefeated",
+        awayId: "oneLoss",
+        homeName: "Undefeated",
+        awayName: "One Loss",
+        homeRuns: 4,
+        awayRuns: 1,
+      }),
+      scheduled({
+        gameNumber: "24A",
+        homeId: "undefeated",
+        awayId: "bye6",
+        homeName: "Undefeated",
+        awayName: "Bye Six",
+      }),
+    ];
+    const route = oba13BracketARoute(games);
+    assert.equal(route.g24aVsR6TeamId, "undefeated");
+    assert.equal(route.g24aVsR6Source, "g23a-winner");
+    assert.equal(route.r7ByeStatus, "cancel");
   });
 });

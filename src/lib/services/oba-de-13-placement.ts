@@ -13,6 +13,7 @@ import {
   applyImplicitByeAwards,
   inferOba13ImplicitByes,
   OBA13_GAME,
+  oba13BracketARoute,
   oba13EndgameBranch,
   suggestOba13OddRoundPairing,
   type Oba13EndgameBranch,
@@ -234,6 +235,11 @@ export async function getOba13PlacementBoard(bracketId: string): Promise<Oba13Pl
       games,
     });
     if (afterR6.length === 3) {
+      const route = oba13BracketARoute(games);
+      // 4-0 / still-alive G23A loser: G24A and R7 bye are auto-seated.
+      if (route.r7ByeStatus === "award" || route.r7ByeStatus === "cancel") {
+        return null;
+      }
       const r7Nums = [OBA13_GAME.BYE_R7, OBA13_GAME.G24A];
       if (!seatsReady(games, r7Nums) || byNumber(games, OBA13_GAME.G24A)?.homeTeamId == null) {
         const suggestion = await suggestionFor(bracketId, afterR6, 6);
@@ -274,6 +280,8 @@ export async function listOba13PlacementBoards(tournamentId: string): Promise<Ob
     where: { tournamentId, presetKey: "oba_de_13" },
     select: { id: true },
   });
+  const { healOba13BracketsForTournament } = await import("@/lib/services/oba-de-redraw");
+  await healOba13BracketsForTournament(tournamentId);
   const boards: Oba13PlacementBoard[] = [];
   for (const b of brackets) {
     const board = await getOba13PlacementBoard(b.id);
