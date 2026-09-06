@@ -12,6 +12,8 @@ import {
   oba13EndgameBranchForGameNumber,
   oba13PublicEndgameMode,
   oba13PlaceholderPrimary,
+  oba13ByeSeatLabel,
+  oba13R7ByeCardFootnote,
   oba13BracketARoute,
   oba13G24ADesiredSides,
   applyOba13BracketADisplaySeats,
@@ -590,6 +592,60 @@ describe("oba13 4-0 vs 3-0 endgame lock", () => {
     assert.equal(oba13PlaceholderPrimary("25A", "R7 Bye"), "Round 7\nBye Team");
     assert.equal(oba13PlaceholderPrimary("23A", "R5 Bye"), "Round 5\nBye Team");
     assert.equal(oba13PlaceholderPrimary("23A", "21"), null);
+  });
+
+  it("replaces bye-seat placeholders with the identified team name", () => {
+    assert.deepEqual(oba13ByeSeatLabel(7, null), {
+      primary: "Round 7\nBye Team",
+      isPlaceholder: true,
+    });
+    assert.deepEqual(oba13ByeSeatLabel(7, "  "), {
+      primary: "Round 7\nBye Team",
+      isPlaceholder: true,
+    });
+    assert.deepEqual(oba13ByeSeatLabel(7, "West Toronto Wildcats"), {
+      primary: "West Toronto Wildcats",
+      isPlaceholder: false,
+    });
+    assert.deepEqual(oba13ByeSeatLabel(6, "Whitby Canadians"), {
+      primary: "Whitby Canadians",
+      isPlaceholder: false,
+    });
+  });
+
+  it("hides the R7 bye-card footnote once that team is identified", () => {
+    assert.equal(
+      oba13R7ByeCardFootnote({
+        identifiedTeamName: "West Toronto Wildcats",
+        r7ByeStatus: "award",
+        r5ByeName: "Oakville A's",
+      }),
+      undefined,
+    );
+    assert.equal(
+      oba13R7ByeCardFootnote({
+        identifiedTeamName: null,
+        r7ByeStatus: "award",
+        r5ByeName: "Oakville A's",
+      }),
+      "Winner of G23A",
+    );
+    assert.equal(
+      oba13R7ByeCardFootnote({
+        identifiedTeamName: null,
+        r7ByeStatus: "pending",
+        r5ByeName: "Oakville A's",
+      }),
+      "Only if Oakville A's loses G23A game",
+    );
+    assert.equal(
+      oba13R7ByeCardFootnote({
+        identifiedTeamName: null,
+        r7ByeStatus: "pending",
+        r5ByeName: "TBD",
+      }),
+      "Only if R5 Bye loses G23A game",
+    );
   });
 });
 
