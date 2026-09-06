@@ -11,6 +11,7 @@ import type { GameRow, TeamWithPool } from "@/components/brackets/bracket-types"
 import { getBracketSlotSources } from "@/lib/brackets/game-slot-sources";
 import {
   isOba13SitOutGameNumber,
+  oba13ByeSeatLabel,
   oba13PlaceholderPrimary,
   OBA13_GAME,
   type Oba13BracketARoute,
@@ -78,12 +79,17 @@ type Oba13ByeDisplay = {
   r7Team?: TeamWithPool | null;
 };
 
-function byeRoundSlotLine(round: 5 | 6 | 7, team: TeamWithPool | null | undefined): SlotLine {
+function byeRoundSlotLine(
+  round: 5 | 6 | 7,
+  team: TeamWithPool | null | undefined,
+  fallbackName?: string | null,
+): SlotLine {
+  const labeled = oba13ByeSeatLabel(round, team?.name ?? fallbackName);
   return {
-    primary: `Round ${round}\nBye Team`,
+    primary: labeled.primary,
     secondary: null,
     team: team ?? null,
-    isPlaceholder: true,
+    isPlaceholder: labeled.isPlaceholder,
   };
 }
 
@@ -122,13 +128,13 @@ function applyOba13PublicSlot(
   }
   if (!line.team) {
     if (isByeFeeder(fromNum, line.primary, OBA13_GAME.BYE_R6)) {
-      return byeRoundSlotLine(6, byes.r6Team);
+      return byeRoundSlotLine(6, byes.r6Team, byes.r6Name);
     }
     if (isByeFeeder(fromNum, line.primary, OBA13_GAME.BYE_R7)) {
-      return byeRoundSlotLine(7, byes.r7Team);
+      return byeRoundSlotLine(7, byes.r7Team, byes.r7Name);
     }
     if (isByeFeeder(fromNum, line.primary, OBA13_GAME.BYE_R5)) {
-      return byeRoundSlotLine(5, byes.r5Team);
+      return byeRoundSlotLine(5, byes.r5Team, byes.r5Name);
     }
   }
 
@@ -140,7 +146,7 @@ function applyOba13PublicSlot(
   if (line.team || !displayName || (game.gameNumber?.trim() ?? "") !== OBA13_GAME.G23A) {
     return line.team ? line : withCopy;
   }
-  const named = byeRoundSlotLine(5, displayTeam);
+  const named = byeRoundSlotLine(5, displayTeam, displayName);
   const bothEmpty = !game.awayTeam && !game.homeTeam;
   if (bothEmpty && slot === "away") return named;
   if (!bothEmpty && slot === "away" && !game.awayTeam && game.homeTeam?.name !== displayName) {

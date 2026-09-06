@@ -662,6 +662,30 @@ export function oba13PlaceholderPrimary(
   return null;
 }
 
+/** Public bye-seat copy: placeholder until the sitting team is known. */
+export function oba13ByeSeatLabel(
+  round: 5 | 6 | 7,
+  teamName?: string | null,
+): { primary: string; isPlaceholder: boolean } {
+  const name = teamName?.trim();
+  if (name) return { primary: name, isPlaceholder: false };
+  return { primary: `Round ${round}\nBye Team`, isPlaceholder: true };
+}
+
+/** R7 bye-card footnote. Hidden once that sitting team is identified. */
+export function oba13R7ByeCardFootnote(args: {
+  identifiedTeamName?: string | null;
+  r7ByeStatus: Oba13BracketARoute["r7ByeStatus"];
+  r5ByeName?: string | null;
+}): string | undefined {
+  if (args.identifiedTeamName?.trim()) return undefined;
+  if (args.r7ByeStatus === "award") return "Winner of G23A";
+  const r5 = args.r5ByeName?.trim();
+  return r5 && r5 !== "TBD"
+    ? `Only if ${r5} loses G23A game`
+    : "Only if R5 Bye loses G23A game";
+}
+
 /** RP5.2 n.i + n.ii pool (admin may still override). */
 export function rp52EligibleByeTeamIds(candidates: ObaByeCandidate[]): string[] {
   if (candidates.length === 0) return [];

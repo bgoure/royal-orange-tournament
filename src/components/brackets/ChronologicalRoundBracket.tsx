@@ -42,6 +42,7 @@ import {
   oba13BracketARoute,
   oba13EndgameBranchForGameNumber,
   oba13PublicEndgameMode,
+  oba13R7ByeCardFootnote,
   oba13Round5ByeTeam,
   OBA13_GAME,
   type Oba13Round5RedrawPool,
@@ -271,21 +272,22 @@ function attachOba13ByeCards(
       };
     }
     if (showLateByes && isRoundNumberColumn(col.label, 7)) {
-      const team = sitOutTeam(r7Sit);
+      const route = oba13BracketARoute(allGames);
+      const team = sitOutTeam(r7Sit) ?? teamById(allGames, route.r7ByeTeamId);
+      const teamName = team?.name?.trim() || "TBD";
       return {
         ...col,
         byeCard: {
           id: r7Sit?.id ?? "oba13-r7-bye-card",
           title: "Round 7 Bye Team:",
-          teamName: team?.name?.trim() || "TBD",
+          teamName,
           team,
           muted: !r7ByeRequired(allGames, r5Bye),
-          footnote:
-            oba13BracketARoute(allGames).r7ByeStatus === "award"
-              ? "Winner of G23A"
-              : r5Name !== "TBD"
-                ? `Only if ${r5Name} loses G23A game`
-                : "Only if R5 Bye loses G23A game",
+          footnote: oba13R7ByeCardFootnote({
+            identifiedTeamName: teamName === "TBD" ? null : teamName,
+            r7ByeStatus: route.r7ByeStatus,
+            r5ByeName: r5Name,
+          }),
         },
       };
     }
@@ -985,16 +987,19 @@ function ChronoBoard({
     }
     return null;
   }, [byGameId]);
-  const r7ByeTeam = useMemo(() => {
-    for (const g of byGameId.values()) {
-      if ((g.gameNumber?.trim() ?? "") === OBA13_GAME.BYE_R7) return sitOutTeam(g);
-    }
-    return null;
-  }, [byGameId]);
   const oba13Route = useMemo(
     () => (isOba13 ? oba13BracketARoute([...byGameId.values()]) : null),
     [isOba13, byGameId],
   );
+  const r7ByeTeam = useMemo(() => {
+    for (const g of byGameId.values()) {
+      if ((g.gameNumber?.trim() ?? "") === OBA13_GAME.BYE_R7) {
+        const seated = sitOutTeam(g);
+        if (seated) return seated;
+      }
+    }
+    return teamById([...byGameId.values()], oba13Route?.r7ByeTeamId);
+  }, [byGameId, oba13Route]);
   const edgeGames = useMemo(() => [...allGames, ...sitOutVisible], [allGames, sitOutVisible]);
   const visibleById = useMemo(() => gameIdMap(edgeGames), [edgeGames]);
   const winnerEdges = useMemo(() => {
