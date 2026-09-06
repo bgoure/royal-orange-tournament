@@ -442,17 +442,221 @@ export function oba13PublicEndgameMode(
   return "placeholder";
 }
 
+export type Oba13BracketARoute = {
+  /** Team that should play G24A opposite the Round 6 bye. */
+  g24aVsR6TeamId: string | null;
+  g24aVsR6Source: "r5-bye" | "g23a-loser" | "g23a-winner" | null;
+  r6ByeTeamId: string | null;
+  r7ByeTeamId: string | null;
+  r7ByeStatus: "pending" | "award" | "cancel";
+};
+
+function sitOutTeamIdFromGame(g: Oba13EndgameGame | undefined): string | null {
+  if (!g) return null;
+  return g.homeTeamId ?? g.awayTeamId ?? null;
+}
+
+function scoredForLosses(games: Oba13EndgameGame[]): Oba13EndgameGame[] {
+  return games.filter((g) => g.status === "FINAL" && !isOba13SitOutGameNumber(g.gameNumber));
+}
+
+function lossCountOf(games: Oba13EndgameGame[], teamId: string): number {
+  return (
+    bracketLossCountsFromGames(
+      scoredForLosses(games).map((g) => ({
+        status: g.status ?? "",
+        resultType: g.resultType ?? "REGULAR",
+        homeTeamId: g.homeTeamId ?? null,
+        awayTeamId: g.awayTeamId ?? null,
+        homeRuns: g.homeRuns ?? null,
+        awayRuns: g.awayRuns ?? null,
+      })),
+    ).get(teamId) ?? 0
+  );
+}
+
+const OBA13_ENDGAME_NUMBERS = new Set<string>([
+  OBA13_GAME.G23A,
+  OBA13_GAME.G24A,
+  OBA13_GAME.G25A,
+  OBA13_GAME.BYE_R6,
+  OBA13_GAME.BYE_R7,
+  OBA13_GAME.G23B,
+  OBA13_GAME.G24B,
+  OBA13_GAME.G25B,
+]);
+
+/**
+ * Round 5 bye team that entered G23A undefeated (the 4-0 path).
+ * Ignores G23A+ so a later loss does not hide who sat Round 5.
+ */
+export function oba13R5ByeUndefeatedEnteringG23(games: Oba13EndgameGame[]): string | null {
+  const r5 = sitOutTeamIdFromGame(byGameNumber(games, OBA13_GAME.BYE_R5));
+  if (!r5) {
+    return oba13Round5ByeTeam(games)?.teamId ?? null;
+  }
+  const prior = games.filter((g) => !OBA13_ENDGAME_NUMBERS.has(g.gameNumber?.trim() ?? ""));
+  if (lossCountOf(prior, r5) !== 0) return null;
+  return r5;
+}
+
+function gameSides(g: Oba13EndgameGame | undefined): {
+  status: string;
+  resultType: string;
+  homeTeamId: string | null;
+  awayTeamId: string | null;
+  homeRuns: number | null;
+  awayRuns: number | null;
+} | null {
+  if (!g) return null;
+  return {
+    status: g.status ?? "",
+    resultType: g.resultType ?? "REGULAR",
+    homeTeamId: g.homeTeamId ?? null,
+    awayTeamId: g.awayTeamId ?? null,
+    homeRuns: g.homeRuns ?? null,
+    awayRuns: g.awayRuns ?? null,
+  };
+}
+
+/**
+ * Bracket A endgame seats for the 4-0 / still-alive G23A-loser path.
+ *
+ * Scenario 1: undefeated R5 bye loses G23A (still alive) → they play the R6 bye
+ * in G24A; G23A winner sits Round 7 and is the G25A opponent.
+ * Scenario 2: undefeated R5 bye wins G23A → they play G24A vs the R6 bye;
+ * G25A is only required if they then lose G24A (R7 bye cancelled).
+ */
+export function oba13BracketARoute(games: Oba13EndgameGame[]): Oba13BracketARoute {
+  const r6ByeTeamId = sitOutTeamIdFromGame(byGameNumber(games, OBA13_GAME.BYE_R6));
+  const g23 = byGameNumber(games, OBA13_GAME.G23A);
+  const sides = gameSides(g23);
+  const g23Final = isFinalGame(g23) && sides != null;
+  const winner23 = g23Final && sides ? bracketWinnerTeamId(sides) : null;
+  const loser23 = g23Final && sides ? bracketLoserTeamId(sides) : null;
+  const r5Entering = oba13R5ByeUndefeatedEnteringG23(games);
+
+  if (winner23 && loser23) {
+    if (r5Entering && loser23 === r5Entering) {
+      return {
+        g24aVsR6TeamId: r5Entering,
+        g24aVsR6Source: "g23a-loser",
+        r6ByeTeamId,
+        r7ByeTeamId: winner23,
+        r7ByeStatus: "award",
+      };
+    }
+    if (r5Entering && winner23 === r5Entering) {
+      return {
+        g24aVsR6TeamId: r5Entering,
+        g24aVsR6Source: "g23a-winner",
+        r6ByeTeamId,
+        r7ByeTeamId: null,
+        r7ByeStatus: "cancel",
+      };
+    }
+    if (lossCountOf(games, loser23) < 2) {
+      return {
+        g24aVsR6TeamId: loser23,
+        g24aVsR6Source: "g23a-loser",
+        r6ByeTeamId,
+        r7ByeTeamId: winner23,
+        r7ByeStatus: "award",
+      };
+    }
+    return {
+      g24aVsR6TeamId: winner23,
+      g24aVsR6Source: "g23a-winner",
+      r6ByeTeamId,
+      r7ByeTeamId: null,
+      r7ByeStatus: "cancel",
+    };
+  }
+
+  if (r5Entering) {
+    return {
+      g24aVsR6TeamId: r5Entering,
+      g24aVsR6Source: "r5-bye",
+      r6ByeTeamId,
+      r7ByeTeamId: null,
+      r7ByeStatus: "pending",
+    };
+  }
+
+  return {
+    g24aVsR6TeamId: winner23,
+    g24aVsR6Source: winner23 ? "g23a-winner" : null,
+    r6ByeTeamId,
+    r7ByeTeamId: null,
+    r7ByeStatus: "pending",
+  };
+}
+
+/** Home/away for G24A: G23A-feeder (home) vs Round 6 bye (away). */
+export function oba13G24ADesiredSides(
+  route: Oba13BracketARoute,
+): { homeTeamId: string; awayTeamId: string } | null {
+  const vs = route.g24aVsR6TeamId;
+  const r6 = route.r6ByeTeamId;
+  if (!vs || !r6 || vs === r6) return null;
+  return { homeTeamId: vs, awayTeamId: r6 };
+}
+
+/**
+ * Display-only overlay so G24A / R7 bye show the 4-0 routing even if stored
+ * feeders still point at "Winner 23A".
+ */
+export function applyOba13BracketADisplaySeats<T extends Oba13EndgameGame>(games: T[]): T[] {
+  const route = oba13BracketARoute(games);
+  const g24 = byGameNumber(games, OBA13_GAME.G24A);
+  const desired = oba13G24ADesiredSides(route);
+  const teamById = new Map<string, NonNullable<T["homeTeam"]>>();
+  for (const g of games) {
+    if (g.homeTeamId && g.homeTeam) teamById.set(g.homeTeamId, g.homeTeam as NonNullable<T["homeTeam"]>);
+    if (g.awayTeamId && g.awayTeam) teamById.set(g.awayTeamId, g.awayTeam as NonNullable<T["homeTeam"]>);
+  }
+
+  return games.map((g) => {
+    const num = g.gameNumber?.trim() ?? "";
+    if (num === OBA13_GAME.G24A && desired) {
+      if (g.homeTeamId === desired.homeTeamId && g.awayTeamId === desired.awayTeamId) return g;
+      return {
+        ...g,
+        homeTeamId: desired.homeTeamId,
+        awayTeamId: desired.awayTeamId,
+        homeTeam: (teamById.get(desired.homeTeamId) ?? g.homeTeam ?? null) as T["homeTeam"],
+        awayTeam: (teamById.get(desired.awayTeamId) ?? g.awayTeam ?? null) as T["awayTeam"],
+      };
+    }
+    if (num === OBA13_GAME.BYE_R7 && route.r7ByeStatus === "award" && route.r7ByeTeamId) {
+      if (g.homeTeamId === route.r7ByeTeamId) return g;
+      return {
+        ...g,
+        homeTeamId: route.r7ByeTeamId,
+        homeTeam: (teamById.get(route.r7ByeTeamId) ?? g.homeTeam ?? null) as T["homeTeam"],
+      };
+    }
+    return g;
+  });
+}
+
 /** Empty-slot copy on Bracket A (OBA poster). */
 export function oba13PlaceholderPrimary(
   toGameNumber: string | null | undefined,
   fromGameNumber: string | null | undefined,
+  route?: Pick<Oba13BracketARoute, "g24aVsR6Source"> | null,
 ): string | null {
   const to = toGameNumber?.trim() ?? "";
   const from = fromGameNumber?.trim() ?? "";
   if (to === OBA13_GAME.G23A && from === OBA13_GAME.BYE_R5) return "Round 5\nBye Team";
   if (to === OBA13_GAME.G23A) return null;
   if (to === OBA13_GAME.G24A && from === OBA13_GAME.BYE_R6) return "Round 6\nBye Team";
-  if (to === OBA13_GAME.G24A && from === OBA13_GAME.G23A) return "Winner 23A";
+  if (to === OBA13_GAME.G24A && from === OBA13_GAME.G23A) {
+    if (route?.g24aVsR6Source === "r5-bye" || route?.g24aVsR6Source === "g23a-loser") {
+      return "Round 5\nBye Team";
+    }
+    return "Winner 23A";
+  }
   if (to === OBA13_GAME.G25A && from === OBA13_GAME.G24A) return "Winner 24A";
   if (to === OBA13_GAME.G25A && from === OBA13_GAME.BYE_R7) return "Round 7\nBye Team";
   return null;

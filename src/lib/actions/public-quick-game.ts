@@ -145,6 +145,10 @@ export async function updatePublicQuickGameAction(
     if (existing.gameKind !== parsed.data.gameKind) {
       return { ok: false, error: "Game type mismatch; refresh the page and try again." };
     }
+    if (existing.bracketId) {
+      const { maybeResolveObaPresetPairings } = await import("@/lib/services/oba-de-redraw");
+      await maybeResolveObaPresetPairings(existing.bracketId);
+    }
     await assertFieldInTournament(parsed.data.fieldId, tournament.id);
 
     const teamRow = await prisma.game.findFirst({

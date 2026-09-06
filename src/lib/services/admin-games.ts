@@ -1,9 +1,11 @@
 import { prisma } from "@/lib/db";
+import { healOba13BracketsForTournament } from "@/lib/services/oba-de-redraw";
 import { repairClusteredBracketSeedPlaceholders } from "@/lib/services/schedule-conflicts";
 import { teamWithPublicLogoInclude } from "@/lib/team-logo";
 
 export async function listGamesAdmin(tournamentId: string) {
   await repairClusteredBracketSeedPlaceholders(tournamentId);
+  await healOba13BracketsForTournament(tournamentId);
   return prisma.game.findMany({
     where: { tournamentId },
     include: {

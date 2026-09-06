@@ -1,6 +1,7 @@
 import { GameStatus, Prisma } from "@prisma/client";
 import { prisma } from "@/lib/db";
 import { advanceBracketWinnerFromGame } from "@/lib/services/bracket-advance";
+import { maybeResolveObaPresetPairings } from "@/lib/services/oba-de-redraw";
 import { recomputePoolStandings } from "@/lib/services/standings";
 
 const scoreGameSelect = {
@@ -58,6 +59,14 @@ function nextConcurrencyToken(expectedUpdatedAt: Date | null | undefined): Date 
  * result rather than double-advancing.
  */
 export async function applyGameScore(input: ApplyGameScoreInput): Promise<ApplyGameScoreResult> {
+  const existing = await prisma.game.findFirst({
+    where: { id: input.gameId, tournamentId: input.tournamentId },
+    select: { bracketId: true, bracket: { select: { presetKey: true } } },
+  });
+  if (existing?.bracketId && existing.bracket?.presetKey === "oba_de_13") {
+    await maybeResolveObaPresetPairings(existing.bracketId);
+  }
+
   const written = await prisma.$transaction(
     async (tx) => {
       const result = await tx.game.updateMany({

@@ -37,7 +37,9 @@ import {
   type Oba12Round5RedrawPool,
 } from "@/lib/services/oba-de-12";
 import {
+  applyOba13BracketADisplaySeats,
   isOba13SitOutGameNumber,
+  oba13BracketARoute,
   oba13EndgameBranchForGameNumber,
   oba13PublicEndgameMode,
   oba13Round5ByeTeam,
@@ -219,7 +221,13 @@ function sitOutTeam(game: GameRow | undefined): TeamWithPool | null {
   return game?.homeTeam ?? game?.awayTeam ?? null;
 }
 
-function r7ByeRequired(games: GameRow[], r5Bye: Oba13Round5Undefeated | null): boolean {
+function r7ByeRequired(
+  games: GameRow[],
+  r5Bye: Oba13Round5Undefeated | null,
+): boolean {
+  const route = oba13BracketARoute(games);
+  if (route.r7ByeStatus === "award") return true;
+  if (route.r7ByeStatus === "cancel") return false;
   const g23 = gameByNumber(games, OBA13_GAME.G23A);
   if (!g23 || g23.status !== "FINAL" || !r5Bye) return false;
   return bracketLoserTeamId(g23) === r5Bye.teamId;
@@ -273,9 +281,11 @@ function attachOba13ByeCards(
           team,
           muted: !r7ByeRequired(allGames, r5Bye),
           footnote:
-            r5Name !== "TBD"
-              ? `Only if ${r5Name} loses G23A game`
-              : "Only if R5 Bye loses G23A game",
+            oba13BracketARoute(allGames).r7ByeStatus === "award"
+              ? "Winner of G23A"
+              : r5Name !== "TBD"
+                ? `Only if ${r5Name} loses G23A game`
+                : "Only if R5 Bye loses G23A game",
         },
       };
     }
@@ -981,6 +991,10 @@ function ChronoBoard({
     }
     return null;
   }, [byGameId]);
+  const oba13Route = useMemo(
+    () => (isOba13 ? oba13BracketARoute([...byGameId.values()]) : null),
+    [isOba13, byGameId],
+  );
   const edgeGames = useMemo(() => [...allGames, ...sitOutVisible], [allGames, sitOutVisible]);
   const visibleById = useMemo(() => gameIdMap(edgeGames), [edgeGames]);
   const winnerEdges = useMemo(() => {
@@ -1303,6 +1317,7 @@ function ChronoBoard({
                       oba13R6ByeTeam={r6ByeTeam}
                       oba13R7ByeName={r7ByeTeam?.name ?? null}
                       oba13R7ByeTeam={r7ByeTeam}
+                      oba13Route={oba13Route}
                       gLabelFallbackIndexZeroBased={
                         Number.isFinite(Number.parseInt(String(g.gameNumber ?? ""), 10))
                           ? Number.parseInt(String(g.gameNumber ?? ""), 10) - 1
@@ -1550,7 +1565,11 @@ export function ChronologicalRoundBracket({
   const isOba13 = presetKey === "oba_de_13";
   const isOba12 = presetKey === "oba_de_12";
   const drawMode = isOba13 ? "13" : isOba12 ? "12" : null;
-  const allGamesFlat = useMemo(() => [...byRound.values()].flat(), [byRound]);
+  const allGamesFlatRaw = useMemo(() => [...byRound.values()].flat(), [byRound]);
+  const allGamesFlat = useMemo(
+    () => (isOba13 ? applyOba13BracketADisplaySeats(allGamesFlatRaw) : allGamesFlatRaw),
+    [allGamesFlatRaw, isOba13],
+  );
   const playableForMode = useMemo(
     () => allGamesFlat.filter((g) => !isObaSitOutGameNumber(g.gameNumber)),
     [allGamesFlat],
@@ -1558,12 +1577,19 @@ export function ChronologicalRoundBracket({
   const byGameId = useMemo(() => gameIdMap(allGamesFlat), [allGamesFlat]);
 
   const gamesByRound = useMemo(() => {
+    const remappedById = new Map(allGamesFlat.map((g) => [g.id, g]));
     const map = new Map<string, GameRow[]>();
     for (const [id, games] of byRound) {
-      map.set(id, sortColumnGames(games, byGameId));
+      map.set(
+        id,
+        sortColumnGames(
+          games.map((g) => remappedById.get(g.id) ?? g),
+          byGameId,
+        ),
+      );
     }
     return map;
-  }, [byRound, byGameId]);
+  }, [byRound, byGameId, allGamesFlat]);
 
   const rawColumns = useMemo(
     () => chronologicalRoundColumns(rounds, gamesByRound),
