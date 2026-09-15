@@ -158,6 +158,10 @@ export function BracketSeedBoard({
         : null;
 
   const needsAck = Boolean(actionState && !actionState.ok && actionState.requiresAck);
+  const ackCopy = seedBoardAckCheckboxCopy(
+    actionState && !actionState.ok ? (actionState.impactClearedSeats ?? 0) : 0,
+    actionState && !actionState.ok ? (actionState.impactLockedLaterGames ?? 0) : 0,
+  );
 
   return (
     <div className="rounded-xl border border-emerald-200 bg-emerald-50/40 p-4">
@@ -238,9 +242,7 @@ export function BracketSeedBoard({
               onChange={(e) => dispatch({ type: "SET_ACK", value: e.target.checked })}
             />
             <span>
-              I understand later-round seats will be cleared for unplayed games. This does not delete
-              the bracket or regenerate the schedule. Check the box, then press{" "}
-              <strong>Confirm &amp; save Round 1</strong>.
+              {ackCopy} Check the box, then press <strong>Confirm &amp; save Round 1</strong>.
             </span>
           </label>
         ) : null}
@@ -576,6 +578,15 @@ export function BracketSeedBoard({
       </div>
     </div>
   );
+}
+
+export function seedBoardAckCheckboxCopy(clearableSeats: number, lockedLaterGames: number): string {
+  const bits: string[] = [];
+  if (clearableSeats > 0) bits.push("later-round seats will be cleared for unplayed games");
+  if (lockedLaterGames > 0) bits.push("live or scored later-round games will be left unchanged");
+  const effects =
+    bits.length > 0 ? bits.join(" and ") : "later-round seats may be affected";
+  return `I understand ${effects}. This does not delete the bracket or regenerate the schedule.`;
 }
 
 function BankChip({
