@@ -18,7 +18,7 @@ import { latestScoredColumnIndex } from "@/lib/brackets/bracket-round-window";
 import { roundTypeShortLabel } from "@/lib/brackets/bracket-display";
 import { withBracketRoundDay } from "@/lib/datetime-tournament";
 
-const CONNECTOR_W = 40;
+const CONNECTOR_W = 48;
 const HEADER_H = 52;
 const MATCH_GAP = 10;
 
@@ -225,33 +225,35 @@ function EspnConnectorColumn({
   );
 }
 
+const CONNECTOR_BORDER =
+  "border-royal/70 dark:border-royal-200/70";
+
 /** Two feeders merge into one: ┌─┐ style with a center stem out. */
 function MergeElbow() {
   return (
     <div className="pointer-events-none absolute inset-0">
       {/* Top feeder horizontal + half vertical */}
       <div
-        className="absolute right-0 border-t-2 border-r-2 border-zinc-400 dark:border-zinc-500"
+        className={`absolute right-0 border-t-[3px] border-r-[3px] ${CONNECTOR_BORDER}`}
         style={{
           top: "25%",
           height: "25%",
-          width: "55%",
-          borderTopLeftRadius: 0,
+          width: "60%",
         }}
       />
       {/* Bottom feeder horizontal + half vertical */}
       <div
-        className="absolute right-0 border-b-2 border-r-2 border-zinc-400 dark:border-zinc-500"
+        className={`absolute right-0 border-b-[3px] border-r-[3px] ${CONNECTOR_BORDER}`}
         style={{
           top: "50%",
           height: "25%",
-          width: "55%",
+          width: "60%",
         }}
       />
       {/* Stem to next match */}
       <div
-        className="absolute top-1/2 border-t-2 border-zinc-400 dark:border-zinc-500"
-        style={{ left: "45%", right: 0, transform: "translateY(-50%)" }}
+        className={`absolute top-1/2 border-t-[3px] ${CONNECTOR_BORDER}`}
+        style={{ left: "40%", right: 0, transform: "translateY(-50%)" }}
       />
     </div>
   );
@@ -261,7 +263,7 @@ function MergeElbow() {
 function StraightJoin() {
   return (
     <div className="pointer-events-none absolute inset-0 flex items-center">
-      <div className="h-0 w-full border-t-2 border-zinc-400 dark:border-zinc-500" />
+      <div className={`h-0 w-full border-t-[3px] ${CONNECTOR_BORDER}`} />
     </div>
   );
 }

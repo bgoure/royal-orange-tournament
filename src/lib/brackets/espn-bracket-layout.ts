@@ -47,9 +47,8 @@ export function espnConnectorGroups(
     const a = earlier[mi * 2];
     const b = earlier[mi * 2 + 1];
     const fallback = [a?.id, b?.id].filter((id): id is string => !!id);
-    if (fallback.length > 0) {
-      groups.push({ toGameId: dest.id, fromGameIds: fallback });
-    }
+    // Always one group per later match so connector slots stay index-aligned.
+    groups.push({ toGameId: dest.id, fromGameIds: fallback });
   }
 
   return groups;
