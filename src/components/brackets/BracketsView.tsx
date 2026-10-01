@@ -1,8 +1,6 @@
 "use client";
 
 import { useMemo, type ReactNode } from "react";
-import { DIVISION_SWIPE_IGNORE } from "@/lib/division-swipe-ignore";
-import type { BracketRound } from "@prisma/client";
 import { EmptyState } from "@/components/ui/EmptyState";
 import { SectionTitle } from "@/components/ui/PublicHeading";
 import { BracketExportControls } from "@/components/brackets/BracketExportControls";
@@ -14,113 +12,14 @@ import {
 import { BracketZoomShell, BRACKET_DESKTOP_WIDE_CLASS, useBracketPhotoExpandAll } from "@/components/brackets/BracketZoomShell";
 import { publicBracketHeading } from "@/lib/brackets/bracket-public-title";
 import { BracketGameCard } from "@/components/brackets/BracketGameCard";
-import { BRACKET_ROUND_COLUMN_CLASS } from "@/components/brackets/bracket-card-layout";
 import { BidirectionalDeBracket } from "@/components/brackets/BidirectionalDeBracket";
 import { ChronologicalRoundBracket } from "@/components/brackets/ChronologicalRoundBracket";
+import { EspnStyleBracket } from "@/components/brackets/EspnStyleBracket";
 import { ChampionCelebration, type ChampionCelebrationProps } from "@/components/brackets/ChampionCelebration";
-import { CollapsedRoundStrip } from "@/components/brackets/CollapsedRoundStrip";
-import { useRoundFocus } from "@/components/brackets/use-round-focus";
 import type { BracketWith, GameRow } from "@/components/brackets/bracket-types";
-import { matchSortIndex } from "@/components/brackets/bracket-slot-lines";
 import { resolveChampionFromBracket, shouldShowChampionCelebration } from "@/lib/brackets/bracket-champion";
 import { isObaDePresetKey } from "@/lib/brackets/oba-de-presets";
-import {
-  filterRoundsForScope,
-  roundTypeShortLabel,
-} from "@/lib/brackets/bracket-display";
-import { latestScoredColumnIndex } from "@/lib/brackets/bracket-round-window";
-import { withBracketRoundDay } from "@/lib/datetime-tournament";
-
-function BracketGrid({
-  byRound,
-  roundsOrdered,
-  timeZone,
-  showHomeAway = true,
-  fitContent = false,
-  expandAll = false,
-  persistKey,
-}: {
-  byRound: Map<string, GameRow[]>;
-  roundsOrdered: BracketRound[];
-  timeZone?: string | null;
-  showHomeAway?: boolean;
-  /** Size to the full tree (export) instead of scrolling. */
-  fitContent?: boolean;
-  expandAll?: boolean;
-  persistKey?: string;
-}) {
-  const activeIndex = latestScoredColumnIndex(
-    roundsOrdered.map((r) => ({ games: byRound.get(r.id) ?? [] })),
-  );
-  const focus = useRoundFocus(
-    roundsOrdered.length,
-    activeIndex,
-    expandAll || fitContent,
-    expandAll || fitContent ? undefined : persistKey,
-  );
-
-  return (
-    <div
-      {...{ [DIVISION_SWIPE_IGNORE]: "" }}
-      className={`flex w-max gap-3 overflow-visible pb-2 ${fitContent ? "" : "mt-4"}`}
-      role="region"
-      aria-label="Bracket rounds"
-    >
-      {roundsOrdered.map((r, ri) => {
-        if (!focus.isOpen(ri)) {
-          return (
-            <CollapsedRoundStrip
-              key={r.id}
-              label={r.name}
-              onExpand={() => focus.toggle(ri)}
-            />
-          );
-        }
-        const games = (byRound.get(r.id) ?? []).sort((x, y) => matchSortIndex(x) - matchSortIndex(y));
-        const prevRoundName = ri > 0 ? roundsOrdered[ri - 1]!.name : null;
-        return (
-          <div
-            key={r.id}
-            className={`${BRACKET_ROUND_COLUMN_CLASS} min-h-[320px] ${ri > 0 ? "border-l border-dashed border-zinc-200 pl-6" : ""}`}
-          >
-            <div className="mb-3 shrink-0 text-center">
-              <h3 className="border-b border-royal/30 pb-1 text-xs font-bold uppercase tracking-[0.06em] text-royal">
-                {withBracketRoundDay(r.name, games, timeZone)}
-              </h3>
-              <p className="mt-1 text-[11px] font-medium text-zinc-600">{roundTypeShortLabel(r.roundType)}</p>
-              {!(expandAll || fitContent) ? (
-                <button
-                  type="button"
-                  className="mt-1 text-[10px] font-semibold uppercase tracking-wide text-zinc-500 hover:text-royal"
-                  onClick={() => focus.toggle(ri)}
-                >
-                  (-)
-                </button>
-              ) : null}
-            </div>
-            <div className="flex flex-1 flex-col justify-around gap-4">
-              {games.length === 0 ? (
-                <p className="text-sm text-zinc-500">Matchups TBA.</p>
-              ) : (
-                games.map((g, mi) => (
-                  <BracketGameCard
-                    key={g.id}
-                    game={g}
-                    roundIndexDb={r.roundIndex}
-                    matchIndex={mi}
-                    prevRoundName={prevRoundName}
-                    timeZone={timeZone}
-                    showHomeAway={showHomeAway}
-                  />
-                ))
-              )}
-            </div>
-          </div>
-        );
-      })}
-    </div>
-  );
-}
+import { filterRoundsForScope } from "@/lib/brackets/bracket-display";
 
 export function BracketDesktopTree({
   b,
@@ -202,7 +101,7 @@ export function BracketDesktopTree({
     );
   }
   return (
-    <BracketGrid
+    <EspnStyleBracket
       byRound={byRound}
       roundsOrdered={visibleRounds}
       timeZone={tournamentTimezone}
