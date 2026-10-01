@@ -30,10 +30,14 @@ import { requireAuthorizedTournamentContext } from "@/lib/rbac/tenant-access";
 import { buildRoundRobinPairings, scheduleRoundRobinSlots } from "@/lib/services/round-robin-schedule";
 import { assertNoFieldScheduleConflict } from "@/lib/services/schedule-conflicts";
 import { isOba13SitOutGameNumber } from "@/lib/services/oba-de-13";
+import { evaluateFeederOverrideAck } from "@/lib/services/bracket-feeder-override";
+import { isCompetitiveSeatLocked } from "@/lib/services/assignment-impact";
 import { GameKind } from "@prisma/client";
 import type { Session } from "next-auth";
 
-export type GameActionResult = { ok: true } | { ok: false; error: string };
+export type GameActionResult =
+  | { ok: true }
+  | { ok: false; error: string; requiresAck?: boolean };
 
 async function tournamentContext(): Promise<
   { session: Session; tournament: TournamentForRequest } | { error: string }
@@ -453,9 +457,36 @@ export async function updateBracketGameTeams(
     const d = parsed.data;
     const row = await prisma.game.findFirst({
       where: { id: d.id },
-      select: { gameNumber: true },
+      select: {
+        gameNumber: true,
+        homeTeamId: true,
+        awayTeamId: true,
+        status: true,
+        resultType: true,
+        bracketMatch: {
+          select: {
+            homeFromMatchId: true,
+            awayFromMatchId: true,
+            homeFromKind: true,
+            awayFromKind: true,
+            homeFromMatch: {
+              select: {
+                matchIndex: true,
+                game: { select: { gameNumber: true } },
+              },
+            },
+            awayFromMatch: {
+              select: {
+                matchIndex: true,
+                game: { select: { gameNumber: true } },
+              },
+            },
+          },
+        },
+      },
     });
-    if (isOba13SitOutGameNumber(row?.gameNumber)) {
+    const sitOut = isOba13SitOutGameNumber(row?.gameNumber);
+    if (sitOut) {
       const sitOutId = d.homeTeamId ?? d.awayTeamId;
       if (sitOutId) {
         await assertTeamsInBracketTournament(ctx.tournament.id, sitOutId, null);
@@ -469,6 +500,37 @@ export async function updateBracketGameTeams(
         return { ok: false, error: "Set at least one team (the other may stay TBD)" };
       }
       await assertTeamsInBracketTournament(ctx.tournament.id, d.homeTeamId, d.awayTeamId);
+
+      const bm = row?.bracketMatch ?? null;
+      const ackNeeded = evaluateFeederOverrideAck({
+        isSitOut: false,
+        currentHomeTeamId: row?.homeTeamId ?? null,
+        currentAwayTeamId: row?.awayTeamId ?? null,
+        nextHomeTeamId: d.homeTeamId,
+        nextAwayTeamId: d.awayTeamId,
+        homeFeeder:
+          bm?.homeFromMatchId != null
+            ? {
+                gameNumber: bm.homeFromMatch?.game?.gameNumber ?? null,
+                matchIndex: bm.homeFromMatch?.matchIndex ?? 0,
+                kind: bm.homeFromKind,
+              }
+            : null,
+        awayFeeder:
+          bm?.awayFromMatchId != null
+            ? {
+                gameNumber: bm.awayFromMatch?.game?.gameNumber ?? null,
+                matchIndex: bm.awayFromMatch?.matchIndex ?? 0,
+                kind: bm.awayFromKind,
+              }
+            : null,
+        gameLocked: row ? isCompetitiveSeatLocked(row) : false,
+      });
+      const ack = String(formData.get("acknowledgeFeederOverride") ?? "") === "1";
+      if (ackNeeded && !ack) {
+        return { ok: false, error: ackNeeded.message, requiresAck: true };
+      }
+
       await prisma.game.update({
         where: { id: d.id },
         data: {

@@ -2,9 +2,15 @@
 
 import type { BracketActionResult } from "@/app/admin/_actions/brackets";
 import type { ContentActionResult } from "@/app/admin/_actions/content-shared";
+import type { GameActionResult } from "@/app/admin/_actions/games";
 import type { ActionResult } from "@/app/admin/_actions/structure";
 
-type AnyAction = ActionResult | ContentActionResult | BracketActionResult | undefined;
+type AnyAction =
+  | ActionResult
+  | ContentActionResult
+  | BracketActionResult
+  | GameActionResult
+  | undefined;
 
 export function ActionMessage({ state }: { state: AnyAction }) {
   if (!state || state.ok) return null;

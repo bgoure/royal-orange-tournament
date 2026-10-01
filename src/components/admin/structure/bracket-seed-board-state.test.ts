@@ -248,4 +248,24 @@ describe("bracket-seed-board-state", () => {
     state = seedBoardReducer(state, { type: "RESET", baseline });
     assert.equal(state.ackImpact, false, "reset must clear acknowledgment");
   });
+
+  it("treats locked-later acknowledgment as the same payload ack flag", () => {
+    const baseline = createBaseline(emptyMatches(), []);
+    let state = createInitialSeedBoardState(baseline);
+    state = seedBoardReducer(state, { type: "SET_ACK", value: true });
+    assert.equal(state.ackImpact, true);
+    state = seedBoardReducer(state, {
+      type: "PLACE_ON",
+      matchId: "m0",
+      side: "away",
+      payload: { type: "team", teamId: "t1" },
+      teamNameById: names,
+      editable: true,
+    });
+    assert.equal(
+      state.ackImpact,
+      false,
+      "payload edits must clear ack whether it was for clearable seats or locked later-round games",
+    );
+  });
 });

@@ -43,8 +43,27 @@ export function formatPoolAssignmentImpactMessage(impact: AssignmentImpactSummar
   return `Moving these teams would affect ${affected}. Reset the affected competition structure before continuing.`;
 }
 
-export function formatSeedBoardImpactMessage(clearedLaterSeats: number): string {
-  return `Saving Round 1 seeding will clear ${clearedLaterSeats} later-round seat${
-    clearedLaterSeats === 1 ? "" : "s"
-  } that still have teams assigned (unplayed games only). Confirm you intend to re-seed, or reset the bracket from Structure / Brackets first. This save will not delete the bracket or regenerate the schedule automatically.`;
+export type SeedBoardImpactCounts = {
+  clearableSeats: number;
+  lockedLaterGames: number;
+};
+
+export function formatSeedBoardImpactMessage(impact: SeedBoardImpactCounts): string {
+  const parts: string[] = [];
+  if (impact.clearableSeats > 0) {
+    parts.push(
+      `clear ${impact.clearableSeats} later-round seat${
+        impact.clearableSeats === 1 ? "" : "s"
+      } that still have teams assigned (unplayed games only)`,
+    );
+  }
+  if (impact.lockedLaterGames > 0) {
+    parts.push(
+      `leave ${impact.lockedLaterGames} live or scored later-round game${
+        impact.lockedLaterGames === 1 ? "" : "s"
+      } unchanged (they will not be rewritten)`,
+    );
+  }
+  const effects = parts.length > 0 ? parts.join(" and ") : "affect later-round games";
+  return `Saving Round 1 seeding will ${effects}. Confirm you intend to re-seed, or reset the bracket from Structure / Brackets first. This save will not delete the bracket or regenerate the schedule automatically.`;
 }

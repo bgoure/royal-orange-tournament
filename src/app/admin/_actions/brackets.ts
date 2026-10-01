@@ -44,6 +44,7 @@ import {
 import { saveBracketRoundZeroSeedingSchema } from "@/lib/validations/bracket-seed-board";
 import {
   countClearableLaterRoundSeats,
+  countLockedLaterRoundGames,
 } from "@/lib/services/assignment-impact-db";
 import { isCompetitiveSeatLocked } from "@/lib/services/assignment-impact";
 import { formatSeedBoardImpactMessage } from "@/lib/services/assignment-impact";
@@ -69,6 +70,7 @@ export type BracketActionResult =
       }>;
       requiresAck?: boolean;
       impactClearedSeats?: number;
+      impactLockedLaterGames?: number;
     };
 
 async function bracketContext(): Promise<
@@ -961,14 +963,21 @@ export async function saveBracketRoundZeroSeeding(
       };
     }
 
-    const clearableLater = await countClearableLaterRoundSeats(bracket.id);
+    const [clearableLater, lockedLater] = await Promise.all([
+      countClearableLaterRoundSeats(bracket.id),
+      countLockedLaterRoundGames(bracket.id),
+    ]);
     const ack = String(formData.get("acknowledgeImpact") ?? "") === "1";
-    if (clearableLater > 0 && !ack) {
+    if ((clearableLater > 0 || lockedLater > 0) && !ack) {
       return {
         ok: false,
-        error: formatSeedBoardImpactMessage(clearableLater),
+        error: formatSeedBoardImpactMessage({
+          clearableSeats: clearableLater,
+          lockedLaterGames: lockedLater,
+        }),
         requiresAck: true,
         impactClearedSeats: clearableLater,
+        impactLockedLaterGames: lockedLater,
       };
     }
 

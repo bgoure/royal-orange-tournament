@@ -91,3 +91,15 @@ export async function countClearableLaterRoundSeats(bracketId: string): Promise<
     },
   });
 }
+
+/** Later-round LIVE or FINAL REGULAR games — seed save must not rewrite these. */
+export async function countLockedLaterRoundGames(bracketId: string): Promise<number> {
+  const rows = await prisma.game.findMany({
+    where: {
+      bracketId,
+      bracketRound: { roundIndex: { gt: 0 } },
+    },
+    select: { status: true, resultType: true },
+  });
+  return rows.filter(isCompetitiveSeatLocked).length;
+}

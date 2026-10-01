@@ -22,6 +22,26 @@ export async function listGamesAdmin(tournamentId: string) {
       consolationAwayPool: {
         select: { id: true, name: true, division: { select: { name: true } } },
       },
+      bracketMatch: {
+        select: {
+          homeFromMatchId: true,
+          awayFromMatchId: true,
+          homeFromKind: true,
+          awayFromKind: true,
+          homeFromMatch: {
+            select: {
+              matchIndex: true,
+              game: { select: { gameNumber: true } },
+            },
+          },
+          awayFromMatch: {
+            select: {
+              matchIndex: true,
+              game: { select: { gameNumber: true } },
+            },
+          },
+        },
+      },
     },
     orderBy: { scheduledAt: "asc" },
   });

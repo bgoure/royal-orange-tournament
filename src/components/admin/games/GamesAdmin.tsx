@@ -42,6 +42,12 @@ import { ActionBar } from "@/components/admin/ui/ActionBar";
 import { DivisionTabs } from "@/components/admin/ui/DivisionTabs";
 import { formatJsDateAsDatetimeLocalInZone } from "@/lib/datetime-tournament";
 import { isOba13SitOutGameNumber } from "@/lib/services/oba-de-13";
+import { formatFeederSeatLabel } from "@/lib/services/bracket-feeder-override";
+
+type AdminFeederMatchRef = {
+  matchIndex: number;
+  game: { gameNumber: string | null } | null;
+};
 
 export type AdminGameRow = Game & {
   homeTeam: Team | null;
@@ -52,6 +58,14 @@ export type AdminGameRow = Game & {
   division: { id: string; name: string } | null;
   consolationHomePool: { id: string; name: string } | null;
   consolationAwayPool: { id: string; name: string } | null;
+  bracketMatch?: {
+    homeFromMatchId: string | null;
+    awayFromMatchId: string | null;
+    homeFromKind: string | null;
+    awayFromKind: string | null;
+    homeFromMatch: AdminFeederMatchRef | null;
+    awayFromMatch: AdminFeederMatchRef | null;
+  } | null;
 };
 
 export type PoolWithTeams = {
@@ -821,6 +835,16 @@ function GameCard({
     undefined as GameActionResult | undefined,
   );
   const [delState, delAction, delPending] = useActionState(deleteGame, undefined as GameActionResult | undefined);
+  const [overrideHomeId, setOverrideHomeId] = useState(game.homeTeamId ?? "");
+  const [overrideAwayId, setOverrideAwayId] = useState(game.awayTeamId ?? "");
+  const [feederAck, setFeederAck] = useState(false);
+
+  function beginEdit() {
+    setOverrideHomeId(game.homeTeamId ?? "");
+    setOverrideAwayId(game.awayTeamId ?? "");
+    setFeederAck(false);
+    setEditing(true);
+  }
 
   /* eslint-disable react-hooks/set-state-in-effect -- sync editor visibility to useActionState */
   useEffect(() => {
@@ -857,6 +881,30 @@ function GameCard({
   const sitOutSlot = isOba13SitOutGameNumber(game.gameNumber);
   const sitOutTeam = sitOutSlot ? (game.homeTeam ?? game.awayTeam) : null;
   const sitOutLabel = sitOutTeam?.name ?? "Unassigned";
+  const bm = game.bracketMatch ?? null;
+  const awayFeederHint = formatFeederSeatLabel(
+    "Away",
+    bm?.awayFromMatchId
+      ? {
+          gameNumber: bm.awayFromMatch?.game?.gameNumber ?? null,
+          matchIndex: bm.awayFromMatch?.matchIndex ?? 0,
+          kind: bm.awayFromKind,
+        }
+      : null,
+  );
+  const homeFeederHint = formatFeederSeatLabel(
+    "Home",
+    bm?.homeFromMatchId
+      ? {
+          gameNumber: bm.homeFromMatch?.game?.gameNumber ?? null,
+          matchIndex: bm.homeFromMatch?.matchIndex ?? 0,
+          kind: bm.homeFromKind,
+        }
+      : null,
+  );
+  const teamsOverrideNeedsAck = Boolean(
+    bracketTeamsState && !bracketTeamsState.ok && bracketTeamsState.requiresAck,
+  );
   const matchupHeadline = sitOutSlot ? (
     <>
       {sitOutLabel} <span className="font-normal text-zinc-500">sits out</span>
@@ -881,7 +929,7 @@ function GameCard({
   function openEdit(e: MouseEvent<HTMLButtonElement>) {
     e.preventDefault();
     e.stopPropagation();
-    setEditing(true);
+    beginEdit();
   }
 
   return (
@@ -977,7 +1025,7 @@ function GameCard({
           </dl>
           <p className="mt-3 text-xs text-zinc-500">Fields are locked here. Use Edit to change this game.</p>
           <div className="mt-3 flex flex-wrap gap-2">
-            <button type="button" onClick={() => setEditing(true)} className={btnPrimary}>
+            <button type="button" onClick={beginEdit} className={btnPrimary}>
               Edit game
             </button>
           </div>
@@ -1396,7 +1444,11 @@ function GameCard({
                         <label className={labelClass}>Away</label>
                         <select
                           name="awayTeamId"
-                          defaultValue={game.awayTeamId ?? ""}
+                          value={overrideAwayId}
+                          onChange={(e) => {
+                            setOverrideAwayId(e.target.value);
+                            setFeederAck(false);
+                          }}
                           className={`${formClass} mt-1 w-full`}
                         >
                           <option value="">TBD</option>
@@ -1406,12 +1458,19 @@ function GameCard({
                             </option>
                           ))}
                         </select>
+                        {awayFeederHint ? (
+                          <p className="mt-1 text-[10px] text-amber-800">{awayFeederHint} (derived)</p>
+                        ) : null}
                       </div>
                       <div>
                         <label className={labelClass}>Home</label>
                         <select
                           name="homeTeamId"
-                          defaultValue={game.homeTeamId ?? ""}
+                          value={overrideHomeId}
+                          onChange={(e) => {
+                            setOverrideHomeId(e.target.value);
+                            setFeederAck(false);
+                          }}
                           className={`${formClass} mt-1 w-full`}
                         >
                           <option value="">TBD</option>
@@ -1421,12 +1480,30 @@ function GameCard({
                             </option>
                           ))}
                         </select>
+                        {homeFeederHint ? (
+                          <p className="mt-1 text-[10px] text-amber-800">{homeFeederHint} (derived)</p>
+                        ) : null}
                       </div>
                     </div>
                     )}
+                    {teamsOverrideNeedsAck ? (
+                      <label className="flex items-start gap-2 rounded-md border border-amber-300 bg-amber-50 px-3 py-2 text-xs text-amber-950">
+                        <input
+                          type="checkbox"
+                          className="mt-0.5"
+                          checked={feederAck}
+                          onChange={(e) => setFeederAck(e.target.checked)}
+                        />
+                        <span>
+                          I understand this replaces a derived feeder seat and will not save silently.
+                          Check the box, then save.
+                        </span>
+                      </label>
+                    ) : null}
+                    {feederAck ? <input type="hidden" name="acknowledgeFeederOverride" value="1" /> : null}
                     <button
                       type="submit"
-                      disabled={bracketTeamsPending}
+                      disabled={bracketTeamsPending || (teamsOverrideNeedsAck && !feederAck)}
                       className={`${btnSecondary} w-fit px-3 py-2 text-sm`}
                     >
                       {bracketTeamsPending ? "Saving…" : sitOutSlot ? "Save sit-out team" : "Save teams"}
